@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?
+  firstName     String?
+  lastName      String?
+  avatar        String?
+  provider      String?   @default("local") // local, google, github
+  providerId    String?
+  quotaUsed     BigInt    @default(0)
+  quotaLimit    BigInt    @default(32212254720) // 30 GB in bytes
+  theme         String    @default("light")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  files         File[]
+  folders       Folder[]
+  sharedLinks   SharedLink[]
+  sharedWithMe  SharedFolder[] @relation("SharedWithUser")
+  sharedByMe    SharedFolder[] @relation("SharedByUser")
+
+  @@index([email])
+  @@index([providerId])
+}
+
+model Folder {
+  id          String   @id @default(uuid())
+  name        String
+  parentId    String?
+  userId      String
+  path        String   // Full path for easier navigation
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[] @relation("FolderHierarchy")
+  files       File[]
+
+  @@unique([userId, parentId, name])
+  @@index([userId])
+  @@index([parentId])
+  @@index([path])
+}
+
+model File {
+  id          String   @id @default(uuid())
+  name        String
+  originalName String
+  mimeType    String
+  size        BigInt
+  storagePath String   @unique
+  folderId    String?
+  userId      String
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  sharedLinks SharedLink[]
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([isDeleted])
+  @@index([mimeType])
+}
+
+model SharedLink {
+  id          String    @id @default(uuid())
+  token       String    @unique @default(uuid())
+  fileId      String?
+  folderId    String?
+  userId      String
+  password    String?
+  expiresAt   DateTime?
+  downloads   Int       @default(0)
+  maxDownloads Int?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file        File?     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model SharedFolder {
+  id          String   @id @default(uuid())
+  folderId    String
+  sharedById  String
+  sharedWithId String
+  canEdit     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  sharedBy    User     @relation("SharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedWith  User     @relation("SharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, sharedWithId])
+  @@index([sharedById])
+  @@index([sharedWithId])
+}
