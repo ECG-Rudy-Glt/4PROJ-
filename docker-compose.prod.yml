@@ -1,0 +1,146 @@
+# Configuration optimisée pour déploiement VPS
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: supchat-postgres-vps
+    environment:
+      POSTGRES_DB: supchat
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    secrets:
+      - db_user
+      - db_password
+    # SÉCURITÉ: PostgreSQL non exposé publiquement
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init-docker.sql:/docker-entrypoint-initdb.d/init-docker.sql:ro
+    networks:
+      - supchat-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user) -d supchat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    container_name: supchat-backend-vps
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=supchat
+      - POSTGRES_DB=supchat
+      - FRONTEND_URL=${VPS_DOMAIN:-http://185.98.137.166}
+      - LOG_LEVEL=info
+      # Configuration email LWS
+      - EMAIL_HOST=mail86.lwspanel.com
+      - EMAIL_PORT=465
+      - EMAIL_SECURE=true
+    secrets:
+      - db_user
+      - db_password
+      - jwt_secret
+      - google_client_id
+      - google_client_secret
+      - github_client_id
+      - github_client_secret
+      - scw_access_key
+      - scw_secret_key
+      - scw_endpoint
+      - scw_region
+      - s3_bucket_name
+      - email_user
+      - email_password
+      - strawpoll_api_key
+      - mistral_api_key
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    networks:
+      - supchat-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+      secrets:
+        - google_client_id
+    container_name: supchat-frontend-vps
+    environment:
+      - REACT_APP_API_URL=""
+      - REACT_APP_SOCKET_URL=https://supchat.fr
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/nginx.cloudflare.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - supchat-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+secrets:
+  db_user:
+    file: ./secrets/db_user.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  google_client_id:
+    file: ./secrets/google_client_id.txt
+  google_client_secret:
+    file: ./secrets/google_client_secret.txt
+  github_client_id:
+    file: ./secrets/github_client_id.txt
+  github_client_secret:
+    file: ./secrets/github_client_secret.txt
+  scw_access_key:
+    file: ./secrets/scw_access_key.txt
+  scw_secret_key:
+    file: ./secrets/scw_secret_key.txt
+  scw_endpoint:
+    file: ./secrets/scw_endpoint.txt
+  scw_region:
+    file: ./secrets/scw_region.txt
+  s3_bucket_name:
+    file: ./secrets/s3_bucket_name.txt
+  email_user:
+    file: ./secrets/email_user.txt
+  email_password:
+    file: ./secrets/email_password.txt
+  strawpoll_api_key:
+    file: ./secrets/strawpoll_api_key.txt
+  mistral_api_key:
+    file: ./secrets/mistral_api_key.txt
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  supchat-network:
+    driver: bridge

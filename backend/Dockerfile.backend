@@ -1,0 +1,30 @@
+# Dockerfile.backend
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm install
+
+# Copier le code source
+COPY . .
+
+# Exposer le port
+EXPOSE 3000
+
+# Créer un script d'entrée pour vérifier les secrets et démarrer l'application
+RUN echo '#!/bin/sh' > /app/docker-entrypoint.sh && \
+    echo 'echo "Vérification des secrets Docker..."' >> /app/docker-entrypoint.sh && \
+    echo 'ls -la /run || echo "ERREUR: /run non accessible"' >> /app/docker-entrypoint.sh && \
+    echo 'ls -la /run/secrets/ || echo "ERREUR: /run/secrets/ non accessible"' >> /app/docker-entrypoint.sh && \
+    echo 'mkdir -p /tmp/debug' >> /app/docker-entrypoint.sh && \
+    echo 'env > /tmp/debug/environment.txt' >> /app/docker-entrypoint.sh && \
+    echo 'echo "Démarrage du serveur Node.js..."' >> /app/docker-entrypoint.sh && \
+    echo 'npm start' >> /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh
+
+# Commande par défaut
+CMD ["/app/docker-entrypoint.sh"]
