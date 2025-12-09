@@ -3,8 +3,36 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Mode clair - couleurs verte foncées */
+    --color-primary: #254441;
+    --color-primary-hover: #3A6B66;
+    --color-primary-light: #5A9A94;
+    --color-accent-warm: #D4785C;
+    --color-accent-bright: #E8B84A;
+
+    /* Backgrounds mode clair */
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #F5F3EF;
+    --bg-tertiary: #e6f2f1;
+  }
+
+  .dark {
+    /* Mode sombre - couleurs plus claires et vives */
+    --color-primary: #5A9A94;
+    --color-primary-hover: #80c4be;
+    --color-primary-light: #b3dbd8;
+    --color-accent-warm: #E8A088;
+    --color-accent-bright: #F0C96B;
+
+    /* Backgrounds mode sombre */
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2D2D2D;
+    --bg-tertiary: #254441;
+  }
+
   body {
-    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    @apply bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100;
   }
 }
 

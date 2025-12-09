@@ -42,6 +42,7 @@ export class AuthController {
           quotaUsed: user.quotaUsed,
           quotaLimit: user.quotaLimit,
           theme: user.theme,
+          createdAt: user.createdAt,
         },
       });
     } catch (error: any) {
@@ -91,6 +92,30 @@ export class AuthController {
     } catch (error: any) {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/auth/callback?error=${error.message}`);
+    }
+  }
+
+  static async uploadAvatar(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const file = req.file;
+
+      if (!file) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      // Generate avatar URL
+      const avatarUrl = `/uploads/avatars/${file.filename}`;
+
+      // Update user profile with new avatar
+      const user = await AuthService.updateProfile(userId, {
+        avatar: avatarUrl,
+      });
+
+      res.status(200).json({ avatarUrl, user });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   }
 }

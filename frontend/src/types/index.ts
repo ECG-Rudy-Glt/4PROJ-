@@ -7,6 +7,7 @@ export interface User {
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
+  createdAt: string;
 }
 
 export interface File {
@@ -16,6 +17,8 @@ export interface File {
   mimeType: string;
   size: number;
   storagePath: string;
+  thumbnailPath?: string;
+  category?: string; // 'image', 'video', 'doc', 'audio', 'other'
   folderId?: string;
   userId: string;
   isDeleted: boolean;
@@ -42,6 +45,7 @@ export interface SharedLink {
   id: string;
   token: string;
   fileId?: string;
+  folderId?: string;
   fileName?: string;
   expiresAt?: string;
   maxDownloads?: number;
@@ -100,4 +104,21 @@ export interface DashboardData {
 export interface Breadcrumb {
   id: string;
   name: string;
+}
+
+export interface RefreshToken {
+  id: string;
+  token: string;
+  userId: string;
+  expiresAt: string;
+  revoked: boolean;
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  action: string; // 'UPLOAD', 'DELETE', 'LOGIN', 'DOWNLOAD', 'SHARE', 'CREATE_FOLDER'
+  details?: string;
+  createdAt: string;
 }

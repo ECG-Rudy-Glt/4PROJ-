@@ -2,11 +2,13 @@ import { Search, Moon, Sun, LogOut, User } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ProfileModal from './ProfileModal';
 
 export default function Header() {
   const { user, logout, updateProfile } = useAuthStore();
   const [isDark, setIsDark] = useState(user?.theme === 'dark');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const navigate = useNavigate();
 
   const toggleTheme = async () => {
@@ -57,19 +59,22 @@ export default function Header() {
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
 
-          <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowProfileModal(true)}
+            className="flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
+          >
             <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold">
               {user?.avatar ? (
                 <img
                   src={user.avatar}
                   alt="Avatar"
-                  className="w-8 h-8 rounded-full"
+                  className="w-8 h-8 rounded-full object-cover"
                 />
               ) : (
                 <User className="w-5 h-5" />
               )}
             </div>
-            <div>
+            <div className="text-left">
               <p className="text-sm font-medium text-gray-900 dark:text-white">
                 {user?.firstName || user?.email}
               </p>
@@ -77,7 +82,7 @@ export default function Header() {
                 {user?.email}
               </p>
             </div>
-          </div>
+          </button>
 
           <button
             onClick={logout}
@@ -88,6 +93,11 @@ export default function Header() {
           </button>
         </div>
       </div>
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </header>
   );
 }

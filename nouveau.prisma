@@ -1,3 +1,5 @@
+// Fichier : schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -18,15 +20,15 @@ model User {
   firstName     String?
   lastName      String?
   avatar        String?
-
+  
   provider      String?   @default("local")
   providerId    String?
-
+  
   // Quotas & UI
   quotaUsed     BigInt    @default(0)
   quotaLimit    BigInt    @default(32212254720) // 30 GB
   theme         String    @default("light")
-
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -34,20 +36,19 @@ model User {
   files         File[]
   folders       Folder[]
   sharedLinks   SharedLink[]
-
+  
   // Gestion des partages reçus/envoyés
   sharedWithMe  SharedFolder[] @relation("SharedWithUser")
   sharedByMe    SharedFolder[] @relation("SharedByUser")
-
-  // Nouvelles fonctionnalités
+  
+  // AJOUTS POUR LE BARÈME :
   refreshTokens RefreshToken[] // Pour la sécurité JWT
   auditLogs     AuditLog[]     // Pour le Dashboard (Activité)
 
   @@index([email])
-  @@index([providerId])
 }
 
-// Nouveau : Pour gérer la déconnexion et la sécurité
+// AJOUTÉ : Pour gérer la déconnexion et la sécu
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
@@ -56,9 +57,6 @@ model RefreshToken {
   expiresAt DateTime
   revoked   Boolean  @default(false)
   createdAt DateTime @default(now())
-
-  @@index([token])
-  @@index([userId])
 }
 
 // --------------------------------------
@@ -69,17 +67,17 @@ model Folder {
   id        String   @id @default(uuid())
   name      String
   path      String   // Breadcrumbs
-
+  
   parentId  String?
   parent    Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children  Folder[] @relation("FolderHierarchy")
-
+  
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   files     File[]
-
-  // Relations pour les partages
+  
+  // Relations manquantes dans ta version
   sharedLinks  SharedLink[]
   sharedWith   SharedFolder[]
 
@@ -87,9 +85,6 @@ model Folder {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, parentId, name]) // Pas deux dossiers du même nom au même endroit
-  @@index([userId])
-  @@index([parentId])
-  @@index([path])
 }
 
 // --------------------------------------
@@ -102,31 +97,25 @@ model File {
   originalName String
   mimeType     String
   size         BigInt
-
+  
   storagePath  String   @unique // Lien vers Docker
-
-  // Nouveau : Pour la prévisualisation & média
+  
+  // AJOUTÉ : Indispensable pour la note "Prévisualisation & média"
   thumbnailPath String? // Lien vers la miniature
-  category      String? // 'image', 'video', 'doc', 'audio', 'other' (Pour le graph du Dashboard)
+  category      String? // 'image', 'video', 'doc' (Pour le graph du Dashboard)
 
   folderId     String?
-  folder       Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
-
+  folder       Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   sharedLinks  SharedLink[]
 
   isDeleted    Boolean  @default(false)
   deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  @@index([userId])
-  @@index([folderId])
-  @@index([isDeleted])
-  @@index([mimeType])
-  @@index([category])
 }
 
 // --------------------------------------
@@ -136,58 +125,47 @@ model File {
 model SharedLink {
   id           String    @id @default(uuid())
   token        String    @unique @default(uuid())
-
+  
   // Peut pointer vers un fichier OU un dossier
   fileId       String?
   file         File?     @relation(fields: [fileId], references: [id], onDelete: Cascade)
-
+  
   folderId     String?
   folder       Folder?   @relation(fields: [folderId], references: [id], onDelete: Cascade)
-
+  
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   password     String?
   expiresAt    DateTime?
   downloads    Int       @default(0)
-  maxDownloads Int?
   createdAt    DateTime  @default(now())
-
-  @@index([token])
-  @@index([userId])
-  @@index([expiresAt])
 }
 
 model SharedFolder {
   id           String   @id @default(uuid())
-
+  
   folderId     String
   folder       Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
-
+  
   sharedById   String
   sharedBy     User     @relation("SharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
-
+  
   sharedWithId String
   sharedWith   User     @relation("SharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
-
+  
   canEdit      Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   @@unique([folderId, sharedWithId])
-  @@index([sharedById])
-  @@index([sharedWithId])
 }
 
-// Nouveau : Pour le Dashboard (Activité récente)
+// AJOUTÉ : Pour le Dashboard (Activité récente)
 model AuditLog {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String   // 'UPLOAD', 'DELETE', 'LOGIN', 'DOWNLOAD', 'SHARE', 'CREATE_FOLDER'
-  details   String?  // JSON avec les détails de l'action
+  action    String   // 'UPLOAD', 'DELETE', 'LOGIN'
+  details   String?
   createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
 }

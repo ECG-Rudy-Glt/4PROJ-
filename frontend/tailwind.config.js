@@ -9,17 +9,39 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          // Mode clair : vert foncé sur fond blanc
+          // Mode sombre : vert clair sur fond noir
+          50: '#e6f2f1',   // Très clair - parfait pour dark mode
+          100: '#b3dbd8',  // Clair - bien pour dark mode
+          200: '#80c4be',  // Moyen clair - hover en dark mode
+          300: '#5A9A94',  // Vert menthe doux - principal en dark mode
+          400: '#478078',  // Moyen
+          500: '#3A6B66',  // Vert sauge - hover en light mode
+          600: '#254441',  // Vert-bleu profond - principal en light mode
+          700: '#1d3633',  // Foncé
+          800: '#162826',  // Très foncé
+          900: '#0f1a19',  // Ultra foncé
         },
+        accent: {
+          warm: {
+            light: '#D4785C',    // Terre cuite - light mode
+            dark: '#E8A088',     // Plus clair - dark mode
+          },
+          bright: {
+            light: '#E8B84A',    // Moutarde doré - light mode
+            dark: '#F0C96B',     // Plus clair - dark mode
+          },
+        },
+        neutral: {
+          light: '#F5F3EF',      // Blanc cassé
+          dark: '#2D2D2D',       // Gris anthracite
+        },
+      },
+      backgroundColor: {
+        'primary-light': '#FFFFFF',
+        'primary-dark': '#1a1a1a',
+        'secondary-light': '#F5F3EF',
+        'secondary-dark': '#2D2D2D',
       },
     },
   },

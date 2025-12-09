@@ -29,14 +29,16 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting - More permissive in development
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // More permissive in dev
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/', limiter);
+// Rate limiting - Disabled in development
+if (process.env.NODE_ENV === 'production') {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/api/', limiter);
+}
 
 // Body parsing middleware - Increased limits for large file uploads
 app.use(express.json({ limit: '1000mb' }));
@@ -44,6 +46,10 @@ app.use(express.urlencoded({ extended: true, limit: '1000mb' }));
 
 // Passport initialization
 app.use(passport.initialize());
+
+// Serve uploaded files (avatars)
+const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
+app.use('/uploads', express.static(uploadDir));
 
 // Health check
 app.get('/health', (req, res) => {

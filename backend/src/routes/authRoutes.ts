@@ -4,6 +4,7 @@ import { authenticate } from '../middlewares/auth';
 import { body } from 'express-validator';
 import { validate } from '../middlewares/validation';
 import passport from '../config/passport';
+import { avatarUpload } from '../config/multer';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.post(
 // Profile
 router.get('/profile', authenticate, AuthController.getProfile);
 router.put('/profile', authenticate, AuthController.updateProfile);
+router.post('/avatar', authenticate, avatarUpload.single('avatar'), AuthController.uploadAvatar);
 router.post(
   '/change-password',
   authenticate,

@@ -8,3 +8,7 @@
 - traduire entierement en fr
 - swagger
 - secret docker
+- file d'arianne
+- dossier
+
+
