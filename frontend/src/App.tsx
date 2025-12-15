@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import FilesPage from './pages/FilesPage';
+import FavoritesPage from './pages/FavoritesPage';
 import SharedPage from './pages/SharedPage';
 import TrashPage from './pages/TrashPage';
 import SettingsPage from './pages/SettingsPage';
@@ -39,6 +40,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/files" element={<FilesPage />} />
           <Route path="/files/:folderId" element={<FilesPage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/shared" element={<SharedPage />} />
           <Route path="/trash" element={<TrashPage />} />
           <Route path="/settings" element={<SettingsPage />} />

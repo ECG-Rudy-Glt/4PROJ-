@@ -23,6 +23,7 @@ export interface File {
   userId: string;
   isDeleted: boolean;
   deletedAt?: string;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
   folder?: Folder;

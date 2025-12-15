@@ -19,12 +19,12 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
@@ -35,10 +35,10 @@ export default function RegisterPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
       });
-      toast.success('Account created successfully!');
+      toast.success('Compte créé avec succès !');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Registration failed');
+      toast.error(error.response?.data?.error || 'Inscription échouée');
     }
   };
 
@@ -50,10 +50,10 @@ export default function RegisterPage() {
             <HardDrive className="w-16 h-16 text-primary-600" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
-            Create your account
+            Créez votre compte
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Get 30 GB of free storage
+            Obtenez 30 Go de stockage gratuit
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  First Name
+                  Prénom
                 </label>
                 <input
                   type="text"
@@ -75,7 +75,7 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Last Name
+                  Nom
                 </label>
                 <input
                   type="text"
@@ -90,7 +90,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Email address
+                Adresse e-mail
               </label>
               <input
                 type="email"
@@ -105,7 +105,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
+                Mot de passe
               </label>
               <input
                 type="password"
@@ -120,7 +120,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Confirm Password
+                Confirmer le mot de passe
               </label>
               <input
                 type="password"
@@ -139,17 +139,17 @@ export default function RegisterPage() {
             disabled={isLoading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            {isLoading ? 'Creating account...' : 'Sign up'}
+            {isLoading ? 'Création du compte...' : 'S\'inscrire'}
           </button>
 
           <div className="text-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{' '}
+              Vous avez déjà un compte ?{' '}
               <Link
                 to="/login"
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
-                Sign in
+                Se connecter
               </Link>
             </span>
           </div>

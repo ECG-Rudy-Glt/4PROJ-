@@ -214,4 +214,29 @@ export class FileController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  static async toggleFavorite(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { fileId } = req.params;
+
+      const file = await FileService.toggleFavorite(fileId, userId);
+
+      res.status(200).json({ file });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async getFavoriteFiles(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+
+      const files = await FileService.getFavoriteFiles(userId);
+
+      res.status(200).json({ files });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }

@@ -1,16 +1,47 @@
 import { useEffect, useState } from 'react';
 import { dashboardService } from '@/services/dashboardService';
 import { DashboardData } from '@/types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { File, Clock } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  File,
+  Clock,
+  HardDrive,
+  TrendingUp,
+  FolderOpen,
+  Image,
+  Video,
+  FileText,
+  Music,
+  Archive
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useAuthStore } from '@/stores/useAuthStore';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+
+const getMimeTypeIcon = (mimeType: string) => {
+  if (mimeType.startsWith('image/')) return Image;
+  if (mimeType.startsWith('video/')) return Video;
+  if (mimeType.startsWith('audio/')) return Music;
+  if (mimeType.includes('pdf') || mimeType.includes('document')) return FileText;
+  if (mimeType.includes('zip') || mimeType.includes('rar')) return Archive;
+  return File;
+};
+
+const getMimeTypeColor = (mimeType: string) => {
+  if (mimeType.startsWith('image/')) return 'text-blue-500 dark:text-blue-400';
+  if (mimeType.startsWith('video/')) return 'text-purple-500 dark:text-purple-400';
+  if (mimeType.startsWith('audio/')) return 'text-pink-500 dark:text-pink-400';
+  if (mimeType.includes('pdf') || mimeType.includes('document')) return 'text-orange-500 dark:text-orange-400';
+  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'text-green-500 dark:text-green-400';
+  return 'text-gray-500 dark:text-gray-400';
+};
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     loadDashboard();
@@ -38,7 +69,10 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="relative">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="absolute top-0 left-0 animate-ping rounded-full h-12 w-12 border-2 border-primary-400 opacity-20"></div>
+        </div>
       </div>
     );
   }
@@ -50,123 +84,206 @@ export default function DashboardPage() {
   const chartData = Object.entries(data.fileStats.byMimeType).map(([key, value]) => ({
     name: key,
     value: value.size,
+    count: value.count,
   }));
 
+  const quotaPercentage = (Number(data.quotaUsed) / Number(data.quotaLimit)) * 100;
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Bienvenue, {user?.firstName || 'Utilisateur'}
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
+          Voici un aperçu de votre espace de stockage
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Files</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data.fileStats.totalFiles}
-              </p>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Files Card */}
+        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <FolderOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <File className="w-12 h-12 text-primary-600" />
+            <TrendingUp className="w-4 h-4 text-gray-400" />
           </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total des fichiers</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{data.fileStats.totalFiles}</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Storage Used</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {formatBytes(data.quotaUsed)}
-              </p>
+        {/* Storage Used Card */}
+        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <HardDrive className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                of {formatBytes(data.quotaLimit)}
-              </p>
-              <p className="text-sm text-primary-600 font-medium">
-                {((data.quotaUsed / data.quotaLimit) * 100).toFixed(1)}% used
-              </p>
-            </div>
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-full">
+              {quotaPercentage.toFixed(0)}%
+            </span>
           </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Espace utilisé</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatBytes(Number(data.quotaUsed))}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+            sur {formatBytes(Number(data.quotaLimit))}
+          </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Size</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {formatBytes(data.fileStats.totalSize)}
-              </p>
+        {/* Total Size Card */}
+        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+              <Archive className="w-5 h-5 text-pink-600 dark:text-pink-400" />
             </div>
           </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Taille totale</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatBytes(Number(data.fileStats.totalSize))}</p>
+        </div>
+
+        {/* File Types Card */}
+        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <File className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Types de fichiers</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{Object.keys(data.fileStats.byMimeType).length}</p>
         </div>
       </div>
 
+      {/* Charts and Recent Files */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Storage by Type
-          </h2>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {chartData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number) => formatBytes(value)} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-gray-600 dark:text-gray-400 text-center py-12">
-              No files yet
-            </p>
-          )}
-        </div>
+        {/* Storage by Type */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Répartition par type
+            </h2>
+            <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
+              <HardDrive className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            </div>
+          </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Recent Files
-          </h2>
-          <div className="space-y-3">
-            {data.recentFiles.length > 0 ? (
-              data.recentFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          {chartData.length > 0 ? (
+            <div>
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    fill="#8884d8"
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {chartData.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                        className="transition-all duration-300 hover:opacity-80"
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatBytes(value)}
+                    contentStyle={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                {chartData.slice(0, 4).map((item, index) => (
+                  <div key={item.name} className="flex items-center space-x-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    ></div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {file.name}
+                      <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
+                        {item.name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {file.folder?.name || 'Root'} • {formatBytes(file.size)}
+                        {item.count} fichier{item.count > 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {format(new Date(file.updatedAt), 'MMM d')}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-600 dark:text-gray-400 text-center py-12">
-                No recent files
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
+                <File className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 text-center">
+                Aucun fichier pour le moment
               </p>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Files */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Fichiers récents
+            </h2>
+            <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
+              <Clock className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {data.recentFiles.length > 0 ? (
+              data.recentFiles.map((file) => {
+                const Icon = getMimeTypeIcon(file.mimeType);
+                const iconColor = getMimeTypeColor(file.mimeType);
+
+                return (
+                  <div
+                    key={file.id}
+                    className="group flex items-center space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 cursor-pointer"
+                  >
+                    <div className={`p-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg group-hover:scale-110 transition-transform duration-200`}>
+                      <Icon className={`w-5 h-5 ${iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                        {file.name}
+                      </p>
+                      <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span>{file.folder?.name || 'Racine'}</span>
+                        <span>•</span>
+                        <span>{formatBytes(Number(file.size))}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-full">
+                      <Clock className="w-3.5 h-3.5 mr-1" />
+                      {format(new Date(file.updatedAt), 'dd MMM')}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
+                  <Clock className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-600 dark:text-gray-400 text-center">
+                  Aucun fichier récent
+                </p>
+              </div>
             )}
           </div>
         </div>

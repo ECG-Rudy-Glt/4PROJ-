@@ -273,4 +273,46 @@ export class FileService {
       take: limit,
     });
   }
+
+  static async toggleFavorite(fileId: string, userId: string) {
+    const file = await prisma.file.findFirst({
+      where: {
+        id: fileId,
+        userId,
+        isDeleted: false,
+      },
+    });
+
+    if (!file) {
+      throw new Error('Fichier introuvable');
+    }
+
+    const updatedFile = await prisma.file.update({
+      where: { id: fileId },
+      data: {
+        isFavorite: !file.isFavorite,
+      },
+      include: {
+        folder: true,
+      },
+    });
+
+    return updatedFile;
+  }
+
+  static async getFavoriteFiles(userId: string) {
+    return await prisma.file.findMany({
+      where: {
+        userId,
+        isDeleted: false,
+        isFavorite: true,
+      },
+      include: {
+        folder: true,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+  }
 }

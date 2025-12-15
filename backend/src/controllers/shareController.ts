@@ -24,7 +24,7 @@ export class ShareController {
           expiresAt: shareLink.expiresAt,
           maxDownloads: shareLink.maxDownloads,
           downloads: shareLink.downloads,
-          url: `${process.env.API_URL}/api/share/${shareLink.token}`,
+          url: `${process.env.FRONTEND_URL}/share/${shareLink.token}`,
         },
       });
     } catch (error: any) {
@@ -97,7 +97,7 @@ export class ShareController {
           maxDownloads: link.maxDownloads,
           downloads: link.downloads,
           createdAt: link.createdAt,
-          url: `${process.env.API_URL}/api/share/${link.token}`,
+          url: `${process.env.FRONTEND_URL}/share/${link.token}`,
         })),
       });
     } catch (error: any) {

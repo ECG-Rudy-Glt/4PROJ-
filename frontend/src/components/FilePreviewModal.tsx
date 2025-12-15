@@ -46,7 +46,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
               preload="metadata"
             >
               <source src={streamUrl} type={file.mimeType} />
-              Your browser does not support the video tag.
+              Votre navigateur ne supporte pas la balise vidéo.
             </video>
           </div>
         );
@@ -69,7 +69,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
               </div>
               <audio controls className="w-full">
                 <source src={streamUrl} type={file.mimeType} />
-                Your browser does not support the audio tag.
+                Votre navigateur ne supporte pas la balise audio.
               </audio>
             </div>
           </div>
@@ -114,7 +114,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
               />
             </svg>
             <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Preview not available
+              Aperçu non disponible
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {file.mimeType}
@@ -124,7 +124,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
               className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download File
+              Télécharger le fichier
             </button>
           </div>
         );
@@ -132,7 +132,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4 !mt-0" style={{ marginTop: 0 }}>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -141,21 +141,21 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
               {file.name}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {(Number(file.size) / (1024 * 1024)).toFixed(2)} MB • {file.mimeType}
+              {(Number(file.size) / (1024 * 1024)).toFixed(2)} Mo • {file.mimeType}
             </p>
           </div>
           <div className="flex items-center space-x-2 ml-4">
             <button
               onClick={() => window.open(downloadUrl)}
               className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              title="Download"
+              title="Télécharger"
             >
               <Download className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
               className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              title="Close"
+              title="Fermer"
             >
               <X className="w-5 h-5" />
             </button>

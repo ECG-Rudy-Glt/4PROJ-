@@ -21,30 +21,30 @@ export default function SharedPage() {
       setShareLinks(linksData.shareLinks);
       setSharedFolders(foldersData.sharedFolders);
     } catch (error) {
-      toast.error('Failed to load shared items');
+      toast.error('Échec du chargement des éléments partagés');
     }
   };
 
   const handleDeleteLink = async (linkId: string) => {
-    if (!confirm('Delete this share link?')) return;
+    if (!confirm('Supprimer ce lien de partage ?')) return;
 
     try {
       await shareService.deleteShareLink(linkId);
-      toast.success('Share link deleted');
+      toast.success('Lien de partage supprimé');
       loadShared();
     } catch (error) {
-      toast.error('Failed to delete link');
+      toast.error('Échec de la suppression du lien');
     }
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Shared</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Partages</h1>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <Link2 className="w-5 h-5 mr-2" />
-          My Share Links
+          Mes liens de partage
         </h2>
         <div className="space-y-3">
           {shareLinks.length > 0 ? (
@@ -61,7 +61,7 @@ export default function SharedPage() {
                     {link.url}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Downloads: {link.downloads}
+                    Téléchargements : {link.downloads}
                     {link.maxDownloads && ` / ${link.maxDownloads}`}
                   </p>
                 </div>
@@ -75,7 +75,7 @@ export default function SharedPage() {
             ))
           ) : (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-              No share links yet
+              Aucun lien de partage pour le moment
             </p>
           )}
         </div>
@@ -84,7 +84,7 @@ export default function SharedPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <Users className="w-5 h-5 mr-2" />
-          Shared With Me
+          Partagés avec moi
         </h2>
         <div className="space-y-3">
           {sharedFolders.length > 0 ? (
@@ -95,17 +95,17 @@ export default function SharedPage() {
               >
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Folder from {folder.sharedBy?.email}
+                    Dossier de {folder.sharedBy?.email}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {folder.canEdit ? 'Can edit' : 'View only'}
+                    {folder.canEdit ? 'Peut modifier' : 'Lecture seule'}
                   </p>
                 </div>
               </div>
             ))
           ) : (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-              No folders shared with you
+              Aucun dossier partagé avec vous
             </p>
           )}
         </div>

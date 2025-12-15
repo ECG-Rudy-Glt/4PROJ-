@@ -2,7 +2,11 @@ import api from './api';
 import { File } from '@/types';
 
 export const fileService = {
-  async uploadFile(file: globalThis.File, folderId?: string) {
+  async uploadFile(
+    file: globalThis.File, 
+    folderId?: string,
+    onProgress?: (progress: number) => void
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     if (folderId) {
@@ -12,6 +16,12 @@ export const fileService = {
     const response = await api.post('/files/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
       },
     });
     return response.data;
@@ -74,5 +84,15 @@ export const fileService = {
   getStreamUrl(fileId: string): string {
     const token = localStorage.getItem('token');
     return `${api.defaults.baseURL}/files/${fileId}/stream?token=${token}`;
+  },
+
+  async toggleFavorite(fileId: string): Promise<{ file: File }> {
+    const response = await api.post(`/files/${fileId}/favorite`);
+    return response.data;
+  },
+
+  async getFavoriteFiles(): Promise<{ files: File[] }> {
+    const response = await api.get('/files/favorites');
+    return response.data;
   },
 };

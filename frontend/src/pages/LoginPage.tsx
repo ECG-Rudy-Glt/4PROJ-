@@ -14,10 +14,10 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       await login(email, password);
-      toast.success('Welcome back!');
+      toast.success('Bon retour !');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Login failed');
+      toast.error(error.response?.data?.error || 'Connexion échouée');
     }
   };
 
@@ -33,10 +33,10 @@ export default function LoginPage() {
             <HardDrive className="w-16 h-16 text-primary-600" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome to SUPFILE
+            Bienvenue sur SUPFILE
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Sign in to access your files
+            Connectez-vous pour accéder à vos fichiers
           </p>
         </div>
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Email address
+                Adresse e-mail
               </label>
               <input
                 id="email"
@@ -65,7 +65,7 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Password
+                Mot de passe
               </label>
               <input
                 id="password"
@@ -85,7 +85,7 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            {isLoading ? 'Signing in...' : 'Sign in'}
+            {isLoading ? 'Connexion...' : 'Se connecter'}
           </button>
 
           <div className="relative">
@@ -94,7 +94,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                Or continue with
+                Ou continuer avec
               </span>
             </div>
           </div>
@@ -137,12 +137,12 @@ export default function LoginPage() {
 
           <div className="text-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{' '}
+              Vous n'avez pas de compte ?{' '}
               <Link
                 to="/register"
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
-                Sign up
+                S'inscrire
               </Link>
             </span>
           </div>

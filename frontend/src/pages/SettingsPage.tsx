@@ -37,9 +37,9 @@ export default function SettingsPage() {
     try {
       await updateProfile({ theme: newTheme });
       document.documentElement.classList.toggle('dark');
-      toast.success(`${newTheme === 'dark' ? 'Dark' : 'Light'} mode enabled`);
+      toast.success(`Mode ${newTheme === 'dark' ? 'sombre' : 'clair'} activé`);
     } catch (error) {
-      toast.error('Failed to update theme');
+      toast.error('Échec de la mise à jour du thème');
       setIsDark(isDark); // Revert on error
     }
   };
@@ -48,9 +48,9 @@ export default function SettingsPage() {
     e.preventDefault();
     try {
       await updateProfile(profile);
-      toast.success('Profile updated');
+      toast.success('Profil mis à jour');
     } catch (error) {
-      toast.error('Failed to update profile');
+      toast.error('Échec de la mise à jour du profil');
     }
   };
 
@@ -58,21 +58,21 @@ export default function SettingsPage() {
     e.preventDefault();
 
     if (password.newPassword !== password.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (password.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
     try {
       await authService.changePassword(password.oldPassword, password.newPassword);
-      toast.success('Password changed');
+      toast.success('Mot de passe modifié');
       setPassword({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to change password');
+      toast.error(error.response?.data?.error || 'Échec de la modification du mot de passe');
     }
   };
 
@@ -84,8 +84,8 @@ export default function SettingsPage() {
           <User className="w-8 h-8 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Profile</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage your account settings</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Mon Profil</h1>
+          <p className="text-gray-500 dark:text-gray-400">Gérez les paramètres de votre compte</p>
         </div>
       </div>
 
@@ -96,17 +96,17 @@ export default function SettingsPage() {
             <HardDrive className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Storage
+            Stockage
           </h2>
         </div>
         
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaUsed)} GB used
+              {formatBytes(quotaUsed)} Go utilisés
             </span>
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaLimit)} GB total
+              {formatBytes(quotaLimit)} Go au total
             </span>
           </div>
           
@@ -124,10 +124,10 @@ export default function SettingsPage() {
           </div>
           
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {quotaPercentage.toFixed(1)}% of your storage is used
+            {quotaPercentage.toFixed(1)}% de votre stockage est utilisé
             {quotaPercentage > 90 && (
               <span className="text-red-500 font-medium ml-2">
-                ⚠️ Storage almost full!
+                ⚠️ Stockage presque plein !
               </span>
             )}
           </p>
@@ -147,10 +147,10 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Appearance
+                Apparence
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {isDark ? 'Dark mode is enabled' : 'Light mode is enabled'}
+                {isDark ? 'Mode sombre activé' : 'Mode clair activé'}
               </p>
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function SettingsPage() {
             <User className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Profile Information
+            Informations du profil
           </h2>
         </div>
         
@@ -193,32 +193,32 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                First Name
+                Prénom
               </label>
               <input
                 type="text"
                 value={profile.firstName}
                 onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Enter your first name"
+                placeholder="Entrez votre prénom"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Last Name
+                Nom
               </label>
               <input
                 type="text"
                 value={profile.lastName}
                 onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Enter your last name"
+                placeholder="Entrez votre nom"
               />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Email Address
+              Adresse e-mail
             </label>
             <input
               type="email"
@@ -227,14 +227,14 @@ export default function SettingsPage() {
               className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400 cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Email cannot be changed
+              L'adresse e-mail ne peut pas être modifiée
             </p>
           </div>
           <button
             type="submit"
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
           >
-            Save Changes
+            Enregistrer les modifications
           </button>
         </form>
       </div>
@@ -246,48 +246,48 @@ export default function SettingsPage() {
             <Lock className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Security
+            Sécurité
           </h2>
         </div>
         
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Current Password
+              Mot de passe actuel
             </label>
             <input
               type="password"
               value={password.oldPassword}
               onChange={(e) => setPassword({ ...password, oldPassword: e.target.value })}
               className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-              placeholder="Enter your current password"
+              placeholder="Entrez votre mot de passe actuel"
               required
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                New Password
+                Nouveau mot de passe
               </label>
               <input
                 type="password"
                 value={password.newPassword}
                 onChange={(e) => setPassword({ ...password, newPassword: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Enter new password"
+                placeholder="Entrez le nouveau mot de passe"
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirm New Password
+                Confirmer le nouveau mot de passe
               </label>
               <input
                 type="password"
                 value={password.confirmPassword}
                 onChange={(e) => setPassword({ ...password, confirmPassword: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Confirm new password"
+                placeholder="Confirmez le nouveau mot de passe"
                 required
               />
             </div>
@@ -295,14 +295,14 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
             <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Password must be at least 6 characters long
+              Le mot de passe doit contenir au moins 6 caractères
             </p>
           </div>
           <button
             type="submit"
             className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium"
           >
-            Change Password
+            Modifier le mot de passe
           </button>
         </form>
       </div>
@@ -314,22 +314,22 @@ export default function SettingsPage() {
             <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Account Information
+            Informations du compte
           </h2>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Account ID</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">ID du compte</p>
             <p className="font-mono text-sm text-gray-900 dark:text-white truncate">
               {user?.id || 'N/A'}
             </p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Account Status</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Statut du compte</p>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Active
+              Actif
             </span>
           </div>
         </div>
