@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { shareService } from '@/services/shareService';
-import { Download, Lock, FileText, Image, Video, Music, Archive, File, User, Calendar, HardDrive, AlertCircle } from 'lucide-react';
+import { Download, Lock, FileText, Image, Video, Music, Archive, File, User, Calendar, HardDrive, AlertCircle, FileSpreadsheet, Presentation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const getFileIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
   if (mimeType.startsWith('video/')) return Video;
   if (mimeType.startsWith('audio/')) return Music;
-  if (mimeType.includes('pdf') || mimeType.includes('document')) return FileText;
+  // Excel / Spreadsheets
+  if (mimeType.includes('spreadsheet') || mimeType.includes('sheet') || mimeType.includes('excel')) return FileSpreadsheet;
+  // PowerPoint / Presentations
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('slide')) return Presentation;
+  // Word / Documents
+  if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('document') || mimeType.includes('text')) return FileText;
   if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) return Archive;
   return File;
 };
@@ -17,8 +22,13 @@ const getFileColor = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return 'from-blue-500 to-blue-600';
   if (mimeType.startsWith('video/')) return 'from-purple-500 to-purple-600';
   if (mimeType.startsWith('audio/')) return 'from-pink-500 to-pink-600';
+  // Excel - vert
+  if (mimeType.includes('spreadsheet') || mimeType.includes('sheet') || mimeType.includes('excel')) return 'from-green-500 to-green-600';
+  // PowerPoint - rouge
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('slide')) return 'from-red-500 to-red-600';
   if (mimeType.includes('pdf')) return 'from-red-500 to-red-600';
-  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'from-green-500 to-green-600';
+  if (mimeType.includes('word') || mimeType.includes('document') || mimeType.includes('text')) return 'from-blue-500 to-blue-600';
+  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'from-amber-500 to-amber-600';
   return 'from-gray-500 to-gray-600';
 };
 

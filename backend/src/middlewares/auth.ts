@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
 
+export { AuthRequest };
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export const authenticate = async (

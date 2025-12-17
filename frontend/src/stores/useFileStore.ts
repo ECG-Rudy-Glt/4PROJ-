@@ -8,11 +8,14 @@ interface FileState {
   folders: Folder[];
   currentFolderId: string | null;
   isLoading: boolean;
-  loadContent: (folderId?: string) => Promise<void>;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  loadContent: (folderId?: string, sortBy?: string, sortOrder?: 'asc' | 'desc') => Promise<void>;
   uploadFile: (file: globalThis.File, folderId?: string) => Promise<void>;
   deleteFile: (fileId: string, permanent?: boolean) => Promise<void>;
   createFolder: (name: string, parentId?: string) => Promise<void>;
   setCurrentFolder: (folderId: string | null) => void;
+  setSorting: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
 }
 
 export const useFileStore = create<FileState>((set, get) => ({
@@ -20,12 +23,17 @@ export const useFileStore = create<FileState>((set, get) => ({
   folders: [],
   currentFolderId: null,
   isLoading: false,
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
 
-  loadContent: async (folderId) => {
+  loadContent: async (folderId, sortBy, sortOrder) => {
     set({ isLoading: true });
     try {
+      const currentSortBy = sortBy || get().sortBy;
+      const currentSortOrder = sortOrder || get().sortOrder;
+
       const [filesData, foldersData] = await Promise.all([
-        fileService.listFiles(folderId),
+        fileService.listFiles(folderId, currentSortBy, currentSortOrder),
         folderService.listFolders(folderId),
       ]);
       set({
@@ -68,5 +76,9 @@ export const useFileStore = create<FileState>((set, get) => ({
 
   setCurrentFolder: (folderId) => {
     set({ currentFolderId: folderId });
+  },
+
+  setSorting: (sortBy, sortOrder) => {
+    set({ sortBy, sortOrder });
   },
 }));

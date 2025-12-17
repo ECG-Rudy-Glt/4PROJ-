@@ -45,3 +45,145 @@
     scrollbar-width: none;
   }
 }
+
+/* Toast animations */
+@keyframes toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-leave {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+}
+
+@keyframes toast-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-slide-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes toast-bounce-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Toast animation classes */
+.animate-enter {
+  animation: toast-enter 0.35s ease-out forwards;
+}
+
+.animate-leave {
+  animation: toast-leave 0.3s ease-in forwards;
+}
+
+.animate-slide-in {
+  animation: toast-slide-in 0.4s ease-out forwards;
+}
+
+.animate-slide-out {
+  animation: toast-slide-out 0.3s ease-in forwards;
+}
+
+.animate-bounce-in {
+  animation: toast-bounce-in 0.5s ease-out forwards;
+}
+
+/* Toast icon pulse animation */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+}
+
+.toast-icon-pulse {
+  animation: pulse-ring 2s infinite ease-in-out;
+}
+
+/* Toast progress bar */
+@keyframes toast-progress {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%;
+  }
+}
+
+.toast-progress-bar {
+  animation: toast-progress linear forwards;
+}
+
+/* Custom toast container styles */
+[data-sonner-toaster] [data-sonner-toast],
+.go685806154 {
+  font-family: inherit !important;
+}
+
+/* Toast hover effect */
+.toast-hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toast-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.3);
+}

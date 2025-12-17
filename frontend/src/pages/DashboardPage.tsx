@@ -12,11 +12,14 @@ import {
   Video,
   FileText,
   Music,
-  Archive
+  Archive,
+  FileSpreadsheet,
+  Presentation
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/useAuthStore';
+import ActivityLog from '@/components/ActivityLog';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -24,7 +27,12 @@ const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
   if (mimeType.startsWith('video/')) return Video;
   if (mimeType.startsWith('audio/')) return Music;
-  if (mimeType.includes('pdf') || mimeType.includes('document')) return FileText;
+  // Excel / Spreadsheets
+  if (mimeType.includes('spreadsheet') || mimeType.includes('sheet') || mimeType.includes('excel')) return FileSpreadsheet;
+  // PowerPoint / Presentations
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('slide')) return Presentation;
+  // Word / Documents
+  if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('document') || mimeType.includes('text')) return FileText;
   if (mimeType.includes('zip') || mimeType.includes('rar')) return Archive;
   return File;
 };
@@ -33,8 +41,13 @@ const getMimeTypeColor = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return 'text-blue-500 dark:text-blue-400';
   if (mimeType.startsWith('video/')) return 'text-purple-500 dark:text-purple-400';
   if (mimeType.startsWith('audio/')) return 'text-pink-500 dark:text-pink-400';
-  if (mimeType.includes('pdf') || mimeType.includes('document')) return 'text-orange-500 dark:text-orange-400';
-  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'text-green-500 dark:text-green-400';
+  // Excel - vert
+  if (mimeType.includes('spreadsheet') || mimeType.includes('sheet') || mimeType.includes('excel')) return 'text-green-500 dark:text-green-400';
+  // PowerPoint - rouge
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('slide')) return 'text-red-500 dark:text-red-400';
+  if (mimeType.includes('pdf')) return 'text-red-500 dark:text-red-400';
+  if (mimeType.includes('word') || mimeType.includes('document') || mimeType.includes('text')) return 'text-blue-500 dark:text-blue-400';
+  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'text-amber-500 dark:text-amber-400';
   return 'text-gray-500 dark:text-gray-400';
 };
 
@@ -287,6 +300,11 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Activity Log Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
+        <ActivityLog />
       </div>
     </div>
   );

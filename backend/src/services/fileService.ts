@@ -3,8 +3,73 @@ import { deleteFile } from '../utils/fileUtils';
 import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
+import { VersionService } from './versionService';
+import { AuditService } from './auditService';
 
 export class FileService {
+  // Fonction pour déterminer la catégorie basée sur le mimeType
+  private static getCategoryFromMimeType(mimeType: string): string {
+    if (mimeType.startsWith('image/')) {
+      return 'image';
+    } else if (mimeType.startsWith('video/')) {
+      return 'video';
+    } else if (mimeType.startsWith('audio/')) {
+      return 'audio';
+    } else if (
+      mimeType.includes('pdf') ||
+      mimeType.includes('document') ||
+      mimeType.includes('word') ||
+      mimeType.includes('excel') ||
+      mimeType.includes('spreadsheet') ||
+      mimeType.includes('presentation') ||
+      mimeType.includes('powerpoint') ||
+      mimeType.includes('text/')
+    ) {
+      return 'doc';
+    } else {
+      return 'other';
+    }
+  }
+
+  // Fonction utilitaire pour gérer les noms de fichiers en doublon
+  private static async getUniqueFileName(
+    name: string,
+    folderId: string | undefined,
+    userId: string
+  ): Promise<string> {
+    const lastDotIndex = name.lastIndexOf('.');
+    const baseName = lastDotIndex > 0 ? name.substring(0, lastDotIndex) : name;
+    const extension = lastDotIndex > 0 ? name.substring(lastDotIndex) : '';
+
+    // Vérifier si le nom existe déjà
+    const existingFiles = await prisma.file.findMany({
+      where: {
+        userId,
+        folderId: folderId || null,
+        isDeleted: false,
+        name: {
+          startsWith: baseName,
+        },
+      },
+      select: { name: true },
+    });
+
+    if (existingFiles.length === 0 || !existingFiles.some(f => f.name === name)) {
+      return name;
+    }
+
+    // Trouver un nom unique avec pattern "(1)", "(2)", etc.
+    let counter = 1;
+    let newName = `${baseName} (${counter})${extension}`;
+
+    while (existingFiles.some(f => f.name === newName)) {
+      counter++;
+      newName = `${baseName} (${counter})${extension}`;
+    }
+
+    return newName;
+  }
+
   static async createFile(
     userId: string,
     name: string,
@@ -29,16 +94,23 @@ export class FileService {
       throw new Error('Quota exceeded');
     }
 
+    // Obtenir un nom unique pour éviter les doublons
+    const uniqueName = await this.getUniqueFileName(name, folderId, userId);
+
+    // Déterminer la catégorie basée sur le mimeType
+    const category = this.getCategoryFromMimeType(mimeType);
+
     // Create file record
     const file = await prisma.file.create({
       data: {
-        name,
+        name: uniqueName,
         originalName,
         mimeType,
         size: BigInt(size),
         storagePath,
         userId,
         folderId,
+        category,
       },
       include: {
         folder: true,
@@ -53,6 +125,13 @@ export class FileService {
       },
     });
 
+    // Audit log
+    await AuditService.createLog(userId, 'UPLOAD', {
+      fileName: uniqueName,
+      fileId: file.id,
+      folderId: folderId,
+    });
+
     return file;
   }
 
@@ -65,6 +144,11 @@ export class FileService {
       },
       include: {
         folder: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
     });
 
@@ -75,7 +159,65 @@ export class FileService {
     return file;
   }
 
-  static async listFiles(userId: string, folderId?: string) {
+  static async listFiles(
+    userId: string,
+    folderId?: string,
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ) {
+    // Validation des champs de tri autorisés
+    const allowedSortFields = ['name', 'size', 'createdAt', 'updatedAt', 'mimeType'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+
+    // Check if folder is shared with user
+    let sharedFolderPermissions: any = null;
+    if (folderId) {
+      sharedFolderPermissions = await prisma.sharedFolder.findFirst({
+        where: {
+          folderId,
+          sharedWithId: userId,
+        },
+      });
+    }
+
+    // If folder is shared with user, return files from that folder with shared permissions
+    if (folderId && sharedFolderPermissions) {
+      const files = await prisma.file.findMany({
+        where: {
+          folderId,
+          isDeleted: false,
+        },
+        include: {
+          folder: true,
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
+          sharedWith: {
+            where: {
+              sharedWithId: userId,
+            },
+          },
+        },
+        orderBy: {
+          [safeSortBy]: sortOrder,
+        },
+      });
+
+      // Map files to include shared permissions
+      return files.map((file: any) => ({
+        ...file,
+        // Include shared folder permissions for UI
+        _sharedFolderPermissions: {
+          canRead: sharedFolderPermissions.canRead,
+          canWrite: sharedFolderPermissions.canWrite,
+          canDelete: sharedFolderPermissions.canDelete,
+          canShare: sharedFolderPermissions.canShare,
+        },
+      }));
+    }
+
     return await prisma.file.findMany({
       where: {
         userId,
@@ -84,9 +226,14 @@ export class FileService {
       },
       include: {
         folder: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc',
+        [safeSortBy]: sortOrder,
       },
     });
   }
@@ -104,10 +251,43 @@ export class FileService {
       throw new Error('File not found');
     }
 
-    return await prisma.file.update({
+    const updatedFile = await prisma.file.update({
       where: { id: fileId },
       data,
     });
+
+    // Audit log for rename
+    if (data.name && data.name !== file.name) {
+      await AuditService.createLog(userId, 'RENAME_FILE', {
+        fileName: data.name,
+        fileId: file.id,
+        oldName: file.name,
+      });
+    }
+
+    return updatedFile;
+  }
+
+  static async replaceFileContent(
+    fileId: string,
+    userId: string,
+    newFilePath: string,
+    newFileName: string,
+    newFileSize: number,
+    newMimeType: string
+  ) {
+    // Créer une version de l'ancien fichier avant de le remplacer
+    await VersionService.createVersion(
+      fileId,
+      userId,
+      newFilePath,
+      newFileName,
+      newFileSize,
+      newMimeType
+    );
+
+    // Le fichier principal est déjà mis à jour par createVersion
+    return await this.getFile(fileId, userId);
   }
 
   static async moveFile(fileId: string, userId: string, targetFolderId?: string) {
@@ -137,12 +317,21 @@ export class FileService {
       }
     }
 
-    return await prisma.file.update({
+    const movedFile = await prisma.file.update({
       where: { id: fileId },
       data: {
         folderId: targetFolderId || null,
       },
     });
+
+    // Audit log
+    await AuditService.createLog(userId, 'MOVE_FILE', {
+      fileName: file.name,
+      fileId: file.id,
+      folderId: targetFolderId,
+    });
+
+    return movedFile;
   }
 
   static async deleteFile(fileId: string, userId: string, permanent: boolean = false) {
@@ -184,6 +373,13 @@ export class FileService {
       });
     }
 
+    // Audit log
+    await AuditService.createLog(userId, 'DELETE', {
+      fileName: file.name,
+      fileId: file.id,
+      permanent,
+    });
+
     return { message: 'File deleted successfully' };
   }
 
@@ -200,13 +396,21 @@ export class FileService {
       throw new Error('File not found in trash');
     }
 
-    return await prisma.file.update({
+    const restoredFile = await prisma.file.update({
       where: { id: fileId },
       data: {
         isDeleted: false,
         deletedAt: null,
       },
     });
+
+    // Audit log
+    await AuditService.createLog(userId, 'RESTORE', {
+      fileName: file.name,
+      fileId: file.id,
+    });
+
+    return restoredFile;
   }
 
   static async getDeletedFiles(userId: string) {
@@ -214,6 +418,14 @@ export class FileService {
       where: {
         userId,
         isDeleted: true,
+      },
+      include: {
+        folder: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
       orderBy: {
         deletedAt: 'desc',
@@ -309,10 +521,92 @@ export class FileService {
       },
       include: {
         folder: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
       orderBy: {
         updatedAt: 'desc',
       },
     });
   }
+
+  // Get accepted shared files and folders for a user (to display in FilesPage)
+  static async getAcceptedShares(userId: string) {
+    const [sharedFolders, sharedFiles] = await Promise.all([
+      prisma.sharedFolder.findMany({
+        where: {
+          sharedWithId: userId,
+          accepted: true,
+        },
+        include: {
+          folder: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+          sharedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+            },
+          },
+        },
+      }),
+      prisma.sharedFile.findMany({
+        where: {
+          sharedWithId: userId,
+          accepted: true,
+        },
+        include: {
+          file: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                  avatar: true,
+                },
+              },
+              tags: {
+                include: {
+                  tag: true,
+                },
+              },
+            },
+          },
+          sharedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      folders: sharedFolders,
+      files: sharedFiles,
+    };
+  }
 }
+

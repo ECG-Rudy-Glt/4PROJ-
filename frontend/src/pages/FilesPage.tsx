@@ -15,7 +15,12 @@ import {
   Music,
   FileText,
   Archive,
-  Star
+  Star,
+  ArrowUpDown,
+  Tag as TagIconLucide,
+  Edit3,
+  FileSpreadsheet,
+  Presentation
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fileService } from '@/services/fileService';
@@ -26,6 +31,12 @@ import FilePreviewModal from '@/components/FilePreviewModal';
 import Breadcrumb from '@/components/Breadcrumb';
 import { NewFolderModal, ShareModal } from '@/components/FileModals';
 import UploadModal, { UploadingFile } from '@/components/UploadModal';
+import TagsManager from '@/components/TagsManager';
+import TagSelector from '@/components/TagSelector';
+import ShareFolderModal from '@/components/ShareFolderModal';
+import { ShareFileModal } from '@/components/ShareFileModal';
+import { DocumentEditor } from '@/components/DocumentEditor';
+import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -33,7 +44,12 @@ const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
   if (mimeType.startsWith('video/')) return Video;
   if (mimeType.startsWith('audio/')) return Music;
-  if (mimeType.includes('pdf') || mimeType.includes('document')) return FileText;
+  // Excel / Spreadsheets
+  if (mimeType.includes('spreadsheet') || mimeType.includes('sheet') || mimeType.includes('excel')) return FileSpreadsheet;
+  // PowerPoint / Presentations
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('slide')) return Presentation;
+  // Word / Documents
+  if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('document') || mimeType.includes('text')) return FileText;
   if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) return Archive;
   return FileIcon;
 };
@@ -42,8 +58,14 @@ const getMimeTypeColor = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
   if (mimeType.startsWith('video/')) return 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20';
   if (mimeType.startsWith('audio/')) return 'text-pink-600 dark:text-pink-400 bg-pink-50 dark:bg-pink-900/20';
-  if (mimeType.includes('pdf') || mimeType.includes('document')) return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
-  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+  // Excel - vert
+  if (mimeType.includes('spreadsheet') || mimeType.includes('sheet') || mimeType.includes('excel')) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+  // PowerPoint - rouge/orange
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('slide')) return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
+  // Word/PDF - bleu
+  if (mimeType.includes('pdf')) return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
+  if (mimeType.includes('word') || mimeType.includes('document') || mimeType.includes('text')) return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
+  if (mimeType.includes('zip') || mimeType.includes('rar')) return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20';
   return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
 };
 
@@ -55,12 +77,28 @@ const formatBytes = (bytes: number) => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
+const canEditDocument = (mimeType: string) => {
+  const editableMimeTypes = [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'application/vnd.oasis.opendocument.text', // .odt
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.oasis.opendocument.spreadsheet', // .ods
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.oasis.opendocument.presentation', // .odp
+    'text/plain', // .txt
+  ];
+  return editableMimeTypes.includes(mimeType);
+};
+
 export default function FilesPage() {
   const { folderId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const searchQuery = searchParams.get('search');
-  const { files, folders, loadContent, createFolder, deleteFile } = useFileStore();
+  const { files, folders, loadContent, createFolder, deleteFile, sortBy, sortOrder, setSorting } = useFileStore();
 
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbType[]>([]);
   const [searchResults, setSearchResults] = useState<File[]>([]);
@@ -76,6 +114,7 @@ export default function FilesPage() {
   const [newFolderName, setNewFolderName] = useState('');
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareFileModal, setShowShareFileModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [shareLink, setShareLink] = useState('');
   const [sharePassword, setSharePassword] = useState('');
@@ -84,6 +123,43 @@ export default function FilesPage() {
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
+
+  const [showTagsManager, setShowTagsManager] = useState(false);
+
+  const [showShareFolderModal, setShowShareFolderModal] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<FolderType | null>(null);
+
+  const [showDocumentEditor, setShowDocumentEditor] = useState(false);
+  const [editorFile, setEditorFile] = useState<File | null>(null);
+
+  const [showPendingShares, setShowPendingShares] = useState(false);
+  const [pendingSharesCount, setPendingSharesCount] = useState(0);
+  const [acceptedSharedFiles, setAcceptedSharedFiles] = useState<any[]>([]);
+  const [acceptedSharedFolders, setAcceptedSharedFolders] = useState<any[]>([]);
+
+  const loadPendingSharesCount = async () => {
+    try {
+      const data = await shareService.getPendingShares();
+      const count = (data.files?.length || 0) + (data.folders?.length || 0);
+      setPendingSharesCount(count);
+    } catch (error) {
+      console.error('Error loading pending shares count', error);
+    }
+  };
+
+  useEffect(() => {
+    // Load accepted shared files in root directory only
+    if (!folderId && !searchQuery) {
+      const loadSharedFiles = async () => {
+        const shared = await getSharedItemsAsDisplayFiles();
+        setAcceptedSharedFiles(shared);
+      };
+      loadSharedFiles();
+      loadPendingSharesCount();
+    } else {
+      setAcceptedSharedFiles([]);
+    }
+  }, [folderId, searchQuery]);
 
   useEffect(() => {
     if (searchQuery) {
@@ -141,7 +217,7 @@ export default function FilesPage() {
 
   const startUpload = async (filesToUpload: globalThis.File[]) => {
     uploadCancelledRef.current = false;
-    
+
     // Initialize uploading files state
     const initialFiles: UploadingFile[] = filesToUpload.map((file, index) => ({
       id: `${Date.now()}-${index}`,
@@ -153,14 +229,14 @@ export default function FilesPage() {
     setUploadingFiles(initialFiles);
     setShowUploadModal(true);
 
-    // Upload files one by one
-    for (let i = 0; i < initialFiles.length; i++) {
-      if (uploadCancelledRef.current) break;
+    // Upload files in parallel with concurrency limit
+    const CONCURRENT_UPLOADS = 3;
 
-      const uploadingFile = initialFiles[i];
+    const uploadFile = async (uploadingFile: UploadingFile) => {
+      if (uploadCancelledRef.current) return;
 
       // Set current file to uploading
-      setUploadingFiles(prev => prev.map(f => 
+      setUploadingFiles(prev => prev.map(f =>
         f.id === uploadingFile.id ? { ...f, status: 'uploading' as const } : f
       ));
 
@@ -169,26 +245,34 @@ export default function FilesPage() {
           uploadingFile.file,
           folderId,
           (progress) => {
-            setUploadingFiles(prev => prev.map(f => 
+            setUploadingFiles(prev => prev.map(f =>
               f.id === uploadingFile.id ? { ...f, progress } : f
             ));
           }
         );
 
         // Mark as success
-        setUploadingFiles(prev => prev.map(f => 
+        setUploadingFiles(prev => prev.map(f =>
           f.id === uploadingFile.id ? { ...f, status: 'success' as const, progress: 100 } : f
         ));
       } catch (error: any) {
         // Mark as error
-        setUploadingFiles(prev => prev.map(f => 
-          f.id === uploadingFile.id ? { 
-            ...f, 
-            status: 'error' as const, 
+        setUploadingFiles(prev => prev.map(f =>
+          f.id === uploadingFile.id ? {
+            ...f,
+            status: 'error' as const,
             error: error.response?.data?.error || 'Échec du téléversement'
           } : f
         ));
       }
+    };
+
+    // Process uploads in batches
+    for (let i = 0; i < initialFiles.length; i += CONCURRENT_UPLOADS) {
+      if (uploadCancelledRef.current) break;
+
+      const batch = initialFiles.slice(i, i + CONCURRENT_UPLOADS);
+      await Promise.all(batch.map(file => uploadFile(file)));
     }
 
     // Reload content after all uploads
@@ -241,6 +325,34 @@ export default function FilesPage() {
     }
   };
 
+  const handleRemoveSharedFile = async (sharedFileId: string, fileName: string) => {
+    if (!confirm(`Arrêter de partager "${fileName}" ?`)) return;
+
+    try {
+      await shareService.rejectSharedFile(sharedFileId);
+      toast.success('Partage supprimé');
+      // Reload accepted shares
+      const shared = await getSharedItemsAsDisplayFiles();
+      setAcceptedSharedFiles(shared);
+    } catch (error) {
+      toast.error('Échec de la suppression du partage');
+    }
+  };
+
+  const handleRemoveSharedFolder = async (sharedFolderId: string, folderName: string) => {
+    if (!confirm(`Arrêter de partager "${folderName}" ?`)) return;
+
+    try {
+      await shareService.rejectSharedFolder(sharedFolderId);
+      toast.success('Partage supprimé');
+      // Reload accepted shares
+      const shared = await getSharedItemsAsDisplayFiles();
+      setAcceptedSharedFolders(shared.filter(f => f._isShared));
+    } catch (error) {
+      toast.error('Échec de la suppression du partage');
+    }
+  };
+
   const handleToggleFavorite = async (fileId: string, currentStatus: boolean) => {
     try {
       await fileService.toggleFavorite(fileId);
@@ -250,6 +362,42 @@ export default function FilesPage() {
     } catch (error) {
       toast.error('Échec de la modification');
     }
+  };
+
+  const handleSortChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    let newSortBy = sortBy;
+    let newSortOrder: 'asc' | 'desc' = sortOrder;
+
+    switch (value) {
+      case 'name-asc':
+        newSortBy = 'name';
+        newSortOrder = 'asc';
+        break;
+      case 'name-desc':
+        newSortBy = 'name';
+        newSortOrder = 'desc';
+        break;
+      case 'date-asc':
+        newSortBy = 'createdAt';
+        newSortOrder = 'asc';
+        break;
+      case 'date-desc':
+        newSortBy = 'createdAt';
+        newSortOrder = 'desc';
+        break;
+      case 'size-asc':
+        newSortBy = 'size';
+        newSortOrder = 'asc';
+        break;
+      case 'size-desc':
+        newSortBy = 'size';
+        newSortOrder = 'desc';
+        break;
+    }
+
+    setSorting(newSortBy, newSortOrder);
+    await loadContent(folderId, newSortBy, newSortOrder);
   };
 
   const handleCreateShareLink = async () => {
@@ -276,6 +424,65 @@ export default function FilesPage() {
 
   const displayFiles = searchQuery ? searchResults : files;
 
+  // Format shared accepted files and folders to merge with regular files for display
+  const getSharedItemsAsDisplayFiles = async () => {
+    try {
+      const data = await shareService.getAcceptedShares();
+      const sharedItems: any[] = [];
+      const sharedFolders: any[] = [];
+
+      // Add shared folders
+      if (data.folders && data.folders.length > 0) {
+        sharedFolders.push(
+          ...data.folders.map((sf: any) => ({
+            id: sf.folder.id,
+            name: sf.folder.name,
+            parentId: sf.folder.parentId,
+            createdAt: sf.folder.createdAt,
+            updatedAt: sf.folder.createdAt,
+            userId: sf.folder.userId,
+            _isShared: true,
+            _sharedBy: sf.sharedBy,
+            _canWrite: sf.canWrite,
+            _canDelete: sf.canDelete,
+            _canShare: sf.canShare,
+          }))
+        );
+        setAcceptedSharedFolders(sharedFolders);
+      } else {
+        setAcceptedSharedFolders([]);
+      }
+
+      // Add shared files
+      if (data.files) {
+        sharedItems.push(
+          ...data.files.map((sf: any) => ({
+            id: sf.file.id,
+            name: sf.file.name,
+            mimeType: sf.file.mimeType,
+            size: sf.file.size,
+            createdAt: sf.file.createdAt,
+            updatedAt: sf.file.createdAt,
+            userId: sf.file.user.id,
+            folderId: null,
+            isDeleted: false,
+            isFavorite: false,
+            tags: sf.file.tags || [],
+            _isShared: true,
+            _sharedBy: sf.sharedBy,
+            _canWrite: sf.canWrite,
+            _canDelete: sf.canDelete,
+          }))
+        );
+      }
+
+      return sharedItems;
+    } catch (error) {
+      console.error('Error loading shared items', error);
+      return [];
+    }
+  };
+
   return (
     <div
       className="space-y-6 relative"
@@ -298,7 +505,7 @@ export default function FilesPage() {
       {/* Breadcrumb */}
       {!searchQuery && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
 
-      {/* Header */}
+      {/* Header with Sort */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -307,12 +514,33 @@ export default function FilesPage() {
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             {searchQuery
               ? `${displayFiles.length} résultat${displayFiles.length > 1 ? 's' : ''}`
-              : `${folders.length} dossier${folders.length > 1 ? 's' : ''}, ${files.length} fichier${files.length > 1 ? 's' : ''}`
+              : `${folders.length + acceptedSharedFolders.length} dossier${(folders.length + acceptedSharedFolders.length) > 1 ? 's' : ''}, ${files.length + acceptedSharedFiles.length} fichier${(files.length + acceptedSharedFiles.length) > 1 ? 's' : ''}`
             }
           </p>
         </div>
         {!searchQuery && (
           <div className="flex space-x-3">
+            <button
+              onClick={() => setShowPendingShares(true)}
+              className="relative flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all"
+              title="Voir les partages en attente"
+            >
+              <Share2 className="w-5 h-5 mr-2" />
+              Partages en attente
+              {pendingSharesCount > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold text-white bg-orange-500 dark:bg-orange-600">
+                  {pendingSharesCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowTagsManager(true)}
+              className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all"
+              title="Gérer les tags"
+            >
+              <TagIconLucide className="w-5 h-5 mr-2" />
+              Tags
+            </button>
             <button
               onClick={() => setShowNewFolderModal(true)}
               className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all"
@@ -334,6 +562,29 @@ export default function FilesPage() {
         )}
       </div>
 
+      {/* Sort Dropdown - Only show when not searching and have files */}
+      {!searchQuery && files.length > 0 && (
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
+          <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Trier par :
+          </label>
+          <select
+            id="sort-select"
+            value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
+            onChange={handleSortChange}
+            className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
+          >
+            <option value="name-asc">Nom (A-Z)</option>
+            <option value="name-desc">Nom (Z-A)</option>
+            <option value="date-desc">Plus récents</option>
+            <option value="date-asc">Plus anciens</option>
+            <option value="size-desc">Plus volumineux</option>
+            <option value="size-asc">Plus petits</option>
+          </select>
+        </div>
+      )}
+
       {isSearching && (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -342,35 +593,80 @@ export default function FilesPage() {
       )}
 
       {/* Folders */}
-      {!searchQuery && folders.length > 0 && (
+      {!searchQuery && (folders.length > 0 || acceptedSharedFolders.length > 0) && (
         <div>
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
             Dossiers
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {folders.map((folder: FolderType) => (
-              <button
+            {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => (
+              <div
                 key={folder.id}
-                onClick={() => navigate(`/files/${folder.id}`)}
-                className="group flex flex-col items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200"
+                className="group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200"
               >
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
-                  <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">
-                  {folder.name}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: fr })}
-                </span>
-              </button>
+                <button
+                  onClick={() => navigate(`/files/${folder.id}`)}
+                  className="flex flex-col items-center w-full"
+                >
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
+                    <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">
+                    {folder.name}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: fr })}
+                  </span>
+                </button>
+                {!folder._isShared && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFolder(folder);
+                      setShowShareFolderModal(true);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-300 dark:hover:border-primary-600 transition-all"
+                    title="Partager ce dossier"
+                  >
+                    <Share2 className="w-4 h-4 text-primary-600 dark:text-primary-300" />
+                  </button>
+                )}
+                {folder._isShared && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveSharedFolder(folder.id, folder.name);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-600 transition-all"
+                    title="Arrêter de partager"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                  </button>
+                )}
+                {folder._isShared && folder._sharedBy && (
+                  <div className="absolute top-2 right-2 flex items-center space-x-1">
+                    {folder._sharedBy?.avatar ? (
+                      <img
+                        src={folder._sharedBy.avatar}
+                        alt={folder._sharedBy.firstName}
+                        className="w-6 h-6 rounded-full"
+                        title={`Partagé par ${folder._sharedBy.firstName} ${folder._sharedBy.lastName}`}
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-bold text-primary-600 dark:text-primary-300">
+                        {(folder._sharedBy?.firstName?.[0] || 'U').toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>
       )}
 
       {/* Files */}
-      {displayFiles.length > 0 && (
+      {(displayFiles.length > 0 || acceptedSharedFiles.length > 0) && (
         <div>
           {!searchQuery && folders.length > 0 && (
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
@@ -382,13 +678,14 @@ export default function FilesPage() {
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nom</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Tags</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Taille</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Modifié</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {displayFiles.map((file) => {
+                {[...displayFiles, ...acceptedSharedFiles].map((file) => {
                   const Icon = getMimeTypeIcon(file.mimeType);
                   const colorClass = getMimeTypeColor(file.mimeType);
 
@@ -396,16 +693,54 @@ export default function FilesPage() {
                     <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4">
                         <button
-                          onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }}
+                          onClick={() => { 
+                            const enrichedFile = { 
+                              ...file,
+                              // Copy shared folder permissions to file if they exist
+                              ...(file as any)._sharedFolderPermissions && {
+                                canWrite: (file as any)._sharedFolderPermissions.canWrite,
+                                canDelete: (file as any)._sharedFolderPermissions.canDelete,
+                                canShare: (file as any)._sharedFolderPermissions.canShare,
+                              }
+                            };
+                            setPreviewFile(enrichedFile); 
+                            setShowPreviewModal(true); 
+                          }}
                           className="flex items-center space-x-3 hover:opacity-80 transition-opacity group"
                         >
                           <div className={`p-2 rounded-lg ${colorClass}`}>
                             <Icon className="w-5 h-5" />
                           </div>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                            {file.name}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                              {file.name}
+                            </span>
+                            {(file as any)._isShared && (file as any)._sharedBy && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Partagé par {(file as any)._sharedBy.firstName} {(file as any)._sharedBy.lastName}
+                              </span>
+                            )}
+                          </div>
+                          {(file as any)._isShared && (
+                            <div className="ml-auto flex-shrink-0">
+                              {(file as any)._sharedBy?.avatar ? (
+                                <img
+                                  src={(file as any)._sharedBy.avatar}
+                                  alt={(file as any)._sharedBy.firstName}
+                                  className="w-6 h-6 rounded-full"
+                                  title={`Partagé par ${(file as any)._sharedBy.firstName} ${(file as any)._sharedBy.lastName}`}
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-bold text-primary-600 dark:text-primary-300">
+                                  {((file as any)._sharedBy?.firstName?.[0] || 'U').toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        {!(file as any)._isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                         {formatBytes(Number(file.size))}
@@ -426,20 +761,43 @@ export default function FilesPage() {
                           >
                             <Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} />
                           </button>
+                          {canEditDocument(file.mimeType) && !(file as any)._isShared && (
+                            <button
+                              onClick={() => { setEditorFile(file); setShowDocumentEditor(true); }}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Éditer le document"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
-                            onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }}
+                            onClick={() => { 
+                              const enrichedFile = { 
+                                ...file,
+                                // Copy shared folder permissions to file if they exist
+                                ...(file as any)._sharedFolderPermissions && {
+                                  canWrite: (file as any)._sharedFolderPermissions.canWrite,
+                                  canDelete: (file as any)._sharedFolderPermissions.canDelete,
+                                  canShare: (file as any)._sharedFolderPermissions.canShare,
+                                }
+                              };
+                              setPreviewFile(enrichedFile); 
+                              setShowPreviewModal(true); 
+                            }}
                             className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                             title="Aperçu"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => { setSelectedFile(file); setShareLink(''); setSharePassword(''); setShareExpiry(''); setShareMaxDownloads(''); setShowShareModal(true); }}
-                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                            title="Partager"
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </button>
+                          {!(file as any)._isShared && (
+                            <button
+                              onClick={() => { setSelectedFile(file); setShowShareFileModal(true); }}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Partager avec des utilisateurs"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => window.open(fileService.getDownloadUrl(file.id))}
                             className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
@@ -447,13 +805,24 @@ export default function FilesPage() {
                           >
                             <Download className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(file.id)}
-                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {!(file as any)._isShared && (
+                            <button
+                              onClick={() => handleDelete(file.id)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {(file as any)._isShared && (
+                            <button
+                              onClick={() => handleRemoveSharedFile(file.id, file.name)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Arrêter de partager"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -466,7 +835,7 @@ export default function FilesPage() {
       )}
 
       {/* Empty State */}
-      {displayFiles.length === 0 && folders.length === 0 && !isSearching && (
+      {displayFiles.length === 0 && folders.length === 0 && acceptedSharedFolders.length === 0 && !isSearching && (
         <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
           <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
             {searchQuery ? <FileIcon className="w-12 h-12 text-gray-400" /> : <Folder className="w-12 h-12 text-gray-400" />}
@@ -508,6 +877,7 @@ export default function FilesPage() {
         <FilePreviewModal
           file={previewFile}
           onClose={() => setShowPreviewModal(false)}
+          isShared={(previewFile as any)._sharedFolderPermissions !== undefined}
         />
       )}
 
@@ -516,6 +886,59 @@ export default function FilesPage() {
         files={uploadingFiles}
         onClose={handleCloseUploadModal}
         onCancel={handleCancelUpload}
+      />
+
+      <TagsManager
+        isOpen={showTagsManager}
+        onClose={() => setShowTagsManager(false)}
+      />
+
+      {selectedFolder && (
+        <ShareFolderModal
+          folderId={selectedFolder.id}
+          folderName={selectedFolder.name}
+          isOpen={showShareFolderModal}
+          onClose={() => {
+            setShowShareFolderModal(false);
+            setSelectedFolder(null);
+          }}
+        />
+      )}
+
+      {selectedFile && showShareFileModal && (
+        <ShareFileModal
+          file={selectedFile}
+          onClose={() => {
+            setShowShareFileModal(false);
+            setSelectedFile(null);
+          }}
+        />
+      )}
+
+      {showDocumentEditor && editorFile && (
+        <DocumentEditor
+          file={editorFile}
+          onClose={() => {
+            setShowDocumentEditor(false);
+            setEditorFile(null);
+            // Recharger le contenu pour voir les éventuelles modifications
+            loadContent(folderId);
+          }}
+        />
+      )}
+
+      <PendingSharesModal
+        isOpen={showPendingShares}
+        onClose={() => setShowPendingShares(false)}
+        onAccept={() => {
+          // Recharger le contenu pour afficher les dossiers/fichiers acceptés
+          if (!folderId) {
+            loadContent(folderId);
+            getSharedItemsAsDisplayFiles();
+          }
+          // Recharger le nombre de partages en attente
+          loadPendingSharesCount();
+        }}
       />
     </div>
   );

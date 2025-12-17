@@ -59,6 +59,7 @@ if [ -f ".env" ]; then
     sed -i.tmp "s|HOST_IP=.*|HOST_IP=$FINAL_IP|" .env
     sed -i.tmp "s|API_URL=.*|API_URL=http://$FINAL_IP:5001|" .env
     sed -i.tmp "s|FRONTEND_URL=.*|FRONTEND_URL=http://$FINAL_IP:3000|" .env
+    sed -i.tmp "s|ONLYOFFICE_PUBLIC_URL=.*|ONLYOFFICE_PUBLIC_URL=http://$FINAL_IP:8080|" .env
 
     # Nettoyage des fichiers temporaires
     rm -f .env.tmp
@@ -76,7 +77,7 @@ echo "========================================="
 echo ""
 echo "Prochaines étapes :"
 echo ""
-echo "1. Assurez-vous que le pare-feu autorise les ports 3000 et 5001"
+echo "1. Assurez-vous que le pare-feu autorise les ports 3000, 5001 et 8080"
 echo ""
 echo "2. Démarrez l'application avec :"
 echo "   docker compose down"
@@ -85,6 +86,8 @@ echo ""
 echo "3. Accédez à l'application :"
 echo "   - Depuis cette machine : http://$FINAL_IP:3000"
 echo "   - Depuis un autre PC du réseau : http://$FINAL_IP:3000"
+echo ""
+echo "4. OnlyOffice sera accessible sur : http://$FINAL_IP:8080"
 echo ""
 echo "Pour plus d'informations, consultez CONFIGURATION_RESEAU.md"
 echo ""

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -30,15 +28,22 @@ services:
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       API_URL: ${API_URL:-http://localhost:5001}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:5001}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       PORT: ${BACKEND_PORT:-5001}
       UPLOAD_DIR: /app/uploads
       NODE_ENV: production
+      # OnlyOffice configuration
+      ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
+      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:8080}
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
       # Optional OAuth2 credentials (leave empty if not configured)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # OpenRouter AI - Bobby le robot
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     volumes:
       - uploads_data:/app/uploads
     ports:
@@ -55,12 +60,31 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${API_URL:-http://localhost:5001}
+        VITE_API_URL: ${API_URL:-http://localhost:5001}/api
     container_name: supfile-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: supfile-onlyoffice
+    environment:
+      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
+      - JWT_ENABLED=false
+      - JWT_HEADER=Authorization
+      # Autoriser les callbacks vers des IPs privées (Docker network)
+      - ALLOW_PRIVATE_IP_ADDRESS=true
+      - ALLOW_META_IP_ADDRESS=true
+    ports:
+      - "${ONLYOFFICE_PORT:-8080}:80"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_log:/var/log/onlyoffice
     restart: unless-stopped
     networks:
       - supfile-network
@@ -73,4 +97,8 @@ volumes:
   postgres_data:
     driver: local
   uploads_data:
+    driver: local
+  onlyoffice_data:
+    driver: local
+  onlyoffice_log:
     driver: local

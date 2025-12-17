@@ -27,9 +27,9 @@ export const fileService = {
     return response.data;
   },
 
-  async listFiles(folderId?: string): Promise<{ files: File[] }> {
+  async listFiles(folderId?: string, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ files: File[] }> {
     const response = await api.get('/files', {
-      params: { folderId },
+      params: { folderId, sortBy, sortOrder },
     });
     return response.data;
   },
@@ -84,6 +84,18 @@ export const fileService = {
   getStreamUrl(fileId: string): string {
     const token = localStorage.getItem('token');
     return `${api.defaults.baseURL}/files/${fileId}/stream?token=${token}`;
+  },
+
+  // For files shared with you
+  getSharedFileStreamUrl(fileId: string): string {
+    const token = localStorage.getItem('token');
+    return `${api.defaults.baseURL}/share/access/${fileId}/stream?token=${token}`;
+  },
+
+  // For files shared with you
+  getSharedFileDownloadUrl(fileId: string): string {
+    const token = localStorage.getItem('token');
+    return `${api.defaults.baseURL}/share/access/${fileId}/download?token=${token}`;
   },
 
   async toggleFavorite(fileId: string): Promise<{ file: File }> {

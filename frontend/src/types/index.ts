@@ -10,6 +10,25 @@ export interface User {
   createdAt: string;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  userId: string;
+  createdAt: string;
+  _count?: {
+    files: number;
+  };
+}
+
+export interface FileTag {
+  id: string;
+  fileId: string;
+  tagId: string;
+  tag: Tag;
+  createdAt: string;
+}
+
 export interface File {
   id: string;
   name: string;
@@ -27,6 +46,13 @@ export interface File {
   createdAt: string;
   updatedAt: string;
   folder?: Folder;
+  tags?: FileTag[];
+  user?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
 }
 
 export interface Folder {
@@ -51,6 +77,7 @@ export interface SharedLink {
   expiresAt?: string;
   maxDownloads?: number;
   downloads: number;
+  password?: string;
   createdAt: string;
   url: string;
 }
@@ -60,8 +87,12 @@ export interface SharedFolder {
   folderId: string;
   sharedById: string;
   sharedWithId: string;
-  canEdit: boolean;
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  canShare: boolean;
   createdAt: string;
+  folder?: Folder;
   sharedBy?: {
     id: string;
     email: string;
@@ -73,6 +104,33 @@ export interface SharedFolder {
     email: string;
     firstName?: string;
     lastName?: string;
+    avatar?: string;
+  };
+}
+
+export interface SharedFile {
+  id: string;
+  fileId: string;
+  sharedById: string;
+  sharedWithId: string;
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  canShare: boolean;
+  createdAt: string;
+  file?: File;
+  sharedBy?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  sharedWith?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
   };
 }
 

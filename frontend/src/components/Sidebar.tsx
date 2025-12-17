@@ -56,7 +56,7 @@ export default function Sidebar() {
               <FileStack className="w-3 h-3 text-primary-500 dark:text-primary-300 absolute -bottom-0.5 -right-0.5" />
             </div>
             <h1 className="text-lg font-bold bg-gradient-to-r from-primary-600 to-primary-500 dark:from-primary-400 dark:to-primary-300 bg-clip-text text-transparent">
-              SUPFILE
+              SupFile
             </h1>
           </div>
         </div>

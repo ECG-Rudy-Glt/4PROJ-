@@ -9,6 +9,7 @@ router.post('/upload', authenticate, upload.single('file'), FileController.uploa
 router.get('/', authenticate, FileController.listFiles);
 router.get('/deleted', authenticate, FileController.getDeletedFiles);
 router.get('/favorites', authenticate, FileController.getFavoriteFiles);
+router.get('/shares/accepted', authenticate, FileController.getAcceptedShares);
 router.get('/search', authenticate, FileController.searchFiles);
 router.get('/:fileId', authenticate, FileController.getFile);
 router.get('/:fileId/download', authenticate, FileController.downloadFile);

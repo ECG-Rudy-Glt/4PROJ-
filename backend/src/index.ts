@@ -16,6 +16,17 @@ import fileRoutes from './routes/fileRoutes';
 import folderRoutes from './routes/folderRoutes';
 import shareRoutes from './routes/shareRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import tagRoutes from './routes/tagRoutes';
+import commentRoutes from './routes/commentRoutes';
+import versionRoutes from './routes/versionRoutes';
+import auditRoutes from './routes/auditRoutes';
+import userRoutes from './routes/userRoutes';
+import onlyofficeRoutes from './routes/onlyofficeRoutes';
+import aiRoutes from './routes/aiRoutes';
+
+// Jobs
+import { startTrashCleanupJob } from './jobs/trashCleanup';
+import { startCleanupJob } from './jobs/cleanupJob';
 
 dotenv.config();
 
@@ -35,10 +46,18 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Check if the origin is in the allowed list
-    if (allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/:\d+$/, '')) || origin === allowed)) {
+    // Check if the origin is in the allowed list or matches the IP pattern
+    const isAllowed = allowedOrigins.some(allowed => {
+      // Extract just the protocol and hostname/IP (without port)
+      const allowedBase = allowed.replace(/:\d+$/, '');
+      const originBase = origin.replace(/:\d+$/, '');
+      return origin === allowed || originBase === allowedBase;
+    });
+
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.log('[CORS] Blocked origin:', origin, 'Allowed:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -77,6 +96,13 @@ app.use('/api/files', fileRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/share', shareRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/tags', tagRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/onlyoffice', onlyofficeRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api', commentRoutes);
+app.use('/api', versionRoutes);
+app.use('/api', auditRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -94,6 +120,10 @@ app.use((req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log(`Accessible depuis le réseau local`);
+
+  // Démarrer les jobs de nettoyage automatique
+  startTrashCleanupJob();
+  startCleanupJob();
 });
 
 export default app;

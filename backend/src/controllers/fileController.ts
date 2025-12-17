@@ -48,11 +48,13 @@ export class FileController {
   static async listFiles(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { folderId } = req.query;
+      const { folderId, sortBy, sortOrder } = req.query;
 
       const files = await FileService.listFiles(
         userId,
-        folderId ? String(folderId) : undefined
+        folderId ? String(folderId) : undefined,
+        sortBy ? String(sortBy) : 'createdAt',
+        sortOrder === 'asc' ? 'asc' : 'desc'
       );
 
       res.status(200).json({ files });
@@ -235,6 +237,18 @@ export class FileController {
       const files = await FileService.getFavoriteFiles(userId);
 
       res.status(200).json({ files });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async getAcceptedShares(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+
+      const shares = await FileService.getAcceptedShares(userId);
+
+      res.status(200).json(shares);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

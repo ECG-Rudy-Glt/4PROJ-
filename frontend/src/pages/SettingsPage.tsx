@@ -310,8 +310,8 @@ export default function SettingsPage() {
       {/* Account Info Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-            <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+            <Calendar className="w-5 h-5 text-primary-600 dark:text-primary-300" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             Informations du compte

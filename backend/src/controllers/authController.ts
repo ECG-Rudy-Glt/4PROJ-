@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
 import { AuthRequest } from '../types';
 import { generateToken } from '../utils/jwt';
+import { AuditService } from '../services/auditService';
 
 export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
@@ -21,6 +22,12 @@ export class AuthController {
       const { email, password } = req.body;
 
       const result = await AuthService.login(email, password);
+
+      // Audit log
+      await AuditService.createLog(result.user.id, 'LOGIN', {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
 
       res.status(200).json(result);
     } catch (error: any) {
