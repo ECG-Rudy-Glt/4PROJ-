@@ -1,8 +1,13 @@
 import axios from 'axios';
 
-// Use relative URL to leverage nginx proxy
+// Use environment variable or fallback to relative URL
+// If VITE_API_URL is set, append /api to it
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -37,36 +37,54 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
   const [currentAvatar, setCurrentAvatar] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Mapping entre avatars idle et working
+  const avatarPairs = {
+    '/ai-avatar/idle/processed_image-9.png': '/ai-avatar/working/output-onlinegiftools.gif',
+    '/ai-avatar/idle/167c8f45-c0cb-41c5-aa4a-39c4cd32a8ea_removalai_preview.png': '/ai-avatar/working/output-onlinegiftools (1).gif',
+    '/ai-avatar/idle/Frame_8-removebg-preview.png': '/ai-avatar/working/output-onlinegiftools-2.gif',
+    '/ai-avatar/idle/final_5-removebg-preview.png': '/ai-avatar/working/output-onlinegiftools-3.gif',
+  };
+
   // Charger les avatars disponibles
   const [idleAvatars] = useState<string[]>([
     '/ai-avatar/idle/processed_image-9.png',
     '/ai-avatar/idle/167c8f45-c0cb-41c5-aa4a-39c4cd32a8ea_removalai_preview.png',
     '/ai-avatar/idle/Frame_8-removebg-preview.png',
+    '/ai-avatar/idle/final_5-removebg-preview.png',
   ]);
-  const [workingAvatars] = useState<string[]>([
-    '/ai-avatar/working/output-onlinegiftools.gif',
-    '/ai-avatar/working/output-onlinegiftools (1).gif',
-    '/ai-avatar/working/output-onlinegiftools-2.gif',
-  ]);
+  const [hoveredAvatar, setHoveredAvatar] = useState<string>('');
 
   // Fonction pour sélectionner un avatar aléatoire
-  const getRandomAvatar = (isWorking: boolean) => {
-    const avatars = isWorking ? workingAvatars : idleAvatars;
-
-    // Si pas d'avatars, utiliser un placeholder coloré
-    if (avatars.length === 0) {
+  const getRandomAvatar = () => {
+    if (idleAvatars.length === 0) {
       return null;
     }
 
-    const randomIndex = Math.floor(Math.random() * avatars.length);
-    return avatars[randomIndex];
+    const randomIndex = Math.floor(Math.random() * idleAvatars.length);
+    return idleAvatars[randomIndex];
   };
 
-  // Changer l'avatar quand l'état change
+  // Fonction pour obtenir le working avatar associé
+  const getWorkingAvatar = (idleAvatar: string) => {
+    return avatarPairs[idleAvatar as keyof typeof avatarPairs] || null;
+  };
+
+  // Changer l'avatar idle au démarrage
   useEffect(() => {
-    const avatar = getRandomAvatar(isTyping);
+    const avatar = getRandomAvatar();
     setCurrentAvatar(avatar || '');
-  }, [isTyping]);
+    setHoveredAvatar('');
+  }, []);
+
+  // Changer le hovered avatar basé sur isTyping
+  useEffect(() => {
+    if (isTyping && currentAvatar) {
+      const workingAvatar = getWorkingAvatar(currentAvatar);
+      setHoveredAvatar(workingAvatar || '');
+    } else {
+      setHoveredAvatar('');
+    }
+  }, [isTyping, currentAvatar]);
 
   // Auto-scroll vers le bas
   const scrollToBottom = () => {
@@ -164,16 +182,29 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
       {/* Bouton flottant avec avatar */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        onMouseEnter={() => {
+          if (currentAvatar) {
+            const workingAvatar = getWorkingAvatar(currentAvatar);
+            setHoveredAvatar(workingAvatar || '');
+          }
+        }}
+        onMouseLeave={() => setHoveredAvatar('')}
         className={`fixed bottom-6 right-6 w-20 h-20 hover:scale-110 transition-all duration-300 z-50 bg-transparent border-none ${
           isOpen ? 'scale-0' : 'scale-100'
         }`}
         title="Discuter avec Bobby le robot"
       >
-        {currentAvatar ? (
+        {hoveredAvatar ? (
+          <img
+            src={hoveredAvatar}
+            alt="Bobby le robot"
+            className="w-full h-full object-contain"
+          />
+        ) : currentAvatar ? (
           <img
             src={currentAvatar}
             alt="Bobby le robot"
-            className="w-full h-full object-contain drop-shadow-2xl"
+            className="w-full h-full object-contain"
           />
         ) : (
           <AvatarPlaceholder isWorking={isTyping} />
@@ -192,7 +223,13 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
             <div className="flex items-center space-x-3">
               {/* Avatar miniature */}
               <div className="w-16 h-16">
-                {currentAvatar ? (
+                {isTyping && currentAvatar ? (
+                  <img
+                    src={getWorkingAvatar(currentAvatar) || currentAvatar}
+                    alt="Bobby le robot"
+                    className="w-full h-full object-contain drop-shadow-md"
+                  />
+                ) : currentAvatar ? (
                   <img
                     src={currentAvatar}
                     alt="Bobby le robot"

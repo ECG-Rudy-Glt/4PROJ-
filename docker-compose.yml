@@ -44,6 +44,8 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       # OpenRouter AI - Bobby le robot
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # MFA (Multi-Factor Authentication)
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
     volumes:
       - uploads_data:/app/uploads
     ports:
@@ -60,7 +62,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${API_URL:-http://localhost:5001}/api
+        VITE_API_URL: ${API_URL:-http://localhost:5001}
     container_name: supfile-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:80"

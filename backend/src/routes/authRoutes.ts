@@ -41,6 +41,9 @@ router.post(
   AuthController.changePassword
 );
 
+// RGPD - Export des données
+router.get('/export-data', authenticate, AuthController.exportUserData);
+
 // OAuth2 routes
 router.get(
   '/google',

@@ -23,6 +23,7 @@ import auditRoutes from './routes/auditRoutes';
 import userRoutes from './routes/userRoutes';
 import onlyofficeRoutes from './routes/onlyofficeRoutes';
 import aiRoutes from './routes/aiRoutes';
+import mfaRoutes from './routes/mfaRoutes';
 
 // Jobs
 import { startTrashCleanupJob } from './jobs/trashCleanup';
@@ -100,6 +101,7 @@ app.use('/api/tags', tagRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/onlyoffice', onlyofficeRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/mfa', mfaRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);

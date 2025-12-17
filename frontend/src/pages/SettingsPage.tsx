@@ -3,6 +3,8 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
 import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
+import MFASettingsSection from '@/components/MFASettingsSection';
+import RGPDSection from '@/components/RGPDSection';
 
 export default function SettingsPage() {
   const { user, updateProfile } = useAuthStore();
@@ -306,6 +308,12 @@ export default function SettingsPage() {
           </button>
         </form>
       </div>
+
+      {/* MFA Section */}
+      <MFASettingsSection />
+
+      {/* RGPD Section */}
+      <RGPDSection />
 
       {/* Account Info Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">

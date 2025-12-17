@@ -485,7 +485,7 @@ export default function FilesPage() {
 
   return (
     <div
-      className="space-y-6 relative"
+      className="relative"
       onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (e.currentTarget === e.target) setIsDragging(false); }}

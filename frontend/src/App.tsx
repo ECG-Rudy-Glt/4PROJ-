@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/useAuthStore';
 // Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import MFAVerificationPage from './pages/MFAVerificationPage';
 import DashboardPage from './pages/DashboardPage';
 import FilesPage from './pages/FilesPage';
 import FavoritesPage from './pages/FavoritesPage';
@@ -31,6 +32,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/mfa-verify" element={<MFAVerificationPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
       <Route path="/share/:token" element={<SharedLinkPage />} />
 
