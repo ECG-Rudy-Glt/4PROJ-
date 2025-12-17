@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------
+// 1. UTILISATEURS & SÉCURITÉ
+// --------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?   // Null si OAuth
+  firstName     String?
+  lastName      String?
+  avatar        String?
+
+  provider      String?   @default("local")
+  providerId    String?
+
+  // Quotas & UI
+  quotaUsed     BigInt    @default(0)
+  quotaLimit    BigInt    @default(32212254720) // 30 GB
+  theme         String    @default("light")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  files         File[]
+  folders       Folder[]
+  sharedLinks   SharedLink[]
+
+  // Gestion des partages reçus/envoyés
+  sharedWithMe  SharedFolder[] @relation("SharedWithUser")
+  sharedByMe    SharedFolder[] @relation("SharedByUser")
+
+  filesSharedWithMe SharedFile[] @relation("FileSharedWithUser")
+  filesSharedByMe   SharedFile[] @relation("FileSharedByUser")
+
+  // Nouvelles fonctionnalités
+  refreshTokens RefreshToken[] // Pour la sécurité JWT
+  auditLogs     AuditLog[]     // Pour le Dashboard (Activité)
+  tags          Tag[]          // Tags créés par l'utilisateur
+  comments      Comment[]      // Commentaires créés par l'utilisateur
+  fileVersions  FileVersion[]  // Versions de fichiers créées
+
+  @@index([email])
+  @@index([providerId])
+}
+
+// Nouveau : Pour gérer la déconnexion et la sécurité
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+// --------------------------------------
+// 2. DOSSIERS
+// --------------------------------------
+
+model Folder {
+  id        String   @id @default(uuid())
+  name      String
+  path      String   // Breadcrumbs
+
+  parentId  String?
+  parent    Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("FolderHierarchy")
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  files     File[]
+
+  // Relations pour les partages
+  sharedLinks  SharedLink[]
+  sharedWith   SharedFolder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, parentId, name]) // Pas deux dossiers du même nom au même endroit
+  @@index([userId])
+  @@index([parentId])
+  @@index([path])
+}
+
+// --------------------------------------
+// 3. FICHIERS
+// --------------------------------------
+
+model File {
+  id           String   @id @default(uuid())
+  name         String
+  originalName String
+  mimeType     String
+  size         BigInt
+
+  storagePath  String   @unique // Lien vers Docker
+
+  // Nouveau : Pour la prévisualisation & média
+  thumbnailPath String? // Lien vers la miniature
+  category      String? // 'image', 'video', 'doc', 'audio', 'other' (Pour le graph du Dashboard)
+
+  folderId     String?
+  folder       Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sharedLinks  SharedLink[]
+  tags         FileTag[]  // Tags associés au fichier
+  comments     Comment[]  // Commentaires sur le fichier
+  versions     FileVersion[]  // Versions du fichier
+  sharedWith   SharedFile[]  // Partages avec d'autres utilisateurs
+
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+  isFavorite   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([isDeleted])
+  @@index([mimeType])
+  @@index([category])
+  @@index([isFavorite])
+}
+
+// --------------------------------------
+// 4. PARTAGES & DASHBOARD
+// --------------------------------------
+
+model SharedLink {
+  id           String    @id @default(uuid())
+  token        String    @unique @default(uuid())
+
+  // Peut pointer vers un fichier OU un dossier
+  fileId       String?
+  file         File?     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  folderId     String?
+  folder       Folder?   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  password     String?
+  expiresAt    DateTime?
+  downloads    Int       @default(0)
+  maxDownloads Int?
+  createdAt    DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model SharedFolder {
+  id           String   @id @default(uuid())
+
+  folderId     String
+  folder       Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  sharedById   String
+  sharedBy     User     @relation("SharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
+
+  sharedWithId String
+  sharedWith   User     @relation("SharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  // Permissions granulaires
+  canRead      Boolean  @default(true)   // Peut consulter les fichiers
+  canWrite     Boolean  @default(false)  // Peut uploader/modifier des fichiers
+  canDelete    Boolean  @default(false)  // Peut supprimer des fichiers
+  canShare     Boolean  @default(false)  // Peut repartager à d'autres utilisateurs
+
+  // Acceptation du partage
+  accepted     Boolean  @default(false)  // L'utilisateur a accepté le partage
+  createdAt    DateTime @default(now())
+
+  @@unique([folderId, sharedWithId])
+  @@index([sharedById])
+  @@index([sharedWithId])
+}
+
+model SharedFile {
+  id           String   @id @default(uuid())
+
+  fileId       String
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  sharedById   String
+  sharedBy     User     @relation("FileSharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
+
+  sharedWithId String
+  sharedWith   User     @relation("FileSharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  // Permissions granulaires pour les fichiers
+  canRead      Boolean  @default(true)   // Peut consulter/télécharger le fichier
+  canWrite     Boolean  @default(false)  // Peut modifier le fichier (upload nouvelle version)
+  canDelete    Boolean  @default(false)  // Peut supprimer le fichier
+  canShare     Boolean  @default(false)  // Peut repartager à d'autres utilisateurs
+
+  // Acceptation du partage
+  accepted     Boolean  @default(false)  // L'utilisateur a accepté le partage
+  createdAt    DateTime @default(now())
+
+  @@unique([fileId, sharedWithId])
+  @@index([sharedById])
+  @@index([sharedWithId])
+}
+
+// Nouveau : Pour le Dashboard (Activité récente)
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // 'UPLOAD', 'DELETE', 'LOGIN', 'DOWNLOAD', 'SHARE', 'CREATE_FOLDER'
+  details   String?  // JSON avec les détails de l'action
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// --------------------------------------
+// 5. SYSTÈME DE TAGS
+// --------------------------------------
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String
+  color     String    @default("#6366f1") // Couleur hexadécimale
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files     FileTag[]
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, name]) // Un utilisateur ne peut pas avoir deux tags avec le même nom
+  @@index([userId])
+  @@index([name])
+}
+
+model FileTag {
+  id        String   @id @default(uuid())
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([fileId, tagId]) // Un fichier ne peut pas avoir le même tag deux fois
+  @@index([fileId])
+  @@index([tagId])
+}
+
+// --------------------------------------
+// 6. SYSTÈME DE COMMENTAIRES
+// --------------------------------------
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Pour les réponses (commentaires imbriqués)
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fileId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+// --------------------------------------
+// 7. SYSTÈME DE VERSIONNING
+// --------------------------------------
+
+model FileVersion {
+  id            String   @id @default(uuid())
+  fileId        String
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  name          String
+  size          BigInt
+  storagePath   String   @unique
+  mimeType      String
+  createdAt     DateTime @default(now())
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, versionNumber])
+  @@index([fileId])
+  @@index([createdById])
+  @@index([createdAt])
+}

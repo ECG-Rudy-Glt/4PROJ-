@@ -1,0 +1,129 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import passport from './config/passport';
+import rateLimit from 'express-rate-limit';
+
+// Fix BigInt serialization
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
+
+// Routes
+import authRoutes from './routes/authRoutes';
+import fileRoutes from './routes/fileRoutes';
+import folderRoutes from './routes/folderRoutes';
+import shareRoutes from './routes/shareRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
+import tagRoutes from './routes/tagRoutes';
+import commentRoutes from './routes/commentRoutes';
+import versionRoutes from './routes/versionRoutes';
+import auditRoutes from './routes/auditRoutes';
+import userRoutes from './routes/userRoutes';
+import onlyofficeRoutes from './routes/onlyofficeRoutes';
+import aiRoutes from './routes/aiRoutes';
+
+// Jobs
+import { startTrashCleanupJob } from './jobs/trashCleanup';
+import { startCleanupJob } from './jobs/cleanupJob';
+
+dotenv.config();
+
+const app = express();
+const PORT = parseInt(process.env.PORT || '5001', 10);
+
+// Security middleware
+app.use(helmet());
+
+// Configure CORS to allow multiple origins
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:3000'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if the origin is in the allowed list or matches the IP pattern
+    const isAllowed = allowedOrigins.some(allowed => {
+      // Extract just the protocol and hostname/IP (without port)
+      const allowedBase = allowed.replace(/:\d+$/, '');
+      const originBase = origin.replace(/:\d+$/, '');
+      return origin === allowed || originBase === allowedBase;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('[CORS] Blocked origin:', origin, 'Allowed:', allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
+// Rate limiting - Much more permissive for development
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 50000, // 500 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use('/api/', limiter);
+
+// Body parsing middleware - Increased limits for large file uploads (5GB)
+app.use(express.json({ limit: '5gb' }));
+app.use(express.urlencoded({ extended: true, limit: '5gb' }));
+
+// Passport initialization
+app.use(passport.initialize());
+
+// Serve uploaded files (avatars)
+const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
+app.use('/uploads', express.static(uploadDir));
+
+// Health check
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/folders', folderRoutes);
+app.use('/api/share', shareRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/tags', tagRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/onlyoffice', onlyofficeRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api', commentRoutes);
+app.use('/api', versionRoutes);
+app.use('/api', auditRoutes);
+
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Accessible depuis le réseau local`);
+
+  // Démarrer les jobs de nettoyage automatique
+  startTrashCleanupJob();
+  startCleanupJob();
+});
+
+export default app;

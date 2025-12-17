@@ -1,0 +1,269 @@
+import { Response, Request } from 'express';
+import { AuthRequest } from '../middlewares/auth';
+import { OnlyOfficeService } from '../services/onlyofficeService';
+import prisma from '../config/database';
+import axios from 'axios';
+import fs from 'fs/promises';
+import fsSync from 'fs';
+import path from 'path';
+
+export class OnlyOfficeController {
+  /**
+   * Sert un fichier à OnlyOffice (avec token d'accès)
+   * Cette route n'utilise pas l'authentification standard - elle utilise un token d'accès spécial
+   */
+  static async serveFileToOnlyOffice(req: Request, res: Response): Promise<void> {
+    try {
+      const { fileId } = req.params;
+      const accessToken = req.query.access_token as string;
+
+      if (!accessToken) {
+        res.status(401).json({ error: 'Access token required' });
+        return;
+      }
+
+      // Vérifier le token d'accès
+      const tokenData = OnlyOfficeService.verifyFileAccessToken(accessToken);
+      if (!tokenData || tokenData.fileId !== fileId) {
+        res.status(403).json({ error: 'Invalid access token' });
+        return;
+      }
+
+      // Récupérer le fichier
+      const file = await prisma.file.findUnique({
+        where: { id: fileId },
+      });
+
+      if (!file) {
+        res.status(404).json({ error: 'File not found' });
+        return;
+      }
+
+      // file.storagePath contient soit un chemin absolu comme /app/uploads/xxx.docx
+      // soit juste le nom du fichier
+      let filePath: string;
+      if (file.storagePath.startsWith('/')) {
+        filePath = file.storagePath;
+      } else {
+        const uploadDir = process.env.UPLOAD_DIR || './uploads';
+        filePath = path.join(uploadDir, file.storagePath);
+      }
+
+      console.log('Serving file to OnlyOffice:', { fileId, filePath, storagePath: file.storagePath });
+
+      // Vérifier que le fichier existe
+      try {
+        await fs.access(filePath);
+      } catch (err) {
+        console.error('File not found on disk:', filePath, err);
+        res.status(404).json({ error: 'File not found on disk', path: filePath });
+        return;
+      }
+
+      // Envoyer le fichier
+      res.setHeader('Content-Type', file.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
+      
+      const fileStream = fsSync.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error: any) {
+      console.error('Error serving file to OnlyOffice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Génère la configuration OnlyOffice pour éditer un fichier
+   */
+  static async getEditorConfig(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { fileId } = req.params;
+      const { mode = 'edit' } = req.query;
+
+      // Récupérer le fichier
+      const file = await prisma.file.findFirst({
+        where: {
+          id: fileId,
+          OR: [
+            { userId }, // Propriétaire
+            {
+              // Ou fichier partagé avec l'utilisateur
+              sharedWith: {
+                some: {
+                  sharedWithId: userId,
+                },
+              },
+            },
+          ],
+          isDeleted: false,
+        },
+        include: {
+          sharedWith: {
+            where: {
+              sharedWithId: userId,
+            },
+          },
+        },
+      });
+
+      if (!file) {
+        res.status(404).json({ error: 'Fichier non trouvé' });
+        return;
+      }
+
+      // Vérifier si le fichier peut être édité
+      if (!OnlyOfficeService.canEdit(file.mimeType)) {
+        res.status(400).json({ error: 'Ce type de fichier ne peut pas être édité' });
+        return;
+      }
+
+      // Vérifier les permissions
+      const isOwner = file.userId === userId;
+      const share = file.sharedWith[0];
+      const canEdit = isOwner || (share && share.canWrite);
+
+      const editMode = mode === 'view' || !canEdit ? 'view' : 'edit';
+
+      // Récupérer les informations de l'utilisateur
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return;
+      }
+
+      // Générer la configuration OnlyOffice
+      const config = await OnlyOfficeService.generateConfig(
+        file,
+        userId,
+        user,
+        editMode
+      );
+
+      res.status(200).json(config);
+    } catch (error: any) {
+      console.error('Error generating OnlyOffice config:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Callback OnlyOffice pour sauvegarder les modifications
+   */
+  static async handleCallback(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { fileId } = req.params;
+      const callbackData = req.body;
+
+      console.log('OnlyOffice callback received:', { fileId, status: callbackData.status });
+
+      const file = await prisma.file.findUnique({
+        where: { id: fileId },
+      });
+
+      if (!file) {
+        res.status(404).json({ error: 0 }); // OnlyOffice expects error: 0 even for 404
+        return;
+      }
+
+      const result = await OnlyOfficeService.processCallback(fileId, callbackData);
+
+      // Si le document doit être sauvegardé
+      if (result.shouldSave && result.downloadUrl) {
+        try {
+          // Télécharger le fichier modifié
+          const response = await axios.get(result.downloadUrl, {
+            responseType: 'arraybuffer',
+          });
+
+          const uploadDir = process.env.UPLOAD_DIR || './uploads';
+          const filename = `${Date.now()}-${file.name}`;
+          const filepath = path.join(uploadDir, filename);
+
+          // Sauvegarder le fichier
+          await fs.writeFile(filepath, response.data);
+
+          // Créer une nouvelle version
+          await OnlyOfficeService.createFileVersion(
+            fileId,
+            file.userId, // On utilise l'owner du fichier pour la version
+            filename,
+            response.data.byteLength
+          );
+
+          console.log('File saved successfully:', filename);
+        } catch (saveError) {
+          console.error('Error saving file:', saveError);
+          res.status(200).json({ error: 1 });
+          return;
+        }
+      }
+
+      res.status(200).json({ error: result.error || 0 });
+    } catch (error: any) {
+      console.error('Error in OnlyOffice callback:', error);
+      res.status(200).json({ error: 1 }); // OnlyOffice expects error code
+    }
+  }
+
+  /**
+   * Vérifie si un fichier peut être édité
+   */
+  static async canEdit(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { fileId } = req.params;
+
+      const file = await prisma.file.findFirst({
+        where: {
+          id: fileId,
+          OR: [
+            { userId },
+            {
+              sharedWith: {
+                some: {
+                  sharedWithId: userId,
+                },
+              },
+            },
+          ],
+          isDeleted: false,
+        },
+        include: {
+          sharedWith: {
+            where: {
+              sharedWithId: userId,
+            },
+          },
+        },
+      });
+
+      if (!file) {
+        res.status(404).json({ error: 'Fichier non trouvé' });
+        return;
+      }
+
+      const canEdit = OnlyOfficeService.canEdit(file.mimeType);
+      const isOwner = file.userId === userId;
+      const share = file.sharedWith[0];
+      const hasEditPermission = isOwner || (share && share.canWrite);
+
+      res.status(200).json({
+        canEdit,
+        hasPermission: hasEditPermission,
+        mode: canEdit && hasEditPermission ? 'edit' : 'view',
+      });
+    } catch (error: any) {
+      console.error('Error checking edit permission:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+}
