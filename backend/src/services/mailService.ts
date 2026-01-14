@@ -54,4 +54,26 @@ export class MailService {
             text,
         });
     }
+
+    static async sendWelcomeNotification(to: string, name: string) {
+        const subject = 'Bienvenue sur SupFile !';
+        const text = `Bonjour ${name},\n\nBienvenue sur SupFile ! Nous sommes ravis de vous compter parmi nous.\n\nVous pouvez maintenant stocker, partager et gérer vos fichiers en toute sécurité.\n\nCordialement,\nL'équipe SupFile`;
+
+        return this.sendMail({
+            to,
+            subject,
+            text,
+        });
+    }
+
+    static async sendPasswordChangeNotification(to: string, name: string) {
+        const subject = 'Alerte de sécurité : Mot de passe modifié';
+        const text = `Bonjour ${name},\n\nLe mot de passe de votre compte SupFile a été modifié récemment. Si vous n'êtes pas à l'origine de cette action, veuillez contacter le support immédiatement.\n\nCordialement,\nL'équipe SupFile`;
+
+        return this.sendMail({
+            to,
+            subject,
+            text,
+        });
+    }
 }

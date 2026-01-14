@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
+import { MailService } from './mailService';
 
 export class AuthService {
   static async register(
@@ -33,6 +34,13 @@ export class AuthService {
 
     // Generate token
     const token = generateToken(user.id, user.email);
+
+    // Send welcome email
+    try {
+      await MailService.sendWelcomeNotification(user.email, user.firstName || 'Utilisateur');
+    } catch (error) {
+      console.error('Failed to send welcome email', error);
+    }
 
     return {
       user: {
@@ -133,10 +141,17 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { password: hashedPassword },
     });
+
+    // Send notification
+    try {
+      await MailService.sendPasswordChangeNotification(updatedUser.email, updatedUser.firstName || 'Utilisateur');
+    } catch (error) {
+      console.error('Failed to send password change notification', error);
+    }
 
     return { message: 'Password changed successfully' };
   }

@@ -93,6 +93,10 @@ const canEditDocument = (mimeType: string) => {
   return editableMimeTypes.includes(mimeType);
 };
 
+import { FilterBar, FilterState } from '@/components/FilterBar';
+
+// ... (existing imports)
+
 export default function FilesPage() {
   const { folderId } = useParams();
   const [searchParams] = useSearchParams();
@@ -104,6 +108,10 @@ export default function FilesPage() {
   const [searchResults, setSearchResults] = useState<File[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Filter state
+  const [activeFilters, setActiveFilters] = useState<FilterState>({});
+
 
   // Upload state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -165,7 +173,8 @@ export default function FilesPage() {
     if (searchQuery) {
       handleSearch(searchQuery);
     } else {
-      loadContent(folderId);
+      // Pass activeFilters to loadContent
+      loadContent(folderId, sortBy, sortOrder, activeFilters);
       setSearchResults([]);
       if (folderId) {
         loadBreadcrumbs(folderId);
@@ -173,7 +182,8 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-  }, [folderId, searchQuery]);
+  }, [folderId, searchQuery, activeFilters]); // Add activeFilters dependency
+
 
   const loadBreadcrumbs = async (folderId: string) => {
     try {
@@ -276,7 +286,7 @@ export default function FilesPage() {
     }
 
     // Reload content after all uploads
-    await loadContent(folderId);
+    await loadContent(folderId, sortBy, sortOrder, activeFilters);
   };
 
   const handleCancelUpload = () => {
@@ -289,10 +299,10 @@ export default function FilesPage() {
   const handleCloseUploadModal = () => {
     setShowUploadModal(false);
     setUploadingFiles([]);
-    
+
     const successCount = uploadingFiles.filter(f => f.status === 'success').length;
     const errorCount = uploadingFiles.filter(f => f.status === 'error').length;
-    
+
     if (successCount > 0) {
       toast.success(`${successCount} fichier${successCount > 1 ? 's' : ''} téléversé${successCount > 1 ? 's' : ''}`);
     }
@@ -358,7 +368,7 @@ export default function FilesPage() {
       await fileService.toggleFavorite(fileId);
       toast.success(currentStatus ? 'Retiré des favoris' : 'Ajouté aux favoris');
       // Recharger les fichiers pour mettre à jour l'état
-      loadContent(folderId);
+      loadContent(folderId, sortBy, sortOrder, activeFilters);
     } catch (error) {
       toast.error('Échec de la modification');
     }
@@ -397,7 +407,7 @@ export default function FilesPage() {
     }
 
     setSorting(newSortBy, newSortOrder);
-    await loadContent(folderId, newSortBy, newSortOrder);
+    await loadContent(folderId, newSortBy, newSortOrder, activeFilters);
   };
 
   const handleCreateShareLink = async () => {
@@ -483,6 +493,20 @@ export default function FilesPage() {
     }
   };
 
+
+  const handleFilterChange = (filters: FilterState) => {
+    setActiveFilters(filters);
+    // loadContent will be triggered by useEffect
+  };
+
+  const handleClearFilters = () => {
+    setActiveFilters({});
+  };
+
+  // ... (existing JSX)
+
+
+
   return (
     <div
       className="relative"
@@ -563,27 +587,33 @@ export default function FilesPage() {
       </div>
 
       {/* Sort Dropdown - Only show when not searching and have files */}
-      {!searchQuery && files.length > 0 && (
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
-          <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par :
-          </label>
-          <select
-            id="sort-select"
-            value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
-            onChange={handleSortChange}
-            className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
-          >
-            <option value="name-asc">Nom (A-Z)</option>
-            <option value="name-desc">Nom (Z-A)</option>
-            <option value="date-desc">Plus récents</option>
-            <option value="date-asc">Plus anciens</option>
-            <option value="size-desc">Plus volumineux</option>
-            <option value="size-asc">Plus petits</option>
-          </select>
-        </div>
-      )}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        {!searchQuery && (
+          <FilterBar onFilterChange={handleFilterChange} onClearFilters={handleClearFilters} />
+        )}
+
+        {!searchQuery && files.length > 0 && (
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 ml-auto">
+            <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Trier par :
+            </label>
+            <select
+              id="sort-select"
+              value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
+              onChange={handleSortChange}
+              className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
+            >
+              <option value="name-asc">Nom (A-Z)</option>
+              <option value="name-desc">Nom (Z-A)</option>
+              <option value="date-desc">Plus récents</option>
+              <option value="date-asc">Plus anciens</option>
+              <option value="size-desc">Plus volumineux</option>
+              <option value="size-asc">Plus petits</option>
+            </select>
+          </div>
+        )}
+      </div>
 
       {isSearching && (
         <div className="flex items-center justify-center py-12">
@@ -693,8 +723,8 @@ export default function FilesPage() {
                     <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4">
                         <button
-                          onClick={() => { 
-                            const enrichedFile = { 
+                          onClick={() => {
+                            const enrichedFile = {
                               ...file,
                               // Copy shared folder permissions to file if they exist
                               ...(file as any)._sharedFolderPermissions && {
@@ -703,8 +733,8 @@ export default function FilesPage() {
                                 canShare: (file as any)._sharedFolderPermissions.canShare,
                               }
                             };
-                            setPreviewFile(enrichedFile); 
-                            setShowPreviewModal(true); 
+                            setPreviewFile(enrichedFile);
+                            setShowPreviewModal(true);
                           }}
                           className="flex items-center space-x-3 hover:opacity-80 transition-opacity group"
                         >
@@ -752,11 +782,10 @@ export default function FilesPage() {
                         <div className="flex items-center justify-end space-x-2">
                           <button
                             onClick={() => handleToggleFavorite(file.id, file.isFavorite)}
-                            className={`p-2 rounded-lg transition-all ${
-                              file.isFavorite
-                                ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            }`}
+                            className={`p-2 rounded-lg transition-all ${file.isFavorite
+                              ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                              }`}
                             title={file.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                           >
                             <Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} />
@@ -771,8 +800,8 @@ export default function FilesPage() {
                             </button>
                           )}
                           <button
-                            onClick={() => { 
-                              const enrichedFile = { 
+                            onClick={() => {
+                              const enrichedFile = {
                                 ...file,
                                 // Copy shared folder permissions to file if they exist
                                 ...(file as any)._sharedFolderPermissions && {
@@ -781,8 +810,8 @@ export default function FilesPage() {
                                   canShare: (file as any)._sharedFolderPermissions.canShare,
                                 }
                               };
-                              setPreviewFile(enrichedFile); 
-                              setShowPreviewModal(true); 
+                              setPreviewFile(enrichedFile);
+                              setShowPreviewModal(true);
                             }}
                             className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                             title="Aperçu"
