@@ -3,6 +3,7 @@ import { FileService } from '../services/fileService';
 import { AuthRequest, FileUploadRequest } from '../types';
 import fs from 'fs';
 import path from 'path';
+import { EncryptionService } from '../services/encryptionService';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response): Promise<void> {
@@ -48,13 +49,22 @@ export class FileController {
   static async listFiles(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { folderId, sortBy, sortOrder } = req.query;
+      const { folderId, sortBy, sortOrder, minSize, maxSize, mimeType, dateFrom, dateTo } = req.query;
+
+      const filters = {
+        minSize: minSize ? Number(minSize) : undefined,
+        maxSize: maxSize ? Number(maxSize) : undefined,
+        mimeType: mimeType ? String(mimeType) : undefined,
+        dateFrom: dateFrom ? new Date(String(dateFrom)) : undefined,
+        dateTo: dateTo ? new Date(String(dateTo)) : undefined,
+      };
 
       const files = await FileService.listFiles(
         userId,
         folderId ? String(folderId) : undefined,
         sortBy ? String(sortBy) : 'createdAt',
-        sortOrder === 'asc' ? 'asc' : 'desc'
+        sortOrder === 'asc' ? 'asc' : 'desc',
+        filters
       );
 
       res.status(200).json({ files });
@@ -146,7 +156,12 @@ export class FileController {
         return;
       }
 
-      res.download(file.storagePath, file.name);
+      // Decrypt and stream
+      res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+      res.setHeader('Content-Type', file.mimeType);
+
+      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      decryptStream.pipe(res);
     } catch (error: any) {
       res.status(404).json({ error: error.message });
     }
@@ -165,31 +180,19 @@ export class FileController {
       }
 
       const stat = fs.statSync(file.storagePath);
-      const fileSize = stat.size;
-      const range = req.headers.range;
+      // Decrypted size is roughly original size (minus IV/AuthTag if stored in file).
+      // We stored IV (16) + Tag (16) = 32 bytes overhead.
+      const fileSize = stat.size - 32;
 
-      if (range) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunksize = end - start + 1;
-        const fileStream = fs.createReadStream(file.storagePath, { start, end });
-        const head = {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunksize,
-          'Content-Type': file.mimeType,
-        };
-        res.writeHead(206, head);
-        fileStream.pipe(res);
-      } else {
-        const head = {
-          'Content-Length': fileSize,
-          'Content-Type': file.mimeType,
-        };
-        res.writeHead(200, head);
-        fs.createReadStream(file.storagePath).pipe(res);
-      }
+      // Support simple streaming (no range for encrypted files in MVP)
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': file.mimeType,
+      };
+      res.writeHead(200, head);
+
+      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      decryptStream.pipe(res);
     } catch (error: any) {
       res.status(404).json({ error: error.message });
     }

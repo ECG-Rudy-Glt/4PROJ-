@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
+
 import passport from './config/passport';
 import rateLimit from 'express-rate-limit';
 
@@ -29,9 +30,17 @@ import mfaRoutes from './routes/mfaRoutes';
 import { startTrashCleanupJob } from './jobs/trashCleanup';
 import { startCleanupJob } from './jobs/cleanupJob';
 
-dotenv.config();
+
+
+import { SocketService } from './services/socketService';
+import { createServer } from 'http';
+
+
+
 
 const app = express();
+const httpServer = createServer(app);
+SocketService.init(httpServer);
 const PORT = parseInt(process.env.PORT || '5001', 10);
 
 // Security middleware
@@ -119,7 +128,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log(`Accessible depuis le réseau local`);
 
