@@ -1,6 +1,6 @@
 import { Search, Moon, Sun, LogOut, User } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileModal from './ProfileModal';
 
@@ -10,6 +10,18 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const navigate = useNavigate();
+
+  // Appliquer le thème au chargement initial et quand user change
+  useEffect(() => {
+    const isDarkMode = user?.theme === 'dark';
+    setIsDark(isDarkMode);
+    
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [user?.theme]);
 
   const toggleTheme = async () => {
     const newTheme = isDark ? 'light' : 'dark';

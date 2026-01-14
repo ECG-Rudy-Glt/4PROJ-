@@ -58,7 +58,7 @@ export const aiService = {
    */
   async analyzeFile(fileId: string, prompt?: string): Promise<AnalyzeFileResponse> {
     const response = await axios.post(
-      `${API_URL}/ai/analyze-file`,
+      `${API_URL}/api/ai/analyze-file`,
       { fileId, prompt },
       { headers: getAuthHeaders() }
     );
@@ -70,7 +70,7 @@ export const aiService = {
    */
   async searchFiles(query: string): Promise<SearchFilesResponse> {
     const response = await axios.post(
-      `${API_URL}/ai/search-files`,
+      `${API_URL}/api/ai/search-files`,
       { query },
       { headers: getAuthHeaders() }
     );
@@ -86,7 +86,7 @@ export const aiService = {
     folderId?: string
   ): Promise<GenerateFileResponse> {
     const response = await axios.post(
-      `${API_URL}/ai/generate-file`,
+      `${API_URL}/api/ai/generate-file`,
       { prompt, fileName, folderId },
       { headers: getAuthHeaders() }
     );

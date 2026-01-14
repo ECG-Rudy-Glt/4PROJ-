@@ -52,7 +52,7 @@ export class AIService {
         const base64Image = imageData.toString('base64');
 
         const response = await this.openai.chat.completions.create({
-          model: 'amazon/nova-2-lite-v1:free',
+          model: 'google/gemini-2.0-flash-exp:free',
           messages: [
             {
               role: 'system',
@@ -85,7 +85,7 @@ export class AIService {
         const fullPrompt = `Voici le contenu d'un fichier PDF :\n\n${text}\n\n${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.`;
 
         const response = await this.openai.chat.completions.create({
-          model: 'amazon/nova-2-lite-v1:free',
+          model: 'google/gemini-2.0-flash-exp:free',
           messages: [
             {
               role: 'system',
@@ -104,7 +104,7 @@ export class AIService {
         const fullPrompt = `Voici le contenu d'un fichier texte :\n\n${textContent}\n\n${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.`;
 
         const response = await this.openai.chat.completions.create({
-          model: 'amazon/nova-2-lite-v1:free',
+          model: 'google/gemini-2.0-flash-exp:free',
           messages: [
             {
               role: 'system',
@@ -159,7 +159,7 @@ export class AIService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'amazon/nova-2-lite-v1:free',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: [
           {
             role: 'system',
@@ -319,7 +319,7 @@ RÈGLES IMPORTANTES :
     try {
       // Générer le contenu avec OpenRouter
       const response = await this.openai.chat.completions.create({
-        model: 'amazon/nova-2-lite-v1:free',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: [{ role: 'user', content: prompt }],
       });
 
@@ -394,7 +394,7 @@ RÈGLES IMPORTANTES :
    */
   async chat(userId: string, message: string, conversationHistory?: any[]): Promise<string> {
     try {
-      console.log('[Bobby] Using model: amazon/nova-2-lite-v1:free');
+      console.log('[Bobby] Using model: google/gemini-2.0-flash-exp:free');
 
       // Définir les fonctions disponibles
       const availableFunctions = [
@@ -443,7 +443,7 @@ Tu peux aider l'utilisateur avec ses fichiers, la recherche, et l'organisation.`
       messages.push({ role: 'user', content: message });
 
       const response = await this.openai.chat.completions.create({
-        model: 'amazon/nova-2-lite-v1:free',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: messages,
         tools: availableFunctions.map((f) => ({ type: 'function', function: f })),
         tool_choice: 'auto',
