@@ -47,7 +47,16 @@ app.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
   next();
 });
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      mediaSrc: ["'self'", "blob:", "data:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+    },
+  },
+}));
 
 // Configure CORS to allow multiple origins
 const allowedOrigins = process.env.FRONTEND_URL

@@ -2,6 +2,7 @@ import { Response, Request } from 'express';
 import { ShareService } from '../services/shareService';
 import { FileService } from '../services/fileService';
 import { AuthRequest } from '../types';
+import { SocketService } from '../services/socketService';
 import fs from 'fs';
 
 export class ShareController {
@@ -146,6 +147,13 @@ export class ShareController {
           canShare,
         }
       );
+
+      // Notification temps réel
+      SocketService.emitToUser(targetUser.id, 'share_received', {
+        type: 'folder',
+        item: sharedFolder,
+        sharedBy: req.user,
+      });
 
       res.status(201).json({ sharedFolder });
     } catch (error: any) {
@@ -402,6 +410,16 @@ export class ShareController {
       const { shareId } = req.params;
 
       const sharedFolder = await ShareService.acceptSharedFolder(shareId, userId);
+
+      // Notification au propriétaire
+      if (sharedFolder.folder.userId) {
+        SocketService.emitToUser(sharedFolder.folder.userId, 'share_accepted', {
+          type: 'folder',
+          item: sharedFolder,
+          acceptedBy: req.user,
+        });
+      }
+
       res.status(200).json({ message: 'Partage accepté', sharedFolder });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -415,6 +433,16 @@ export class ShareController {
       const { shareId } = req.params;
 
       const sharedFile = await ShareService.acceptSharedFile(shareId, userId);
+
+      // Notification au propriétaire
+      if (sharedFile.file.userId) {
+        SocketService.emitToUser(sharedFile.file.userId, 'share_accepted', {
+          type: 'file',
+          item: sharedFile,
+          acceptedBy: req.user,
+        });
+      }
+
       res.status(200).json({ message: 'Partage accepté', sharedFile });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
