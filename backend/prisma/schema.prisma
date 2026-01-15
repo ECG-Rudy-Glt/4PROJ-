@@ -59,6 +59,10 @@ model User {
   mfaSecret     String?   // Secret TOTP encrypté
   mfaBackupCodes String[] // Array de codes de récupération hashés
   mfaSetupAt    DateTime? // Date de configuration du MFA
+  
+  // Sécurité & Sessions
+  tokenVersion  Int       @default(1) // Pour l'invalidation globale des tokens
+  lastActiveAt  DateTime  @default(now()) // Pour le timeout d'inactivité
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

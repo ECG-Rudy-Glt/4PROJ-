@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
+import { activityMiddleware } from './activityMiddleware';
 
 export { AuthRequest };
 
@@ -42,7 +43,9 @@ export const authenticate = async (
     }
 
     req.user = user;
-    next();
+
+    // Check activity / session timeout
+    return activityMiddleware(req, res, next);
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }

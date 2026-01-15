@@ -28,7 +28,13 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+
+      // Check if session expired
+      if (error.response?.data?.code === 'SESSION_EXPIRED') {
+        window.location.href = '/login?expired=true';
+      } else {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

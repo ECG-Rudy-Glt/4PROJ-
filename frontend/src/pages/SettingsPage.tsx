@@ -101,7 +101,7 @@ export default function SettingsPage() {
             Stockage
           </h2>
         </div>
-        
+
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">
@@ -111,20 +111,19 @@ export default function SettingsPage() {
               {formatBytes(quotaLimit)} Go au total
             </span>
           </div>
-          
+
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                quotaPercentage > 90
+              className={`h-full rounded-full transition-all duration-500 ${quotaPercentage > 90
                   ? 'bg-gradient-to-r from-red-500 to-red-600'
                   : quotaPercentage > 70
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
-                  : 'bg-gradient-to-r from-primary-500 to-primary-600'
-              }`}
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                    : 'bg-gradient-to-r from-primary-500 to-primary-600'
+                }`}
               style={{ width: `${Math.min(quotaPercentage, 100)}%` }}
             />
           </div>
-          
+
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {quotaPercentage.toFixed(1)}% de votre stockage est utilisé
             {quotaPercentage > 90 && (
@@ -156,19 +155,17 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
-          
+
           <button
             onClick={handleThemeToggle}
-            className={`relative w-16 h-8 rounded-full transition-all duration-300 ${
-              isDark 
-                ? 'bg-primary-600' 
+            className={`relative w-16 h-8 rounded-full transition-all duration-300 ${isDark
+                ? 'bg-primary-600'
                 : 'bg-gray-300 dark:bg-gray-600'
-            }`}
+              }`}
           >
             <div
-              className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 flex items-center justify-center ${
-                isDark ? 'left-9' : 'left-1'
-              }`}
+              className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 flex items-center justify-center ${isDark ? 'left-9' : 'left-1'
+                }`}
             >
               {isDark ? (
                 <Moon className="w-4 h-4 text-primary-600" />
@@ -190,7 +187,7 @@ export default function SettingsPage() {
             Informations du profil
           </h2>
         </div>
-        
+
         <form onSubmit={handleProfileUpdate} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -251,7 +248,7 @@ export default function SettingsPage() {
             Sécurité
           </h2>
         </div>
-        
+
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -307,6 +304,34 @@ export default function SettingsPage() {
             Modifier le mot de passe
           </button>
         </form>
+
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Sessions actives
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Si vous pensez que votre compte est compromis, vous pouvez vous déconnecter de tous les autres appareils.
+          </p>
+          <button
+            onClick={async () => {
+              if (confirm('Êtes-vous sûr de vouloir vous déconnecter de tous les appareils ?')) {
+                try {
+                  await authService.logoutAll();
+                  toast.success('Déconnecté de tous les appareils');
+                  setTimeout(() => {
+                    window.location.href = '/login';
+                  }, 1000);
+                } catch (error) {
+                  toast.error('Erreur lors de la déconnexion globale');
+                }
+              }
+            }}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center gap-2"
+          >
+            <Shield className="w-4 h-4" />
+            Se déconnecter de tous les appareils
+          </button>
+        </div>
       </div>
 
       {/* MFA Section */}
@@ -325,7 +350,7 @@ export default function SettingsPage() {
             Informations du compte
           </h2>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">ID du compte</p>

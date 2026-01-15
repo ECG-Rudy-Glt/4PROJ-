@@ -33,7 +33,7 @@ export class AuthService {
     });
 
     // Generate token
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.tokenVersion);
 
     // Send welcome email
     try {
@@ -74,8 +74,14 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
+    // Update lastActiveAt on login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastActiveAt: new Date() }
+    });
+
     // Generate token
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.tokenVersion);
 
     return {
       user: {
@@ -90,6 +96,15 @@ export class AuthService {
       },
       token,
     };
+  }
+
+  static async logoutGlobal(userId: string) {
+    // Increment token version to invalidate all existing tokens
+    await prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } }
+    });
+    return { message: 'Déconnecté de tous les appareils' };
   }
 
   static async updateProfile(

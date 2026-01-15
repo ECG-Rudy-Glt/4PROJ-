@@ -27,6 +27,9 @@ router.post(
   AuthController.login
 );
 
+// Global Logout
+router.post('/logout-all', authenticate, AuthController.logoutAll);
+
 // Profile
 router.get('/profile', authenticate, AuthController.getProfile);
 router.put('/profile', authenticate, AuthController.updateProfile);

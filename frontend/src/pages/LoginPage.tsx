@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
@@ -16,6 +16,15 @@ export default function LoginPage() {
   const [showMFASetupModal, setShowMFASetupModal] = useState(false);
   const [showBackupCodesModal, setShowBackupCodesModal] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('expired') === 'true') {
+      toast.error('Votre session a expiré. Veuillez vous reconnecter.');
+      // Clean URL
+      window.history.replaceState({}, '', '/login');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

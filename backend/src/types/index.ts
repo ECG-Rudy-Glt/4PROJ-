@@ -13,6 +13,7 @@ export interface FileUploadRequest extends AuthRequest {
 export interface JWTPayload {
   userId: string;
   email: string;
+  tokenVersion?: number;
 }
 
 export interface OAuth2Profile {

@@ -21,6 +21,10 @@ passport.use(
       });
 
       if (user) {
+        // Validation du token version (Logout global)
+        if (payload.tokenVersion && user.tokenVersion !== payload.tokenVersion) {
+          return done(null, false, { message: 'Token invalide (version mismatch)' });
+        }
         return done(null, user);
       }
       return done(null, false);
