@@ -27,7 +27,6 @@ import aiRoutes from './routes/aiRoutes';
 import mfaRoutes from './routes/mfaRoutes';
 
 // Jobs
-import { startTrashCleanupJob } from './jobs/trashCleanup';
 import { startCleanupJob } from './jobs/cleanupJob';
 
 
@@ -44,6 +43,10 @@ SocketService.init(httpServer);
 const PORT = parseInt(process.env.PORT || '5001', 10);
 
 // Security middleware
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.originalUrl}`);
+  next();
+});
 app.use(helmet());
 
 // Configure CORS to allow multiple origins
@@ -128,12 +131,16 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+import { CronService } from './services/cronService';
+
+// ... (other imports)
+
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log(`Accessible depuis le réseau local`);
 
   // Démarrer les jobs de nettoyage automatique
-  startTrashCleanupJob();
+  CronService.init();
   startCleanupJob();
 });
 

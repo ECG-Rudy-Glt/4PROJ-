@@ -7,6 +7,7 @@ import { VersionService } from './versionService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { EncryptionService } from './encryptionService';
+import { PlanService } from './planService';
 
 export class FileService {
   // Fonction pour déterminer la catégorie basée sur le mimeType
@@ -81,16 +82,10 @@ export class FileService {
     storagePath: string,
     folderId?: string
   ) {
-    // Check quota
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    // Check quota via PlanService
+    const hasSpace = await PlanService.checkQuota(userId, size);
 
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    if (BigInt(user.quotaUsed) + BigInt(size) > BigInt(user.quotaLimit)) {
+    if (!hasSpace) {
       // Delete uploaded file if quota exceeded
       await deleteFile(storagePath);
       throw new Error('Quota exceeded');
@@ -122,13 +117,8 @@ export class FileService {
       },
     });
 
-    // Update user quota
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        quotaUsed: BigInt(user.quotaUsed) + BigInt(size),
-      },
-    });
+    // Update user quota via PlanService
+    await PlanService.updateQuotaUsed(userId, size);
 
     // Audit log
     await AuditService.createLog(userId, 'UPLOAD', {
@@ -136,6 +126,7 @@ export class FileService {
       fileId: file.id,
       folderId: folderId,
     });
+
 
     // Emit socket event
     SocketService.emitToUser(userId, 'file_uploaded', file);
@@ -400,14 +391,7 @@ export class FileService {
       });
 
       // Update user quota
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          quotaUsed: {
-            decrement: file.size,
-          },
-        },
-      });
+      await PlanService.updateQuotaUsed(userId, -Number(file.size));
     } else {
       // Move to trash
       await prisma.file.update({
@@ -657,5 +641,24 @@ export class FileService {
       files: sharedFiles,
     };
   }
-}
 
+  static async incrementViewCount(fileId: string) {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: {
+        views: { increment: 1 },
+        lastAccessedAt: new Date(),
+      },
+    });
+  }
+
+  static async incrementDownloadCount(fileId: string) {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: {
+        downloads: { increment: 1 },
+        lastAccessedAt: new Date(),
+      },
+    });
+  }
+}

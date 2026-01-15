@@ -8,6 +8,7 @@ import {
   Cloud,
   FileStack,
   Star,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -20,6 +21,7 @@ export default function Sidebar() {
     { to: '/favorites', icon: Star, label: 'Favoris', section: 'main' },
     { to: '/shared', icon: Share2, label: 'Partagés', section: 'secondary' },
     { to: '/trash', icon: Trash2, label: 'Corbeille', section: 'secondary' },
+    { to: '/plans', icon: CreditCard, label: 'Plans & Tarifs', section: 'bottom' },
     { to: '/settings', icon: Settings, label: 'Paramètres', section: 'bottom' },
   ];
 
@@ -70,10 +72,9 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                    ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`
                 }
               >
@@ -97,10 +98,9 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                    ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`
                 }
               >
@@ -152,10 +152,9 @@ export default function Sidebar() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-700/30'
+                `relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${isActive
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-700/30'
                 }`
               }
             >

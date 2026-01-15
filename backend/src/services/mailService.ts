@@ -76,4 +76,15 @@ export class MailService {
             text,
         });
     }
+
+    static async sendExpirationAlert(to: string, name: string, itemName: string, daysLeft: number, link: string) {
+        const subject = `Attention : Votre partage "${itemName}" expire dans ${daysLeft} jour(s)`;
+        const text = `Bonjour ${name},\n\nVotre lien de partage pour "${itemName}" va expirer dans ${daysLeft} jour(s).\n\nAprès cette date, le lien ne sera plus accessible.\n\nVous pouvez gérer vos partages ici : ${link}\n\nCordialement,\nL'équipe SupFile`;
+
+        return this.sendMail({
+            to,
+            subject,
+            text,
+        });
+    }
 }

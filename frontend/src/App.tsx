@@ -12,6 +12,7 @@ import FavoritesPage from './pages/FavoritesPage';
 import SharedPage from './pages/SharedPage';
 import TrashPage from './pages/TrashPage';
 import SettingsPage from './pages/SettingsPage';
+import PlansPage from './pages/PlansPage';
 import SharedLinkPage from './pages/SharedLinkPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 
@@ -46,6 +47,7 @@ function App() {
           <Route path="/shared" element={<SharedPage />} />
           <Route path="/trash" element={<TrashPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/plans" element={<PlansPage />} />
         </Route>
       </Route>
     </Routes>

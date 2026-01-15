@@ -178,19 +178,25 @@ export class AuthController {
         where: { id: userId },
         include: {
           files: {
+            where: { isDeleted: false },
             select: {
               id: true,
               name: true,
               size: true,
               mimeType: true,
+              storagePath: true,
               createdAt: true,
               updatedAt: true,
+              isFavorite: true,
+              folderId: true,
             },
           },
           folders: {
             select: {
               id: true,
               name: true,
+              path: true,
+              parentId: true,
               createdAt: true,
               updatedAt: true,
             },
@@ -199,6 +205,9 @@ export class AuthController {
             select: {
               id: true,
               token: true,
+              fileId: true,
+              folderId: true,
+              downloads: true,
               expiresAt: true,
               createdAt: true,
             },
@@ -213,6 +222,15 @@ export class AuthController {
               lastUsedAt: true,
             },
           },
+          auditLogs: {
+            orderBy: { createdAt: 'desc' },
+            take: 1000, // Limite raisonnable
+            select: {
+              action: true,
+              details: true,
+              createdAt: true,
+            },
+          },
         },
       });
 
@@ -221,97 +239,98 @@ export class AuthController {
         return;
       }
 
-      // Formater les tailles de fichiers en GB
-      const formatBytes = (bytes: bigint) => {
-        const gb = Number(bytes) / (1024 * 1024 * 1024);
-        return `${gb.toFixed(2)} GB`;
-      };
+      // Configuration de la réponse pour le téléchargement ZIP
+      const filename = `supfile-export-${new Date().toISOString().split('T')[0]}.zip`;
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
-      // Préparer les données pour l'export (supprimer les champs sensibles)
-      const exportData = {
-        exportMetadata: {
-          exportDate: new Date().toISOString(),
-          exportVersion: '1.0',
-          platform: 'SUPFILE - Stockage Cloud Sécurisé',
-        },
-        userProfile: {
-          userId: user.id,
-          email: user.email,
-          personalInfo: {
-            firstName: user.firstName || 'Non renseigné',
-            lastName: user.lastName || 'Non renseigné',
-          },
-          preferences: {
-            theme: user.theme,
-          },
-          storage: {
-            quotaUsed: formatBytes(user.quotaUsed),
-            quotaUsedBytes: user.quotaUsed.toString(),
-            quotaLimit: formatBytes(user.quotaLimit),
-            quotaLimitBytes: user.quotaLimit.toString(),
-            percentageUsed: `${((Number(user.quotaUsed) / Number(user.quotaLimit)) * 100).toFixed(2)}%`,
-          },
-          accountCreatedAt: user.createdAt.toISOString(),
-          lastUpdatedAt: user.updatedAt.toISOString(),
-        },
-        security: {
-          multiFactorAuthentication: {
-            enabled: user.mfaEnabled,
-            setupDate: user.mfaSetupAt?.toISOString() || null,
-          },
-          trustedDevices: {
-            count: user.trustedDevices.length,
-            devices: user.trustedDevices.map(device => ({
-              deviceName: device.deviceName,
-              ipAddress: device.ipAddress,
-              addedAt: device.createdAt.toISOString(),
-              expiresAt: device.expiresAt.toISOString(),
-              lastUsedAt: device.lastUsedAt.toISOString(),
-            })),
-          },
-        },
-        files: {
-          totalCount: user.files.length,
-          items: user.files.map(file => ({
-            name: file.name,
-            size: `${(Number(file.size) / (1024 * 1024)).toFixed(2)} MB`,
-            sizeBytes: file.size.toString(),
-            type: file.mimeType,
-            createdAt: file.createdAt.toISOString(),
-            lastModifiedAt: file.updatedAt.toISOString(),
-          })),
-        },
-        folders: {
-          totalCount: user.folders.length,
-          items: user.folders.map(folder => ({
-            name: folder.name,
-            createdAt: folder.createdAt.toISOString(),
-            lastModifiedAt: folder.updatedAt.toISOString(),
-          })),
-        },
-        sharedLinks: {
-          totalCount: user.sharedLinks.length,
-          items: user.sharedLinks.map(link => ({
-            token: link.token,
-            createdAt: link.createdAt.toISOString(),
-            expiresAt: link.expiresAt?.toISOString() || 'Jamais',
-          })),
-        },
-      };
+      // Création de l'archive ZIP
+      const archive = require('archiver')('zip', {
+        zlib: { level: 9 }, // Compression maximale
+      });
 
-      // Convertir en JSON avec indentation pour meilleure lisibilité
-      const jsonString = JSON.stringify(exportData, null, 2);
+      archive.on('error', (err: any) => {
+        throw err;
+      });
 
-      // Retourner les données en JSON formaté
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="supfile-export-${new Date().toISOString().split('T')[0]}.json"`
-      );
-      res.send(jsonString);
+      archive.pipe(res);
+
+      // Helper pour convertir en CSV
+      const { stringify } = require('csv-stringify/sync');
+
+      // 1. Profil Utilisateur (CSV)
+      const profileData = [{
+        ID: user.id,
+        Email: user.email,
+        Prenom: user.firstName || '',
+        Nom: user.lastName || '',
+        QuotaUtilise: user.quotaUsed.toString(),
+        QuotaLimite: user.quotaLimit.toString(),
+        MFA_Active: user.mfaEnabled ? 'Oui' : 'Non',
+        DateCreation: user.createdAt.toISOString(),
+      }];
+      archive.append(stringify(profileData, { header: true }), { name: 'Profil.csv' });
+
+      // 2. Fichiers (CSV)
+      const filesData = user.files.map(f => ({
+        ID: f.id,
+        Nom: f.name,
+        Taille: f.size.toString(),
+        Type: f.mimeType,
+        DossierID: f.folderId || 'Racine',
+        Favori: f.isFavorite ? 'Oui' : 'Non',
+        DateCreation: f.createdAt.toISOString(),
+        DerniereModif: f.updatedAt.toISOString(),
+      }));
+      archive.append(stringify(filesData, { header: true }), { name: 'Fichiers.csv' });
+
+      // 3. Dossiers (CSV)
+      const foldersData = user.folders.map(f => ({
+        ID: f.id,
+        Nom: f.name,
+        Chemin: f.path,
+        ParentID: f.parentId || 'Racine',
+        DateCreation: f.createdAt.toISOString(),
+      }));
+      archive.append(stringify(foldersData, { header: true }), { name: 'Dossiers.csv' });
+
+      // 4. Liens de partage (CSV)
+      const linksData = user.sharedLinks.map(l => ({
+        Token: l.token,
+        Type: l.fileId ? 'Fichier' : 'Dossier',
+        ID_Objet: l.fileId || l.folderId,
+        Telechargements: l.downloads,
+        Expiration: l.expiresAt ? l.expiresAt.toISOString() : 'Jamais',
+        DateCreation: l.createdAt.toISOString(),
+      }));
+      archive.append(stringify(linksData, { header: true }), { name: 'Partages.csv' });
+
+      // 5. Appareils de confiance (CSV)
+      const devicesData = user.trustedDevices.map(d => ({
+        Nom: d.deviceName,
+        IP: d.ipAddress,
+        DerniereUtilisation: d.lastUsedAt.toISOString(),
+        Expiration: d.expiresAt.toISOString(),
+      }));
+      archive.append(stringify(devicesData, { header: true }), { name: 'Appareils.csv' });
+
+      // 6. Historique d'activité (CSV)
+      const logsData = user.auditLogs.map(l => ({
+        Action: l.action,
+        Details: l.details || '',
+        Date: l.createdAt.toISOString(),
+      }));
+      archive.append(stringify(logsData, { header: true }), { name: 'Activite.csv' });
+
+      // Finaliser l'archive
+      await archive.finalize();
+
     } catch (error: any) {
       console.error('Error exporting user data:', error);
-      res.status(500).json({ error: error.message });
+      // Si les headers n'ont pas encore été envoyés, on peut renvoyer une erreur JSON
+      if (!res.headersSent) {
+        res.status(500).json({ error: error.message });
+      }
     }
   }
 }

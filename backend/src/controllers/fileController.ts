@@ -40,6 +40,9 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
+      // Increment view count (async, don't wait)
+      FileService.incrementViewCount(fileId).catch(console.error);
+
       res.status(200).json({ file });
     } catch (error: any) {
       res.status(404).json({ error: error.message });
@@ -156,6 +159,9 @@ export class FileController {
         return;
       }
 
+      // Increment download count
+      FileService.incrementDownloadCount(fileId).catch(console.error);
+
       // Decrypt and stream
       res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
       res.setHeader('Content-Type', file.mimeType);
@@ -178,6 +184,9 @@ export class FileController {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
+
+      // Increment view count for streams/previews
+      FileService.incrementViewCount(fileId).catch(console.error);
 
       const stat = fs.statSync(file.storagePath);
       // Decrypted size is roughly original size (minus IV/AuthTag if stored in file).

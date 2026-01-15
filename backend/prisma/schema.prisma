@@ -145,6 +145,11 @@ model File {
 
   storagePath  String   @unique // Lien vers Docker
 
+  // Analytics
+  views        Int      @default(0)
+  downloads    Int      @default(0)
+  lastAccessedAt DateTime @default(now())
+
   // Nouveau : Pour la prévisualisation & média
   thumbnailPath String? // Lien vers la miniature
   category      String? // 'image', 'video', 'doc', 'audio', 'other' (Pour le graph du Dashboard)
