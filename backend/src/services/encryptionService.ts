@@ -9,7 +9,8 @@ const ALGORITHM = 'aes-256-gcm';
 
 export class EncryptionService {
     private static getKey(): Buffer {
-        const secret = process.env.MFA_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
+        // Use a separate key for files. Default matches the legacy key to keep old files readable.
+        const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
         return crypto.createHash('sha256').update(secret).digest();
     }
 

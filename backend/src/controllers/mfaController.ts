@@ -14,16 +14,7 @@ function generateTempToken(userId: string): string {
   return jwt.sign({ userId, temp: true }, JWT_SECRET, { expiresIn: TEMP_TOKEN_EXPIRY });
 }
 
-/**
- * Génère un token permanent après authentification réussie
- */
-function generateToken(user: any): string {
-  return jwt.sign(
-    { userId: user.id, email: user.email },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-}
+import { generateToken } from '../utils/jwt';
 
 /**
  * Contrôleur MFA
@@ -95,7 +86,8 @@ export class MFAController {
       }
 
       // Générer un token permanent
-      const authToken = generateToken(user);
+      // @ts-ignore
+      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
 
       res.json({
         message: 'MFA activé avec succès',
@@ -138,15 +130,17 @@ export class MFAController {
         select: {
           id: true,
           email: true,
-          firstName: true,
           lastName: true,
           avatar: true,
           theme: true,
+          // @ts-ignore
+          tokenVersion: true,
         },
       });
 
       // Générer un token permanent
-      const authToken = generateToken(user);
+      // @ts-ignore
+      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
 
       res.json({
         message: 'Authentification réussie',
@@ -190,15 +184,17 @@ export class MFAController {
         select: {
           id: true,
           email: true,
-          firstName: true,
           lastName: true,
           avatar: true,
           theme: true,
+          // @ts-ignore
+          tokenVersion: true,
         },
       });
 
       // Générer un token permanent
-      const authToken = generateToken(user);
+      // @ts-ignore
+      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
 
       // Vérifier le nombre de codes restants
       const remainingCodes = await mfaService.getRemainingBackupCodesCount(userId);
@@ -210,8 +206,8 @@ export class MFAController {
         warning: remainingCodes === 0
           ? 'Vous avez utilisé votre dernier code de récupération. Veuillez en générer de nouveaux.'
           : remainingCodes < 3
-          ? `Il vous reste ${remainingCodes} code(s) de récupération.`
-          : null,
+            ? `Il vous reste ${remainingCodes} code(s) de récupération.`
+            : null,
       });
     } catch (error: any) {
       console.error('Error in verifyBackupCode:', error);
