@@ -39,6 +39,7 @@ import { DocumentEditor } from '@/components/DocumentEditor';
 import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -103,6 +104,7 @@ export default function FilesPage() {
   const navigate = useNavigate();
   const searchQuery = searchParams.get('search');
   const { files, folders, loadContent, createFolder, deleteFile, sortBy, sortOrder, setSorting } = useFileStore();
+  const { user, loadUser } = useAuthStore();
 
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbType[]>([]);
   const [searchResults, setSearchResults] = useState<File[]>([]);
@@ -228,13 +230,55 @@ export default function FilesPage() {
   const startUpload = async (filesToUpload: globalThis.File[]) => {
     uploadCancelledRef.current = false;
 
-    // Initialize uploading files state
-    const initialFiles: UploadingFile[] = filesToUpload.map((file, index) => ({
-      id: `${Date.now()}-${index}`,
-      file,
-      progress: 0,
-      status: 'pending' as const,
-    }));
+    // Vérification du quota AVANT l'upload
+    const quotaUsed = user?.quotaUsed || 0;
+    const quotaLimit = user?.quotaLimit || 0;
+    const availableSpace = quotaLimit - quotaUsed;
+
+    // Calculer la taille totale des fichiers à uploader
+    const totalUploadSize = filesToUpload.reduce((sum, file) => sum + file.size, 0);
+
+    // Vérifier si l'espace disponible est suffisant pour TOUS les fichiers
+    if (totalUploadSize > availableSpace) {
+      const formatSize = (bytes: number) => {
+        if (bytes === 0) return '0 o';
+        const k = 1024;
+        const sizes = ['o', 'Ko', 'Mo', 'Go'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+      };
+
+      toast.error(
+        `Espace insuffisant. Vous avez ${formatSize(availableSpace)} disponible mais les fichiers font ${formatSize(totalUploadSize)}.`,
+        { duration: 5000 }
+      );
+      return;
+    }
+
+    // Initialize uploading files state avec vérification individuelle du quota
+    let runningQuotaUsed = quotaUsed;
+    const initialFiles: UploadingFile[] = filesToUpload.map((file, index) => {
+      const wouldExceedQuota = (runningQuotaUsed + file.size) > quotaLimit;
+
+      if (!wouldExceedQuota) {
+        runningQuotaUsed += file.size;
+      }
+
+      return {
+        id: `${Date.now()}-${index}`,
+        file,
+        progress: 0,
+        status: wouldExceedQuota ? 'error' as const : 'pending' as const,
+        error: wouldExceedQuota ? 'Quota dépassé - espace insuffisant' : undefined,
+      };
+    });
+
+    // Vérifier s'il y a des fichiers valides à uploader
+    const validFiles = initialFiles.filter(f => f.status === 'pending');
+    if (validFiles.length === 0) {
+      toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
+      return;
+    }
 
     setUploadingFiles(initialFiles);
     setShowUploadModal(true);
@@ -244,6 +288,7 @@ export default function FilesPage() {
 
     const uploadFile = async (uploadingFile: UploadingFile) => {
       if (uploadCancelledRef.current) return;
+      if (uploadingFile.status === 'error') return; // Skip files already marked as error
 
       // Set current file to uploading
       setUploadingFiles(prev => prev.map(f =>
@@ -266,27 +311,34 @@ export default function FilesPage() {
           f.id === uploadingFile.id ? { ...f, status: 'success' as const, progress: 100 } : f
         ));
       } catch (error: any) {
+        // Gérer spécifiquement l'erreur de quota
+        const errorMessage = error.response?.data?.code === 'QUOTA_EXCEEDED'
+          ? 'Quota dépassé - espace insuffisant'
+          : error.response?.data?.error || error.response?.data?.message || 'Échec du téléversement';
+
         // Mark as error
         setUploadingFiles(prev => prev.map(f =>
           f.id === uploadingFile.id ? {
             ...f,
             status: 'error' as const,
-            error: error.response?.data?.error || 'Échec du téléversement'
+            error: errorMessage
           } : f
         ));
       }
     };
 
-    // Process uploads in batches
-    for (let i = 0; i < initialFiles.length; i += CONCURRENT_UPLOADS) {
+    // Process uploads in batches (only pending files)
+    const pendingFiles = initialFiles.filter(f => f.status === 'pending');
+    for (let i = 0; i < pendingFiles.length; i += CONCURRENT_UPLOADS) {
       if (uploadCancelledRef.current) break;
 
-      const batch = initialFiles.slice(i, i + CONCURRENT_UPLOADS);
+      const batch = pendingFiles.slice(i, i + CONCURRENT_UPLOADS);
       await Promise.all(batch.map(file => uploadFile(file)));
     }
 
-    // Reload content after all uploads
+    // Reload content and user data after all uploads to update quota
     await loadContent(folderId, sortBy, sortOrder, activeFilters);
+    await loadUser(); // Refresh user data to update quota display
   };
 
   const handleCancelUpload = () => {
