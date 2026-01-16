@@ -36,13 +36,25 @@ export default function SettingsPage() {
   const handleThemeToggle = async () => {
     const newTheme = isDark ? 'light' : 'dark';
     setIsDark(!isDark);
+
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
     try {
       await updateProfile({ theme: newTheme });
-      document.documentElement.classList.toggle('dark');
       toast.success(`Mode ${newTheme === 'dark' ? 'sombre' : 'clair'} activé`);
     } catch (error) {
       toast.error('Échec de la mise à jour du thème');
       setIsDark(isDark); // Revert on error
+      // Revert DOM class on error
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   };
 
