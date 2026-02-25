@@ -52,6 +52,7 @@ export class AuthService {
         quotaUsed: Number(user.quotaUsed),
         quotaLimit: Number(user.quotaLimit),
         theme: user.theme,
+        createdAt: user.createdAt,
       },
       token,
     };
@@ -93,6 +94,7 @@ export class AuthService {
         quotaUsed: Number(user.quotaUsed),
         quotaLimit: Number(user.quotaLimit),
         theme: user.theme,
+        createdAt: user.createdAt,
       },
       token,
     };
@@ -130,6 +132,7 @@ export class AuthService {
       quotaUsed: Number(user.quotaUsed),
       quotaLimit: Number(user.quotaLimit),
       theme: user.theme,
+      createdAt: user.createdAt,
     };
   }
 
