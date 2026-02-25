@@ -49,6 +49,7 @@ describe('AuthService', () => {
         id: '1',
         email: 'test@example.com',
         password: 'hashedpassword',
+        accountStatus: 'ACTIVE',
         tokenVersion: 1,
         quotaUsed: BigInt(0),
         quotaLimit: BigInt(104857600),
