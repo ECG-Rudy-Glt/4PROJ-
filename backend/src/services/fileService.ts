@@ -73,6 +73,40 @@ export class FileService {
     return newName;
   }
 
+  static async createFiles(
+    userId: string,
+    files: Express.Multer.File[],
+    folderId?: string
+  ) {
+    const createdFiles: any[] = [];
+    const errors: Array<{ fileName: string; error: string }> = [];
+
+    for (const uploadedFile of files) {
+      try {
+        const createdFile = await this.createFile(
+          userId,
+          uploadedFile.originalname,
+          uploadedFile.originalname,
+          uploadedFile.mimetype,
+          uploadedFile.size,
+          uploadedFile.path,
+          folderId
+        );
+        createdFiles.push(createdFile);
+      } catch (error: any) {
+        // Best effort cleanup if file processing failed before deletion
+        await deleteFile(uploadedFile.path).catch(() => undefined);
+
+        errors.push({
+          fileName: uploadedFile.originalname,
+          error: error?.message || 'Upload failed',
+        });
+      }
+    }
+
+    return { files: createdFiles, errors };
+  }
+
   static async createFile(
     userId: string,
     name: string,

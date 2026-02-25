@@ -20,7 +20,9 @@ export type AuditAction =
   | 'COMMENT_ADD'
   | 'COMMENT_DELETE'
   | 'VERSION_RESTORE'
-  | 'VERSION_DELETE';
+  | 'VERSION_DELETE'
+  | 'ADMIN_PLAN_CHANGE'
+  | 'PLAN_DOWNGRADE';
 
 export interface AuditDetails {
   fileName?: string;

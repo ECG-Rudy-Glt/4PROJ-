@@ -119,6 +119,11 @@ export default function FilesPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const uploadCancelledRef = useRef(false);
+  const uploadingFilesRef = useRef<UploadingFile[]>([]);
+  const isQueueProcessingRef = useRef(false);
+  const activeUploadControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const folderUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const CONCURRENT_UPLOADS = 3;
 
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -202,6 +207,17 @@ export default function FilesPage() {
     }
   }, [files, searchParams, navigate]);
 
+  useEffect(() => {
+    uploadingFilesRef.current = uploadingFiles;
+  }, [uploadingFiles]);
+
+  useEffect(() => {
+    return () => {
+      activeUploadControllersRef.current.forEach((controller) => controller.abort());
+      activeUploadControllersRef.current.clear();
+    };
+  }, []);
+
 
   const loadBreadcrumbs = async (folderId: string) => {
     try {
@@ -224,64 +240,209 @@ export default function FilesPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
+  const collectFilesFromEntry = async (entry: any): Promise<globalThis.File[]> => {
+    if (!entry) return [];
 
-    await startUpload(Array.from(selectedFiles));
-    e.target.value = ''; // Reset input
+    if (entry.isFile) {
+      return new Promise((resolve) => {
+        entry.file(
+          (file: globalThis.File) => resolve([file]),
+          () => resolve([])
+        );
+      });
+    }
+
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const entries: any[] = [];
+
+      while (true) {
+        const batch = await new Promise<any[]>((resolve) => {
+          reader.readEntries(resolve, () => resolve([]));
+        });
+
+        if (batch.length === 0) {
+          break;
+        }
+        entries.push(...batch);
+      }
+
+      const nestedFiles = await Promise.all(entries.map((child) => collectFilesFromEntry(child)));
+      return nestedFiles.flat();
+    }
+
+    return [];
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+  const extractDroppedFiles = async (e: React.DragEvent): Promise<globalThis.File[]> => {
+    const items = Array.from(e.dataTransfer.items || []);
+    if (items.length === 0) {
+      return Array.from(e.dataTransfer.files || []);
+    }
 
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    if (droppedFiles.length === 0) return;
+    const groupedFiles = await Promise.all(
+      items.map(async (item) => {
+        const withEntry = item as DataTransferItem & {
+          webkitGetAsEntry?: () => any;
+        };
+        const entry = withEntry.webkitGetAsEntry ? withEntry.webkitGetAsEntry() : null;
 
-    await startUpload(droppedFiles);
+        if (entry) {
+          return await collectFilesFromEntry(entry);
+        }
+
+        const file = item.getAsFile();
+        return file ? [file] : [];
+      })
+    );
+
+    const flattened = groupedFiles.flat();
+    if (flattened.length > 0) {
+      return flattened;
+    }
+
+    return Array.from(e.dataTransfer.files || []);
   };
 
-  const startUpload = async (filesToUpload: globalThis.File[]) => {
-    uploadCancelledRef.current = false;
-
-    // Vérification du quota AVANT l'upload
-    const quotaUsed = user?.quotaUsed || 0;
-    const quotaLimit = user?.quotaLimit || 0;
-    const availableSpace = quotaLimit - quotaUsed;
-
-    // Calculer la taille totale des fichiers à uploader
-    const totalUploadSize = filesToUpload.reduce((sum, file) => sum + file.size, 0);
-
-    // Vérifier si l'espace disponible est suffisant pour TOUS les fichiers
-    if (totalUploadSize > availableSpace) {
-      const formatSize = (bytes: number) => {
-        if (bytes === 0) return '0 o';
-        const k = 1024;
-        const sizes = ['o', 'Ko', 'Mo', 'Go'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
-      };
-
-      toast.error(
-        `Espace insuffisant. Vous avez ${formatSize(availableSpace)} disponible mais les fichiers font ${formatSize(totalUploadSize)}.`,
-        { duration: 5000 }
-      );
+  const uploadSingleFile = async (uploadingFile: UploadingFile): Promise<void> => {
+    if (uploadCancelledRef.current || uploadingFile.status !== 'pending') {
       return;
     }
 
-    // Initialize uploading files state avec vérification individuelle du quota
-    let runningQuotaUsed = quotaUsed;
-    const initialFiles: UploadingFile[] = filesToUpload.map((file, index) => {
-      const wouldExceedQuota = (runningQuotaUsed + file.size) > quotaLimit;
+    setUploadingFiles((prev) => {
+      const next = prev.map((file) =>
+        file.id === uploadingFile.id
+          ? { ...file, status: 'uploading' as const, error: undefined }
+          : file
+      );
+      uploadingFilesRef.current = next;
+      return next;
+    });
+
+    const controller = new AbortController();
+    activeUploadControllersRef.current.set(uploadingFile.id, controller);
+
+    try {
+      await fileService.uploadFile(
+        uploadingFile.file,
+        folderId,
+        (progress) => {
+          setUploadingFiles((prev) => {
+            const next = prev.map((file) =>
+              file.id === uploadingFile.id ? { ...file, progress } : file
+            );
+            uploadingFilesRef.current = next;
+            return next;
+          });
+        },
+        controller.signal
+      );
+
+      setUploadingFiles((prev) => {
+        const next = prev.map((file) =>
+          file.id === uploadingFile.id
+            ? { ...file, status: 'success' as const, progress: 100 }
+            : file
+        );
+        uploadingFilesRef.current = next;
+        return next;
+      });
+    } catch (error: any) {
+      const cancelled = error?.code === 'ERR_CANCELED';
+      const errorMessage = cancelled
+        ? 'Téléversement annulé'
+        : error.response?.data?.code === 'QUOTA_EXCEEDED'
+          ? 'Quota dépassé - espace insuffisant'
+          : error.response?.data?.error || error.response?.data?.message || 'Échec du téléversement';
+
+      setUploadingFiles((prev) => {
+        const next = prev.map((file) =>
+          file.id === uploadingFile.id
+            ? {
+              ...file,
+              status: 'error' as const,
+              error: errorMessage,
+            }
+            : file
+        );
+        uploadingFilesRef.current = next;
+        return next;
+      });
+    } finally {
+      activeUploadControllersRef.current.delete(uploadingFile.id);
+    }
+  };
+
+  const processUploadQueue = async () => {
+    if (isQueueProcessingRef.current) {
+      return;
+    }
+
+    isQueueProcessingRef.current = true;
+    uploadCancelledRef.current = false;
+
+    try {
+      while (!uploadCancelledRef.current) {
+        const snapshot = uploadingFilesRef.current;
+        const uploadingCount = snapshot.filter((file) => file.status === 'uploading').length;
+        const pendingFiles = snapshot.filter((file) => file.status === 'pending');
+
+        if (pendingFiles.length === 0) {
+          if (uploadingCount === 0) {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          continue;
+        }
+
+        const availableSlots = Math.max(0, CONCURRENT_UPLOADS - uploadingCount);
+        if (availableSlots === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          continue;
+        }
+
+        const nextBatch = pendingFiles.slice(0, availableSlots);
+        await Promise.all(nextBatch.map((file) => uploadSingleFile(file)));
+      }
+    } finally {
+      isQueueProcessingRef.current = false;
+    }
+
+    if (uploadCancelledRef.current) {
+      return;
+    }
+
+    const hasPendingAfterLoop = uploadingFilesRef.current.some((file) => file.status === 'pending');
+    if (hasPendingAfterLoop) {
+      void processUploadQueue();
+      return;
+    }
+
+    await loadContent(folderId, sortBy, sortOrder, activeFilters);
+    await loadUser();
+  };
+
+  const enqueueUpload = (filesToUpload: globalThis.File[]) => {
+    if (filesToUpload.length === 0) {
+      return;
+    }
+
+    const quotaUsed = user?.quotaUsed || 0;
+    const quotaLimit = user?.quotaLimit || 0;
+    const reservedBytes = uploadingFilesRef.current
+      .filter((file) => file.status === 'pending' || file.status === 'uploading')
+      .reduce((sum, file) => sum + file.file.size, 0);
+
+    let runningQuotaUsed = quotaUsed + reservedBytes;
+    const queuedFiles: UploadingFile[] = filesToUpload.map((file, index) => {
+      const wouldExceedQuota = quotaLimit > 0 && (runningQuotaUsed + file.size) > quotaLimit;
 
       if (!wouldExceedQuota) {
         runningQuotaUsed += file.size;
       }
 
       return {
-        id: `${Date.now()}-${index}`,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}-${index}`,
         file,
         progress: 0,
         status: wouldExceedQuota ? 'error' as const : 'pending' as const,
@@ -289,87 +450,73 @@ export default function FilesPage() {
       };
     });
 
-    // Vérifier s'il y a des fichiers valides à uploader
-    const validFiles = initialFiles.filter(f => f.status === 'pending');
-    if (validFiles.length === 0) {
+    const pendingCount = queuedFiles.filter((file) => file.status === 'pending').length;
+    if (pendingCount === 0) {
       toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
+      setShowUploadModal(true);
+      setUploadingFiles((prev) => {
+        const next = [...prev, ...queuedFiles];
+        uploadingFilesRef.current = next;
+        return next;
+      });
       return;
     }
 
-    setUploadingFiles(initialFiles);
     setShowUploadModal(true);
+    setUploadingFiles((prev) => {
+      const next = [...prev, ...queuedFiles];
+      uploadingFilesRef.current = next;
+      return next;
+    });
 
-    // Upload files in parallel with concurrency limit
-    const CONCURRENT_UPLOADS = 3;
+    void processUploadQueue();
+  };
 
-    const uploadFile = async (uploadingFile: UploadingFile) => {
-      if (uploadCancelledRef.current) return;
-      if (uploadingFile.status === 'error') return; // Skip files already marked as error
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
 
-      // Set current file to uploading
-      setUploadingFiles(prev => prev.map(f =>
-        f.id === uploadingFile.id ? { ...f, status: 'uploading' as const } : f
-      ));
+    enqueueUpload(Array.from(selectedFiles));
+    e.target.value = '';
+  };
 
-      try {
-        await fileService.uploadFile(
-          uploadingFile.file,
-          folderId,
-          (progress) => {
-            setUploadingFiles(prev => prev.map(f =>
-              f.id === uploadingFile.id ? { ...f, progress } : f
-            ));
-          }
-        );
+  const handleFolderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
 
-        // Mark as success
-        setUploadingFiles(prev => prev.map(f =>
-          f.id === uploadingFile.id ? { ...f, status: 'success' as const, progress: 100 } : f
-        ));
-      } catch (error: any) {
-        // Gérer spécifiquement l'erreur de quota
-        const errorMessage = error.response?.data?.code === 'QUOTA_EXCEEDED'
-          ? 'Quota dépassé - espace insuffisant'
-          : error.response?.data?.error || error.response?.data?.message || 'Échec du téléversement';
+    enqueueUpload(Array.from(selectedFiles));
+    e.target.value = '';
+  };
 
-        // Mark as error
-        setUploadingFiles(prev => prev.map(f =>
-          f.id === uploadingFile.id ? {
-            ...f,
-            status: 'error' as const,
-            error: errorMessage
-          } : f
-        ));
-      }
-    };
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
 
-    // Process uploads in batches (only pending files)
-    const pendingFiles = initialFiles.filter(f => f.status === 'pending');
-    for (let i = 0; i < pendingFiles.length; i += CONCURRENT_UPLOADS) {
-      if (uploadCancelledRef.current) break;
+    const droppedFiles = await extractDroppedFiles(e);
+    if (droppedFiles.length === 0) return;
 
-      const batch = pendingFiles.slice(i, i + CONCURRENT_UPLOADS);
-      await Promise.all(batch.map(file => uploadFile(file)));
-    }
-
-    // Reload content and user data after all uploads to update quota
-    await loadContent(folderId, sortBy, sortOrder, activeFilters);
-    await loadUser(); // Refresh user data to update quota display
+    enqueueUpload(droppedFiles);
   };
 
   const handleCancelUpload = () => {
     uploadCancelledRef.current = true;
+    activeUploadControllersRef.current.forEach((controller) => controller.abort());
+    activeUploadControllersRef.current.clear();
+    isQueueProcessingRef.current = false;
     setShowUploadModal(false);
     setUploadingFiles([]);
+    uploadingFilesRef.current = [];
     toast.error('Téléversement annulé');
   };
 
   const handleCloseUploadModal = () => {
     setShowUploadModal(false);
     setUploadingFiles([]);
+    uploadingFilesRef.current = [];
 
-    const successCount = uploadingFiles.filter(f => f.status === 'success').length;
-    const errorCount = uploadingFiles.filter(f => f.status === 'error').length;
+    const successCount = uploadingFiles.filter((file) => file.status === 'success').length;
+    const errorCount = uploadingFiles.filter((file) => file.status === 'error').length;
 
     if (successCount > 0) {
       toast.success(`${successCount} fichier${successCount > 1 ? 's' : ''} téléversé${successCount > 1 ? 's' : ''}`);
@@ -650,6 +797,21 @@ export default function FilesPage() {
                 className="hidden"
               />
             </label>
+            <button
+              onClick={() => folderUploadInputRef.current?.click()}
+              className="flex items-center px-4 py-2 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-all"
+            >
+              <Folder className="w-5 h-5 mr-2" />
+              Téléverser dossier
+            </button>
+            <input
+              ref={folderUploadInputRef}
+              type="file"
+              multiple
+              onChange={handleFolderUpload}
+              className="hidden"
+              {...({ webkitdirectory: '', directory: '' } as any)}
+            />
           </div>
         )}
       </div>
