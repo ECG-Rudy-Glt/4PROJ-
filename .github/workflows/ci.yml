@@ -14,8 +14,8 @@ jobs:
         run: |
           echo "Checking required CI environment variables..."
           : "${JWT_SECRET:?JWT_SECRET secret is not set in GitHub Actions}"
-          : "${DATABASE_URL:?DATABASE_URL secret is not set in GitHub Actions}"
           : "${FILE_ENCRYPTION_KEY:?FILE_ENCRYPTION_KEY secret is not set in GitHub Actions}"
+          echo "Optional secrets present: DATABASE_URL=${DATABASE_URL:+set}"
           echo "All required environment variables are set."
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
