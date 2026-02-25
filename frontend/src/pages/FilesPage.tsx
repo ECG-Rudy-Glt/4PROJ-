@@ -454,6 +454,7 @@ export default function FilesPage() {
     try {
       await deleteFile(fileId);
       toast.success('Déplacé vers la corbeille');
+      await loadUser(); // Refresh quota display
     } catch (error) {
       toast.error('Échec de la suppression');
     }

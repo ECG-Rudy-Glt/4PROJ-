@@ -65,16 +65,6 @@ export const startTrashCleanupJob = () => {
             where: { id: file.id },
           });
 
-          // Décrémenter le quota de l'utilisateur
-          await prisma.user.update({
-            where: { id: file.userId },
-            data: {
-              quotaUsed: {
-                decrement: file.size,
-              },
-            },
-          });
-
           purgedCount++;
         } catch (error) {
           console.error(`  ✗ Erreur lors de la purge de ${file.name}:`, error);
