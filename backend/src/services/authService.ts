@@ -56,6 +56,7 @@ export class AuthService {
         lastName: user.lastName,
         avatar: user.avatar,
         role: user.role,
+        accountStatus: user.accountStatus,
         plan: user.plan,
         subscriptionStatus: user.subscriptionStatus,
         vaultEnabled: user.vaultEnabled,
@@ -77,6 +78,9 @@ export class AuthService {
 
     if (!user || !user.password) {
       throw new Error('Invalid credentials');
+    }
+    if (user.accountStatus !== 'ACTIVE') {
+      throw new Error('Account inactive or suspended');
     }
 
     // Check password
@@ -103,6 +107,7 @@ export class AuthService {
         lastName: user.lastName,
         avatar: user.avatar,
         role: user.role,
+        accountStatus: user.accountStatus,
         plan: user.plan,
         subscriptionStatus: user.subscriptionStatus,
         vaultEnabled: user.vaultEnabled,
@@ -146,6 +151,7 @@ export class AuthService {
       lastName: user.lastName,
       avatar: user.avatar,
       role: user.role,
+      accountStatus: user.accountStatus,
       plan: user.plan,
       subscriptionStatus: user.subscriptionStatus,
       vaultEnabled: user.vaultEnabled,
