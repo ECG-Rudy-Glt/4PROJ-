@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
+import { VaultService } from './vaultService';
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -19,11 +20,17 @@ export class FolderService {
 
     // Build path
     let path = `/${name}`;
+    let isVault = false;
     if (parentId) {
       const parent = await prisma.folder.findFirst({
         where: {
           id: parentId,
           userId,
+        },
+        select: {
+          id: true,
+          path: true,
+          isVault: true,
         },
       });
 
@@ -31,7 +38,10 @@ export class FolderService {
         throw new Error('Parent folder not found');
       }
 
+      await VaultService.assertUnlockedIfVault(userId, parent.isVault);
+
       path = `${parent.path}/${name}`;
+      isVault = parent.isVault;
     }
 
     const folder = await prisma.folder.create({
@@ -40,6 +50,7 @@ export class FolderService {
         userId,
         parentId: parentId || null,
         path,
+        isVault,
       },
       include: {
         parent: true,
@@ -74,14 +85,23 @@ export class FolderService {
       throw new Error('Folder not found');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
     return folder;
   }
 
   static async listFolders(userId: string, parentId?: string) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
+    if (parentId) {
+      const parentIsVault = await VaultService.isVaultFolder(userId, parentId);
+      await VaultService.assertUnlockedIfVault(userId, parentIsVault);
+    }
+
     return await prisma.folder.findMany({
       where: {
         userId,
         parentId: parentId || null,
+        ...(vaultUnlocked ? {} : { isVault: false }),
       },
       include: {
         children: true,
@@ -103,6 +123,8 @@ export class FolderService {
     if (!folder) {
       throw new Error('Folder not found');
     }
+
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
     // Check for duplicate name in same parent
     const existing = await prisma.folder.findFirst({
@@ -150,6 +172,8 @@ export class FolderService {
       throw new Error('Folder not found');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
     // Prevent moving folder into itself or its children
     if (targetParentId) {
       if (targetParentId === folderId) {
@@ -161,10 +185,21 @@ export class FolderService {
           id: targetParentId,
           userId,
         },
+        select: {
+          id: true,
+          path: true,
+          isVault: true,
+        },
       });
 
       if (!targetParent) {
         throw new Error('Target parent folder not found');
+      }
+
+      await VaultService.assertUnlockedIfVault(userId, targetParent.isVault);
+
+      if (folder.isVault !== targetParent.isVault) {
+        throw new Error('Déplacement entre espace normal et coffre-fort interdit');
       }
 
       // Check if target is a child of the folder being moved
@@ -203,6 +238,7 @@ export class FolderService {
       data: {
         parentId: targetParentId || null,
         path: newPath,
+        isVault: folder.isVault,
       },
     });
   }
@@ -218,6 +254,8 @@ export class FolderService {
     if (!folder) {
       throw new Error('Folder not found');
     }
+
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
     // This will cascade delete all children folders and files
     await prisma.folder.delete({
@@ -247,6 +285,8 @@ export class FolderService {
     if (!folder) {
       throw new Error('Folder not found');
     }
+
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
     const breadcrumbs: Array<{ id: string; name: string }> = [];
     let currentFolder = folder;

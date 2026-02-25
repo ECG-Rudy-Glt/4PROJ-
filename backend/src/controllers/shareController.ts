@@ -4,6 +4,7 @@ import { FileService } from '../services/fileService';
 import { AuthRequest } from '../types';
 import { SocketService } from '../services/socketService';
 import fs from 'fs';
+import { EncryptionService } from '../services/encryptionService';
 
 export class ShareController {
   static async createShareLink(req: AuthRequest, res: Response): Promise<void> {
@@ -76,7 +77,11 @@ export class ShareController {
       // Increment download count
       await ShareService.incrementDownloadCount(token);
 
-      res.download(shareLink.file!.storagePath, shareLink.file!.name);
+      res.setHeader('Content-Disposition', `attachment; filename="${shareLink.file!.name}"`);
+      res.setHeader('Content-Type', shareLink.file!.mimeType);
+
+      const decryptStream = EncryptionService.getDecryptStream(shareLink.file!.storagePath);
+      decryptStream.pipe(res);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -397,31 +402,15 @@ export class ShareController {
       }
 
       const stat = fs.statSync(sharedFile.file!.storagePath);
-      const fileSize = stat.size;
-      const range = req.headers.range;
+      const fileSize = stat.size - 32; // IV + auth tag AES-GCM
 
-      if (range) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunksize = end - start + 1;
-        const fileStream = fs.createReadStream(sharedFile.file!.storagePath, { start, end });
-        const head = {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunksize,
-          'Content-Type': sharedFile.file!.mimeType,
-        };
-        res.writeHead(206, head);
-        fileStream.pipe(res);
-      } else {
-        const head = {
-          'Content-Length': fileSize,
-          'Content-Type': sharedFile.file!.mimeType,
-        };
-        res.writeHead(200, head);
-        fs.createReadStream(sharedFile.file!.storagePath).pipe(res);
-      }
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': sharedFile.file!.mimeType,
+      };
+      res.writeHead(200, head);
+      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
+      decryptStream.pipe(res);
     } catch (error: any) {
       res.status(404).json({ error: error.message });
     }
@@ -440,7 +429,11 @@ export class ShareController {
         return;
       }
 
-      res.download(sharedFile.file!.storagePath, sharedFile.file!.name);
+      res.setHeader('Content-Disposition', `attachment; filename="${sharedFile.file!.name}"`);
+      res.setHeader('Content-Type', sharedFile.file!.mimeType);
+
+      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
+      decryptStream.pipe(res);
     } catch (error: any) {
       res.status(404).json({ error: error.message });
     }

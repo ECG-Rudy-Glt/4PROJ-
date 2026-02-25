@@ -155,6 +155,46 @@ export class PlanService {
     }
 
     /**
+     * Retourne une limite numérique de plan (ou null si illimitée)
+     */
+    static async getNumericLimit(userId: string, limitName: 'maxShares' | 'maxVersions' | 'maxTags'): Promise<number | null> {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { plan: true },
+        });
+        if (!user) throw new Error('Utilisateur non trouvé');
+
+        const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS[Plan.FREE];
+        const max = limits[limitName];
+        return max === -1 ? null : max;
+    }
+
+    /**
+     * Vérifie et lève une erreur métier si la limite est atteinte
+     */
+    static async assertLimit(
+        userId: string,
+        limitName: 'maxShares' | 'maxVersions' | 'maxTags',
+        currentCount: number
+    ): Promise<void> {
+        const allowed = await this.checkLimit(userId, limitName, currentCount);
+        if (allowed) return;
+
+        const max = await this.getNumericLimit(userId, limitName);
+        const labels: Record<typeof limitName, string> = {
+            maxShares: 'partages',
+            maxVersions: 'versions',
+            maxTags: 'tags',
+        };
+
+        throw new Error(
+            max === null
+                ? `Limite de ${labels[limitName]} atteinte`
+                : `Limite de ${max} ${labels[limitName]} atteinte pour votre plan`
+        );
+    }
+
+    /**
      * Vérifie si une fonctionnalité est disponible pour le plan de l'utilisateur
      */
     static async checkFeature(userId: string, feature: string): Promise<boolean> {

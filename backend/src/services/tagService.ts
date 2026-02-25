@@ -1,9 +1,13 @@
 import prisma from '../config/database';
 import { AuditService } from './auditService';
+import { PlanService } from './planService';
 
 export class TagService {
   // Créer un tag
   static async createTag(userId: string, name: string, color: string = '#6366f1') {
+    const tagsCount = await prisma.tag.count({ where: { userId } });
+    await PlanService.assertLimit(userId, 'maxTags', tagsCount);
+
     // Vérifier si le tag existe déjà
     const existing = await prisma.tag.findUnique({
       where: {
@@ -124,6 +128,15 @@ export class TagService {
     if (existing) {
       return existing; // Déjà associé
     }
+
+    // Limite de tags par fichier (même limite que plan maxTags)
+    const fileTagsCount = await prisma.fileTag.count({
+      where: {
+        fileId,
+        file: { userId },
+      },
+    });
+    await PlanService.assertLimit(userId, 'maxTags', fileTagsCount);
 
     return await prisma.fileTag.create({
       data: {

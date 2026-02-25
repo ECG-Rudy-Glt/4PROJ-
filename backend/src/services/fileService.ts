@@ -8,6 +8,8 @@ import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { EncryptionService } from './encryptionService';
 import { PlanService } from './planService';
+import { VaultService } from './vaultService';
+import { FileIndexService } from './fileIndexService';
 
 export class FileService {
   // Fonction pour déterminer la catégorie basée sur le mimeType
@@ -116,6 +118,9 @@ export class FileService {
     storagePath: string,
     folderId?: string
   ) {
+    const isVault = await VaultService.isVaultFolder(userId, folderId || null);
+    await VaultService.assertUnlockedIfVault(userId, isVault);
+
     // Check file size limit per plan
     const fileSizeAllowed = await PlanService.checkFileSize(userId, size);
     if (!fileSizeAllowed) {
@@ -152,6 +157,7 @@ export class FileService {
         userId,
         folderId,
         category,
+        isVault,
       },
       include: {
         folder: true,
@@ -174,6 +180,8 @@ export class FileService {
     if (folderId) {
       SocketService.emitToUser(userId, 'folder_updated', { folderId });
     }
+
+    FileIndexService.indexFileAsync(file.id, userId);
 
     return file;
   }
@@ -199,6 +207,10 @@ export class FileService {
       throw new Error('File not found');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
     return file;
   }
 
@@ -215,6 +227,12 @@ export class FileService {
       dateTo?: Date;
     }
   ) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
+    if (folderId) {
+      const folderIsVault = await VaultService.isVaultFolder(userId, folderId);
+      await VaultService.assertUnlockedIfVault(userId, folderIsVault);
+    }
+
     // Validation des champs de tri autorisés
     const allowedSortFields = ['name', 'size', 'createdAt', 'updatedAt', 'mimeType'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
@@ -224,6 +242,7 @@ export class FileService {
       userId,
       folderId: folderId || null,
       isDeleted: false,
+      ...(vaultUnlocked ? {} : { isVault: false }),
     };
 
     // Application des filtres
@@ -262,6 +281,7 @@ export class FileService {
         where: {
           folderId,
           isDeleted: false,
+          ...(vaultUnlocked ? {} : { isVault: false }),
           // Nous n'appliquons PAS les filtres ici pour les dossiers partagés pour l'instant (complexité)
           // Mais on pourrait le faire si nécessaire via include -> permissions
         },
@@ -325,6 +345,8 @@ export class FileService {
       throw new Error('File not found');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
     const updatedFile = await prisma.file.update({
       where: { id: fileId },
       data,
@@ -364,6 +386,8 @@ export class FileService {
       newMimeType
     );
 
+    FileIndexService.indexFileAsync(fileId, userId);
+
     // Le fichier principal est déjà mis à jour par createVersion
     return await this.getFile(fileId, userId);
   }
@@ -381,6 +405,8 @@ export class FileService {
       throw new Error('File not found');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
     // Verify target folder exists and belongs to user
     if (targetFolderId) {
       const targetFolder = await prisma.folder.findFirst({
@@ -393,6 +419,14 @@ export class FileService {
       if (!targetFolder) {
         throw new Error('Target folder not found');
       }
+
+      await VaultService.assertUnlockedIfVault(userId, targetFolder.isVault);
+
+      if (targetFolder.isVault !== file.isVault) {
+        throw new Error('Déplacement entre espace normal et coffre-fort interdit');
+      }
+    } else if (file.isVault) {
+      throw new Error('Impossible de déplacer un fichier coffre-fort vers la racine standard');
     }
 
     const movedFile = await prisma.file.update({
@@ -470,6 +504,8 @@ export class FileService {
       throw new Error('File not found in trash');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
     const restoredFile = await prisma.file.update({
       where: { id: fileId },
       data: {
@@ -488,10 +524,12 @@ export class FileService {
   }
 
   static async getDeletedFiles(userId: string) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     return await prisma.file.findMany({
       where: {
         userId,
         isDeleted: true,
+        ...(vaultUnlocked ? {} : { isVault: false }),
       },
       include: {
         folder: true,
@@ -512,12 +550,21 @@ export class FileService {
     dateFrom?: Date;
     dateTo?: Date;
   }) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     const where: any = {
       userId,
       isDeleted: false,
+      ...(vaultUnlocked ? {} : { isVault: false }),
       OR: [
         { name: { contains: query, mode: 'insensitive' } },
         { originalName: { contains: query, mode: 'insensitive' } },
+        {
+          searchIndex: {
+            is: {
+              extractedText: { contains: query, mode: 'insensitive' },
+            },
+          },
+        },
       ],
     };
 
@@ -545,10 +592,12 @@ export class FileService {
   }
 
   static async getRecentFiles(userId: string, limit: number = 5) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     return await prisma.file.findMany({
       where: {
         userId,
         isDeleted: false,
+        ...(vaultUnlocked ? {} : { isVault: false }),
       },
       include: {
         folder: true,
@@ -573,6 +622,8 @@ export class FileService {
       throw new Error('Fichier introuvable');
     }
 
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
     const updatedFile = await prisma.file.update({
       where: { id: fileId },
       data: {
@@ -587,11 +638,13 @@ export class FileService {
   }
 
   static async getFavoriteFiles(userId: string) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     return await prisma.file.findMany({
       where: {
         userId,
         isDeleted: false,
         isFavorite: true,
+        ...(vaultUnlocked ? {} : { isVault: false }),
       },
       include: {
         folder: true,
@@ -609,11 +662,13 @@ export class FileService {
 
   // Get accepted shared files and folders for a user (to display in FilesPage)
   static async getAcceptedShares(userId: string) {
+    const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     const [sharedFolders, sharedFiles] = await Promise.all([
       prisma.sharedFolder.findMany({
         where: {
           sharedWithId: userId,
           accepted: true,
+          ...(vaultUnlocked ? {} : { folder: { isVault: false } }),
         },
         include: {
           folder: {
@@ -644,6 +699,7 @@ export class FileService {
         where: {
           sharedWithId: userId,
           accepted: true,
+          ...(vaultUnlocked ? {} : { file: { isVault: false } }),
         },
         include: {
           file: {

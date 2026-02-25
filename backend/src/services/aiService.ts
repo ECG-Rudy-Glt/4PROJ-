@@ -3,6 +3,9 @@ import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
 import pdfParse from 'pdf-parse';
+import { EncryptionService } from './encryptionService';
+import { FileService } from './fileService';
+import { VaultService } from './vaultService';
 
 export class AIService {
   private cohere: CohereClientV2;
@@ -40,11 +43,13 @@ export class AIService {
     if (!file) {
       throw new Error('File not found or access denied');
     }
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     const filePath = file.storagePath;
     const mimeType = file.mimeType;
 
     try {
+      const decryptedBuffer = await EncryptionService.decryptFileToBuffer(filePath);
       let prompt = userPrompt || 'Décris le contenu de ce fichier de manière détaillée.';
 
       // Si c'est une image
@@ -54,8 +59,7 @@ export class AIService {
 
       // Si c'est un PDF
       if (mimeType === 'application/pdf') {
-        const dataBuffer = fs.readFileSync(filePath);
-        const pdfData = await (pdfParse as any)(dataBuffer);
+        const pdfData = await (pdfParse as any)(decryptedBuffer);
         const text = pdfData.text;
 
         const fullPrompt = `Voici le contenu d'un fichier PDF :\n\n${text}\n\n${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.`;
@@ -76,7 +80,7 @@ export class AIService {
 
       // Si c'est un fichier texte
       if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('javascript')) {
-        const textContent = fs.readFileSync(filePath, 'utf-8');
+        const textContent = decryptedBuffer.toString('utf-8');
         const fullPrompt = `Voici le contenu d'un fichier texte :\n\n${textContent}\n\n${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.`;
 
         const response = await this.cohere.chat({
@@ -168,13 +172,34 @@ RÈGLES IMPORTANTES :
         const whereClause: any = {
           userId,
           isDeleted: false,
+          ...(await VaultService.isVaultUnlocked(userId) ? {} : { isVault: false }),
         };
 
         if (args.keyword) {
-          whereClause.name = {
-            contains: args.keyword,
-            mode: 'insensitive',
-          };
+          whereClause.OR = [
+            {
+              name: {
+                contains: args.keyword,
+                mode: 'insensitive',
+              },
+            },
+            {
+              originalName: {
+                contains: args.keyword,
+                mode: 'insensitive',
+              },
+            },
+            {
+              searchIndex: {
+                is: {
+                  extractedText: {
+                    contains: args.keyword,
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            },
+          ];
         }
 
         if (args.mimeType) {
@@ -254,10 +279,31 @@ RÈGLES IMPORTANTES :
         where: {
           userId,
           isDeleted: false,
-          name: {
-            contains: userPrompt,
-            mode: 'insensitive',
-          },
+          ...(await VaultService.isVaultUnlocked(userId) ? {} : { isVault: false }),
+          OR: [
+            {
+              name: {
+                contains: userPrompt,
+                mode: 'insensitive',
+              },
+            },
+            {
+              originalName: {
+                contains: userPrompt,
+                mode: 'insensitive',
+              },
+            },
+            {
+              searchIndex: {
+                is: {
+                  extractedText: {
+                    contains: userPrompt,
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            },
+          ],
         },
         include: {
           folder: true,
@@ -318,46 +364,23 @@ RÈGLES IMPORTANTES :
       // Obtenir la taille du fichier
       const stats = fs.statSync(storagePath);
       const fileSize = stats.size;
-
-      // Vérifier le quota
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (!user) {
-        fs.unlinkSync(storagePath); // Supprimer le fichier
-        throw new Error('User not found');
-      }
-
-      if (BigInt(user.quotaUsed) + BigInt(fileSize) > BigInt(user.quotaLimit)) {
-        fs.unlinkSync(storagePath); // Supprimer le fichier
-        throw new Error('Quota exceeded');
-      }
-
-      // Créer l'entrée dans la BDD
-      const file = await prisma.file.create({
-        data: {
-          name: finalFileName,
-          originalName: finalFileName,
-          mimeType: 'text/plain',
-          size: BigInt(fileSize),
-          storagePath,
+      let file: any;
+      try {
+        file = await FileService.createFile(
           userId,
-          folderId: folderId || null,
-          category: 'doc',
-        },
-        include: {
-          folder: true,
-        },
-      });
-
-      // Mettre à jour le quota utilisateur
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          quotaUsed: BigInt(user.quotaUsed) + BigInt(fileSize),
-        },
-      });
+          finalFileName,
+          finalFileName,
+          'text/plain',
+          fileSize,
+          storagePath,
+          folderId || undefined
+        );
+      } catch (createError) {
+        if (fs.existsSync(storagePath)) {
+          fs.unlinkSync(storagePath);
+        }
+        throw createError;
+      }
 
       return {
         file,
