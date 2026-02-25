@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileModal from './ProfileModal';
 import AccountSwitcherModal from './AccountSwitcherModal';
+import NotificationCenter from './NotificationCenter';
 
 export default function Header() {
   const { user, logout, updateProfile } = useAuthStore();
@@ -72,6 +73,8 @@ export default function Header() {
           >
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
+
+          <NotificationCenter />
 
           <button
             onClick={() => setShowAccountSwitcherModal(true)}

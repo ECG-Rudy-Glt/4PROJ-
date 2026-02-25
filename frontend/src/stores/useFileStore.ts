@@ -46,9 +46,9 @@ export const useFileStore = create<FileState>((set, get) => ({
         folders: foldersData.folders,
         isLoading: false,
       });
-    } catch (error) {
+    } catch {
       set({ isLoading: false });
-      throw error;
+      throw new Error('Failed to load content');
     }
   },
 
@@ -56,8 +56,8 @@ export const useFileStore = create<FileState>((set, get) => ({
     try {
       await fileService.uploadFile(file, folderId);
       await get().loadContent(folderId);
-    } catch (error) {
-      throw error;
+    } catch {
+      throw new Error('Failed to upload file');
     }
   },
 
@@ -65,8 +65,8 @@ export const useFileStore = create<FileState>((set, get) => ({
     try {
       await fileService.deleteFile(fileId, permanent);
       await get().loadContent(get().currentFolderId || undefined);
-    } catch (error) {
-      throw error;
+    } catch {
+      throw new Error('Failed to delete file');
     }
   },
 
@@ -74,8 +74,8 @@ export const useFileStore = create<FileState>((set, get) => ({
     try {
       await folderService.createFolder(name, parentId);
       await get().loadContent(parentId);
-    } catch (error) {
-      throw error;
+    } catch {
+      throw new Error('Failed to create folder');
     }
   },
 

@@ -130,9 +130,13 @@ export class MFAController {
         select: {
           id: true,
           email: true,
+          firstName: true,
           lastName: true,
           avatar: true,
           theme: true,
+          quotaUsed: true,
+          quotaLimit: true,
+          createdAt: true,
           // @ts-ignore
           tokenVersion: true,
         },
@@ -184,9 +188,13 @@ export class MFAController {
         select: {
           id: true,
           email: true,
+          firstName: true,
           lastName: true,
           avatar: true,
           theme: true,
+          quotaUsed: true,
+          quotaLimit: true,
+          createdAt: true,
           // @ts-ignore
           tokenVersion: true,
         },

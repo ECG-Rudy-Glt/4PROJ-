@@ -67,6 +67,7 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     loadFavoriteFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, sortOrder]);
 
   const loadFavoriteFiles = async () => {
@@ -92,7 +93,7 @@ export default function FavoritesPage() {
       });
 
       setFavoriteFiles(sortedFiles);
-    } catch (error) {
+    } catch {
       toast.error('Échec du chargement des favoris');
     } finally {
       setIsLoading(false);
@@ -104,7 +105,7 @@ export default function FavoritesPage() {
       await fileService.toggleFavorite(fileId);
       toast.success('Retiré des favoris');
       loadFavoriteFiles();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la modification');
     }
   };
@@ -116,7 +117,7 @@ export default function FavoritesPage() {
       await fileService.deleteFile(fileId, false);
       toast.success('Fichier déplacé vers la corbeille');
       loadFavoriteFiles();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression du fichier');
     }
   };

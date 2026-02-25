@@ -30,6 +30,8 @@ import billingRoutes from './routes/billingRoutes';
 import vaultRoutes from './routes/vaultRoutes';
 import organizationRoutes from './routes/organizationRoutes';
 import accountAccessRoutes from './routes/accountAccessRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import pushRoutes from './routes/pushRoutes';
 
 // Jobs
 import { startCleanupJob } from './jobs/cleanupJob';
@@ -155,6 +157,8 @@ app.use('/api/account-access', accountAccessRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/push', pushRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -30,6 +30,7 @@ export default function AdminPage() {
     }, 250);
 
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, planFilter]);
 
   const loadOverview = async () => {
