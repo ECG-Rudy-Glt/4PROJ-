@@ -6,6 +6,7 @@ export interface UploadingFile {
   progress: number;
   status: 'pending' | 'uploading' | 'success' | 'error';
   error?: string;
+  targetFolderId?: string;
 }
 
 interface UploadModalProps {
