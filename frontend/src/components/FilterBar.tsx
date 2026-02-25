@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Filter, X, Calendar, FileType, HardDrive } from 'lucide-react';
 
 interface FilterBarProps {
@@ -37,8 +37,8 @@ export function FilterBar({ onFilterChange, onClearFilters }: FilterBarProps) {
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className={`flex items-center px-4 py-2 rounded-lg border transition-all ${isOpen || activeFiltersCount > 0
-                            ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/20 dark:border-primary-700 dark:text-primary-300'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300'
+                        ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/20 dark:border-primary-700 dark:text-primary-300'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300'
                         }`}
                 >
                     <Filter className="w-4 h-4 mr-2" />

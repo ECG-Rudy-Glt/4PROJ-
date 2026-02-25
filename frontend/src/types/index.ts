@@ -7,6 +7,7 @@ export interface User {
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
+  plan?: string;
   createdAt: string;
 }
 

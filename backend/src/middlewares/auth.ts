@@ -54,7 +54,8 @@ export const authenticate = async (
     req.user = user;
 
     // Check activity / session timeout
-    return activityMiddleware(req, res, next);
+    activityMiddleware(req, res, next);
+    return;
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }

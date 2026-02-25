@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { Check, X, Shield, Zap, Database, Server } from 'lucide-react';
+import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 
@@ -110,8 +110,8 @@ export default function PlansPage() {
                         <div
                             key={plan.id}
                             className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 transition-transform hover:scale-105 ${isCurrentPlan
-                                    ? 'border-primary-500 ring-4 ring-primary-500/10'
-                                    : 'border-transparent'
+                                ? 'border-primary-500 ring-4 ring-primary-500/10'
+                                : 'border-transparent'
                                 }`}
                         >
                             {plan.popular && (
@@ -174,8 +174,8 @@ export default function PlansPage() {
                                     onClick={() => handleUpgrade(plan.id)}
                                     disabled={isCurrentPlan || loading !== null}
                                     className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${isCurrentPlan
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : plan.buttonColor
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : plan.buttonColor
                                         } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
                                 >
                                     {isCurrentPlan

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
-import { MessageSquare, Share2, FileText, Check } from 'lucide-react';
+import { MessageSquare, Share2, Check } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 export default function SocketListener() {

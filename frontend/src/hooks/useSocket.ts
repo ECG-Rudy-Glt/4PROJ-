@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 export const useSocket = () => {
-    const { token, user } = useAuthStore();
+    const { token } = useAuthStore();
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {

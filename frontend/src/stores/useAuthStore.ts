@@ -17,6 +17,7 @@ interface AuthState {
   logout: () => void;
   loadUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -88,5 +89,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       throw error;
     }
+  },
+  refreshProfile: async () => {
+    const { user } = await authService.getProfile();
+    set({ user });
   },
 }));

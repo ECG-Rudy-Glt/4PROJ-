@@ -58,31 +58,8 @@ app.use(helmet({
   },
 }));
 
-// Configure CORS to allow multiple origins
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-  : ['http://localhost:3000'];
-
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Check if the origin is in the allowed list or matches the IP pattern
-    const isAllowed = allowedOrigins.some(allowed => {
-      // Extract just the protocol and hostname/IP (without port)
-      const allowedBase = allowed.replace(/:\d+$/, '');
-      const originBase = origin.replace(/:\d+$/, '');
-      return origin === allowed || originBase === allowedBase;
-    });
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('[CORS] Blocked origin:', origin, 'Allowed:', allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Autorise toutes les origines
   credentials: true,
 }));
 
