@@ -170,6 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci_deploy_vps')
     permissions:
+      contents: read
       packages: write
 
     steps:
