@@ -9,17 +9,23 @@ import {
   CreditCard,
   ShieldCheck,
   Building2,
+  Shield,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { formatBytes } from '@/utils/bytes';
+import { useVaultStore } from '@/stores/useVaultStore';
 
 export default function Sidebar() {
   const { user } = useAuthStore();
+  const { status: vaultStatus, rootFolder: vaultRootFolder } = useVaultStore();
 
   const navItems = [
     { to: '/dashboard', icon: Home, label: 'Accueil', section: 'main' },
     { to: '/files', icon: FolderOpen, label: 'Mes fichiers', section: 'main' },
     { to: '/favorites', icon: Star, label: 'Favoris', section: 'main' },
+    ...(vaultStatus?.enabled && vaultStatus?.unlocked && vaultRootFolder
+      ? [{ to: `/files/${vaultRootFolder.id}`, icon: Shield, label: 'Coffre-fort', section: 'main' as const }]
+      : []),
     { to: '/shared', icon: Share2, label: 'Partagés', section: 'secondary' },
     { to: '/trash', icon: Trash2, label: 'Corbeille', section: 'secondary' },
     { to: '/organization-admin', icon: Building2, label: 'Organisation', section: 'secondary' },

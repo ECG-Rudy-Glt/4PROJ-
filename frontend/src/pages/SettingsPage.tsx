@@ -9,6 +9,7 @@ import RGPDSection from '@/components/RGPDSection';
 import { vaultService, VaultStatus } from '@/services/vaultService';
 import { formatBytes } from '@/utils/bytes';
 import { isVaultAvailableForPlan } from '@/constants/plans';
+import { useVaultStore } from '@/stores/useVaultStore';
 
 export default function SettingsPage() {
   const { user, updateProfile } = useAuthStore();
@@ -33,6 +34,7 @@ export default function SettingsPage() {
   const quotaPercentage = quotaLimit > 0 ? (quotaUsed / quotaLimit) * 100 : 0;
   const currentPlan = user?.plan || 'FREE';
   const isVaultEligible = isVaultAvailableForPlan(currentPlan);
+  const refreshGlobalVaultStatus = useVaultStore((state) => state.refreshStatus);
 
   useEffect(() => {
     setIsDark(user?.theme === 'dark');
@@ -113,7 +115,24 @@ export default function SettingsPage() {
     const data = await vaultService.getStatus();
     setVaultStatus(data.status);
     await useAuthStore.getState().refreshProfile();
+    await refreshGlobalVaultStatus();
   };
+
+  const accountStatus = user?.accountStatus || 'ACTIVE';
+  const accountStatusLabel =
+    accountStatus === 'ACTIVE' ? 'Actif' : accountStatus === 'INACTIVE' ? 'Inactif' : 'Suspendu';
+  const accountStatusClasses =
+    accountStatus === 'ACTIVE'
+      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+      : accountStatus === 'INACTIVE'
+        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+  const accountDotClass =
+    accountStatus === 'ACTIVE'
+      ? 'bg-green-500'
+      : accountStatus === 'INACTIVE'
+        ? 'bg-amber-500'
+        : 'bg-red-500';
 
   const handleVaultSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -599,10 +618,13 @@ export default function SettingsPage() {
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Statut du compte</p>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Actif
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium ${accountStatusClasses}`}>
+              <span className={`w-2 h-2 rounded-full ${accountDotClass} ${accountStatus === 'ACTIVE' ? 'animate-pulse' : ''}`}></span>
+              {accountStatusLabel}
             </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Ce statut est géré côté plateforme (ex: suspension administrative en cas d’abus).
+            </p>
           </div>
         </div>
       </div>

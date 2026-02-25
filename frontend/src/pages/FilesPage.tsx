@@ -40,6 +40,8 @@ import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useVaultStore } from '@/stores/useVaultStore';
+import { vaultService } from '@/services/vaultService';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -105,6 +107,10 @@ export default function FilesPage() {
   const searchQuery = searchParams.get('search');
   const { files, folders, loadContent, createFolder, deleteFile, sortBy, sortOrder, setSorting } = useFileStore();
   const { user, loadUser } = useAuthStore();
+  const vaultRootFolder = useVaultStore((state) => state.rootFolder);
+  const vaultStatus = useVaultStore((state) => state.status);
+  const isInVaultContext = useVaultStore((state) => state.isInVaultContext);
+  const setInVaultContext = useVaultStore((state) => state.setInVaultContext);
 
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbType[]>([]);
   const [searchResults, setSearchResults] = useState<File[]>([]);
@@ -151,6 +157,7 @@ export default function FilesPage() {
   const [pendingSharesCount, setPendingSharesCount] = useState(0);
   const [acceptedSharedFiles, setAcceptedSharedFiles] = useState<any[]>([]);
   const [acceptedSharedFolders, setAcceptedSharedFolders] = useState<any[]>([]);
+  const previousVaultContextRef = useRef(false);
 
   const loadPendingSharesCount = async () => {
     try {
@@ -199,6 +206,48 @@ export default function FilesPage() {
     return () => {
       activeUploadControllersRef.current.forEach((controller) => controller.abort());
       activeUploadControllersRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!folderId || !vaultRootFolder?.id) {
+      setInVaultContext(false);
+      return;
+    }
+
+    const isVaultRoot = folderId === vaultRootFolder.id;
+    const isVaultChild = breadcrumbs.length > 0 && breadcrumbs[0].id === vaultRootFolder.id;
+    setInVaultContext(isVaultRoot || isVaultChild);
+  }, [folderId, breadcrumbs, vaultRootFolder?.id, setInVaultContext]);
+
+  useEffect(() => {
+    const wasInVault = previousVaultContextRef.current;
+    if (wasInVault && !isInVaultContext && vaultStatus?.enabled && vaultStatus?.unlocked) {
+      void vaultService
+        .lock()
+        .then(() => useVaultStore.getState().refreshStatus())
+        .catch(() => undefined);
+    }
+
+    previousVaultContextRef.current = isInVaultContext;
+  }, [isInVaultContext, vaultStatus?.enabled, vaultStatus?.unlocked]);
+
+  useEffect(() => {
+    return () => {
+      const state = useVaultStore.getState();
+      const shouldAutoLock =
+        state.status?.enabled &&
+        state.status?.unlocked &&
+        state.isInVaultContext;
+
+      state.setInVaultContext(false);
+
+      if (shouldAutoLock) {
+        void vaultService
+          .lock()
+          .then(() => state.refreshStatus())
+          .catch(() => undefined);
+      }
     };
   }, []);
 
