@@ -56,7 +56,8 @@ export default function Sidebar() {
         <div className="flex flex-col py-4">
           <div className="h-12 flex items-center px-6 w-full">
             <NavLink to="/dashboard" className="flex items-center">
-              <img src="/icon-full.svg" alt="SupFile" className="h-[34px] w-auto" />
+              <img src="/icon-full.svg" alt="SupFile" className="h-[34px] w-auto dark:hidden" />
+              <img src="/icon-full-light.svg" alt="SupFile" className="h-[34px] w-auto hidden dark:block" />
             </NavLink>
           </div>
           <div className="w-[80%] h-[2px] bg-gray-200 dark:bg-gray-700 mt-2 ml-6 rounded-full" />
