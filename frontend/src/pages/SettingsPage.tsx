@@ -5,6 +5,7 @@ import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield } from 'lucide-react
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
+import { vaultService, VaultStatus } from '@/services/vaultService';
 
 export default function SettingsPage() {
   const { user, updateProfile } = useAuthStore();
@@ -19,9 +20,22 @@ export default function SettingsPage() {
     newPassword: '',
     confirmPassword: '',
   });
+  const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null);
+  const [vaultSetup, setVaultSetup] = useState({ password: '', totpCode: '' });
+  const [vaultUnlock, setVaultUnlock] = useState({ password: '', totpCode: '' });
+  const [vaultRotate, setVaultRotate] = useState({ oldPassword: '', newPassword: '', totpCode: '' });
 
   useEffect(() => {
     setIsDark(user?.theme === 'dark');
+    const loadVaultStatus = async () => {
+      try {
+        const data = await vaultService.getStatus();
+        setVaultStatus(data.status);
+      } catch (error) {
+        console.error('Failed to load vault status', error);
+      }
+    };
+    void loadVaultStatus();
   }, [user?.theme]);
 
   const formatBytes = (bytes: number) => {
@@ -87,6 +101,62 @@ export default function SettingsPage() {
       setPassword({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Échec de la modification du mot de passe');
+    }
+  };
+
+  const refreshVaultStatus = async () => {
+    const data = await vaultService.getStatus();
+    setVaultStatus(data.status);
+    await useAuthStore.getState().refreshProfile();
+  };
+
+  const handleVaultSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await vaultService.setup(vaultSetup.password, vaultSetup.totpCode);
+      setVaultSetup({ password: '', totpCode: '' });
+      toast.success('Coffre-fort activé');
+      await refreshVaultStatus();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Activation du coffre-fort échouée');
+    }
+  };
+
+  const handleVaultUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await vaultService.unlock(vaultUnlock.password, vaultUnlock.totpCode);
+      setVaultUnlock({ password: '', totpCode: '' });
+      toast.success('Coffre-fort déverrouillé');
+      await refreshVaultStatus();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Déverrouillage du coffre-fort échoué');
+    }
+  };
+
+  const handleVaultLock = async () => {
+    try {
+      await vaultService.lock();
+      toast.success('Coffre-fort verrouillé');
+      await refreshVaultStatus();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Verrouillage du coffre-fort échoué');
+    }
+  };
+
+  const handleVaultRotatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await vaultService.rotatePassword(
+        vaultRotate.oldPassword,
+        vaultRotate.newPassword,
+        vaultRotate.totpCode
+      );
+      setVaultRotate({ oldPassword: '', newPassword: '', totpCode: '' });
+      toast.success('Mot de passe coffre-fort mis à jour');
+      await refreshVaultStatus();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Rotation du mot de passe échouée');
     }
   };
 
@@ -344,6 +414,146 @@ export default function SettingsPage() {
             Se déconnecter de tous les appareils
           </button>
         </div>
+      </div>
+
+      {/* Vault Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+            <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Coffre-fort
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Protection renforcée par mot de passe dédié + MFA à chaque déverrouillage.
+            </p>
+          </div>
+        </div>
+
+        {!vaultStatus?.enabled ? (
+          <form onSubmit={handleVaultSetup} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="password"
+                value={vaultSetup.password}
+                onChange={(e) => setVaultSetup((prev) => ({ ...prev, password: e.target.value }))}
+                placeholder="Mot de passe coffre-fort"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                required
+              />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={vaultSetup.totpCode}
+                onChange={(e) => setVaultSetup((prev) => ({ ...prev, totpCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                placeholder="Code MFA (6 chiffres)"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                required
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Le mot de passe doit contenir 12+ caractères avec majuscule, minuscule, chiffre et symbole.
+            </p>
+            <button
+              type="submit"
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium"
+            >
+              Activer le coffre-fort
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40">
+              <div>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Statut: <span className="font-semibold">{vaultStatus.unlocked ? 'Déverrouillé' : 'Verrouillé'}</span>
+                </p>
+                {vaultStatus.unlockUntil && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Accès jusqu&apos;au {new Date(vaultStatus.unlockUntil).toLocaleString('fr-FR')}
+                  </p>
+                )}
+              </div>
+              {vaultStatus.unlocked ? (
+                <button
+                  onClick={handleVaultLock}
+                  className="px-4 py-2 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium"
+                >
+                  Verrouiller maintenant
+                </button>
+              ) : null}
+            </div>
+
+            {!vaultStatus.unlocked && (
+              <form onSubmit={handleVaultUnlock} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    type="password"
+                    value={vaultUnlock.password}
+                    onChange={(e) => setVaultUnlock((prev) => ({ ...prev, password: e.target.value }))}
+                    placeholder="Mot de passe coffre-fort"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={vaultUnlock.totpCode}
+                    onChange={(e) => setVaultUnlock((prev) => ({ ...prev, totpCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                    placeholder="Code MFA (6 chiffres)"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium"
+                >
+                  Déverrouiller
+                </button>
+              </form>
+            )}
+
+            <form onSubmit={handleVaultRotatePassword} className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Rotation du mot de passe coffre-fort</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  type="password"
+                  value={vaultRotate.oldPassword}
+                  onChange={(e) => setVaultRotate((prev) => ({ ...prev, oldPassword: e.target.value }))}
+                  placeholder="Mot de passe actuel"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+                <input
+                  type="password"
+                  value={vaultRotate.newPassword}
+                  onChange={(e) => setVaultRotate((prev) => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="Nouveau mot de passe"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={vaultRotate.totpCode}
+                  onChange={(e) => setVaultRotate((prev) => ({ ...prev, totpCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                  placeholder="Code MFA"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
+              >
+                Mettre à jour le mot de passe coffre-fort
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* MFA Section */}
