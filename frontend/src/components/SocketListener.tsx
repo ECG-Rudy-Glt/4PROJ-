@@ -9,12 +9,21 @@ import { initPushNotifications } from '@/utils/pushNotification';
 export default function SocketListener() {
     const socket = useSocket();
     const { user } = useAuthStore();
-    const addNotification = useNotificationStore((s) => s.addNotification);
+    const { addNotification, fetchNotifications } = useNotificationStore((s) => ({
+        addNotification: s.addNotification,
+        fetchNotifications: s.fetchNotifications,
+    }));
 
     // Enregistrer le service worker push au montage
     useEffect(() => {
         initPushNotifications();
     }, []);
+
+    // Charger les notifications dès que le socket est connecté (user forcément authentifié)
+    useEffect(() => {
+        if (!socket) return;
+        fetchNotifications();
+    }, [socket, fetchNotifications]);
 
     useEffect(() => {
         if (!socket) return;

@@ -34,7 +34,9 @@ export async function initPushNotifications() {
     // Vérifier si déjà abonné
     const existingSub = await swRegistration.pushManager.getSubscription();
     if (existingSub) {
-      console.log('[Push] Déjà abonné');
+      // Re-envoyer la subscription au backend (en cas de reset BDD ou changement de clés)
+      await api.post('/push/subscribe', { subscription: existingSub.toJSON() });
+      console.log('[Push] Subscription rafraîchie');
       return;
     }
 
