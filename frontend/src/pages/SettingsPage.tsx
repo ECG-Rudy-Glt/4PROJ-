@@ -22,7 +22,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setIsDark(user?.theme === 'dark');
-  }, [user?.theme]);
+    if (user) {
+      setProfile({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+      });
+    }
+  }, [user]);
 
   const formatBytes = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024);
@@ -127,10 +134,10 @@ export default function SettingsPage() {
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${quotaPercentage > 90
-                  ? 'bg-gradient-to-r from-red-500 to-red-600'
-                  : quotaPercentage > 70
-                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
-                    : 'bg-gradient-to-r from-primary-500 to-primary-600'
+                ? 'bg-gradient-to-r from-red-500 to-red-600'
+                : quotaPercentage > 70
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                  : 'bg-gradient-to-r from-primary-500 to-primary-600'
                 }`}
               style={{ width: `${Math.min(quotaPercentage, 100)}%` }}
             />
@@ -171,8 +178,8 @@ export default function SettingsPage() {
           <button
             onClick={handleThemeToggle}
             className={`relative w-16 h-8 rounded-full transition-all duration-300 ${isDark
-                ? 'bg-primary-600'
-                : 'bg-gray-300 dark:bg-gray-600'
+              ? 'bg-primary-600'
+              : 'bg-gray-300 dark:bg-gray-600'
               }`}
           >
             <div

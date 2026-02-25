@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { dashboardService } from '@/services/dashboardService';
 import { DashboardData } from '@/types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadDashboard();
@@ -77,6 +79,11 @@ export default function DashboardPage() {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const handleFileClick = (file: any) => {
+    const folderPath = file.folderId ? `/files/${file.folderId}` : '/files';
+    navigate(`${folderPath}?preview=${file.id}`);
   };
 
   if (isLoading) {
@@ -278,6 +285,7 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={file.id}
+                    onClick={() => handleFileClick(file)}
                     className="group flex items-center space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 cursor-pointer"
                   >
                     <div className={`p-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg group-hover:scale-110 transition-transform duration-200`}>

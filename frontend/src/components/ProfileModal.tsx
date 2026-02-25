@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Upload, User, Calendar, HardDrive } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
@@ -26,6 +26,17 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     lastName: user?.lastName || '',
   });
 
+  // Sync profile state when user data is available
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+      });
+      setSelectedAvatar(user.avatar || DEFAULT_AVATARS[0]);
+    }
+  }, [user]);
+
   if (!isOpen || !user) return null;
 
   const formatBytes = (bytes: number) => {
@@ -33,14 +44,17 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     return gb.toFixed(2);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Date inconnue';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Date invalide';
+
+    return date.toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
   };
-
   const quotaUsed = user.quotaUsed || 0;
   const quotaLimit = user.quotaLimit || 10737418240;
   const quotaPercentage = (quotaUsed / quotaLimit) * 100;
@@ -145,11 +159,10 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   <button
                     key={index}
                     onClick={() => handleAvatarSelect(avatar)}
-                    className={`w-full aspect-square rounded-full border-2 transition-all hover:scale-110 ${
-                      selectedAvatar === avatar
-                        ? 'border-primary-500 dark:border-primary-300 ring-2 ring-primary-500/50'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className={`w-full aspect-square rounded-full border-2 transition-all hover:scale-110 ${selectedAvatar === avatar
+                      ? 'border-primary-500 dark:border-primary-300 ring-2 ring-primary-500/50'
+                      : 'border-gray-300 dark:border-gray-600'
+                      }`}
                   >
                     <img src={avatar} alt={`Avatar ${index + 1}`} className="w-full h-full rounded-full" />
                   </button>
