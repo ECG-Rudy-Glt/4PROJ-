@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, claude-proto, ci_implementation ]
+    branches: [ main, claude-proto, rgt_ci ]
   pull_request:
-    branches: [ main, claude-proto, ci_implementation ]
+    branches: [ main, claude-proto, rgt_ci ]
 
 jobs:
   validate-env:
