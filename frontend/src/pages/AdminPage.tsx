@@ -4,16 +4,9 @@ import { format } from 'date-fns';
 import { AdminOverview, AdminUserRow } from '@/types';
 import { adminService } from '@/services/adminService';
 import { Users, HardDrive, FolderOpen, Upload } from 'lucide-react';
+import { formatBytes } from '@/utils/bytes';
 
 const PLAN_OPTIONS: Array<'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE'> = ['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'];
-
-const formatBytes = (bytes: number) => {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
-};
 
 export default function AdminPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
