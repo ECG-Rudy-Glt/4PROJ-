@@ -31,7 +31,15 @@ export type AuditAction =
   | 'ORG_MEMBER_ADD'
   | 'ORG_MEMBER_ROLE_UPDATE'
   | 'ORG_MEMBER_REMOVE'
-  | 'ORG_SWITCH';
+  | 'ORG_SWITCH'
+  | 'ACCOUNT_SWITCH_LINK_ADDED'
+  | 'ACCOUNT_SWITCH_LINK_REVOKED'
+  | 'ACCOUNT_SWITCH'
+  | 'ACCOUNT_SWITCH_BACK'
+  | 'DELEGATION_GRANTED'
+  | 'DELEGATION_REVOKED'
+  | 'DELEGATION_ASSUME'
+  | 'DELEGATION_STOP';
 
 export interface AuditDetails {
   fileName?: string;
