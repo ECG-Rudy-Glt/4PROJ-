@@ -131,4 +131,11 @@ export const fileService = {
     const response = await api.get('/files/favorites');
     return response.data;
   },
+
+  async exportFilesCsv(): Promise<Blob> {
+    const response = await api.get('/files/export/csv', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };

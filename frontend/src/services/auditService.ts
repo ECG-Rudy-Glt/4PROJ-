@@ -82,4 +82,11 @@ export const auditService = {
     const { data } = await api.get(`/audit/stats?days=${days}`);
     return data as ActivityStats;
   },
+
+  async exportCsv(): Promise<Blob> {
+    const response = await api.get('/audit/export/csv', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
