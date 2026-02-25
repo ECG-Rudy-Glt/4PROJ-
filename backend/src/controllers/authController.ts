@@ -13,6 +13,17 @@ export class AuthController {
     try {
       const { email, password, firstName, lastName } = req.body;
 
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        res.status(400).json({ error: 'Format d\'email invalide' });
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+        return;
+      }
+
       const result = await AuthService.register(email, password, firstName, lastName);
 
       res.status(201).json(result);
@@ -42,6 +53,12 @@ export class AuthController {
   static async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        res.status(400).json({ error: 'Format d\'email invalide' });
+        return;
+      }
 
       const result = await AuthService.login(email, password);
       const user = result.user;

@@ -132,7 +132,32 @@ export class ShareController {
       });
 
       if (!targetUser) {
-        res.status(404).json({ error: 'User not found' });
+        // User not found, so generate a share link and email it to them
+        const { MailService } = await import('../services/mailService');
+        const folder = await prisma.folder.findFirst({
+          where: { id: folderId, userId },
+        });
+
+        if (!folder) {
+          res.status(404).json({ error: 'Dossier non trouvé' });
+          return;
+        }
+
+        // We can't generate a public share link for a folder directly yet with the current structure
+        // But we can inform them to create an account
+        const signupLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/register?email=${encodeURIComponent(targetUserEmail)}`;
+        
+        await MailService.sendMail({
+          to: targetUserEmail,
+          subject: `${req.user!.firstName || req.user!.email} souhaite partager un dossier avec vous`,
+          text: `Bonjour,\n\n${req.user!.firstName || req.user!.email} souhaite partager le dossier "${folder.name}" avec vous.\n\nCependant, vous n'avez pas encore de compte sur SupFile. Veuillez créer un compte gratuitement via ce lien pour pouvoir y accéder : ${signupLink}\n\nUne fois votre compte créé, demandez à l'utilisateur de vous repartager le dossier.\n\nL'équipe SupFile`,
+        });
+
+        res.status(200).json({ 
+          message: 'Invitation envoyée à créer un compte', 
+          isNewUser: true,
+          sharedFolder: null
+        });
         return;
       }
 
@@ -234,7 +259,36 @@ export class ShareController {
       });
 
       if (!targetUser) {
-        res.status(404).json({ error: 'User not found' });
+        // User not found, so generate a share link and email it to them
+        const { MailService } = await import('../services/mailService');
+        const file = await prisma.file.findFirst({
+          where: { id: fileId, userId, isDeleted: false },
+        });
+
+        if (!file) {
+          res.status(404).json({ error: 'Fichier non trouvé' });
+          return;
+        }
+
+        // Generate a public link (7 days expiration)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        const shareLink = await ShareService.createShareLink(userId, fileId, { expiresAt });
+
+        const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/share/${shareLink.token}`;
+        
+        await MailService.sendMail({
+          to: targetUserEmail,
+          subject: `${req.user!.firstName || req.user!.email} a partagé un fichier avec vous`,
+          text: `Bonjour,\n\n${req.user!.firstName || req.user!.email} souhaite partager le fichier "${file.name}" avec vous.\n\nVous n'avez pas encore de compte sur SupFile. Vous pouvez accéder au fichier via ce lien sécurisé (valable 7 jours) : ${inviteLink}\n\nSi vous souhaitez collaborer davantage, n'hésitez pas à créer un compte gratuitement !\n\nL'équipe SupFile`,
+        });
+
+        res.status(200).json({ 
+          message: 'Invitation envoyée avec succès', 
+          isNewUser: true,
+          sharedFile: null
+        });
         return;
       }
 
@@ -250,7 +304,7 @@ export class ShareController {
         }
       );
 
-      res.status(201).json({ sharedFile });
+      res.status(201).json({ sharedFile, isNewUser: false });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
