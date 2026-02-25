@@ -453,20 +453,16 @@ export default function FilesPage() {
     if (pendingCount === 0) {
       toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
       setShowUploadModal(true);
-      setUploadingFiles((prev) => {
-        const next = [...prev, ...queuedFiles];
-        uploadingFilesRef.current = next;
-        return next;
-      });
+      const nextErr = [...uploadingFilesRef.current, ...queuedFiles];
+      uploadingFilesRef.current = nextErr;
+      setUploadingFiles(nextErr);
       return;
     }
 
     setShowUploadModal(true);
-    setUploadingFiles((prev) => {
-      const next = [...prev, ...queuedFiles];
-      uploadingFilesRef.current = next;
-      return next;
-    });
+    const next = [...uploadingFilesRef.current, ...queuedFiles];
+    uploadingFilesRef.current = next;
+    setUploadingFiles(next);
 
     void processUploadQueue();
   };
@@ -513,6 +509,7 @@ export default function FilesPage() {
     setShowUploadModal(false);
     setUploadingFiles([]);
     uploadingFilesRef.current = [];
+    isQueueProcessingRef.current = false;
 
     const successCount = uploadingFiles.filter((file) => file.status === 'success').length;
     const errorCount = uploadingFiles.filter((file) => file.status === 'error').length;

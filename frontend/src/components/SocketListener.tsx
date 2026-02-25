@@ -3,10 +3,27 @@ import { useSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
 import { MessageSquare, Share2, Check } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useNotificationStore } from '@/stores/useNotificationStore';
+import { initPushNotifications } from '@/utils/pushNotification';
 
 export default function SocketListener() {
     const socket = useSocket();
     const { user } = useAuthStore();
+    const { addNotification, fetchNotifications } = useNotificationStore((s) => ({
+        addNotification: s.addNotification,
+        fetchNotifications: s.fetchNotifications,
+    }));
+
+    // Enregistrer le service worker push au montage
+    useEffect(() => {
+        initPushNotifications();
+    }, []);
+
+    // Charger les notifications dès que le socket est connecté (user forcément authentifié)
+    useEffect(() => {
+        if (!socket) return;
+        fetchNotifications();
+    }, [socket, fetchNotifications]);
 
     useEffect(() => {
         if (!socket) return;
@@ -98,18 +115,25 @@ export default function SocketListener() {
             ));
         };
 
+        // Listener pour les notifications persistantes (push géré côté backend via VAPID)
+        const handleNotification = (data: any) => {
+            addNotification(data);
+        };
+
         socket.on('comment_added', handleComment);
         socket.on('share_received', handleShare);
         socket.on('file_uploaded', handleUpload);
         socket.on('share_accepted', handleShareAccepted);
+        socket.on('notification_new', handleNotification);
 
         return () => {
             socket.off('comment_added', handleComment);
             socket.off('share_received', handleShare);
             socket.off('file_uploaded', handleUpload);
             socket.off('share_accepted', handleShareAccepted);
+            socket.off('notification_new', handleNotification);
         };
-    }, [socket, user]);
+    }, [socket, user, addNotification]);
 
     return null; // Ce composant ne rend rien visuellement, il gère juste les écoutes
 }

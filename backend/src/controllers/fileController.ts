@@ -5,6 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { AuditService } from '../services/auditService';
+import { NotificationService } from '../services/notificationService';
+import prisma from '../config/database';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response): Promise<void> {
@@ -34,6 +36,24 @@ export class FileController {
           errors,
         });
         return;
+      }
+
+      // Vérifier si l'utilisateur dépasse 90% de son quota
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { quotaUsed: true, quotaLimit: true },
+      });
+      if (user) {
+        const usage = Number(user.quotaUsed) / Number(user.quotaLimit);
+        if (usage >= 0.9) {
+          NotificationService.create(
+            userId,
+            'QUOTA',
+            'Quota presque atteint',
+            `Vous utilisez ${Math.round(usage * 100)}% de votre espace de stockage.`,
+            { quotaUsed: Number(user.quotaUsed), quotaLimit: Number(user.quotaLimit) }
+          ).catch(console.error);
+        }
       }
 
       const hasPartialFailures = errors.length > 0;
