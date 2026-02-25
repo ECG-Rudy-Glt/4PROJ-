@@ -23,9 +23,11 @@
 - Tri/filtres dynamiques
 - WebSockets temps réel
 - Timeout session
-- 2FA
 - Notifications email
 - Droits granulaires (lecture/écriture/suppression)
+- faire une pipeline github actions. Celle ci va verifier les tests, les lint et les build. Ensuite elle va deployer sur un serveur.
+- faire regex addresses mail valide
+- partages a revoir 
 
 ---
 
