@@ -32,6 +32,12 @@ enum Role {
   ADMIN
 }
 
+enum OrganizationMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -54,6 +60,14 @@ model User {
   subscriptionStatus SubscriptionStatus @default(ACTIVE)
   stripeCustomerId String?
 
+  // Coffre-fort sécurisé
+  vaultEnabled      Boolean   @default(false)
+  vaultPasswordHash String?
+  vaultUnlockUntil  DateTime?
+  vaultLockedUntil  DateTime?
+  vaultFailedAttempts Int     @default(0)
+  vaultLastUnlockedAt DateTime?
+
   // MFA (Multi-Factor Authentication)
   mfaEnabled    Boolean   @default(false)
   mfaSecret     String?   // Secret TOTP encrypté
@@ -72,6 +86,9 @@ model User {
   folders       Folder[]
   sharedLinks   SharedLink[]
   trustedDevices TrustedDevice[]
+  organizationMemberships OrganizationMember[]
+  currentOrganizationId String?
+  currentOrganization   Organization? @relation("CurrentOrganization", fields: [currentOrganizationId], references: [id], onDelete: SetNull)
 
   // Gestion des partages reçus/envoyés
   sharedWithMe  SharedFolder[] @relation("SharedWithUser")
@@ -89,6 +106,7 @@ model User {
 
   @@index([email])
   @@index([providerId])
+  @@index([currentOrganizationId])
 }
 
 // Nouveau : Pour gérer la déconnexion et la sécurité
@@ -122,6 +140,7 @@ model Folder {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   files     File[]
+  isVault   Boolean  @default(false)
 
   // Relations pour les partages
   sharedLinks  SharedLink[]
@@ -134,6 +153,7 @@ model Folder {
   @@index([userId])
   @@index([parentId])
   @@index([path])
+  @@index([isVault])
 }
 
 // --------------------------------------
@@ -169,6 +189,8 @@ model File {
   comments     Comment[]  // Commentaires sur le fichier
   versions     FileVersion[]  // Versions du fichier
   sharedWith   SharedFile[]  // Partages avec d'autres utilisateurs
+  isVault      Boolean  @default(false)
+  searchIndex  FileSearchIndex?
 
   isDeleted    Boolean  @default(false)
   deletedAt    DateTime?
@@ -182,6 +204,20 @@ model File {
   @@index([mimeType])
   @@index([category])
   @@index([isFavorite])
+  @@index([isVault])
+}
+
+model FileSearchIndex {
+  id           String   @id @default(uuid())
+  fileId        String   @unique
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  extractedText String   @db.Text
+  aiSummary     String?  @db.Text
+  ocrUsed       Boolean  @default(false)
+  indexedAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([indexedAt])
 }
 
 // --------------------------------------
@@ -383,4 +419,32 @@ model TrustedDevice {
   @@index([userId])
   @@index([deviceFingerprint])
   @@index([expiresAt])
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     OrganizationMember[]
+  currentUsers User[]  @relation("CurrentOrganization")
+
+  @@index([name])
+}
+
+model OrganizationMember {
+  id             String               @id @default(uuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrganizationMemberRole @default(MEMBER)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
 }
