@@ -7,33 +7,21 @@ import api from '@/services/api';
 import { billingService } from '@/services/billingService';
 
 type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
-type PaidPlanId = Exclude<PlanId, 'FREE'>;
+type PaidPlanId = 'PRO' | 'BUSINESS' | 'ENTERPRISE';
 
-const plans: Array<{
-  id: PlanId;
-  name: string;
-  price: string;
-  period: string;
-  description: string;
-  storage: string;
-  features: Array<{ name: string; included: boolean }>;
-  icon: any;
-  color: string;
-  buttonColor: string;
-  popular?: boolean;
-}> = [
+const plans = [
   {
     id: 'FREE',
     name: 'Gratuit',
-    price: '0EUR',
+    price: '0€',
     period: '/mois',
-    description: 'Pour demarrer',
-    storage: '10 Go',
+    description: 'Pour démarrer',
+    storage: '30 Go',
     features: [
-      { name: 'Stockage Cloud Securise', included: true },
+      { name: 'Stockage Cloud Sécurisé', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: false },
+      { name: 'Historique d\'audit', included: false },
       { name: 'Support prioritaire', included: false },
     ],
     icon: Database,
@@ -43,15 +31,15 @@ const plans: Array<{
   {
     id: 'PRO',
     name: 'Pro',
-    price: '9.99EUR',
+    price: '9.99€',
     period: '/mois',
     description: 'Pour les professionnels',
     storage: '200 Go',
     features: [
-      { name: 'Stockage Cloud Securise', included: true },
+      { name: 'Stockage Cloud Sécurisé', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: true },
+      { name: 'Historique d\'audit', included: true },
       { name: 'Support prioritaire', included: true },
     ],
     icon: Zap,
@@ -62,38 +50,20 @@ const plans: Array<{
   {
     id: 'BUSINESS',
     name: 'Business',
-    price: '29.99EUR',
+    price: '29.99€',
     period: '/mois',
-    description: 'Pour les equipes',
+    description: 'Pour les équipes',
     storage: '2 To',
     features: [
-      { name: 'Stockage Cloud Securise', included: true },
+      { name: 'Stockage Cloud Sécurisé', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: true },
+      { name: 'Historique d\'audit', included: true },
       { name: 'Support prioritaire 24/7', included: true },
     ],
     icon: Server,
     color: 'bg-orange-100 text-orange-600',
     buttonColor: 'bg-orange-600 hover:bg-orange-700',
-  },
-  {
-    id: 'ENTERPRISE',
-    name: 'Enterprise',
-    price: '99.99EUR',
-    period: '/mois',
-    description: 'Pour les organisations exigeantes',
-    storage: '10 To',
-    features: [
-      { name: 'Stockage Cloud Securise', included: true },
-      { name: 'Partage avance et gouvernance', included: true },
-      { name: 'Support dedie', included: true },
-      { name: "Historique d'audit complet", included: true },
-      { name: 'SLA entreprise', included: true },
-    ],
-    icon: Server,
-    color: 'bg-gray-200 text-gray-700',
-    buttonColor: 'bg-gray-800 hover:bg-gray-900',
   },
 ];
 
@@ -184,9 +154,8 @@ export default function PlansPage() {
           return (
             <div
               key={plan.id}
-              className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 transition-transform hover:scale-105 ${
-                isCurrentPlan ? 'border-primary-500 ring-4 ring-primary-500/10' : 'border-transparent'
-              }`}
+              className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 transition-transform hover:scale-105 ${isCurrentPlan ? 'border-primary-500 ring-4 ring-primary-500/10' : 'border-transparent'
+                }`}
             >
               {plan.popular && (
                 <div className="absolute top-0 right-0 -mr-2 -mt-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
@@ -235,11 +204,10 @@ export default function PlansPage() {
                 </div>
 
                 <button
-                  onClick={() => handlePlanSelection(plan.id)}
+                  onClick={() => handlePlanSelection(plan.id as PlanId)}
                   disabled={isCurrentPlan || loading !== null}
-                  className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${
-                    isCurrentPlan ? 'bg-gray-400 cursor-not-allowed' : plan.buttonColor
-                  } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
+                  className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${isCurrentPlan ? 'bg-gray-400 cursor-not-allowed' : plan.buttonColor
+                    } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
                 >
                   {isCurrentPlan
                     ? 'Plan actuel'

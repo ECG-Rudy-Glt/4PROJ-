@@ -56,7 +56,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     });
   };
   const quotaUsed = user.quotaUsed || 0;
-  const quotaLimit = user.quotaLimit || 10737418240;
+  const quotaLimit = user.quotaLimit || 32212254720;
   const quotaPercentage = (quotaUsed / quotaLimit) * 100;
 
   const handleAvatarSelect = (avatar: string) => {

@@ -1,9 +1,13 @@
 import { Request, Response } from 'express';
+import { Plan } from '@prisma/client';
 import { AuthRequest } from '../types';
 import { BillingService } from '../services/billingService';
+import { PlanService } from '../services/planService';
+import prisma from '../config/database';
 
 type PaidPlan = 'PRO' | 'BUSINESS' | 'ENTERPRISE';
 const PAID_PLANS = new Set<PaidPlan>(['PRO', 'BUSINESS', 'ENTERPRISE']);
+const ALL_PLANS = new Set(['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE']);
 
 export class BillingController {
   static async createCheckoutSession(req: AuthRequest, res: Response): Promise<void> {
@@ -16,8 +20,34 @@ export class BillingController {
         return;
       }
 
+      // Mode développement sans Stripe : changement de plan direct
+      if (!process.env.STRIPE_SECRET_KEY) {
+        const newLimit = PlanService.getStorageLimit(plan as Plan);
+        await prisma.user.update({
+          where: { id: userId },
+          data: { plan: plan as Plan, quotaLimit: newLimit },
+        });
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        res.status(200).json({ url: `${frontendUrl}/plans?checkout=success` });
+        return;
+      }
+
       const session = await BillingService.createCheckoutSession(userId, plan);
       res.status(200).json(session);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async changePlanFree(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const newLimit = PlanService.getStorageLimit(Plan.FREE);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { plan: Plan.FREE, quotaLimit: newLimit },
+      });
+      res.status(200).json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
