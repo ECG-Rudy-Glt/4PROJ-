@@ -1,14 +1,16 @@
-import { Search, Moon, Sun, LogOut, User } from 'lucide-react';
+import { Search, Moon, Sun, LogOut, User, ArrowRightLeft } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileModal from './ProfileModal';
+import AccountSwitcherModal from './AccountSwitcherModal';
 
 export default function Header() {
   const { user, logout, updateProfile } = useAuthStore();
   const [isDark, setIsDark] = useState(user?.theme === 'dark');
   const [searchQuery, setSearchQuery] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAccountSwitcherModal, setShowAccountSwitcherModal] = useState(false);
   const navigate = useNavigate();
 
   // Appliquer le thème au chargement initial et quand user change
@@ -72,6 +74,14 @@ export default function Header() {
           </button>
 
           <button
+            onClick={() => setShowAccountSwitcherModal(true)}
+            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="Switch de comptes"
+          >
+            <ArrowRightLeft className="w-5 h-5" />
+          </button>
+
+          <button
             onClick={() => setShowProfileModal(true)}
             className="flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
           >
@@ -109,6 +119,11 @@ export default function Header() {
       <ProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+      />
+
+      <AccountSwitcherModal
+        isOpen={showAccountSwitcherModal}
+        onClose={() => setShowAccountSwitcherModal(false)}
       />
     </header>
   );

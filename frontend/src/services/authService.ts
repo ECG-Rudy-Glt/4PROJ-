@@ -1,5 +1,5 @@
 import api from './api';
-import { User } from '@/types';
+import { AuthSessionContext, User } from '@/types';
 
 export const authService = {
   async register(data: {
@@ -17,7 +17,7 @@ export const authService = {
     return response.data;
   },
 
-  async getProfile(): Promise<{ user: User }> {
+  async getProfile(): Promise<{ user: User; session?: AuthSessionContext }> {
     const response = await api.get('/auth/profile');
     return response.data;
   },
