@@ -8,24 +8,47 @@ interface MailOptions {
 }
 
 export class MailService {
-    private static transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false, // true for 465, false for other ports
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-    });
+    private static transporter: nodemailer.Transporter | null = null;
+
+    private static getTransporter(): nodemailer.Transporter {
+        if (this.transporter) {
+            return this.transporter;
+        }
+
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpUser = process.env.SMTP_USER;
+        const smtpPass = process.env.SMTP_PASS;
+        const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+        const secure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+
+        if (!smtpHost || !smtpUser || !smtpPass) {
+            throw new Error('SMTP configuration incomplete');
+        }
+
+        this.transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure,
+            requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false',
+            auth: {
+                user: smtpUser,
+                pass: smtpPass,
+            },
+        });
+
+        return this.transporter;
+    }
 
     static async sendMail(options: MailOptions): Promise<boolean> {
-        if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+        const smtpMock = process.env.SMTP_MOCK === 'true';
+        if (smtpMock) {
             console.log('[MailService] SMTP not configured. Mocking email send:', options);
             return true;
         }
 
         try {
-            const info = await this.transporter.sendMail({
+            const transporter = this.getTransporter();
+            const info = await transporter.sendMail({
                 from: process.env.SMTP_FROM || '"SupFile" <noreply@supfile.com>',
                 ...options,
             });
