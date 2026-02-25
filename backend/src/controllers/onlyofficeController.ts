@@ -6,6 +6,8 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
+import { EncryptionService } from '../services/encryptionService';
+import { VaultService } from '../services/vaultService';
 
 export class OnlyOfficeController {
   /**
@@ -39,6 +41,8 @@ export class OnlyOfficeController {
         return;
       }
 
+      await VaultService.assertUnlockedIfVault(tokenData.userId, file.isVault);
+
       // file.storagePath contient soit un chemin absolu comme /app/uploads/xxx.docx
       // soit juste le nom du fichier
       let filePath: string;
@@ -60,12 +64,12 @@ export class OnlyOfficeController {
         return;
       }
 
-      // Envoyer le fichier
+      // Envoyer le fichier déchiffré vers OnlyOffice
       res.setHeader('Content-Type', file.mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
-      
-      const fileStream = fsSync.createReadStream(filePath);
-      fileStream.pipe(res);
+
+      const decryptStream = EncryptionService.getDecryptStream(filePath);
+      decryptStream.pipe(res);
     } catch (error: any) {
       console.error('Error serving file to OnlyOffice:', error);
       res.status(500).json({ error: error.message });
@@ -111,6 +115,8 @@ export class OnlyOfficeController {
         res.status(404).json({ error: 'Fichier non trouvé' });
         return;
       }
+
+      await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
       // Vérifier si le fichier peut être édité
       if (!OnlyOfficeService.canEdit(file.mimeType)) {
@@ -191,15 +197,17 @@ export class OnlyOfficeController {
           // Sauvegarder le fichier
           await fs.writeFile(filepath, response.data);
 
-          // Créer une nouvelle version
+          // Créer une nouvelle version (chiffrement + limites plan gérés côté service)
           await OnlyOfficeService.createFileVersion(
             fileId,
             file.userId, // On utilise l'owner du fichier pour la version
-            filename,
-            response.data.byteLength
+            filepath,
+            file.name,
+            response.data.byteLength,
+            file.mimeType
           );
 
-          console.log('File saved successfully:', filename);
+          console.log('File saved successfully:', filepath);
         } catch (saveError) {
           console.error('Error saving file:', saveError);
           res.status(200).json({ error: 1 });

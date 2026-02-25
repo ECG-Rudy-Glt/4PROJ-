@@ -92,4 +92,17 @@ export class EncryptionService {
         const input = fs.createReadStream(filePath, { start: 16, end: fileSize - 17 });
         return input.pipe(decipher);
     }
+
+    static async decryptFileToBuffer(filePath: string): Promise<Buffer> {
+        return await new Promise((resolve, reject) => {
+            const chunks: Buffer[] = [];
+            const stream = this.getDecryptStream(filePath);
+
+            stream.on('data', (chunk: Buffer | string) => {
+                chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            });
+            stream.on('end', () => resolve(Buffer.concat(chunks)));
+            stream.on('error', reject);
+        });
+    }
 }

@@ -2,8 +2,10 @@ import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
 import { deleteFile } from '../utils/fileUtils';
-
-const MAX_VERSIONS = 10; // Nombre maximum de versions à conserver
+import { PlanService } from './planService';
+import { EncryptionService } from './encryptionService';
+import { FileIndexService } from './fileIndexService';
+import { VaultService } from './vaultService';
 
 export class VersionService {
   /**
@@ -25,10 +27,26 @@ export class VersionService {
     if (!file) {
       throw new Error('Fichier introuvable');
     }
+    if (file.isVault && file.userId !== userId) {
+      throw new Error('Accès interdit au contenu coffre-fort');
+    }
+    await VaultService.assertUnlockedIfVault(userId, file.isVault && file.userId === userId);
+
+    const currentVersionCount = await prisma.fileVersion.count({
+      where: { fileId },
+    });
+    await PlanService.assertLimit(userId, 'maxVersions', currentVersionCount);
 
     // Obtenir le numéro de la nouvelle version
     const lastVersion = file.versions[0];
     const newVersionNumber = lastVersion ? lastVersion.versionNumber + 1 : 1;
+
+    if (!fs.existsSync(newFilePath)) {
+      throw new Error('Nouveau fichier introuvable sur le disque');
+    }
+
+    // Chiffrer systématiquement la nouvelle version du fichier principal.
+    await EncryptionService.encryptFile(newFilePath);
 
     // Créer la nouvelle version en sauvegardant l'ancien fichier
     const version = await prisma.fileVersion.create({
@@ -66,6 +84,7 @@ export class VersionService {
 
     // Nettoyer les anciennes versions si on dépasse le maximum
     await this.cleanOldVersions(fileId, userId);
+    FileIndexService.indexFileAsync(fileId, userId);
 
     return version;
   }
@@ -102,6 +121,10 @@ export class VersionService {
     if (!file) {
       throw new Error('Fichier introuvable');
     }
+    if (file.isVault && file.userId !== userId) {
+      throw new Error('Accès interdit au contenu coffre-fort');
+    }
+    await VaultService.assertUnlockedIfVault(userId, file.isVault && file.userId === userId);
 
     return await prisma.fileVersion.findMany({
       where: { fileId },
@@ -130,6 +153,7 @@ export class VersionService {
     if (!file) {
       throw new Error('Fichier introuvable');
     }
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     const version = await prisma.fileVersion.findUnique({
       where: { id: versionId },
@@ -138,6 +162,11 @@ export class VersionService {
     if (!version || version.fileId !== fileId) {
       throw new Error('Version introuvable');
     }
+
+    const currentVersionCount = await prisma.fileVersion.count({
+      where: { fileId },
+    });
+    await PlanService.assertLimit(userId, 'maxVersions', currentVersionCount);
 
     // Créer une version de l'état actuel avant de restaurer
     const lastVersion = await prisma.fileVersion.findFirst({
@@ -196,6 +225,7 @@ export class VersionService {
 
     // Nettoyer les anciennes versions
     await this.cleanOldVersions(fileId, userId);
+    FileIndexService.indexFileAsync(fileId, userId);
 
     return await prisma.file.findUnique({
       where: { id: fileId },
@@ -228,6 +258,7 @@ export class VersionService {
     if (!file) {
       throw new Error('Fichier introuvable');
     }
+    await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     const version = await prisma.fileVersion.findUnique({
       where: { id: versionId },
@@ -262,13 +293,18 @@ export class VersionService {
    * Nettoyer les anciennes versions au-delà de MAX_VERSIONS
    */
   private static async cleanOldVersions(fileId: string, userId: string) {
+    const maxVersions = await PlanService.getNumericLimit(userId, 'maxVersions');
+    if (maxVersions === null) {
+      return;
+    }
+
     const versions = await prisma.fileVersion.findMany({
       where: { fileId },
       orderBy: { versionNumber: 'desc' },
     });
 
-    if (versions.length > MAX_VERSIONS) {
-      const versionsToDelete = versions.slice(MAX_VERSIONS);
+    if (versions.length > maxVersions) {
+      const versionsToDelete = versions.slice(maxVersions);
 
       for (const version of versionsToDelete) {
         await deleteFile(version.storagePath);

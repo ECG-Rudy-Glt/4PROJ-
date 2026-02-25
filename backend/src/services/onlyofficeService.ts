@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { File } from '@prisma/client';
 import prisma from '../config/database';
+import { VersionService } from './versionService';
 
 // URL interne Docker pour la communication backend -> OnlyOffice
 const ONLYOFFICE_INTERNAL_URL = process.env.ONLYOFFICE_URL || 'http://onlyoffice:80';
@@ -213,45 +214,17 @@ export class OnlyOfficeService {
     fileId: string,
     userId: string,
     storagePath: string,
-    size: number
+    fileName: string,
+    size: number,
+    mimeType: string
   ) {
-    const file = await prisma.file.findUnique({
-      where: { id: fileId },
-      include: {
-        versions: {
-          orderBy: { versionNumber: 'desc' },
-          take: 1,
-        },
-      },
-    });
-
-    if (!file) {
-      throw new Error('File not found');
-    }
-
-    const latestVersion = file.versions[0];
-    const newVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
-
-    await prisma.fileVersion.create({
-      data: {
-        file: { connect: { id: fileId } },
-        versionNumber: newVersionNumber,
-        name: file.name,
-        storagePath,
-        size,
-        mimeType: file.mimeType,
-        createdBy: { connect: { id: userId } },
-      },
-    });
-
-    // Mettre à jour le fichier principal
-    await prisma.file.update({
-      where: { id: fileId },
-      data: {
-        storagePath,
-        size,
-        updatedAt: new Date(),
-      },
-    });
+    await VersionService.createVersion(
+      fileId,
+      userId,
+      storagePath,
+      fileName,
+      size,
+      mimeType
+    );
   }
 }
