@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
 import { mfaService } from './mfaService';
+import { PlanService } from './planService';
 
 const DEFAULT_UNLOCK_MINUTES = 10;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -8,6 +9,13 @@ const LOCK_MINUTES = 15;
 const VAULT_ROOT_NAME = 'Coffre-fort';
 
 export class VaultService {
+  private static async assertVaultFeatureAvailable(userId: string) {
+    const available = await PlanService.checkFeature(userId, 'vault');
+    if (!available) {
+      throw new Error('Le coffre-fort est disponible à partir du plan PRO');
+    }
+  }
+
   private static getUnlockDurationMs() {
     const minutes = parseInt(process.env.VAULT_UNLOCK_MINUTES || `${DEFAULT_UNLOCK_MINUTES}`, 10);
     return Math.max(1, minutes) * 60 * 1000;
@@ -33,6 +41,7 @@ export class VaultService {
       where: { id: userId },
       select: {
         id: true,
+        plan: true,
         mfaEnabled: true,
         vaultEnabled: true,
         vaultUnlockUntil: true,
@@ -50,6 +59,8 @@ export class VaultService {
     const unlocked = !!user.vaultEnabled && !!user.vaultUnlockUntil && user.vaultUnlockUntil > now;
 
     return {
+      available: await PlanService.checkFeature(userId, 'vault'),
+      plan: user.plan,
       enabled: user.vaultEnabled,
       mfaEnabled: user.mfaEnabled,
       unlocked,
@@ -61,6 +72,7 @@ export class VaultService {
   }
 
   static async setupVault(userId: string, password: string, totpCode: string) {
+    await this.assertVaultFeatureAvailable(userId);
     this.validatePasswordStrength(password);
 
     const user = await prisma.user.findUnique({
@@ -129,6 +141,7 @@ export class VaultService {
   }
 
   static async unlockVault(userId: string, password: string, totpCode: string) {
+    await this.assertVaultFeatureAvailable(userId);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -185,6 +198,7 @@ export class VaultService {
   }
 
   static async lockVault(userId: string) {
+    await this.assertVaultFeatureAvailable(userId);
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -196,6 +210,7 @@ export class VaultService {
   }
 
   static async rotateVaultPassword(userId: string, oldPassword: string, newPassword: string, totpCode: string) {
+    await this.assertVaultFeatureAvailable(userId);
     this.validatePasswordStrength(newPassword);
 
     const user = await prisma.user.findUnique({
@@ -252,6 +267,7 @@ export class VaultService {
 
   static async assertUnlockedIfVault(userId: string, isVault: boolean) {
     if (!isVault) return;
+    await this.assertVaultFeatureAvailable(userId);
     const unlocked = await this.isVaultUnlocked(userId);
     if (!unlocked) {
       throw new Error('Coffre-fort verrouillé. Déverrouillez-le pour accéder à ce contenu.');

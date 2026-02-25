@@ -1,6 +1,8 @@
 import api from './api';
 
 export interface VaultStatus {
+  available?: boolean;
+  plan?: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
   enabled: boolean;
   mfaEnabled: boolean;
   unlocked: boolean;

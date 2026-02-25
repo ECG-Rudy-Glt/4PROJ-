@@ -5,8 +5,8 @@ import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { billingService } from '@/services/billingService';
+import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
 
-type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
 type PaidPlanId = Exclude<PlanId, 'FREE'>;
 
 const plans: Array<{
@@ -28,12 +28,13 @@ const plans: Array<{
     price: '0EUR',
     period: '/mois',
     description: 'Pour demarrer',
-    storage: '10 Go',
+    storage: PLAN_STORAGE_LABELS.FREE,
     features: [
       { name: 'Stockage Cloud Securise', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
       { name: "Historique d'audit", included: false },
+      { name: 'Coffre-fort securise', included: false },
       { name: 'Support prioritaire', included: false },
     ],
     icon: Database,
@@ -46,12 +47,13 @@ const plans: Array<{
     price: '9.99EUR',
     period: '/mois',
     description: 'Pour les professionnels',
-    storage: '200 Go',
+    storage: PLAN_STORAGE_LABELS.PRO,
     features: [
       { name: 'Stockage Cloud Securise', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
       { name: "Historique d'audit", included: true },
+      { name: 'Coffre-fort securise', included: true },
       { name: 'Support prioritaire', included: true },
     ],
     icon: Zap,
@@ -65,12 +67,13 @@ const plans: Array<{
     price: '29.99EUR',
     period: '/mois',
     description: 'Pour les equipes',
-    storage: '2 To',
+    storage: PLAN_STORAGE_LABELS.BUSINESS,
     features: [
       { name: 'Stockage Cloud Securise', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
       { name: "Historique d'audit", included: true },
+      { name: 'Coffre-fort securise', included: true },
       { name: 'Support prioritaire 24/7', included: true },
     ],
     icon: Server,
@@ -83,12 +86,13 @@ const plans: Array<{
     price: '99.99EUR',
     period: '/mois',
     description: 'Pour les organisations exigeantes',
-    storage: '10 To',
+    storage: PLAN_STORAGE_LABELS.ENTERPRISE,
     features: [
       { name: 'Stockage Cloud Securise', included: true },
       { name: 'Partage avance et gouvernance', included: true },
       { name: 'Support dedie', included: true },
       { name: "Historique d'audit complet", included: true },
+      { name: 'Coffre-fort securise', included: true },
       { name: 'SLA entreprise', included: true },
     ],
     icon: Server,

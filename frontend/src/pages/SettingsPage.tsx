@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
 import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield } from 'lucide-react';
@@ -6,6 +7,8 @@ import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
 import { vaultService, VaultStatus } from '@/services/vaultService';
+import { formatBytes } from '@/utils/bytes';
+import { isVaultAvailableForPlan } from '@/constants/plans';
 
 export default function SettingsPage() {
   const { user, updateProfile } = useAuthStore();
@@ -25,9 +28,19 @@ export default function SettingsPage() {
   const [vaultUnlock, setVaultUnlock] = useState({ password: '', totpCode: '' });
   const [vaultRotate, setVaultRotate] = useState({ oldPassword: '', newPassword: '', totpCode: '' });
 
+  const quotaUsed = user?.quotaUsed || 0;
+  const quotaLimit = user?.quotaLimit || 32212254720; // 30GB default
+  const quotaPercentage = quotaLimit > 0 ? (quotaUsed / quotaLimit) * 100 : 0;
+  const currentPlan = user?.plan || 'FREE';
+  const isVaultEligible = isVaultAvailableForPlan(currentPlan);
+
   useEffect(() => {
     setIsDark(user?.theme === 'dark');
     const loadVaultStatus = async () => {
+      if (!isVaultEligible) {
+        setVaultStatus(null);
+        return;
+      }
       try {
         const data = await vaultService.getStatus();
         setVaultStatus(data.status);
@@ -36,16 +49,7 @@ export default function SettingsPage() {
       }
     };
     void loadVaultStatus();
-  }, [user?.theme]);
-
-  const formatBytes = (bytes: number) => {
-    const gb = bytes / (1024 * 1024 * 1024);
-    return gb.toFixed(2);
-  };
-
-  const quotaUsed = user?.quotaUsed || 0;
-  const quotaLimit = user?.quotaLimit || 10737418240; // 10GB default
-  const quotaPercentage = (quotaUsed / quotaLimit) * 100;
+  }, [user?.theme, isVaultEligible]);
 
   const handleThemeToggle = async () => {
     const newTheme = isDark ? 'light' : 'dark';
@@ -105,6 +109,7 @@ export default function SettingsPage() {
   };
 
   const refreshVaultStatus = async () => {
+    if (!isVaultEligible) return;
     const data = await vaultService.getStatus();
     setVaultStatus(data.status);
     await useAuthStore.getState().refreshProfile();
@@ -187,10 +192,10 @@ export default function SettingsPage() {
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaUsed)} Go utilisés
+              {formatBytes(quotaUsed)} utilisés
             </span>
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaLimit)} Go au total
+              {formatBytes(quotaLimit)} au total
             </span>
           </div>
 
@@ -432,7 +437,19 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {!vaultStatus?.enabled ? (
+        {!isVaultEligible ? (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-900/20 p-4 space-y-3">
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              Le coffre-fort est disponible à partir du plan PRO.
+            </p>
+            <Link
+              to="/plans"
+              className="inline-flex px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
+            >
+              Voir les plans
+            </Link>
+          </div>
+        ) : !vaultStatus?.enabled ? (
           <form onSubmit={handleVaultSetup} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input
