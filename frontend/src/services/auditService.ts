@@ -20,7 +20,18 @@ export type AuditAction =
   | 'COMMENT_ADD'
   | 'COMMENT_DELETE'
   | 'VERSION_RESTORE'
-  | 'VERSION_DELETE';
+  | 'VERSION_DELETE'
+  | 'ADMIN_PLAN_CHANGE'
+  | 'PLAN_DOWNGRADE'
+  | 'VAULT_SETUP'
+  | 'VAULT_UNLOCK'
+  | 'VAULT_LOCK'
+  | 'VAULT_PASSWORD_ROTATE'
+  | 'ORG_CREATE'
+  | 'ORG_MEMBER_ADD'
+  | 'ORG_MEMBER_ROLE_UPDATE'
+  | 'ORG_MEMBER_REMOVE'
+  | 'ORG_SWITCH';
 
 export interface AuditLog {
   id: string;

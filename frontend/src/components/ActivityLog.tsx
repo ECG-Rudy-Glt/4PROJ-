@@ -3,7 +3,8 @@ import { auditService, AuditLog, AuditAction, ActivityStats } from '@/services/a
 import {
   Upload, Trash2, RotateCcw, Download, Share2, FolderPlus,
   FileText, LogIn, LogOut, Key, UserCircle, Tag, MessageCircle,
-  History, Activity, Filter, ChevronLeft, ChevronRight
+  History, Activity, Filter, ChevronLeft, ChevronRight, Shield,
+  Lock, Unlock, Building, UserPlus, UserMinus, RefreshCw, ArrowDownCircle, UserCog
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -30,6 +31,17 @@ const ACTION_ICONS: { [key in AuditAction]: JSX.Element } = {
   COMMENT_DELETE: <MessageCircle className="w-4 h-4" />,
   VERSION_RESTORE: <History className="w-4 h-4" />,
   VERSION_DELETE: <History className="w-4 h-4" />,
+  ADMIN_PLAN_CHANGE: <Shield className="w-4 h-4" />,
+  PLAN_DOWNGRADE: <ArrowDownCircle className="w-4 h-4" />,
+  VAULT_SETUP: <Shield className="w-4 h-4" />,
+  VAULT_UNLOCK: <Unlock className="w-4 h-4" />,
+  VAULT_LOCK: <Lock className="w-4 h-4" />,
+  VAULT_PASSWORD_ROTATE: <Key className="w-4 h-4" />,
+  ORG_CREATE: <Building className="w-4 h-4" />,
+  ORG_MEMBER_ADD: <UserPlus className="w-4 h-4" />,
+  ORG_MEMBER_ROLE_UPDATE: <UserCog className="w-4 h-4" />,
+  ORG_MEMBER_REMOVE: <UserMinus className="w-4 h-4" />,
+  ORG_SWITCH: <RefreshCw className="w-4 h-4" />,
 };
 
 const ACTION_LABELS: { [key in AuditAction]: string } = {
@@ -53,6 +65,17 @@ const ACTION_LABELS: { [key in AuditAction]: string } = {
   COMMENT_DELETE: 'Commentaire supprimé',
   VERSION_RESTORE: 'Version restaurée',
   VERSION_DELETE: 'Version supprimée',
+  ADMIN_PLAN_CHANGE: 'Plan modifié (admin)',
+  PLAN_DOWNGRADE: 'Plan downgradé',
+  VAULT_SETUP: 'Coffre-fort activé',
+  VAULT_UNLOCK: 'Coffre-fort déverrouillé',
+  VAULT_LOCK: 'Coffre-fort verrouillé',
+  VAULT_PASSWORD_ROTATE: 'Mot de passe coffre-fort modifié',
+  ORG_CREATE: 'Organisation créée',
+  ORG_MEMBER_ADD: 'Membre ajouté à l’organisation',
+  ORG_MEMBER_ROLE_UPDATE: 'Rôle membre organisation modifié',
+  ORG_MEMBER_REMOVE: 'Membre retiré de l’organisation',
+  ORG_SWITCH: 'Organisation active changée',
 };
 
 const ACTION_COLORS: { [key in AuditAction]: string } = {
@@ -76,7 +99,24 @@ const ACTION_COLORS: { [key in AuditAction]: string } = {
   COMMENT_DELETE: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50',
   VERSION_RESTORE: 'text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20',
   VERSION_DELETE: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
+  ADMIN_PLAN_CHANGE: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+  PLAN_DOWNGRADE: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
+  VAULT_SETUP: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+  VAULT_UNLOCK: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+  VAULT_LOCK: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
+  VAULT_PASSWORD_ROTATE: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+  ORG_CREATE: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
+  ORG_MEMBER_ADD: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
+  ORG_MEMBER_ROLE_UPDATE: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
+  ORG_MEMBER_REMOVE: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
+  ORG_SWITCH: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
 };
+
+const getActionLabel = (action: AuditAction) => ACTION_LABELS[action] || action;
+const getActionColor = (action: AuditAction) =>
+  ACTION_COLORS[action] || 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50';
+const getActionIcon = (action: AuditAction) =>
+  ACTION_ICONS[action] || <Activity className="w-4 h-4" />;
 
 export default function ActivityLog() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -293,8 +333,8 @@ export default function ActivityLog() {
               >
                 <div className="flex items-start gap-3">
                   {/* Icon */}
-                  <div className={`p-2 rounded-lg ${ACTION_COLORS[log.action]}`}>
-                    {ACTION_ICONS[log.action]}
+                  <div className={`p-2 rounded-lg ${getActionColor(log.action)}`}>
+                    {getActionIcon(log.action)}
                   </div>
 
                   {/* Content */}
@@ -302,7 +342,7 @@ export default function ActivityLog() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                          {ACTION_LABELS[log.action]}
+                          {getActionLabel(log.action)}
                         </h4>
                         {getLogDetails(log) && (
                           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
