@@ -3,6 +3,7 @@ import { ShareService } from '../services/shareService';
 import { FileService } from '../services/fileService';
 import { AuthRequest } from '../types';
 import { SocketService } from '../services/socketService';
+import { NotificationService } from '../services/notificationService';
 import fs from 'fs';
 
 export class ShareController {
@@ -180,6 +181,15 @@ export class ShareController {
         sharedBy: req.user,
       });
 
+      // Notification persistante
+      NotificationService.create(
+        targetUser.id,
+        'SHARE',
+        'Nouveau partage reçu',
+        `${req.user!.firstName || req.user!.email} vous a partagé un dossier.`,
+        { folderId, sharedById: userId }
+      ).catch(console.error);
+
       res.status(201).json({ sharedFolder });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -303,6 +313,22 @@ export class ShareController {
           canShare,
         }
       );
+
+      // Notification temps réel
+      SocketService.emitToUser(targetUser.id, 'share_received', {
+        type: 'file',
+        item: sharedFile,
+        sharedBy: req.user,
+      });
+
+      // Notification persistante
+      NotificationService.create(
+        targetUser.id,
+        'SHARE',
+        'Nouveau partage reçu',
+        `${req.user!.firstName || req.user!.email} vous a partagé un fichier.`,
+        { fileId, sharedById: userId }
+      ).catch(console.error);
 
       res.status(201).json({ sharedFile, isNewUser: false });
     } catch (error: any) {

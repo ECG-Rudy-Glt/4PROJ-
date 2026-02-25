@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { AuthRequest } from '../types';
 import { CommentService } from '../services/commentService';
 import { SocketService } from '../services/socketService';
+import { NotificationService } from '../services/notificationService';
+import prisma from '../config/database';
 
 export class CommentController {
   /**
@@ -26,6 +28,18 @@ export class CommentController {
 
       // Notification temps réel
       SocketService.emitToFile(fileId, 'comment_added', comment);
+
+      // Notification persistante au propriétaire du fichier
+      const file = await prisma.file.findUnique({ where: { id: fileId }, select: { userId: true, name: true } });
+      if (file && file.userId !== userId) {
+        NotificationService.create(
+          file.userId,
+          'COMMENT',
+          'Nouveau commentaire',
+          `${req.user!.firstName || req.user!.email} a commenté "${file.name}".`,
+          { fileId }
+        ).catch(console.error);
+      }
 
       res.status(201).json({ comment });
     } catch (error: any) {

@@ -583,6 +583,7 @@ export default function FilesPage() {
     setShowUploadModal(false);
     setUploadingFiles([]);
     uploadingFilesRef.current = [];
+    isQueueProcessingRef.current = false;
 
     const successCount = uploadingFiles.filter((file) => file.status === 'success').length;
     const errorCount = uploadingFiles.filter((file) => file.status === 'error').length;
