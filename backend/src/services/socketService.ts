@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
+import { buildAllowedOrigins, isOriginAllowed } from '../utils/cors';
 
 interface AuthenticatedSocket extends Socket {
     user?: {
@@ -13,15 +14,29 @@ export class SocketService {
     private static io: Server;
 
     static init(httpServer: HttpServer) {
+        const allowedOrigins = buildAllowedOrigins();
+        const enforceHttps = process.env.ENFORCE_HTTPS === 'true';
+
         this.io = new Server(httpServer, {
             cors: {
-                origin: '*', // Adjust in production
+                origin: (origin, callback) => {
+                    if (isOriginAllowed(allowedOrigins, origin)) {
+                        callback(null, true);
+                        return;
+                    }
+                    callback(new Error('Origin not allowed'));
+                },
                 methods: ['GET', 'POST'],
             },
             path: '/socket.io',
         });
 
         this.io.use((socket: AuthenticatedSocket, next) => {
+            const origin = socket.handshake.headers.origin;
+            if (enforceHttps && origin && origin.startsWith('http://') && !origin.includes('localhost')) {
+                return next(new Error('Secure transport required'));
+            }
+
             const token = socket.handshake.auth.token;
 
             if (!token) {
@@ -44,8 +59,9 @@ export class SocketService {
         this.io.on('connection', (socket: AuthenticatedSocket) => {
             console.log(`[Socket] User connected: ${socket.user?.email} (${socket.id})`);
 
-            if (socket.user?.id) {
-                socket.join(socket.user.id); // Room for private user notifications
+            const roomId = (socket.user as any)?.userId || socket.user?.id;
+            if (roomId) {
+                socket.join(roomId); // Room for private user notifications
             }
 
             socket.on('join_file', (fileId: string) => {

@@ -4,8 +4,30 @@ import { v4 as uuidv4 } from 'uuid';
 import { MailService } from './mailService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
+import { PlanService } from './planService';
+import { VaultService } from './vaultService';
 
 export class ShareService {
+  private static async assertShareLimit(userId: string) {
+    const now = new Date();
+    const [linksCount, sharedFilesCount, sharedFoldersCount] = await Promise.all([
+      prisma.sharedLink.count({
+        where: {
+          userId,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gte: now } },
+          ],
+        },
+      }),
+      prisma.sharedFile.count({ where: { sharedById: userId } }),
+      prisma.sharedFolder.count({ where: { sharedById: userId } }),
+    ]);
+
+    const currentCount = linksCount + sharedFilesCount + sharedFoldersCount;
+    await PlanService.assertLimit(userId, 'maxShares', currentCount);
+  }
+
   static async createShareLink(
     userId: string,
     fileId: string,
@@ -27,6 +49,12 @@ export class ShareService {
     if (!file) {
       throw new Error('File not found');
     }
+
+    if (file.isVault) {
+      throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+    }
+
+    await this.assertShareLimit(userId);
 
     // Hash password if provided
     let hashedPassword: string | undefined;
@@ -76,6 +104,10 @@ export class ShareService {
 
     if (!shareLink) {
       throw new Error('Share link not found');
+    }
+
+    if (shareLink.file?.isVault) {
+      throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
     }
 
     // Check expiration
@@ -167,6 +199,10 @@ export class ShareService {
       throw new Error('Folder not found');
     }
 
+    if (folder.isVault) {
+      throw new Error('Le partage est interdit pour les dossiers du coffre-fort');
+    }
+
     // Verify target user exists
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
@@ -187,6 +223,8 @@ export class ShareService {
     if (existing) {
       throw new Error('Folder already shared with this user');
     }
+
+    await this.assertShareLimit(userId);
 
     const sharedFolder = await prisma.sharedFolder.create({
       data: {
@@ -380,6 +418,10 @@ export class ShareService {
       throw new Error('File not found');
     }
 
+    if (file.isVault) {
+      throw new Error('Le partage est interdit pour les fichiers du coffre-fort');
+    }
+
     // Verify target user exists
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
@@ -400,6 +442,8 @@ export class ShareService {
     if (existing) {
       throw new Error('File already shared with this user');
     }
+
+    await this.assertShareLimit(userId);
 
     const sharedFile = await prisma.sharedFile.create({
       data: {
@@ -617,6 +661,9 @@ export class ShareService {
     });
 
     if (sharedFile) {
+      if (sharedFile.file.isVault) {
+        throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
+      }
       return sharedFile;
     }
 
@@ -634,6 +681,9 @@ export class ShareService {
 
     // Check if the folder is shared with user
     if (file.folderId) {
+      if (file.isVault) {
+        throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
+      }
       const sharedFolder = await prisma.sharedFolder.findFirst({
         where: {
           folderId: file.folderId,

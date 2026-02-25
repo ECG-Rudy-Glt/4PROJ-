@@ -59,9 +59,7 @@ push:
 
 # ===========================
 # STAGE 3 : DEPLOY PREPROD
-# ===========================
-deploy-preprod:
-  stage: deploy
+# ====================  stage: deploy
   image: alpine:latest
   before_script:
     - apk add --no-cache openssh-client

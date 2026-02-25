@@ -240,4 +240,97 @@ export class AdminService {
       quotaLimit: Number((refreshedUser || updatedUser).quotaLimit),
     };
   }
+
+  static async getUsersExportRows() {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        plan: true,
+        subscriptionStatus: true,
+        quotaUsed: true,
+        quotaLimit: true,
+        vaultEnabled: true,
+        currentOrganizationId: true,
+        createdAt: true,
+        lastActiveAt: true,
+        _count: {
+          select: {
+            files: true,
+            folders: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      role: user.role,
+      plan: user.plan,
+      subscriptionStatus: user.subscriptionStatus,
+      quotaUsed: Number(user.quotaUsed),
+      quotaLimit: Number(user.quotaLimit),
+      vaultEnabled: user.vaultEnabled ? 'yes' : 'no',
+      currentOrganizationId: user.currentOrganizationId || '',
+      filesCount: user._count.files,
+      foldersCount: user._count.folders,
+      createdAt: user.createdAt.toISOString(),
+      lastActiveAt: user.lastActiveAt.toISOString(),
+    }));
+  }
+
+  static async getStorageExportRows() {
+    const files = await prisma.file.findMany({
+      where: { isDeleted: false },
+      select: {
+        id: true,
+        name: true,
+        mimeType: true,
+        size: true,
+        isVault: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+        folder: {
+          select: {
+            id: true,
+            name: true,
+            path: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return files.map((file) => ({
+      fileId: file.id,
+      fileName: file.name,
+      mimeType: file.mimeType,
+      sizeBytes: Number(file.size),
+      ownerId: file.user.id,
+      ownerEmail: file.user.email,
+      folderId: file.folder?.id || '',
+      folderName: file.folder?.name || '',
+      folderPath: file.folder?.path || '',
+      isVault: file.isVault ? 'yes' : 'no',
+      createdAt: file.createdAt.toISOString(),
+      updatedAt: file.updatedAt.toISOString(),
+    }));
+  }
 }

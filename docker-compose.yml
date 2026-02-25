@@ -54,6 +54,9 @@ services:
       STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
       STRIPE_PRICE_BUSINESS_MONTHLY: ${STRIPE_PRICE_BUSINESS_MONTHLY:-}
       STRIPE_PRICE_ENTERPRISE_MONTHLY: ${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
+      # Web Push VAPID
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     volumes:
       - uploads_data:/app/uploads
     ports:
@@ -70,8 +73,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${API_URL:-http://localhost:5001}
-    image: ${FRONTEND_IMAGE:-supfile-frontend:local}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
     container_name: supfile-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:80"

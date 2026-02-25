@@ -5,6 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { AuditService } from '../services/auditService';
+import { NotificationService } from '../services/notificationService';
+import prisma from '../config/database';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response): Promise<void> {
@@ -34,6 +36,24 @@ export class FileController {
           errors,
         });
         return;
+      }
+
+      // Vérifier si l'utilisateur dépasse 90% de son quota
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { quotaUsed: true, quotaLimit: true },
+      });
+      if (user) {
+        const usage = Number(user.quotaUsed) / Number(user.quotaLimit);
+        if (usage >= 0.9) {
+          NotificationService.create(
+            userId,
+            'QUOTA',
+            'Quota presque atteint',
+            `Vous utilisez ${Math.round(usage * 100)}% de votre espace de stockage.`,
+            { quotaUsed: Number(user.quotaUsed), quotaLimit: Number(user.quotaLimit) }
+          ).catch(console.error);
+        }
       }
 
       const hasPartialFailures = errors.length > 0;
@@ -286,6 +306,64 @@ export class FileController {
       const shares = await FileService.getAcceptedShares(userId);
 
       res.status(200).json(shares);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async exportFilesCsv(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const files = await prisma.file.findMany({
+        where: {
+          userId,
+          isDeleted: false,
+        },
+        include: {
+          folder: {
+            select: {
+              id: true,
+              name: true,
+              path: true,
+            },
+          },
+          tags: {
+            include: {
+              tag: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const rows = files.map((file) => ({
+        id: file.id,
+        nom: file.name,
+        nomOriginal: file.originalName,
+        mimeType: file.mimeType,
+        tailleOctets: Number(file.size),
+        dossier: file.folder?.name || 'Racine',
+        chemin: file.folder?.path || '/',
+        tags: file.tags.map((entry) => entry.tag.name).join('|'),
+        favori: file.isFavorite ? 'oui' : 'non',
+        coffreFort: file.isVault ? 'oui' : 'non',
+        creeLe: file.createdAt.toISOString(),
+        modifieLe: file.updatedAt.toISOString(),
+      }));
+
+      const { stringify } = require('csv-stringify/sync');
+      const csv = stringify(rows, { header: true });
+      const fileName = `supfile-files-${new Date().toISOString().split('T')[0]}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(csv);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

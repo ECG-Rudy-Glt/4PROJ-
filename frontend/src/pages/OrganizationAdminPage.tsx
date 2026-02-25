@@ -1,0 +1,292 @@
+import { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
+import { organizationService } from '@/services/organizationService';
+import { OrganizationMembership, OrganizationMemberRow } from '@/types';
+
+const ROLE_OPTIONS: Array<'OWNER' | 'ADMIN' | 'MEMBER'> = ['OWNER', 'ADMIN', 'MEMBER'];
+
+export default function OrganizationAdminPage() {
+  const [organizations, setOrganizations] = useState<OrganizationMembership[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [members, setMembers] = useState<OrganizationMemberRow[]>([]);
+  const [membershipRole, setMembershipRole] = useState<'OWNER' | 'ADMIN' | 'MEMBER' | null>(null);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'OWNER' | 'ADMIN' | 'MEMBER'>('MEMBER');
+  const [loading, setLoading] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  const canManageMembers = membershipRole === 'OWNER' || membershipRole === 'ADMIN';
+
+  const selectedOrganization = useMemo(
+    () => organizations.find((item) => item.organizationId === selectedOrgId)?.organization,
+    [organizations, selectedOrgId]
+  );
+
+  const loadOrganizations = async () => {
+    setLoading(true);
+    try {
+      const data = await organizationService.listMine();
+      setOrganizations(data.organizations);
+      if (data.organizations.length > 0) {
+        setSelectedOrgId((prev) => prev || data.organizations[0].organizationId);
+      } else {
+        setSelectedOrgId('');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Impossible de charger les organisations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOrganizationDetails = async (orgId: string) => {
+    if (!orgId) {
+      setMembers([]);
+      setMembershipRole(null);
+      return;
+    }
+
+    setLoadingMembers(true);
+    try {
+      const data = await organizationService.getById(orgId);
+      setMembers(data.organization.members || []);
+      setMembershipRole(data.membershipRole);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Impossible de charger le détail de l’organisation');
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadOrganizations();
+  }, []);
+
+  useEffect(() => {
+    void loadOrganizationDetails(selectedOrgId);
+  }, [selectedOrgId]);
+
+  const handleCreateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgName.trim()) return;
+
+    try {
+      await organizationService.create(newOrgName.trim());
+      toast.success('Organisation créée');
+      setNewOrgName('');
+      await loadOrganizations();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Création organisation échouée');
+    }
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrgId || !inviteEmail.trim()) return;
+
+    try {
+      await organizationService.addMember(selectedOrgId, inviteEmail.trim(), inviteRole);
+      toast.success('Membre ajouté');
+      setInviteEmail('');
+      setInviteRole('MEMBER');
+      await loadOrganizationDetails(selectedOrgId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Ajout membre échoué');
+    }
+  };
+
+  const handleRoleUpdate = async (memberId: string, role: 'OWNER' | 'ADMIN' | 'MEMBER') => {
+    if (!selectedOrgId) return;
+    try {
+      await organizationService.updateMemberRole(selectedOrgId, memberId, role);
+      toast.success('Rôle mis à jour');
+      await loadOrganizationDetails(selectedOrgId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Mise à jour rôle échouée');
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedOrgId) return;
+    try {
+      await organizationService.removeMember(selectedOrgId, memberId);
+      toast.success('Membre supprimé');
+      await loadOrganizationDetails(selectedOrgId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Suppression membre échouée');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Organisation</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
+          Gérez vos espaces d’équipe, rôles et membres.
+        </p>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Créer une organisation</h2>
+        <form onSubmit={handleCreateOrganization} className="flex flex-col md:flex-row gap-3">
+          <input
+            type="text"
+            value={newOrgName}
+            onChange={(e) => setNewOrgName(e.target.value)}
+            placeholder="Nom de l'organisation"
+            className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
+          >
+            Créer
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Mes organisations</h2>
+        {organizations.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Aucune organisation pour l’instant.</p>
+        ) : (
+          <select
+            value={selectedOrgId}
+            onChange={(e) => setSelectedOrgId(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+          >
+            {organizations.map((org) => (
+              <option key={org.organizationId} value={org.organizationId}>
+                {org.organization.name} ({org.role})
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {selectedOrgId && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Membres - {selectedOrganization?.name}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Votre rôle: {membershipRole || 'MEMBER'}
+              </p>
+            </div>
+          </div>
+
+          {canManageMembers && (
+            <form onSubmit={handleInvite} className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-2">
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="Email du membre"
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+              />
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
+              >
+                Ajouter
+              </button>
+            </form>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700/40">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Membre</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Rôle</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Dernière activité</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {loadingMembers ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                      Chargement...
+                    </td>
+                  </tr>
+                ) : members.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                      Aucun membre
+                    </td>
+                  </tr>
+                ) : (
+                  members.map((member) => (
+                    <tr key={member.id}>
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {member.user.firstName || member.user.lastName
+                            ? `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim()
+                            : member.user.email}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{member.user.email}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {canManageMembers ? (
+                          <select
+                            value={member.role}
+                            onChange={(e) => handleRoleUpdate(member.id, e.target.value as 'OWNER' | 'ADMIN' | 'MEMBER')}
+                            className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+                          >
+                            {ROLE_OPTIONS.map((role) => (
+                              <option key={role} value={role}>
+                                {role}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{member.role}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        {new Date(member.user.lastActiveAt).toLocaleString('fr-FR')}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {canManageMembers && member.role !== 'OWNER' && (
+                          <button
+                            onClick={() => handleRemoveMember(member.id)}
+                            className="px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 text-sm"
+                          >
+                            Retirer
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

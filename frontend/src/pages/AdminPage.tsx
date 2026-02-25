@@ -4,16 +4,9 @@ import { format } from 'date-fns';
 import { AdminOverview, AdminUserRow } from '@/types';
 import { adminService } from '@/services/adminService';
 import { Users, HardDrive, FolderOpen, Upload } from 'lucide-react';
+import { formatBytes } from '@/utils/bytes';
 
 const PLAN_OPTIONS: Array<'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE'> = ['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'];
-
-const formatBytes = (bytes: number) => {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
-};
 
 export default function AdminPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
@@ -100,6 +93,33 @@ export default function AdminPage() {
     return overview.distribution.plans.sort((a, b) => b.count - a.count);
   }, [overview]);
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadUsersCsv = async () => {
+    try {
+      const blob = await adminService.downloadUsersCsv();
+      downloadBlob(blob, `supfile-admin-users-${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Export utilisateurs impossible');
+    }
+  };
+
+  const handleDownloadStorageCsv = async () => {
+    try {
+      const blob = await adminService.downloadStorageCsv();
+      downloadBlob(blob, `supfile-admin-storage-${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Export stockage impossible');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -107,6 +127,20 @@ export default function AdminPage() {
         <p className="text-gray-600 dark:text-gray-400 mt-1">
           Pilotage global de la plateforme et gestion des plans utilisateurs
         </p>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button
+            onClick={handleDownloadUsersCsv}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Export CSV Utilisateurs
+          </button>
+          <button
+            onClick={handleDownloadStorageCsv}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Export CSV Stockage
+          </button>
+        </div>
       </div>
 
       {isLoadingOverview ? (

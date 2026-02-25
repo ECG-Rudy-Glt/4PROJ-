@@ -5,12 +5,29 @@ export interface User {
   lastName?: string;
   avatar?: string;
   role?: 'USER' | 'ADMIN';
+  accountStatus?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
   plan?: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
   subscriptionStatus?: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
+  vaultEnabled?: boolean;
+  currentOrganizationId?: string | null;
   createdAt: string;
+}
+
+export interface AuthSessionContext {
+  authType: 'DIRECT' | 'SWITCH' | 'DELEGATION';
+  rootUserId: string;
+  actorUserId: string;
+  delegation?: {
+    id: string;
+    canRead: boolean;
+    canWrite: boolean;
+    canDelete: boolean;
+    canShare: boolean;
+    expiresAt: string | null;
+  } | null;
 }
 
 export interface Tag {
@@ -43,6 +60,7 @@ export interface File {
   category?: string; // 'image', 'video', 'doc', 'audio', 'other'
   folderId?: string;
   userId: string;
+  isVault?: boolean;
   isDeleted: boolean;
   deletedAt?: string;
   isFavorite: boolean;
@@ -64,6 +82,7 @@ export interface Folder {
   parentId?: string;
   userId: string;
   path: string;
+  isVault?: boolean;
   createdAt: string;
   updatedAt: string;
   parent?: Folder;
@@ -239,5 +258,35 @@ export interface AdminUserRow {
   _count: {
     files: number;
     folders: number;
+  };
+}
+
+export interface OrganizationMembership {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export interface OrganizationMemberRow {
+  id: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+    lastActiveAt: string;
+    createdAt: string;
   };
 }

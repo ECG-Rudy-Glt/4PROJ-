@@ -9,7 +9,7 @@ import BackupCodesModal from '@/components/BackupCodesModal';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading } = useAuthStore();
+  const { login, loadUser, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   // États pour le MFA Setup
@@ -70,8 +70,13 @@ export default function LoginPage() {
     localStorage.removeItem('tempToken');
   };
 
-  const handleBackupCodesComplete = () => {
+  const handleBackupCodesComplete = async () => {
     setShowBackupCodesModal(false);
+    try {
+      await loadUser();
+    } catch (error) {
+      console.error('Failed to refresh user profile after MFA setup', error);
+    }
     toast.success('Authentification à deux facteurs activée !');
     navigate('/dashboard');
   };
@@ -85,7 +90,8 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
         <div className="text-center">
           <div className="flex justify-center">
-            <img src="/icon-full.svg" alt="SupFile Logo" className="w-48 h-auto" />
+            <img src="/icon-full.svg" alt="SupFile Logo" className="w-48 h-auto dark:hidden" />
+            <img src="/icon-full-light.svg" alt="SupFile Logo" className="w-48 h-auto hidden dark:block" />
           </div>
           <h2 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
             Bienvenue sur SUPFILE
