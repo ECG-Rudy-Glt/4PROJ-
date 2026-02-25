@@ -36,6 +36,14 @@ export class AuthController {
     try {
       const userId = req.user!.id;
       const result = await AuthService.logoutGlobal(userId);
+
+      // Audit log
+      AuditService.createLog(userId, 'LOGOUT', {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        globalLogout: true,
+      }).catch(console.error);
+
       res.status(200).json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -151,6 +159,12 @@ export class AuthController {
       const { oldPassword, newPassword } = req.body;
 
       const result = await AuthService.changePassword(userId, oldPassword, newPassword);
+
+      // Audit log
+      AuditService.createLog(userId, 'PASSWORD_CHANGE', {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      }).catch(console.error);
 
       res.status(200).json(result);
     } catch (error: any) {

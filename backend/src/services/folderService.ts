@@ -1,4 +1,6 @@
 import prisma from '../config/database';
+import { AuditService } from './auditService';
+import { SocketService } from './socketService';
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -32,7 +34,7 @@ export class FolderService {
       path = `${parent.path}/${name}`;
     }
 
-    return await prisma.folder.create({
+    const folder = await prisma.folder.create({
       data: {
         name,
         userId,
@@ -43,6 +45,17 @@ export class FolderService {
         parent: true,
       },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'CREATE_FOLDER', {
+      folderId: folder.id,
+      folderName: name,
+    }).catch(console.error);
+
+    // Socket event
+    SocketService.emitToUser(userId, 'folder_created', folder);
+
+    return folder;
   }
 
   static async getFolder(folderId: string, userId: string) {
@@ -210,6 +223,15 @@ export class FolderService {
     await prisma.folder.delete({
       where: { id: folderId },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'DELETE_FOLDER', {
+      folderId: folder.id,
+      folderName: folder.name,
+    }).catch(console.error);
+
+    // Socket event
+    SocketService.emitToUser(userId, 'folder_deleted', { folderId });
 
     return { message: 'Folder deleted successfully' };
   }

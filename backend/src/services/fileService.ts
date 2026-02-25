@@ -82,6 +82,13 @@ export class FileService {
     storagePath: string,
     folderId?: string
   ) {
+    // Check file size limit per plan
+    const fileSizeAllowed = await PlanService.checkFileSize(userId, size);
+    if (!fileSizeAllowed) {
+      await deleteFile(storagePath);
+      throw new Error('Fichier trop volumineux pour votre plan. Passez à un plan supérieur.');
+    }
+
     // Check quota via PlanService
     const hasSpace = await PlanService.checkQuota(userId, size);
 
