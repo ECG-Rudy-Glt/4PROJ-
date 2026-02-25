@@ -40,6 +40,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
 
   useEffect(() => {
     loadCommentCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   const loadCommentCount = async () => {
