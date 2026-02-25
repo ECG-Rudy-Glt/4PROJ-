@@ -10,7 +10,10 @@ export class AIService {
   constructor() {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY not found in environment variables');
+      console.warn('OPENROUTER_API_KEY not found in environment variables. AI features will be disabled.');
+      // Create a dummy client or just leave it uninitialized if we handle it in methods
+      this.openai = null as any; 
+      return;
     }
 
     this.openai = new OpenAI({
@@ -27,6 +30,9 @@ export class AIService {
    * A. Analyser le contenu d'un fichier
    */
   async analyzeFile(fileId: string, userId: string, userPrompt?: string): Promise<string> {
+    if (!this.openai) {
+      throw new Error('AI Service is not configured. Missing API Key.');
+    }
     // Récupérer le fichier depuis la BDD
     const file = await prisma.file.findFirst({
       where: {
@@ -129,6 +135,9 @@ export class AIService {
    * B. Rechercher des fichiers avec function calling
    */
   async searchFiles(userId: string, userPrompt: string): Promise<any> {
+    if (!this.openai) {
+      throw new Error('AI Service is not configured. Missing API Key.');
+    }
     // Définir la fonction de recherche
     const searchFilesFunction = {
       name: 'searchFiles',
@@ -316,6 +325,9 @@ RÈGLES IMPORTANTES :
     fileName?: string,
     folderId?: string
   ): Promise<any> {
+    if (!this.openai) {
+      throw new Error('AI Service is not configured. Missing API Key.');
+    }
     try {
       // Générer le contenu avec OpenRouter
       const response = await this.openai.chat.completions.create({
@@ -393,6 +405,9 @@ RÈGLES IMPORTANTES :
    * Chat général avec l'IA (pour les conversations normales)
    */
   async chat(userId: string, message: string, conversationHistory?: any[]): Promise<string> {
+    if (!this.openai) {
+      throw new Error('AI Service is not configured. Missing API Key.');
+    }
     try {
       console.log('[Bobby] Using model: google/gemini-2.0-flash-exp:free');
 
