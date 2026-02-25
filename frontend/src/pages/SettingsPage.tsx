@@ -53,6 +53,16 @@ export default function SettingsPage() {
     void loadVaultStatus();
   }, [user?.theme, isVaultEligible]);
 
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+      });
+    }
+  }, [user]);
+
   const handleThemeToggle = async () => {
     const newTheme = isDark ? 'light' : 'dark';
     setIsDark(!isDark);
@@ -66,7 +76,7 @@ export default function SettingsPage() {
     try {
       await updateProfile({ theme: newTheme });
       toast.success(`Mode ${newTheme === 'dark' ? 'sombre' : 'clair'} activé`);
-    } catch (error) {
+    } catch {
       toast.error('Échec de la mise à jour du thème');
       setIsDark(isDark); // Revert on error
       // Revert DOM class on error
@@ -83,7 +93,7 @@ export default function SettingsPage() {
     try {
       await updateProfile(profile);
       toast.success('Profil mis à jour');
-    } catch (error) {
+    } catch {
       toast.error('Échec de la mise à jour du profil');
     }
   };
@@ -221,10 +231,10 @@ export default function SettingsPage() {
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${quotaPercentage > 90
-                  ? 'bg-gradient-to-r from-red-500 to-red-600'
-                  : quotaPercentage > 70
-                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
-                    : 'bg-gradient-to-r from-primary-500 to-primary-600'
+                ? 'bg-gradient-to-r from-red-500 to-red-600'
+                : quotaPercentage > 70
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                  : 'bg-gradient-to-r from-primary-500 to-primary-600'
                 }`}
               style={{ width: `${Math.min(quotaPercentage, 100)}%` }}
             />
@@ -265,8 +275,8 @@ export default function SettingsPage() {
           <button
             onClick={handleThemeToggle}
             className={`relative w-16 h-8 rounded-full transition-all duration-300 ${isDark
-                ? 'bg-primary-600'
-                : 'bg-gray-300 dark:bg-gray-600'
+              ? 'bg-primary-600'
+              : 'bg-gray-300 dark:bg-gray-600'
               }`}
           >
             <div
@@ -427,7 +437,7 @@ export default function SettingsPage() {
                   setTimeout(() => {
                     window.location.href = '/login';
                   }, 1000);
-                } catch (error) {
+                } catch {
                   toast.error('Erreur lors de la déconnexion globale');
                 }
               }

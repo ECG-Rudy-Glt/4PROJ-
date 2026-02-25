@@ -119,6 +119,8 @@ model User {
   switchLinksAsTarget AccountSwitchLink[] @relation("SwitchTargetUser")
   delegationsGiven    Delegation[] @relation("DelegationOwner")
   delegationsReceived Delegation[] @relation("DelegationDelegate")
+  notifications      Notification[]      // Notifications de l'utilisateur
+  pushSubscriptions  PushSubscription[]  // Abonnements push navigateur
 
   @@index([email])
   @@index([providerId])
@@ -501,5 +503,47 @@ model OrganizationMember {
 
   @@unique([organizationId, userId])
   @@index([organizationId])
+  @@index([userId])
+}
+
+// --------------------------------------
+// 9. NOTIFICATIONS
+// --------------------------------------
+
+enum NotificationType {
+  SHARE
+  COMMENT
+  QUOTA
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  data      Json?            // Metadata (fileId, folderId, etc.)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// --------------------------------------
+// 10. PUSH SUBSCRIPTIONS
+// --------------------------------------
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }

@@ -51,6 +51,7 @@ export default function TrashPage() {
 
   useEffect(() => {
     loadDeletedFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, sortOrder]);
 
   const loadDeletedFiles = async () => {
@@ -76,7 +77,7 @@ export default function TrashPage() {
       });
 
       setDeletedFiles(sortedFiles);
-    } catch (error) {
+    } catch {
       toast.error('Échec du chargement de la corbeille');
     } finally {
       setIsLoading(false);
@@ -88,7 +89,7 @@ export default function TrashPage() {
       await fileService.restoreFile(fileId);
       toast.success('Fichier restauré');
       loadDeletedFiles();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la restauration du fichier');
     }
   };
@@ -100,7 +101,7 @@ export default function TrashPage() {
       await fileService.deleteFile(fileId, true);
       toast.success('Fichier supprimé définitivement');
       loadDeletedFiles();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression du fichier');
     }
   };

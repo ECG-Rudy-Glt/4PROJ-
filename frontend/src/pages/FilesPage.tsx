@@ -196,16 +196,34 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-  }, [folderId, searchQuery, activeFilters]); // Add activeFilters dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folderId, searchQuery, activeFilters]);
+
+  // Handle auto-preview from dashboard
+  useEffect(() => {
+    const previewId = searchParams.get('preview');
+    if (previewId && files.length > 0) {
+      const file = files.find(f => f.id === previewId);
+      if (file) {
+        setPreviewFile(file);
+        setShowPreviewModal(true);
+        // Clean up the URL
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('preview');
+        navigate({ search: newParams.toString() }, { replace: true });
+      }
+    }
+  }, [files, searchParams, navigate]);
 
   useEffect(() => {
     uploadingFilesRef.current = uploadingFiles;
   }, [uploadingFiles]);
 
   useEffect(() => {
+    const controllers = activeUploadControllersRef.current;
     return () => {
-      activeUploadControllersRef.current.forEach((controller) => controller.abort());
-      activeUploadControllersRef.current.clear();
+      controllers.forEach((controller) => controller.abort());
+      controllers.clear();
     };
   }, []);
 
@@ -266,7 +284,7 @@ export default function FilesPage() {
     try {
       const result = await fileService.searchFiles(query);
       setSearchResults(result.files);
-    } catch (error) {
+    } catch {
       toast.error('Échec de la recherche');
     } finally {
       setIsSearching(false);
@@ -289,16 +307,13 @@ export default function FilesPage() {
       const reader = entry.createReader();
       const entries: any[] = [];
 
-      while (true) {
-        const batch = await new Promise<any[]>((resolve) => {
+      let batch: any[] = [];
+      do {
+        batch = await new Promise<any[]>((resolve) => {
           reader.readEntries(resolve, () => resolve([]));
         });
-
-        if (batch.length === 0) {
-          break;
-        }
         entries.push(...batch);
-      }
+      } while (batch.length > 0);
 
       const nestedFiles = await Promise.all(entries.map((child) => collectFilesFromEntry(child)));
       return nestedFiles.flat();
@@ -487,20 +502,16 @@ export default function FilesPage() {
     if (pendingCount === 0) {
       toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
       setShowUploadModal(true);
-      setUploadingFiles((prev) => {
-        const next = [...prev, ...queuedFiles];
-        uploadingFilesRef.current = next;
-        return next;
-      });
+      const nextErr = [...uploadingFilesRef.current, ...queuedFiles];
+      uploadingFilesRef.current = nextErr;
+      setUploadingFiles(nextErr);
       return;
     }
 
     setShowUploadModal(true);
-    setUploadingFiles((prev) => {
-      const next = [...prev, ...queuedFiles];
-      uploadingFilesRef.current = next;
-      return next;
-    });
+    const next = [...uploadingFilesRef.current, ...queuedFiles];
+    uploadingFilesRef.current = next;
+    setUploadingFiles(next);
 
     void processUploadQueue();
   };
@@ -547,6 +558,7 @@ export default function FilesPage() {
     setShowUploadModal(false);
     setUploadingFiles([]);
     uploadingFilesRef.current = [];
+    isQueueProcessingRef.current = false;
 
     const successCount = uploadingFiles.filter((file) => file.status === 'success').length;
     const errorCount = uploadingFiles.filter((file) => file.status === 'error').length;
@@ -578,7 +590,7 @@ export default function FilesPage() {
     try {
       await deleteFile(fileId);
       toast.success('Déplacé vers la corbeille');
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression');
     }
   };
@@ -592,7 +604,7 @@ export default function FilesPage() {
       // Reload accepted shares
       const shared = await getSharedItemsAsDisplayFiles();
       setAcceptedSharedFiles(shared);
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression du partage');
     }
   };
@@ -606,7 +618,7 @@ export default function FilesPage() {
       // Reload accepted shares
       const shared = await getSharedItemsAsDisplayFiles();
       setAcceptedSharedFolders(shared.filter(f => f._isShared));
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression du partage');
     }
   };
@@ -617,7 +629,7 @@ export default function FilesPage() {
       toast.success(currentStatus ? 'Retiré des favoris' : 'Ajouté aux favoris');
       // Recharger les fichiers pour mettre à jour l'état
       loadContent(folderId, sortBy, sortOrder, activeFilters);
-    } catch (error) {
+    } catch {
       toast.error('Échec de la modification');
     }
   };

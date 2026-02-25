@@ -27,6 +27,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
 
   useEffect(() => {
     loadVersions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId]);
 
   const loadVersions = async () => {

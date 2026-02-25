@@ -44,6 +44,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ file, onClose })
         docEditorRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   const loadEditor = async () => {

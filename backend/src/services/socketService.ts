@@ -59,8 +59,9 @@ export class SocketService {
         this.io.on('connection', (socket: AuthenticatedSocket) => {
             console.log(`[Socket] User connected: ${socket.user?.email} (${socket.id})`);
 
-            if (socket.user?.id) {
-                socket.join(socket.user.id); // Room for private user notifications
+            const roomId = (socket.user as any)?.userId || socket.user?.id;
+            if (roomId) {
+                socket.join(roomId); // Room for private user notifications
             }
 
             socket.on('join_file', (fileId: string) => {
