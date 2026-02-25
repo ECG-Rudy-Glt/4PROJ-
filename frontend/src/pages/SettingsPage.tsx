@@ -53,7 +53,7 @@ export default function SettingsPage() {
     try {
       await updateProfile({ theme: newTheme });
       toast.success(`Mode ${newTheme === 'dark' ? 'sombre' : 'clair'} activé`);
-    } catch (error) {
+    } catch {
       toast.error('Échec de la mise à jour du thème');
       setIsDark(isDark); // Revert on error
       // Revert DOM class on error
@@ -70,7 +70,7 @@ export default function SettingsPage() {
     try {
       await updateProfile(profile);
       toast.success('Profil mis à jour');
-    } catch (error) {
+    } catch {
       toast.error('Échec de la mise à jour du profil');
     }
   };
@@ -340,7 +340,7 @@ export default function SettingsPage() {
                   setTimeout(() => {
                     window.location.href = '/login';
                   }, 1000);
-                } catch (error) {
+                } catch {
                   toast.error('Erreur lors de la déconnexion globale');
                 }
               }

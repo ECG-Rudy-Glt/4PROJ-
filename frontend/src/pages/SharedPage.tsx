@@ -116,7 +116,7 @@ export default function SharedPage() {
         canShare: sf.canShare,
       })).filter((f: any) => f && f.id);
       setSharedByMeFiles(sharedByMeFilesList);
-    } catch (error) {
+    } catch {
       toast.error('Échec du chargement des éléments partagés');
     } finally {
       setIsLoading(false);
@@ -130,7 +130,7 @@ export default function SharedPage() {
       await shareService.deleteShareLink(linkId);
       toast.success('Lien de partage supprimé');
       loadShared();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression du lien');
     }
   };
@@ -160,7 +160,7 @@ export default function SharedPage() {
       link.click();
       link.remove();
       toast.success('Téléchargement démarré');
-    } catch (error) {
+    } catch {
       toast.error('Échec du téléchargement');
     }
   };

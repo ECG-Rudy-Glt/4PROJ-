@@ -64,6 +64,7 @@ export default function SharedLinkPage() {
     if (token) {
       loadSharedFile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const loadSharedFile = async (pwd?: string) => {
