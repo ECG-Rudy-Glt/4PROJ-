@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Plan, Role } from '@prisma/client';
 import { UserService } from '../services/userService';
 import { AuthRequest } from '../types';
 import { BillingService } from '../services/billingService';
@@ -46,10 +47,22 @@ export class UserController {
     try {
       const userId = req.user!.id;
       const rawPlan = req.body.plan;
-      const plan = typeof rawPlan === 'string' ? rawPlan.toUpperCase() : null;
+      const plan = typeof rawPlan === 'string' ? rawPlan.toUpperCase() as Plan : null;
 
       if (!plan || !['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'].includes(plan)) {
         res.status(400).json({ error: 'Invalid plan' });
+        return;
+      }
+
+      const isAdmin = req.user?.role === Role.ADMIN;
+
+      if (isAdmin) {
+        await BillingService.overridePlanWithoutStripe(userId, userId, plan);
+        res.status(200).json({
+          message: `Plan updated to ${plan} (admin bypass)`,
+          plan,
+          bypassStripe: true,
+        });
         return;
       }
 

@@ -124,6 +124,13 @@ export default function PlansPage() {
 
     setLoading(planId);
     try {
+      if (user?.role === 'ADMIN') {
+        await api.put('/users/plan', { plan: planId });
+        await refreshProfile();
+        toast.success(`Plan ${planId} applique (bypass admin)`);
+        return;
+      }
+
       if (planId === 'FREE') {
         await api.put('/users/plan', { plan: 'FREE' });
         await refreshProfile();
@@ -165,7 +172,12 @@ export default function PlansPage() {
         <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
           Choisissez le plan adapte a vos besoins de stockage et de securite.
         </p>
-        {user?.plan && user.plan !== 'FREE' && (
+        {user?.role === 'ADMIN' && (
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Mode admin: les changements de plan contournent Stripe.
+          </p>
+        )}
+        {user?.role !== 'ADMIN' && user?.plan && user.plan !== 'FREE' && (
           <button
             onClick={handleOpenBillingPortal}
             disabled={portalLoading}
@@ -245,7 +257,9 @@ export default function PlansPage() {
                     ? 'Plan actuel'
                     : loading === plan.id
                       ? 'Redirection...'
-                      : plan.id === 'FREE'
+                      : user?.role === 'ADMIN'
+                        ? 'Activer (Admin)'
+                        : plan.id === 'FREE'
                         ? 'Basculer vers FREE'
                         : 'Choisir ce plan'}
                 </button>
