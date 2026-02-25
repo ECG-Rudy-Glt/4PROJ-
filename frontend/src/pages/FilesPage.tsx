@@ -314,13 +314,21 @@ export default function FilesPage() {
     }
   };
 
-  const collectFilesFromEntry = async (entry: any): Promise<globalThis.File[]> => {
+  interface FileWithPath {
+    file: globalThis.File;
+    relativePath: string;
+  }
+
+  const collectEntriesWithPaths = async (entry: any, currentPath: string = ''): Promise<FileWithPath[]> => {
     if (!entry) return [];
 
     if (entry.isFile) {
       return new Promise((resolve) => {
         entry.file(
-          (file: globalThis.File) => resolve([file]),
+          (file: globalThis.File) => {
+            const rel = currentPath ? `${currentPath}/${file.name}` : file.name;
+            resolve([{ file, relativePath: rel }]);
+          },
           () => resolve([])
         );
       });
@@ -338,41 +346,92 @@ export default function FilesPage() {
         entries.push(...batch);
       } while (batch.length > 0);
 
-      const nestedFiles = await Promise.all(entries.map((child) => collectFilesFromEntry(child)));
-      return nestedFiles.flat();
+      const childPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+      const nested = await Promise.all(entries.map((child) => collectEntriesWithPaths(child, childPath)));
+      return nested.flat();
     }
 
     return [];
   };
 
-  const extractDroppedFiles = async (e: React.DragEvent): Promise<globalThis.File[]> => {
+  const extractDroppedEntries = async (e: React.DragEvent): Promise<FileWithPath[]> => {
     const items = Array.from(e.dataTransfer.items || []);
     if (items.length === 0) {
-      return Array.from(e.dataTransfer.files || []);
+      return Array.from(e.dataTransfer.files || []).map((file) => ({ file, relativePath: file.name }));
     }
 
-    const groupedFiles = await Promise.all(
+    const grouped = await Promise.all(
       items.map(async (item) => {
-        const withEntry = item as DataTransferItem & {
-          webkitGetAsEntry?: () => any;
-        };
+        const withEntry = item as DataTransferItem & { webkitGetAsEntry?: () => any };
         const entry = withEntry.webkitGetAsEntry ? withEntry.webkitGetAsEntry() : null;
 
         if (entry) {
-          return await collectFilesFromEntry(entry);
+          return await collectEntriesWithPaths(entry);
         }
 
         const file = item.getAsFile();
-        return file ? [file] : [];
+        return file ? [{ file, relativePath: file.name }] : [];
       })
     );
 
-    const flattened = groupedFiles.flat();
-    if (flattened.length > 0) {
-      return flattened;
+    const flattened = grouped.flat();
+    if (flattened.length > 0) return flattened;
+
+    return Array.from(e.dataTransfer.files || []).map((file) => ({ file, relativePath: file.name }));
+  };
+
+  // Crée la structure de dossiers et enfile les fichiers avec les bons targetFolderId
+  const enqueueUploadWithStructure = async (filesWithPaths: FileWithPath[]) => {
+    if (filesWithPaths.length === 0) return;
+
+    const hasStructure = filesWithPaths.some(({ relativePath }) => relativePath.includes('/'));
+
+    if (!hasStructure) {
+      enqueueUpload(filesWithPaths.map(({ file }) => ({ file })));
+      return;
     }
 
-    return Array.from(e.dataTransfer.files || []);
+    // Collecter tous les chemins de dossiers uniques, triés du plus court au plus long
+    const allFolderPaths = new Set<string>();
+    for (const { relativePath } of filesWithPaths) {
+      const parts = relativePath.split('/');
+      let path = '';
+      for (let i = 0; i < parts.length - 1; i++) {
+        path = path ? `${path}/${parts[i]}` : parts[i];
+        allFolderPaths.add(path);
+      }
+    }
+
+    const sortedPaths = Array.from(allFolderPaths).sort((a, b) => a.split('/').length - b.split('/').length);
+
+    // Map path → folderId ('' = dossier courant)
+    const folderIdMap = new Map<string, string | undefined>();
+    folderIdMap.set('', folderId);
+
+    for (const folderPath of sortedPaths) {
+      const parts = folderPath.split('/');
+      const name = parts[parts.length - 1];
+      const parentPath = parts.slice(0, -1).join('/');
+      const parentId = folderIdMap.get(parentPath);
+
+      try {
+        const data = await folderService.createFolder(name, parentId);
+        folderIdMap.set(folderPath, data.folder.id);
+      } catch {
+        // dossier déjà existant : continuer
+      }
+    }
+
+    // Refresh pour afficher les dossiers créés
+    await loadContent(folderId, sortBy, sortOrder, activeFilters);
+
+    const items = filesWithPaths.map(({ file, relativePath }) => {
+      const parts = relativePath.split('/');
+      const folderPath = parts.slice(0, -1).join('/');
+      return { file, targetFolderId: folderIdMap.get(folderPath) };
+    });
+
+    enqueueUpload(items);
   };
 
   const uploadSingleFile = async (uploadingFile: UploadingFile): Promise<void> => {
@@ -396,7 +455,7 @@ export default function FilesPage() {
     try {
       await fileService.uploadFile(
         uploadingFile.file,
-        folderId,
+        uploadingFile.targetFolderId ?? folderId,
         (progress) => {
           setUploadingFiles((prev) => {
             const next = prev.map((file) =>
@@ -493,7 +552,7 @@ export default function FilesPage() {
     await loadUser();
   };
 
-  const enqueueUpload = (filesToUpload: globalThis.File[]) => {
+  const enqueueUpload = (filesToUpload: { file: globalThis.File; targetFolderId?: string }[]) => {
     if (filesToUpload.length === 0) {
       return;
     }
@@ -505,7 +564,7 @@ export default function FilesPage() {
       .reduce((sum, file) => sum + file.file.size, 0);
 
     let runningQuotaUsed = quotaUsed + reservedBytes;
-    const queuedFiles: UploadingFile[] = filesToUpload.map((file, index) => {
+    const queuedFiles: UploadingFile[] = filesToUpload.map(({ file, targetFolderId }, index) => {
       const wouldExceedQuota = quotaLimit > 0 && (runningQuotaUsed + file.size) > quotaLimit;
 
       if (!wouldExceedQuota) {
@@ -518,6 +577,7 @@ export default function FilesPage() {
         progress: 0,
         status: wouldExceedQuota ? 'error' as const : 'pending' as const,
         error: wouldExceedQuota ? 'Quota dépassé - espace insuffisant' : undefined,
+        targetFolderId,
       };
     });
 
@@ -545,7 +605,7 @@ export default function FilesPage() {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    enqueueUpload(Array.from(selectedFiles));
+    enqueueUpload(Array.from(selectedFiles).map((file) => ({ file })));
     e.target.value = '';
   };
 
@@ -553,7 +613,12 @@ export default function FilesPage() {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    enqueueUpload(Array.from(selectedFiles));
+    const filesWithPaths: FileWithPath[] = Array.from(selectedFiles).map((file) => ({
+      file,
+      relativePath: (file as any).webkitRelativePath || file.name,
+    }));
+
+    void enqueueUploadWithStructure(filesWithPaths);
     e.target.value = '';
   };
 
@@ -562,10 +627,10 @@ export default function FilesPage() {
     e.stopPropagation();
     setIsDragging(false);
 
-    const droppedFiles = await extractDroppedFiles(e);
-    if (droppedFiles.length === 0) return;
+    const entries = await extractDroppedEntries(e);
+    if (entries.length === 0) return;
 
-    enqueueUpload(droppedFiles);
+    void enqueueUploadWithStructure(entries);
   };
 
   const handleCancelUpload = () => {
