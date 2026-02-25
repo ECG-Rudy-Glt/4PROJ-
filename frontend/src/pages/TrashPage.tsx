@@ -92,7 +92,7 @@ export default function TrashPage() {
       toast.success('Fichier restauré');
       loadDeletedFiles();
       await loadUser();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la restauration du fichier');
     }
   };
@@ -105,7 +105,7 @@ export default function TrashPage() {
       toast.success('Fichier supprimé définitivement');
       loadDeletedFiles();
       await loadUser();
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression du fichier');
     }
   };

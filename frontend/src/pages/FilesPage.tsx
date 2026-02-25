@@ -218,7 +218,7 @@ export default function FilesPage() {
 
   const handleRenameKeyDown = (e: React.KeyboardEvent, type: 'file' | 'folder') => {
     if (e.key === 'Enter') {
-      type === 'file' ? confirmRenameFile() : confirmRenameFolder();
+      if (type === 'file') { confirmRenameFile(); } else { confirmRenameFolder(); }
     } else if (e.key === 'Escape') {
       cancelRename();
     }
@@ -681,7 +681,7 @@ export default function FilesPage() {
       await deleteFile(fileId);
       toast.success('Déplacé vers la corbeille');
       await loadUser(); // Refresh quota display
-    } catch (error) {
+    } catch {
       toast.error('Échec de la suppression');
     }
   };
