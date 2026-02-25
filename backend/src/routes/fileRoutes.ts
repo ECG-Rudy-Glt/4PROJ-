@@ -6,7 +6,7 @@ import { checkQuotaBeforeUpload } from '../middlewares/quotaCheck';
 
 const router = Router();
 
-router.post('/upload', authenticate, checkQuotaBeforeUpload, upload.single('file'), FileController.uploadFile);
+router.post('/upload', authenticate, checkQuotaBeforeUpload, upload.array('files', 100), FileController.uploadFile);
 router.get('/', authenticate, FileController.listFiles);
 router.get('/deleted', authenticate, FileController.getDeletedFiles);
 router.get('/favorites', authenticate, FileController.getFavoriteFiles);

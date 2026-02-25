@@ -4,10 +4,12 @@ export interface User {
   firstName?: string;
   lastName?: string;
   avatar?: string;
+  role?: 'USER' | 'ADMIN';
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
-  plan?: string;
+  plan?: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+  subscriptionStatus?: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
   createdAt: string;
 }
 
@@ -181,4 +183,61 @@ export interface AuditLog {
   action: string; // 'UPLOAD', 'DELETE', 'LOGIN', 'DOWNLOAD', 'SHARE', 'CREATE_FOLDER'
   details?: string;
   createdAt: string;
+}
+
+export interface AdminOverview {
+  kpis: {
+    totalUsers: number;
+    totalAdmins: number;
+    totalFiles: number;
+    totalDeletedFiles: number;
+    totalFolders: number;
+    totalSharedFiles: number;
+    totalSharedFolders: number;
+    totalStorageUsed: number;
+    totalQuotaUsed: number;
+    totalQuotaLimit: number;
+    storageUsagePercent: number;
+    activeUsers24h: number;
+    newUsers30d: number;
+    uploads24h: number;
+  };
+  distribution: {
+    plans: Array<{
+      plan: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+      count: number;
+    }>;
+    subscriptionStatus: Array<{
+      status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
+      count: number;
+    }>;
+  };
+  topStorageUsers: Array<{
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    role: 'USER' | 'ADMIN';
+    plan: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+    quotaUsed: number;
+    quotaLimit: number;
+  }>;
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: 'USER' | 'ADMIN';
+  plan: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+  subscriptionStatus: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
+  quotaUsed: number;
+  quotaLimit: number;
+  createdAt: string;
+  lastActiveAt: string;
+  _count: {
+    files: number;
+    folders: number;
+  };
 }
