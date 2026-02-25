@@ -5,8 +5,6 @@ import {
   Share2,
   Trash2,
   Settings,
-  Cloud,
-  FileStack,
   Star,
   CreditCard,
 } from 'lucide-react';
@@ -50,17 +48,14 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
       <div className="flex flex-col h-full">
-        {/* Logo - Aligned with header height */}
-        <div className="h-16 flex items-center px-6">
-          <div className="flex items-center space-x-2.5">
-            <div className="relative">
-              <Cloud className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-              <FileStack className="w-3 h-3 text-primary-500 dark:text-primary-300 absolute -bottom-0.5 -right-0.5" />
-            </div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-primary-600 to-primary-500 dark:from-primary-400 dark:to-primary-300 bg-clip-text text-transparent">
-              SupFile
-            </h1>
+        {/* Logo Section */}
+        <div className="flex flex-col py-4">
+          <div className="h-12 flex items-center px-6 w-full">
+            <NavLink to="/dashboard" className="flex items-center">
+              <img src="/icon-full.svg" alt="SupFile" className="h-[34px] w-auto" />
+            </NavLink>
           </div>
+          <div className="w-[80%] h-[2px] bg-gray-200 dark:bg-gray-700 mt-2 ml-6 rounded-full" />
         </div>
 
         {/* Main Navigation */}
@@ -189,6 +184,6 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+    </aside >
   );
 }
