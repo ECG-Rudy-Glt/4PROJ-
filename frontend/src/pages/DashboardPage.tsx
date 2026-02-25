@@ -79,11 +79,6 @@ export default function DashboardPage() {
     navigate(`${folderPath}?preview=${file.id}`);
   };
 
-  const handleFileClick = (file: any) => {
-    const folderPath = file.folderId ? `/files/${file.folderId}` : '/files';
-    navigate(`${folderPath}?preview=${file.id}`);
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
