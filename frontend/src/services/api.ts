@@ -8,6 +8,7 @@ const baseURL = import.meta.env.VITE_API_URL
 
 const api = axios.create({
   baseURL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -15,6 +16,15 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
+  const requireHttps = import.meta.env.VITE_REQUIRE_HTTPS === 'true';
+  if (requireHttps && typeof window !== 'undefined') {
+    const url = new URL(config.baseURL || window.location.origin, window.location.origin);
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(url.hostname);
+    if (url.protocol !== 'https:' && !isLocalhost) {
+      throw new Error('Connexion non sécurisée bloquée (HTTPS requis)');
+    }
+  }
+
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
