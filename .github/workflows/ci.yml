@@ -28,8 +28,11 @@ jobs:
       - name: Verify Types and Build
         run: npm run build
 
-      - name: Run Backend Tests
-        run: npm test
+      - name: Run Backend Tests with Coverage
+        run: npm test -- --coverage --coverageReporters=text-summary
+
+      - name: Audit Dependencies
+        run: npm audit --audit-level=high
 
   frontend-checks:
     runs-on: ubuntu-latest
@@ -55,6 +58,9 @@ jobs:
       - name: Verify Types and Build
         run: npm run build
 
+      - name: Audit Dependencies
+        run: npm audit --audit-level=high
+
       - name: Run Cypress Tests
         uses: cypress-io/github-action@v6
         with:
@@ -62,3 +68,34 @@ jobs:
           build: npm run build
           start: npm run preview
           wait-on: 'http://localhost:4173'
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Backend Docker Image
+        run: docker build -t backend:ci ./backend
+
+      - name: Build Frontend Docker Image
+        run: docker build -t frontend:ci ./frontend
+
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: backend:ci
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: frontend:ci
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
