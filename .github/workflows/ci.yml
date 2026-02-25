@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main, claude-proto, ci_deploy_vps ]
 
+# Permissions par défaut pour tous les jobs (principe de moindre privilège)
+# docker-push surcharge avec packages: write pour pusher sur GHCR
+permissions:
+  contents: read
+
 jobs:
   validate-env:
     runs-on: ubuntu-latest
