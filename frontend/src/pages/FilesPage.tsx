@@ -524,21 +524,19 @@ export default function FilesPage() {
     const pendingCount = queuedFiles.filter((file) => file.status === 'pending').length;
     if (pendingCount === 0) {
       toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
+      const updatedFiles = [...uploadingFilesRef.current, ...queuedFiles];
+      uploadingFilesRef.current = updatedFiles;
       setShowUploadModal(true);
-      setUploadingFiles((prev) => {
-        const next = [...prev, ...queuedFiles];
-        uploadingFilesRef.current = next;
-        return next;
-      });
+      setUploadingFiles(updatedFiles);
       return;
     }
 
+    // Mettre à jour le ref de façon synchrone AVANT de démarrer la file
+    const updatedFiles = [...uploadingFilesRef.current, ...queuedFiles];
+    uploadingFilesRef.current = updatedFiles;
+
     setShowUploadModal(true);
-    setUploadingFiles((prev) => {
-      const next = [...prev, ...queuedFiles];
-      uploadingFilesRef.current = next;
-      return next;
-    });
+    setUploadingFiles(updatedFiles);
 
     void processUploadQueue();
   };

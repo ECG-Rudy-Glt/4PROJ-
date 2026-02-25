@@ -403,13 +403,8 @@ export class FileService {
       await prisma.file.delete({
         where: { id: fileId },
       });
-
-      // Décrémenter uniquement si le fichier n'était pas déjà en corbeille
-      if (!file.isDeleted) {
-        await PlanService.updateQuotaUsed(userId, -Number(file.size));
-      }
+      await PlanService.updateQuotaUsed(userId, -Number(file.size));
     } else {
-      // Corbeille : décrémenter le quota immédiatement
       await prisma.file.update({
         where: { id: fileId },
         data: {
@@ -417,7 +412,6 @@ export class FileService {
           deletedAt: new Date(),
         },
       });
-      await PlanService.updateQuotaUsed(userId, -Number(file.size));
     }
 
     await AuditService.createLog(userId, 'DELETE', {
@@ -451,8 +445,6 @@ export class FileService {
         deletedAt: null,
       },
     });
-
-    await PlanService.updateQuotaUsed(userId, Number(file.size));
 
     await AuditService.createLog(userId, 'RESTORE', {
       fileName: file.name,

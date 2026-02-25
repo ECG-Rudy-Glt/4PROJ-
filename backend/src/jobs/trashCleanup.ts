@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import prisma from '../config/database';
 import fs from 'fs/promises';
 import path from 'path';
+import { PlanService } from '../services/planService';
 
 // Cron job qui s'exécute tous les jours à 2h du matin
 export const startTrashCleanupJob = () => {
@@ -60,10 +61,11 @@ export const startTrashCleanupJob = () => {
             }
           }
 
-          // Supprimer l'enregistrement en base de données
           await prisma.file.delete({
             where: { id: file.id },
           });
+
+          await PlanService.updateQuotaUsed(file.userId, -Number(file.size));
 
           purgedCount++;
         } catch (error) {
