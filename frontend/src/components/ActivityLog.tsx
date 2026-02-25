@@ -4,7 +4,7 @@ import {
   Upload, Trash2, RotateCcw, Download, Share2, FolderPlus,
   FileText, LogIn, LogOut, Key, UserCircle, Tag, MessageCircle,
   History, Activity, Filter, ChevronLeft, ChevronRight, Shield,
-  Lock, Unlock, Building, UserPlus, UserMinus, RefreshCw, ArrowDownCircle, UserCog
+  Lock, Unlock, Building, UserPlus, UserMinus, RefreshCw, ArrowDownCircle, UserCog, ArrowRightLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -42,7 +42,19 @@ const ACTION_ICONS: { [key in AuditAction]: JSX.Element } = {
   ORG_MEMBER_ROLE_UPDATE: <UserCog className="w-4 h-4" />,
   ORG_MEMBER_REMOVE: <UserMinus className="w-4 h-4" />,
   ORG_SWITCH: <RefreshCw className="w-4 h-4" />,
+  ACCOUNT_SWITCH_LINK_ADDED: <UserPlus className="w-4 h-4" />,
+  ACCOUNT_SWITCH_LINK_REVOKED: <UserMinus className="w-4 h-4" />,
+  ACCOUNT_SWITCH: <ArrowRightLeft className="w-4 h-4" />,
+  ACCOUNT_SWITCH_BACK: <Undo2Icon />,
+  DELEGATION_GRANTED: <Shield className="w-4 h-4" />,
+  DELEGATION_REVOKED: <Shield className="w-4 h-4" />,
+  DELEGATION_ASSUME: <ArrowRightLeft className="w-4 h-4" />,
+  DELEGATION_STOP: <ArrowRightLeft className="w-4 h-4" />,
 };
+
+function Undo2Icon() {
+  return <RefreshCw className="w-4 h-4" />;
+}
 
 const ACTION_LABELS: { [key in AuditAction]: string } = {
   UPLOAD: 'Fichier téléversé',
@@ -76,6 +88,14 @@ const ACTION_LABELS: { [key in AuditAction]: string } = {
   ORG_MEMBER_ROLE_UPDATE: 'Rôle membre organisation modifié',
   ORG_MEMBER_REMOVE: 'Membre retiré de l’organisation',
   ORG_SWITCH: 'Organisation active changée',
+  ACCOUNT_SWITCH_LINK_ADDED: 'Compte lié pour switch',
+  ACCOUNT_SWITCH_LINK_REVOKED: 'Compte lié supprimé',
+  ACCOUNT_SWITCH: 'Switch de compte',
+  ACCOUNT_SWITCH_BACK: 'Retour compte principal',
+  DELEGATION_GRANTED: 'Délégation accordée',
+  DELEGATION_REVOKED: 'Délégation révoquée',
+  DELEGATION_ASSUME: 'Délégation assumée',
+  DELEGATION_STOP: 'Session déléguée arrêtée',
 };
 
 const ACTION_COLORS: { [key in AuditAction]: string } = {
@@ -110,6 +130,14 @@ const ACTION_COLORS: { [key in AuditAction]: string } = {
   ORG_MEMBER_ROLE_UPDATE: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
   ORG_MEMBER_REMOVE: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
   ORG_SWITCH: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
+  ACCOUNT_SWITCH_LINK_ADDED: 'text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20',
+  ACCOUNT_SWITCH_LINK_REVOKED: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50',
+  ACCOUNT_SWITCH: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+  ACCOUNT_SWITCH_BACK: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+  DELEGATION_GRANTED: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+  DELEGATION_REVOKED: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
+  DELEGATION_ASSUME: 'text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20',
+  DELEGATION_STOP: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50',
 };
 
 const getActionLabel = (action: AuditAction) => ACTION_LABELS[action] || action;
@@ -188,7 +216,16 @@ export default function ActivityLog() {
       parts.push(`IP: ${log.details.ipAddress}`);
     }
 
-    return parts.length > 0 ? parts.join(' • ') : null;
+    if (parts.length > 0) {
+      return parts.join(' • ');
+    }
+
+    const fallbackEntries = Object.entries(log.details)
+      .filter(([key, value]) => key !== 'ipAddress' && value !== null && value !== undefined && value !== '')
+      .slice(0, 3)
+      .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`);
+
+    return fallbackEntries.length > 0 ? fallbackEntries.join(' • ') : null;
   };
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
