@@ -5,6 +5,7 @@ export interface User {
   lastName?: string;
   avatar?: string;
   role?: 'USER' | 'ADMIN';
+  accountStatus?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
@@ -13,6 +14,20 @@ export interface User {
   vaultEnabled?: boolean;
   currentOrganizationId?: string | null;
   createdAt: string;
+}
+
+export interface AuthSessionContext {
+  authType: 'DIRECT' | 'SWITCH' | 'DELEGATION';
+  rootUserId: string;
+  actorUserId: string;
+  delegation?: {
+    id: string;
+    canRead: boolean;
+    canWrite: boolean;
+    canDelete: boolean;
+    canShare: boolean;
+    expiresAt: string | null;
+  } | null;
 }
 
 export interface Tag {
