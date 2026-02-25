@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { fileService } from '@/services/fileService';
-import { useAuthStore } from '@/stores/useAuthStore';
 import { File } from '@/types';
 import {
   RotateCcw,
@@ -45,7 +44,6 @@ const formatBytes = (bytes: number) => {
 };
 
 export default function TrashPage() {
-  const { loadUser } = useAuthStore();
   const [deletedFiles, setDeletedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<string>('deletedAt');
