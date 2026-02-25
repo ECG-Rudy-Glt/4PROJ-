@@ -46,9 +46,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ./backend/package-lock.json
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Verify Types and Build
         run: npm run build
@@ -76,9 +78,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Verify Linting
         run: npm run lint
@@ -93,7 +97,7 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
-          build: npm run build
+          install: false
           start: npm run preview
           wait-on: 'http://localhost:4173'
 
@@ -105,14 +109,31 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Backend Docker Image
-        run: docker build -t backend:ci ./backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
       - name: Build Frontend Docker Image
-        run: docker build -t frontend:ci ./frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          load: true
+          tags: frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
       - name: Scan Backend Image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: 'backend:ci'
           format: 'table'
@@ -122,7 +143,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Scan Frontend Image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: 'frontend:ci'
           format: 'table'
@@ -132,18 +153,24 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
   # ===========================
-  # PUSH TO GHCR (main only)
+  # PUSH TO GHCR (main + ci_deploy_vps)
   # ===========================
   docker-push:
     needs: [ docker-build ]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci_deploy_vps')
     permissions:
       packages: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Set lowercase repo name
+        run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -153,31 +180,35 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Backend
-        run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/${REPO_LOWER}/backend:${{ github.sha }} \
-                       -t ghcr.io/${REPO_LOWER}/backend:latest \
-                       ./backend
-          docker push ghcr.io/${REPO_LOWER}/backend:${{ github.sha }}
-          docker push ghcr.io/${REPO_LOWER}/backend:latest
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
       - name: Build and Push Frontend
-        run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }} \
-                       -t ghcr.io/${REPO_LOWER}/frontend:latest \
-                       --build-arg VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}/api \
-                       ./frontend
-          docker push ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }}
-          docker push ghcr.io/${REPO_LOWER}/frontend:latest
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
+          build-args: VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}/api
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
   # ===========================
-  # DEPLOY PREPROD (main only)
+  # DEPLOY PREPROD (main + ci_deploy_vps)
   # ===========================
   deploy-preprod:
     needs: [ docker-push ]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci_deploy_vps')
     environment:
       name: preprod
       url: https://${{ vars.PREPROD_DEPLOY_HOST }}
@@ -185,6 +216,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Set lowercase repo name
+        run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Setup SSH
         run: |
@@ -209,10 +243,9 @@ jobs:
 
       - name: Deploy on VPS
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          BACKEND_IMAGE="ghcr.io/${REPO_LOWER}/backend:${{ github.sha }}"
-          FRONTEND_IMAGE="ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }}"
-          GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
+          FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
+          GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
           ACTOR="${{ github.actor }}"
           DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
 
@@ -227,4 +260,3 @@ jobs:
             docker compose up -d --wait --remove-orphans
             docker image prune -f
           EOF
-
