@@ -6,6 +6,9 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { billingService } from '@/services/billingService';
 
+type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+type PaidPlanId = 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+
 const plans = [
   {
     id: 'FREE',
@@ -201,7 +204,7 @@ export default function PlansPage() {
                 </div>
 
                 <button
-                  onClick={() => handlePlanSelection(plan.id)}
+                  onClick={() => handlePlanSelection(plan.id as PlanId)}
                   disabled={isCurrentPlan || loading !== null}
                   className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${isCurrentPlan ? 'bg-gray-400 cursor-not-allowed' : plan.buttonColor
                     } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
