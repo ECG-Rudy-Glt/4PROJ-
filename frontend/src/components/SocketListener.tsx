@@ -8,7 +8,7 @@ import { initPushNotifications } from '@/utils/pushNotification';
 
 export default function SocketListener() {
     const socket = useSocket();
-    const { user } = useAuthStore();
+    const { user, refreshProfile } = useAuthStore();
     const { addNotification, fetchNotifications } = useNotificationStore((s) => ({
         addNotification: s.addNotification,
         fetchNotifications: s.fetchNotifications,
@@ -28,9 +28,7 @@ export default function SocketListener() {
     useEffect(() => {
         if (!socket) return;
 
-        // Listener pour les nouveaux commentaires
         const handleComment = (data: any) => {
-            // Ne pas notifier si c'est moi qui ai commenté
             if (data.userId === user?.id) return;
 
             toast.custom((t) => (
@@ -57,7 +55,6 @@ export default function SocketListener() {
             ));
         };
 
-        // Listener pour les partages reçus
         const handleShare = (data: any) => {
             toast.custom((t) => (
                 <div
@@ -83,13 +80,11 @@ export default function SocketListener() {
             ));
         };
 
-        // Listener pour les uploads (si pertinent)
-        const handleUpload = (file: any) => {
-            // Optionnel : Notification silencieuse ou mise à jour de liste
-            console.log('File uploaded:', file.name);
+        // Mise à jour du quota après upload/suppression
+        const handleQuotaChange = () => {
+            refreshProfile().catch(() => {});
         };
 
-        // Listener pour les partages acceptés
         const handleShareAccepted = (data: any) => {
             toast.custom((t) => (
                 <div
@@ -122,18 +117,20 @@ export default function SocketListener() {
 
         socket.on('comment_added', handleComment);
         socket.on('share_received', handleShare);
-        socket.on('file_uploaded', handleUpload);
+        socket.on('file_uploaded', handleQuotaChange);
+        socket.on('file_deleted', handleQuotaChange);
         socket.on('share_accepted', handleShareAccepted);
         socket.on('notification_new', handleNotification);
 
         return () => {
             socket.off('comment_added', handleComment);
             socket.off('share_received', handleShare);
-            socket.off('file_uploaded', handleUpload);
+            socket.off('file_uploaded', handleQuotaChange);
+            socket.off('file_deleted', handleQuotaChange);
             socket.off('share_accepted', handleShareAccepted);
             socket.off('notification_new', handleNotification);
         };
-    }, [socket, user, addNotification]);
+    }, [socket, user, addNotification, refreshProfile]);
 
-    return null; // Ce composant ne rend rien visuellement, il gère juste les écoutes
+    return null;
 }
