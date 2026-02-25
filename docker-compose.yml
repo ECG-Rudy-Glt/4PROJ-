@@ -19,7 +19,9 @@ services:
       - supfile-network
 
   backend:
-    image: ${BACKEND_IMAGE}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: supfile-backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/${POSTGRES_DB:-supfile}
@@ -63,7 +65,11 @@ services:
       - supfile-network
 
   frontend:
-    image: ${FRONTEND_IMAGE}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${API_URL:-http://localhost:5001}
     container_name: supfile-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:80"

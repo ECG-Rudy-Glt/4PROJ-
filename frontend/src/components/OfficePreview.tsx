@@ -74,6 +74,7 @@ export const OfficePreview: React.FC<OfficePreviewProps> = ({ file }) => {
         docEditorRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   const loadViewer = async () => {

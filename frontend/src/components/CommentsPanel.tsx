@@ -61,6 +61,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
         socket.off('comment_added', handleNewComment);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId, socket]); // Added socket to dependency array
 
   const loadComments = async () => {
