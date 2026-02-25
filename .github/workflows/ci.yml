@@ -87,7 +87,9 @@ jobs:
       - name: Cache node_modules
         uses: actions/cache@v4
         with:
-          path: ./frontend/node_modules
+          path: |
+            ./frontend/node_modules
+            ~/.cache/Cypress
           key: ${{ runner.os }}-frontend-${{ hashFiles('./frontend/package.json') }}
           restore-keys: ${{ runner.os }}-frontend-
 
