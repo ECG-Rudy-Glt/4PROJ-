@@ -99,6 +99,33 @@ export default function AdminPage() {
     return overview.distribution.plans.sort((a, b) => b.count - a.count);
   }, [overview]);
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadUsersCsv = async () => {
+    try {
+      const blob = await adminService.downloadUsersCsv();
+      downloadBlob(blob, `supfile-admin-users-${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Export utilisateurs impossible');
+    }
+  };
+
+  const handleDownloadStorageCsv = async () => {
+    try {
+      const blob = await adminService.downloadStorageCsv();
+      downloadBlob(blob, `supfile-admin-storage-${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Export stockage impossible');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -106,6 +133,20 @@ export default function AdminPage() {
         <p className="text-gray-600 dark:text-gray-400 mt-1">
           Pilotage global de la plateforme et gestion des plans utilisateurs
         </p>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button
+            onClick={handleDownloadUsersCsv}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Export CSV Utilisateurs
+          </button>
+          <button
+            onClick={handleDownloadStorageCsv}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Export CSV Stockage
+          </button>
+        </div>
       </div>
 
       {isLoadingOverview ? (

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Download, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { authService } from '@/services/authService';
+import { fileService } from '@/services/fileService';
+import { auditService } from '@/services/auditService';
 import toast from 'react-hot-toast';
 
 export default function RGPDSection() {
@@ -27,6 +29,37 @@ export default function RGPDSection() {
       toast.error(error.response?.data?.error || 'Erreur lors de l\'export des données');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(new Blob([blob]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportFilesCsv = async () => {
+    try {
+      const blob = await fileService.exportFilesCsv();
+      downloadBlob(blob, `supfile-files-${new Date().toISOString().split('T')[0]}.csv`);
+      toast.success('Export CSV des fichiers généré');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erreur export CSV fichiers');
+    }
+  };
+
+  const handleExportActivityCsv = async () => {
+    try {
+      const blob = await auditService.exportCsv();
+      downloadBlob(blob, `supfile-activity-${new Date().toISOString().split('T')[0]}.csv`);
+      toast.success('Export CSV activité généré');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erreur export CSV activité');
     }
   };
 
@@ -89,6 +122,22 @@ export default function RGPDSection() {
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             Format : Archive ZIP (CSV) • Contient : Profil, Fichiers, Activité, etc.
           </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button
+              onClick={handleExportFilesCsv}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV fichiers
+            </button>
+            <button
+              onClick={handleExportActivityCsv}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV activité
+            </button>
+          </div>
         </div>
 
         {/* Suppression du compte */}

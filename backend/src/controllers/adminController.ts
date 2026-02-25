@@ -55,4 +55,34 @@ export class AdminController {
       res.status(400).json({ error: error.message });
     }
   }
+
+  static async exportUsersCsv(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const rows = await AdminService.getUsersExportRows();
+      const { stringify } = require('csv-stringify/sync');
+      const csv = stringify(rows, { header: true });
+      const fileName = `supfile-admin-users-${new Date().toISOString().split('T')[0]}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async exportStorageCsv(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const rows = await AdminService.getStorageExportRows();
+      const { stringify } = require('csv-stringify/sync');
+      const csv = stringify(rows, { header: true });
+      const fileName = `supfile-admin-storage-${new Date().toISOString().split('T')[0]}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
