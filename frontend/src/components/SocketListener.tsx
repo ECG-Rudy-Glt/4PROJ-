@@ -117,11 +117,9 @@ export default function SocketListener() {
 
         // Listener pour les notifications persistantes (push géré côté backend via VAPID)
         const handleNotification = (data: any) => {
-            console.log('[Notif] notification_new reçu:', data);
             addNotification(data);
         };
 
-        console.log('[Notif] Socket listeners enregistrés, socket.id:', socket.id);
         socket.on('comment_added', handleComment);
         socket.on('share_received', handleShare);
         socket.on('file_uploaded', handleUpload);
