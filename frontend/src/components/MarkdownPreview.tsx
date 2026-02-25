@@ -305,7 +305,7 @@ export default function MarkdownPreview({ file, isShared = false }: MarkdownPrev
     };
 
     loadContent();
-  }, [file.id]);
+  }, [file.id, isShared]);
 
   if (loading) {
     return (

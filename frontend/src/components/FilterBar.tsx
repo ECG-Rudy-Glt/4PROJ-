@@ -121,7 +121,8 @@ export function FilterBar({ onFilterChange, onClearFilters }: FilterBarProps) {
                                     onChange={(e) => {
                                         const val = e.target.value;
                                         if (!val) {
-                                            const { minSize: _min, maxSize: _max, ...rest } = filters;
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                const { minSize: _min, maxSize: _max, ...rest } = filters;
                                             setFilters(rest);
                                         } else if (val === 'small') {
                                             setFilters({ ...filters, maxSize: 1024 * 1024 }); // < 1MB

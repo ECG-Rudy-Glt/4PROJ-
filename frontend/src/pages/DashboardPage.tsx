@@ -66,7 +66,7 @@ export default function DashboardPage() {
     try {
       const dashboardData = await dashboardService.getDashboard();
       setData(dashboardData);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load dashboard');
     } finally {
       setIsLoading(false);
