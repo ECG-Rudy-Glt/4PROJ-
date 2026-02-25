@@ -37,7 +37,7 @@ export default function SettingsPage() {
   };
 
   const quotaUsed = user?.quotaUsed || 0;
-  const quotaLimit = user?.quotaLimit || 10737418240; // 10GB default
+  const quotaLimit = user?.quotaLimit || 32212254720; // 30GB default
   const quotaPercentage = (quotaUsed / quotaLimit) * 100;
 
   const handleThemeToggle = async () => {
