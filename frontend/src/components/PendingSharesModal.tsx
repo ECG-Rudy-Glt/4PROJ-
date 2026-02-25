@@ -73,7 +73,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       }
 
       setPendingShares(shares);
-    } catch (error: any) {
+    } catch {
       toast.error('Erreur au chargement des partages');
     } finally {
       setLoading(false);

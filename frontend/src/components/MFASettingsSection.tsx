@@ -24,7 +24,7 @@ export default function MFASettingsSection() {
     try {
       const devices = await mfaService.getTrustedDevices();
       setTrustedDevices(devices);
-    } catch (error: any) {
+    } catch {
       toast.error('Erreur lors du chargement des appareils');
     } finally {
       setLoading(false);
@@ -38,7 +38,7 @@ export default function MFASettingsSection() {
       await mfaService.revokeTrustedDevice(deviceId);
       toast.success('Appareil révoqué');
       loadTrustedDevices();
-    } catch (error: any) {
+    } catch {
       toast.error('Erreur lors de la révocation');
     }
   };

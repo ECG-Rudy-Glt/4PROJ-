@@ -51,6 +51,7 @@ export default function ShareFolderModal({
       loadSharedWith();
       generateInviteLink();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, folderId]);
 
   useEffect(() => {

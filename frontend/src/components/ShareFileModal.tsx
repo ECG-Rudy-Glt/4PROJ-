@@ -42,6 +42,7 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
   useEffect(() => {
     loadSharedWith();
     generateInviteLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   useEffect(() => {
