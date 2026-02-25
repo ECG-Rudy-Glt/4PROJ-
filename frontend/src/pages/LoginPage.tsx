@@ -9,7 +9,7 @@ import BackupCodesModal from '@/components/BackupCodesModal';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading } = useAuthStore();
+  const { login, loadUser, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   // États pour le MFA Setup
@@ -70,8 +70,13 @@ export default function LoginPage() {
     localStorage.removeItem('tempToken');
   };
 
-  const handleBackupCodesComplete = () => {
+  const handleBackupCodesComplete = async () => {
     setShowBackupCodesModal(false);
+    try {
+      await loadUser();
+    } catch (error) {
+      console.error('Failed to refresh user profile after MFA setup', error);
+    }
     toast.success('Authentification à deux facteurs activée !');
     navigate('/dashboard');
   };

@@ -5,23 +5,36 @@ import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { billingService } from '@/services/billingService';
+import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
 
-type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
-type PaidPlanId = 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+type PaidPlanId = Exclude<PlanId, 'FREE'>;
 
-const plans = [
+const plans: Array<{
+  id: PlanId;
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  storage: string;
+  features: Array<{ name: string; included: boolean }>;
+  icon: any;
+  color: string;
+  buttonColor: string;
+  popular?: boolean;
+}> = [
   {
     id: 'FREE',
     name: 'Gratuit',
     price: '0€',
     period: '/mois',
-    description: 'Pour démarrer',
-    storage: '30 Go',
+    description: 'Pour demarrer',
+    storage: PLAN_STORAGE_LABELS.FREE,
     features: [
-      { name: 'Stockage Cloud Sécurisé', included: true },
+      { name: 'Stockage Cloud securise', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
-      { name: 'Historique d\'audit', included: false },
+      { name: "Historique d'audit", included: false },
+      { name: 'Coffre-fort securise', included: false },
       { name: 'Support prioritaire', included: false },
     ],
     icon: Database,
@@ -34,12 +47,13 @@ const plans = [
     price: '9.99€',
     period: '/mois',
     description: 'Pour les professionnels',
-    storage: '200 Go',
+    storage: PLAN_STORAGE_LABELS.PRO,
     features: [
-      { name: 'Stockage Cloud Sécurisé', included: true },
+      { name: 'Stockage Cloud securise', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
-      { name: 'Historique d\'audit', included: true },
+      { name: "Historique d'audit", included: true },
+      { name: 'Coffre-fort securise', included: true },
       { name: 'Support prioritaire', included: true },
     ],
     icon: Zap,
@@ -52,18 +66,38 @@ const plans = [
     name: 'Business',
     price: '29.99€',
     period: '/mois',
-    description: 'Pour les équipes',
-    storage: '2 To',
+    description: 'Pour les equipes',
+    storage: PLAN_STORAGE_LABELS.BUSINESS,
     features: [
-      { name: 'Stockage Cloud Sécurisé', included: true },
+      { name: 'Stockage Cloud securise', included: true },
       { name: 'Partage de fichiers', included: true },
       { name: 'Support standard', included: true },
-      { name: 'Historique d\'audit', included: true },
+      { name: "Historique d'audit", included: true },
+      { name: 'Coffre-fort securise', included: true },
       { name: 'Support prioritaire 24/7', included: true },
     ],
     icon: Server,
     color: 'bg-orange-100 text-orange-600',
     buttonColor: 'bg-orange-600 hover:bg-orange-700',
+  },
+  {
+    id: 'ENTERPRISE',
+    name: 'Enterprise',
+    price: '99.99€',
+    period: '/mois',
+    description: 'Pour les organisations exigeantes',
+    storage: PLAN_STORAGE_LABELS.ENTERPRISE,
+    features: [
+      { name: 'Stockage Cloud securise', included: true },
+      { name: 'Partage avance et gouvernance', included: true },
+      { name: 'Support dedie', included: true },
+      { name: "Historique d'audit complet", included: true },
+      { name: 'Coffre-fort securise', included: true },
+      { name: 'SLA entreprise', included: true },
+    ],
+    icon: Server,
+    color: 'bg-gray-200 text-gray-700',
+    buttonColor: 'bg-gray-800 hover:bg-gray-900',
   },
 ];
 
@@ -94,6 +128,13 @@ export default function PlansPage() {
 
     setLoading(planId);
     try {
+      if (user?.role === 'ADMIN') {
+        await api.put('/users/plan', { plan: planId });
+        await refreshProfile();
+        toast.success(`Plan ${planId} applique (bypass admin)`);
+        return;
+      }
+
       if (planId === 'FREE') {
         await api.put('/users/plan', { plan: 'FREE' });
         await refreshProfile();
@@ -135,7 +176,12 @@ export default function PlansPage() {
         <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
           Choisissez le plan adapte a vos besoins de stockage et de securite.
         </p>
-        {user?.plan && user.plan !== 'FREE' && (
+        {user?.role === 'ADMIN' && (
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Mode admin: les changements de plan contournent Stripe.
+          </p>
+        )}
+        {user?.role !== 'ADMIN' && user?.plan && user.plan !== 'FREE' && (
           <button
             onClick={handleOpenBillingPortal}
             disabled={portalLoading}
@@ -204,7 +250,7 @@ export default function PlansPage() {
                 </div>
 
                 <button
-                  onClick={() => handlePlanSelection(plan.id as PlanId)}
+                  onClick={() => handlePlanSelection(plan.id)}
                   disabled={isCurrentPlan || loading !== null}
                   className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${isCurrentPlan ? 'bg-gray-400 cursor-not-allowed' : plan.buttonColor
                     } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
@@ -213,9 +259,11 @@ export default function PlansPage() {
                     ? 'Plan actuel'
                     : loading === plan.id
                       ? 'Redirection...'
-                      : plan.id === 'FREE'
-                        ? 'Basculer vers FREE'
-                        : 'Choisir ce plan'}
+                      : user?.role === 'ADMIN'
+                        ? 'Activer (Admin)'
+                        : plan.id === 'FREE'
+                          ? 'Basculer vers FREE'
+                          : 'Choisir ce plan'}
                 </button>
               </div>
             </div>
@@ -225,3 +273,4 @@ export default function PlansPage() {
     </div>
   );
 }
+

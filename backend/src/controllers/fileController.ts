@@ -310,4 +310,62 @@ export class FileController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  static async exportFilesCsv(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const files = await prisma.file.findMany({
+        where: {
+          userId,
+          isDeleted: false,
+        },
+        include: {
+          folder: {
+            select: {
+              id: true,
+              name: true,
+              path: true,
+            },
+          },
+          tags: {
+            include: {
+              tag: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const rows = files.map((file) => ({
+        id: file.id,
+        nom: file.name,
+        nomOriginal: file.originalName,
+        mimeType: file.mimeType,
+        tailleOctets: Number(file.size),
+        dossier: file.folder?.name || 'Racine',
+        chemin: file.folder?.path || '/',
+        tags: file.tags.map((entry) => entry.tag.name).join('|'),
+        favori: file.isFavorite ? 'oui' : 'non',
+        coffreFort: file.isVault ? 'oui' : 'non',
+        creeLe: file.createdAt.toISOString(),
+        modifieLe: file.updatedAt.toISOString(),
+      }));
+
+      const { stringify } = require('csv-stringify/sync');
+      const csv = stringify(rows, { header: true });
+      const fileName = `supfile-files-${new Date().toISOString().split('T')[0]}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }

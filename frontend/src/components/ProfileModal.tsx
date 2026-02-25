@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Upload, User, Calendar, HardDrive } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
+import { formatBytes } from '@/utils/bytes';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -38,11 +39,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   }, [user]);
 
   if (!isOpen || !user) return null;
-
-  const formatBytes = (bytes: number) => {
-    const gb = bytes / (1024 * 1024 * 1024);
-    return gb.toFixed(2);
-  };
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Date inconnue';
@@ -255,7 +251,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   <span className="text-sm font-medium">Stockage utilisé</span>
                 </div>
                 <p className="text-gray-900 dark:text-white font-semibold">
-                  {formatBytes(quotaUsed)} Go / {formatBytes(quotaLimit)} Go
+                  {formatBytes(quotaUsed)} / {formatBytes(quotaLimit)}
                 </p>
                 <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                   <div

@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
+import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
 import { MailService } from './mailService';
+import { PlanService } from './planService';
 
 export class AuthService {
   static async register(
@@ -23,12 +25,16 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
+    const freePlanLimit = PlanService.getStorageLimit(Plan.FREE);
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         firstName,
         lastName,
+        plan: Plan.FREE,
+        subscriptionStatus: SubscriptionStatus.ACTIVE,
+        quotaLimit: freePlanLimit,
       },
     });
 
@@ -50,8 +56,11 @@ export class AuthService {
         lastName: user.lastName,
         avatar: user.avatar,
         role: user.role,
+        accountStatus: user.accountStatus,
         plan: user.plan,
         subscriptionStatus: user.subscriptionStatus,
+        vaultEnabled: user.vaultEnabled,
+        currentOrganizationId: user.currentOrganizationId,
         quotaUsed: Number(user.quotaUsed),
         quotaLimit: Number(user.quotaLimit),
         theme: user.theme,
@@ -69,6 +78,9 @@ export class AuthService {
 
     if (!user || !user.password) {
       throw new Error('Invalid credentials');
+    }
+    if (user.accountStatus !== 'ACTIVE') {
+      throw new Error('Account inactive or suspended');
     }
 
     // Check password
@@ -95,8 +107,11 @@ export class AuthService {
         lastName: user.lastName,
         avatar: user.avatar,
         role: user.role,
+        accountStatus: user.accountStatus,
         plan: user.plan,
         subscriptionStatus: user.subscriptionStatus,
+        vaultEnabled: user.vaultEnabled,
+        currentOrganizationId: user.currentOrganizationId,
         quotaUsed: Number(user.quotaUsed),
         quotaLimit: Number(user.quotaLimit),
         theme: user.theme,
@@ -136,8 +151,11 @@ export class AuthService {
       lastName: user.lastName,
       avatar: user.avatar,
       role: user.role,
+      accountStatus: user.accountStatus,
       plan: user.plan,
       subscriptionStatus: user.subscriptionStatus,
+      vaultEnabled: user.vaultEnabled,
+      currentOrganizationId: user.currentOrganizationId,
       quotaUsed: Number(user.quotaUsed),
       quotaLimit: Number(user.quotaLimit),
       theme: user.theme,

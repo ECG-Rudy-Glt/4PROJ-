@@ -20,7 +20,26 @@ export type AuditAction =
   | 'COMMENT_ADD'
   | 'COMMENT_DELETE'
   | 'VERSION_RESTORE'
-  | 'VERSION_DELETE';
+  | 'VERSION_DELETE'
+  | 'ADMIN_PLAN_CHANGE'
+  | 'PLAN_DOWNGRADE'
+  | 'VAULT_SETUP'
+  | 'VAULT_UNLOCK'
+  | 'VAULT_LOCK'
+  | 'VAULT_PASSWORD_ROTATE'
+  | 'ORG_CREATE'
+  | 'ORG_MEMBER_ADD'
+  | 'ORG_MEMBER_ROLE_UPDATE'
+  | 'ORG_MEMBER_REMOVE'
+  | 'ORG_SWITCH'
+  | 'ACCOUNT_SWITCH_LINK_ADDED'
+  | 'ACCOUNT_SWITCH_LINK_REVOKED'
+  | 'ACCOUNT_SWITCH'
+  | 'ACCOUNT_SWITCH_BACK'
+  | 'DELEGATION_GRANTED'
+  | 'DELEGATION_REVOKED'
+  | 'DELEGATION_ASSUME'
+  | 'DELEGATION_STOP';
 
 export interface AuditLog {
   id: string;
@@ -81,5 +100,12 @@ export const auditService = {
   async getActivityStats(days: number = 7) {
     const { data } = await api.get(`/audit/stats?days=${days}`);
     return data as ActivityStats;
+  },
+
+  async exportCsv(): Promise<Blob> {
+    const response = await api.get('/audit/export/csv', {
+      responseType: 'blob',
+    });
+    return response.data;
   },
 };

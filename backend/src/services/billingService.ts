@@ -341,4 +341,25 @@ export class BillingService {
       source: 'manual',
     });
   }
+
+  static async overridePlanWithoutStripe(adminUserId: string, targetUserId: string, plan: Plan) {
+    const nextStatus =
+      plan === 'FREE' ? SubscriptionStatus.CANCELED : SubscriptionStatus.ACTIVE;
+
+    await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        plan,
+        subscriptionStatus: nextStatus,
+      },
+    });
+
+    await PlanService.syncUserQuotaLimit(targetUserId);
+
+    await AuditService.createLog(adminUserId, 'ADMIN_PLAN_CHANGE', {
+      targetUserId,
+      newPlan: plan,
+      source: 'admin_bypass',
+    });
+  }
 }

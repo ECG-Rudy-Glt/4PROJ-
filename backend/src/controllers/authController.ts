@@ -7,6 +7,7 @@ import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
 import { generateTempToken } from './mfaController';
 import prisma from '../config/database';
+import { clearSwitchSessionCookie } from '../utils/cookies';
 
 export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
@@ -43,6 +44,7 @@ export class AuthController {
         userAgent: req.get('user-agent'),
         globalLogout: true,
       }).catch(console.error);
+      clearSwitchSessionCookie(res);
 
       res.status(200).json(result);
     } catch (error: any) {
@@ -125,12 +127,21 @@ export class AuthController {
           lastName: user.lastName,
           avatar: user.avatar,
           role: user.role,
+          accountStatus: user.accountStatus,
           plan: user.plan,
           subscriptionStatus: user.subscriptionStatus,
+          vaultEnabled: user.vaultEnabled,
+          currentOrganizationId: user.currentOrganizationId,
           quotaUsed: Number(user.quotaUsed),
           quotaLimit: Number(user.quotaLimit),
           theme: user.theme,
           createdAt: user.createdAt,
+        },
+        session: {
+          authType: req.authContext?.authType || 'DIRECT',
+          rootUserId: req.authContext?.rootUserId || user.id,
+          actorUserId: req.authContext?.actorUserId || user.id,
+          delegation: req.authContext?.delegation || null,
         },
       });
     } catch (error: any) {
@@ -270,8 +281,70 @@ export class AuthController {
             orderBy: { createdAt: 'desc' },
             take: 1000, // Limite raisonnable
             select: {
+              id: true,
               action: true,
               details: true,
+              createdAt: true,
+            },
+          },
+          organizationMemberships: {
+            include: {
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+          switchLinksAsRoot: {
+            select: {
+              id: true,
+              targetUserId: true,
+              expiresAt: true,
+              lastAuthenticatedAt: true,
+              revokedAt: true,
+              createdAt: true,
+            },
+          },
+          switchLinksAsTarget: {
+            select: {
+              id: true,
+              rootUserId: true,
+              expiresAt: true,
+              lastAuthenticatedAt: true,
+              revokedAt: true,
+              createdAt: true,
+            },
+          },
+          delegationsGiven: {
+            select: {
+              id: true,
+              delegateUserId: true,
+              status: true,
+              canRead: true,
+              canWrite: true,
+              canDelete: true,
+              canShare: true,
+              startsAt: true,
+              expiresAt: true,
+              revokedAt: true,
+              createdAt: true,
+            },
+          },
+          delegationsReceived: {
+            select: {
+              id: true,
+              ownerUserId: true,
+              status: true,
+              canRead: true,
+              canWrite: true,
+              canDelete: true,
+              canShare: true,
+              startsAt: true,
+              expiresAt: true,
+              revokedAt: true,
               createdAt: true,
             },
           },
@@ -283,91 +356,142 @@ export class AuthController {
         return;
       }
 
-      // Configuration de la réponse pour le téléchargement ZIP
-      const filename = `supfile-export-${new Date().toISOString().split('T')[0]}.zip`;
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      const rows: Array<{
+        Section: string;
+        Categorie: string;
+        ItemId: string;
+        Champ: string;
+        Valeur: string;
+        DateCreation: string;
+        DateMiseAJour: string;
+      }> = [];
 
-      // Création de l'archive ZIP
-      const archive = require('archiver')('zip', {
-        zlib: { level: 9 }, // Compression maximale
-      });
+      const pushRow = (
+        section: string,
+        categorie: string,
+        itemId: string,
+        champ: string,
+        valeur: string | number | boolean | null | undefined,
+        dateCreation?: Date | null,
+        dateMiseAJour?: Date | null
+      ) => {
+        rows.push({
+          Section: section,
+          Categorie: categorie,
+          ItemId: itemId,
+          Champ: champ,
+          Valeur: valeur === null || valeur === undefined ? '' : String(valeur),
+          DateCreation: dateCreation ? dateCreation.toISOString() : '',
+          DateMiseAJour: dateMiseAJour ? dateMiseAJour.toISOString() : '',
+        });
+      };
 
-      archive.on('error', (err: any) => {
-        throw err;
-      });
+      // Profil & sécurité
+      pushRow('Profil', 'Compte', user.id, 'Email', user.email, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'Prénom', user.firstName, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'Nom', user.lastName, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'Rôle', user.role, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'StatutCompte', user.accountStatus, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'Plan', user.plan, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'StatutAbonnement', user.subscriptionStatus, user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'MFAActivé', user.mfaEnabled ? 'Oui' : 'Non', user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Compte', user.id, 'CoffreFortActivé', user.vaultEnabled ? 'Oui' : 'Non', user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Stockage', user.id, 'QuotaUtiliséOctets', user.quotaUsed.toString(), user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Stockage', user.id, 'QuotaLimiteOctets', user.quotaLimit.toString(), user.createdAt, user.updatedAt);
+      pushRow('Profil', 'Sécurité', user.id, 'DernièreActivité', user.lastActiveAt?.toISOString() || '', user.createdAt, user.updatedAt);
 
-      archive.pipe(res);
+      // Fichiers
+      for (const file of user.files) {
+        pushRow('Fichiers', 'Métadonnées', file.id, 'Nom', file.name, file.createdAt, file.updatedAt);
+        pushRow('Fichiers', 'Métadonnées', file.id, 'TypeMime', file.mimeType, file.createdAt, file.updatedAt);
+        pushRow('Fichiers', 'Métadonnées', file.id, 'TailleOctets', file.size.toString(), file.createdAt, file.updatedAt);
+        pushRow('Fichiers', 'Métadonnées', file.id, 'DossierParentId', file.folderId || 'Racine', file.createdAt, file.updatedAt);
+        pushRow('Fichiers', 'Métadonnées', file.id, 'Favori', file.isFavorite ? 'Oui' : 'Non', file.createdAt, file.updatedAt);
+        pushRow('Fichiers', 'Métadonnées', file.id, 'CheminStockage', file.storagePath, file.createdAt, file.updatedAt);
+      }
 
-      // Helper pour convertir en CSV
+      // Dossiers
+      for (const folder of user.folders) {
+        pushRow('Dossiers', 'Métadonnées', folder.id, 'Nom', folder.name, folder.createdAt, folder.updatedAt);
+        pushRow('Dossiers', 'Métadonnées', folder.id, 'Chemin', folder.path, folder.createdAt, folder.updatedAt);
+        pushRow('Dossiers', 'Métadonnées', folder.id, 'ParentId', folder.parentId || 'Racine', folder.createdAt, folder.updatedAt);
+      }
+
+      // Partages publics
+      for (const link of user.sharedLinks) {
+        pushRow('Partages', 'LiensPublics', link.id, 'Token', link.token, link.createdAt, null);
+        pushRow('Partages', 'LiensPublics', link.id, 'Type', link.fileId ? 'Fichier' : 'Dossier', link.createdAt, null);
+        pushRow('Partages', 'LiensPublics', link.id, 'ObjetId', link.fileId || link.folderId || '', link.createdAt, null);
+        pushRow('Partages', 'LiensPublics', link.id, 'Téléchargements', link.downloads, link.createdAt, null);
+        pushRow('Partages', 'LiensPublics', link.id, 'Expiration', link.expiresAt ? link.expiresAt.toISOString() : 'Jamais', link.createdAt, null);
+      }
+
+      // Appareils de confiance
+      for (const device of user.trustedDevices) {
+        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'NomAppareil', device.deviceName, device.createdAt, device.lastUsedAt);
+        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'AdresseIP', device.ipAddress, device.createdAt, device.lastUsedAt);
+        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'ExpireLe', device.expiresAt.toISOString(), device.createdAt, device.lastUsedAt);
+      }
+
+      // Organisations
+      for (const membership of user.organizationMemberships) {
+        pushRow('Organisations', 'Membership', membership.id, 'OrganisationId', membership.organization.id, membership.createdAt, membership.updatedAt);
+        pushRow('Organisations', 'Membership', membership.id, 'OrganisationNom', membership.organization.name, membership.createdAt, membership.updatedAt);
+        pushRow('Organisations', 'Membership', membership.id, 'OrganisationSlug', membership.organization.slug, membership.createdAt, membership.updatedAt);
+        pushRow('Organisations', 'Membership', membership.id, 'Rôle', membership.role, membership.createdAt, membership.updatedAt);
+      }
+
+      // Switch comptes
+      for (const link of user.switchLinksAsRoot) {
+        pushRow('Comptes', 'SwitchSortants', link.id, 'CompteCibleId', link.targetUserId, link.createdAt, link.lastAuthenticatedAt);
+        pushRow('Comptes', 'SwitchSortants', link.id, 'ExpireLe', link.expiresAt.toISOString(), link.createdAt, link.lastAuthenticatedAt);
+        pushRow('Comptes', 'SwitchSortants', link.id, 'RévoquéLe', link.revokedAt?.toISOString() || '', link.createdAt, link.lastAuthenticatedAt);
+      }
+      for (const link of user.switchLinksAsTarget) {
+        pushRow('Comptes', 'SwitchEntrants', link.id, 'CompteRacineId', link.rootUserId, link.createdAt, link.lastAuthenticatedAt);
+        pushRow('Comptes', 'SwitchEntrants', link.id, 'ExpireLe', link.expiresAt.toISOString(), link.createdAt, link.lastAuthenticatedAt);
+        pushRow('Comptes', 'SwitchEntrants', link.id, 'RévoquéLe', link.revokedAt?.toISOString() || '', link.createdAt, link.lastAuthenticatedAt);
+      }
+
+      // Délégations
+      for (const delegation of user.delegationsGiven) {
+        pushRow('Délégations', 'Sortantes', delegation.id, 'DelegateUserId', delegation.delegateUserId, delegation.createdAt, delegation.revokedAt);
+        pushRow('Délégations', 'Sortantes', delegation.id, 'Statut', delegation.status, delegation.createdAt, delegation.revokedAt);
+        pushRow('Délégations', 'Sortantes', delegation.id, 'Permissions', `read=${delegation.canRead};write=${delegation.canWrite};delete=${delegation.canDelete};share=${delegation.canShare}`, delegation.createdAt, delegation.revokedAt);
+        pushRow('Délégations', 'Sortantes', delegation.id, 'ExpireLe', delegation.expiresAt?.toISOString() || '', delegation.createdAt, delegation.revokedAt);
+      }
+      for (const delegation of user.delegationsReceived) {
+        pushRow('Délégations', 'Entrantes', delegation.id, 'OwnerUserId', delegation.ownerUserId, delegation.createdAt, delegation.revokedAt);
+        pushRow('Délégations', 'Entrantes', delegation.id, 'Statut', delegation.status, delegation.createdAt, delegation.revokedAt);
+        pushRow('Délégations', 'Entrantes', delegation.id, 'Permissions', `read=${delegation.canRead};write=${delegation.canWrite};delete=${delegation.canDelete};share=${delegation.canShare}`, delegation.createdAt, delegation.revokedAt);
+        pushRow('Délégations', 'Entrantes', delegation.id, 'ExpireLe', delegation.expiresAt?.toISOString() || '', delegation.createdAt, delegation.revokedAt);
+      }
+
+      // Historique
+      for (const log of user.auditLogs) {
+        let parsedDetails = '';
+        if (log.details) {
+          try {
+            parsedDetails = JSON.stringify(JSON.parse(log.details));
+          } catch {
+            parsedDetails = log.details;
+          }
+        }
+        pushRow('Historique', 'Audit', log.id, 'Action', log.action, log.createdAt, null);
+        pushRow('Historique', 'Audit', log.id, 'Détails', parsedDetails, log.createdAt, null);
+      }
+
       const { stringify } = require('csv-stringify/sync');
+      const csv = stringify(rows, {
+        header: true,
+        columns: ['Section', 'Categorie', 'ItemId', 'Champ', 'Valeur', 'DateCreation', 'DateMiseAJour'],
+      });
 
-      // 1. Profil Utilisateur (CSV)
-      const profileData = [{
-        ID: user.id,
-        Email: user.email,
-        Prenom: user.firstName || '',
-        Nom: user.lastName || '',
-        QuotaUtilise: user.quotaUsed.toString(),
-        QuotaLimite: user.quotaLimit.toString(),
-        MFA_Active: user.mfaEnabled ? 'Oui' : 'Non',
-        DateCreation: user.createdAt.toISOString(),
-      }];
-      archive.append(stringify(profileData, { header: true }), { name: 'Profil.csv' });
-
-      // 2. Fichiers (CSV)
-      const filesData = user.files.map(f => ({
-        ID: f.id,
-        Nom: f.name,
-        Taille: f.size.toString(),
-        Type: f.mimeType,
-        DossierID: f.folderId || 'Racine',
-        Favori: f.isFavorite ? 'Oui' : 'Non',
-        DateCreation: f.createdAt.toISOString(),
-        DerniereModif: f.updatedAt.toISOString(),
-      }));
-      archive.append(stringify(filesData, { header: true }), { name: 'Fichiers.csv' });
-
-      // 3. Dossiers (CSV)
-      const foldersData = user.folders.map(f => ({
-        ID: f.id,
-        Nom: f.name,
-        Chemin: f.path,
-        ParentID: f.parentId || 'Racine',
-        DateCreation: f.createdAt.toISOString(),
-      }));
-      archive.append(stringify(foldersData, { header: true }), { name: 'Dossiers.csv' });
-
-      // 4. Liens de partage (CSV)
-      const linksData = user.sharedLinks.map(l => ({
-        Token: l.token,
-        Type: l.fileId ? 'Fichier' : 'Dossier',
-        ID_Objet: l.fileId || l.folderId,
-        Telechargements: l.downloads,
-        Expiration: l.expiresAt ? l.expiresAt.toISOString() : 'Jamais',
-        DateCreation: l.createdAt.toISOString(),
-      }));
-      archive.append(stringify(linksData, { header: true }), { name: 'Partages.csv' });
-
-      // 5. Appareils de confiance (CSV)
-      const devicesData = user.trustedDevices.map(d => ({
-        Nom: d.deviceName,
-        IP: d.ipAddress,
-        DerniereUtilisation: d.lastUsedAt.toISOString(),
-        Expiration: d.expiresAt.toISOString(),
-      }));
-      archive.append(stringify(devicesData, { header: true }), { name: 'Appareils.csv' });
-
-      // 6. Historique d'activité (CSV)
-      const logsData = user.auditLogs.map(l => ({
-        Action: l.action,
-        Details: l.details || '',
-        Date: l.createdAt.toISOString(),
-      }));
-      archive.append(stringify(logsData, { header: true }), { name: 'Activite.csv' });
-
-      // Finaliser l'archive
-      await archive.finalize();
+      const filename = `supfile-export-${new Date().toISOString().split('T')[0]}.csv`;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      // BOM UTF-8 pour meilleure compatibilité Excel
+      res.status(200).send(`\uFEFF${csv}`);
 
     } catch (error: any) {
       console.error('Error exporting user data:', error);

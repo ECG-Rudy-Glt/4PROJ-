@@ -39,4 +39,31 @@ export class AuditController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  static async exportUserLogsCsv(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { logs } = await AuditService.getUserLogs(userId, {
+        limit: 5000,
+        offset: 0,
+      });
+
+      const rows = logs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        date: log.createdAt.toISOString(),
+        details: JSON.stringify(log.details || {}),
+      }));
+
+      const { stringify } = require('csv-stringify/sync');
+      const csv = stringify(rows, { header: true });
+      const fileName = `supfile-activity-${new Date().toISOString().split('T')[0]}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }

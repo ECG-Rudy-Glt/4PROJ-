@@ -27,6 +27,9 @@ import aiRoutes from './routes/aiRoutes';
 import mfaRoutes from './routes/mfaRoutes';
 import adminRoutes from './routes/adminRoutes';
 import billingRoutes from './routes/billingRoutes';
+import vaultRoutes from './routes/vaultRoutes';
+import organizationRoutes from './routes/organizationRoutes';
+import accountAccessRoutes from './routes/accountAccessRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import pushRoutes from './routes/pushRoutes';
 
@@ -37,6 +40,7 @@ import { startCleanupJob } from './jobs/cleanupJob';
 
 import { SocketService } from './services/socketService';
 import { createServer } from 'http';
+import { buildAllowedOrigins, isOriginAllowed } from './utils/cors';
 
 
 
@@ -45,6 +49,25 @@ const app = express();
 const httpServer = createServer(app);
 SocketService.init(httpServer);
 const PORT = parseInt(process.env.PORT || '5001', 10);
+const ALLOWED_ORIGINS = buildAllowedOrigins();
+const ENFORCE_HTTPS = process.env.ENFORCE_HTTPS === 'true';
+
+app.set('trust proxy', 1);
+
+if (ENFORCE_HTTPS) {
+  app.use((req, res, next) => {
+    const forwardedProto = req.headers['x-forwarded-proto'];
+    const isSecure = req.secure || forwardedProto === 'https';
+    const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+
+    if (!isSecure && !isLocalhost) {
+      res.redirect(308, `https://${req.headers.host}${req.originalUrl}`);
+      return;
+    }
+
+    next();
+  });
+}
 
 // Security middleware
 app.use((req, res, next) => {
@@ -52,20 +75,33 @@ app.use((req, res, next) => {
   next();
 });
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  hsts: ENFORCE_HTTPS
+    ? {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    }
+    : false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       mediaSrc: ["'self'", "blob:", "data:"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      frameAncestors: ["'self'", "http://localhost:3000", "http://192.168.1.95:3000"],
+      connectSrc: ["'self'", ...ALLOWED_ORIGINS, 'ws:', 'wss:'],
+      frameAncestors: ["'self'", ...ALLOWED_ORIGINS],
       objectSrc: ["'self'"],
     },
   },
 }));
 
 app.use(cors({
-  origin: true, // Autorise toutes les origines
+  origin: (origin, callback) => {
+    if (isOriginAllowed(ALLOWED_ORIGINS, origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error('Origin not allowed by CORS'));
+  },
   credentials: true,
 }));
 
@@ -115,6 +151,9 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/mfa', mfaRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/vault', vaultRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/account-access', accountAccessRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);

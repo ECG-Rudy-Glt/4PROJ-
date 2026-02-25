@@ -29,4 +29,18 @@ export const adminService = {
     const response = await api.patch(`/admin/users/${userId}/plan`, { plan });
     return response.data;
   },
+
+  async downloadUsersCsv(): Promise<Blob> {
+    const response = await api.get('/admin/export/users.csv', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async downloadStorageCsv(): Promise<Blob> {
+    const response = await api.get('/admin/export/storage.csv', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };

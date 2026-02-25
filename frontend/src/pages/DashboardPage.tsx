@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/useAuthStore';
 import ActivityLog from '@/components/ActivityLog';
+import { formatBytes } from '@/utils/bytes';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -73,19 +74,10 @@ export default function DashboardPage() {
     }
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
-
   const handleFileClick = (file: any) => {
     const folderPath = file.folderId ? `/files/${file.folderId}` : '/files';
     navigate(`${folderPath}?preview=${file.id}`);
   };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -107,7 +99,9 @@ export default function DashboardPage() {
     count: value.count,
   }));
 
-  const quotaPercentage = (Number(data.quotaUsed) / Number(data.quotaLimit)) * 100;
+  const quotaUsed = Number(data.quotaUsed || 0);
+  const quotaLimit = Number(data.quotaLimit || 0);
+  const quotaPercentage = quotaLimit > 0 ? (quotaUsed / quotaLimit) * 100 : 0;
 
   return (
     <div className="space-y-8">
@@ -146,9 +140,9 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Espace utilisé</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatBytes(Number(data.quotaUsed))}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatBytes(quotaUsed)}</p>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-            sur {formatBytes(Number(data.quotaLimit))}
+            sur {formatBytes(quotaLimit)}
           </p>
         </div>
 

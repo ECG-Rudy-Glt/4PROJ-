@@ -2,8 +2,10 @@ import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptions } from 'passport-jwt';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
+import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from './database';
 import { JWTPayload, OAuth2Profile } from '../types';
+import { PlanService } from '../services/planService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -60,6 +62,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           });
 
           if (!user) {
+            const freePlanLimit = PlanService.getStorageLimit(Plan.FREE);
             user = await prisma.user.create({
               data: {
                 email: profile.emails?.[0]?.value || '',
@@ -68,6 +71,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 firstName: profile.name?.givenName,
                 lastName: profile.name?.familyName,
                 avatar: profile.photos?.[0]?.value,
+                plan: Plan.FREE,
+                subscriptionStatus: SubscriptionStatus.ACTIVE,
+                quotaLimit: freePlanLimit,
               },
             });
           } else if (!user.providerId) {
@@ -111,6 +117,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
           });
 
           if (!user) {
+            const freePlanLimit = PlanService.getStorageLimit(Plan.FREE);
             user = await prisma.user.create({
               data: {
                 email: profile.emails?.[0]?.value || `${profile.username}@github.com`,
@@ -118,6 +125,9 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
                 providerId: profile.id,
                 firstName: profile.displayName || profile.username,
                 avatar: profile.photos?.[0]?.value,
+                plan: Plan.FREE,
+                subscriptionStatus: SubscriptionStatus.ACTIVE,
+                quotaLimit: freePlanLimit,
               },
             });
           } else if (!user.providerId) {

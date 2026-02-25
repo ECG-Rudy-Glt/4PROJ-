@@ -7,7 +7,7 @@ const MB = BigInt(1024 * 1024);
 export const PLAN_LIMITS = {
     [Plan.FREE]: {
         storage: BigInt(30) * GB, // 30 GB
-        maxFileSize: BigInt(30) * GB, // 30 GB per file
+        maxFileSize: BigInt(100) * MB, // 100 MB per file
         maxShares: 5,
         maxVersions: 3,
         maxTags: 10,
@@ -16,6 +16,7 @@ export const PLAN_LIMITS = {
             prioritySupport: false,
             auditLogs: false,
             aiChat: false,
+            vault: false,
         },
     },
     [Plan.PRO]: {
@@ -29,6 +30,7 @@ export const PLAN_LIMITS = {
             prioritySupport: true,
             auditLogs: true,
             aiChat: true,
+            vault: true,
         },
     },
     [Plan.BUSINESS]: {
@@ -42,10 +44,11 @@ export const PLAN_LIMITS = {
             prioritySupport: true,
             auditLogs: true,
             aiChat: true,
+            vault: true,
         },
     },
     [Plan.ENTERPRISE]: {
-        storage: BigInt(1024 * 1024) * GB, // ~Unlimited (1 PB)
+        storage: BigInt(10240) * GB, // 10 TB
         maxFileSize: BigInt(10240) * MB, // 10 GB per file
         maxShares: -1, // unlimited
         maxVersions: -1, // unlimited
@@ -55,6 +58,7 @@ export const PLAN_LIMITS = {
             prioritySupport: true,
             auditLogs: true,
             aiChat: true,
+            vault: true,
         },
     },
 };
@@ -152,6 +156,46 @@ export class PlanService {
         const max = limits[limitName];
         if (max === -1) return true; // unlimited
         return currentCount < max;
+    }
+
+    /**
+     * Retourne une limite numérique de plan (ou null si illimitée)
+     */
+    static async getNumericLimit(userId: string, limitName: 'maxShares' | 'maxVersions' | 'maxTags'): Promise<number | null> {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { plan: true },
+        });
+        if (!user) throw new Error('Utilisateur non trouvé');
+
+        const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS[Plan.FREE];
+        const max = limits[limitName];
+        return max === -1 ? null : max;
+    }
+
+    /**
+     * Vérifie et lève une erreur métier si la limite est atteinte
+     */
+    static async assertLimit(
+        userId: string,
+        limitName: 'maxShares' | 'maxVersions' | 'maxTags',
+        currentCount: number
+    ): Promise<void> {
+        const allowed = await this.checkLimit(userId, limitName, currentCount);
+        if (allowed) return;
+
+        const max = await this.getNumericLimit(userId, limitName);
+        const labels: Record<typeof limitName, string> = {
+            maxShares: 'partages',
+            maxVersions: 'versions',
+            maxTags: 'tags',
+        };
+
+        throw new Error(
+            max === null
+                ? `Limite de ${labels[limitName]} atteinte`
+                : `Limite de ${max} ${labels[limitName]} atteinte pour votre plan`
+        );
     }
 
     /**

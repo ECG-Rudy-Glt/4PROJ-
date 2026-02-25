@@ -15,7 +15,7 @@ export default function RGPDSection() {
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `supfile-data-export-${new Date().toISOString().split('T')[0]}.zip`);
+      link.setAttribute('download', `supfile-data-export-${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
@@ -87,7 +87,7 @@ export default function RGPDSection() {
             )}
           </button>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            Format : Archive ZIP (CSV) • Contient : Profil, Fichiers, Activité, etc.
+            Format : CSV unique lisible • Contient : Profil, sécurité, stockage, fichiers, dossiers, partages, appareils, historique, délégations, etc.
           </p>
         </div>
 

@@ -8,18 +8,27 @@ import {
   Star,
   CreditCard,
   ShieldCheck,
+  Building2,
+  Shield,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { formatBytes } from '@/utils/bytes';
+import { useVaultStore } from '@/stores/useVaultStore';
 
 export default function Sidebar() {
   const { user } = useAuthStore();
+  const { status: vaultStatus, rootFolder: vaultRootFolder } = useVaultStore();
 
   const navItems = [
     { to: '/dashboard', icon: Home, label: 'Accueil', section: 'main' },
     { to: '/files', icon: FolderOpen, label: 'Mes fichiers', section: 'main' },
     { to: '/favorites', icon: Star, label: 'Favoris', section: 'main' },
+    ...(vaultStatus?.enabled && vaultStatus?.unlocked && vaultRootFolder
+      ? [{ to: `/files/${vaultRootFolder.id}`, icon: Shield, label: 'Coffre-fort', section: 'main' as const }]
+      : []),
     { to: '/shared', icon: Share2, label: 'Partagés', section: 'secondary' },
     { to: '/trash', icon: Trash2, label: 'Corbeille', section: 'secondary' },
+    { to: '/organization-admin', icon: Building2, label: 'Organisation', section: 'secondary' },
     ...(user?.role === 'ADMIN'
       ? [{ to: '/admin', icon: ShieldCheck, label: 'Super Admin', section: 'secondary' as const }]
       : []),
@@ -27,17 +36,9 @@ export default function Sidebar() {
     { to: '/settings', icon: Settings, label: 'Paramètres', section: 'bottom' },
   ];
 
-  const quotaPercentage = user
-    ? (Number(user.quotaUsed) / Number(user.quotaLimit)) * 100
-    : 0;
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
+  const quotaUsed = Number(user?.quotaUsed || 0);
+  const quotaLimit = Number(user?.quotaLimit || 0);
+  const quotaPercentage = quotaLimit > 0 ? (quotaUsed / quotaLimit) * 100 : 0;
 
   const getStorageColor = () => {
     if (quotaPercentage >= 90) return 'from-red-500 to-red-600';
@@ -135,10 +136,10 @@ export default function Sidebar() {
               </div>
               <div className="flex justify-between items-center">
                 <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-                  {formatBytes(Number(user.quotaUsed))}
+                  {formatBytes(quotaUsed)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-500">
-                  of {formatBytes(Number(user.quotaLimit))}
+                  of {formatBytes(quotaLimit)}
                 </p>
               </div>
             </div>

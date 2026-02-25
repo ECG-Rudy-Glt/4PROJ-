@@ -1,20 +1,33 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/useAuthStore';
-
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 export const useSocket = () => {
     const { token } = useAuthStore();
     const socketRef = useRef<Socket | null>(null);
+    const socketUrl = useMemo(() => {
+        const configured = import.meta.env.VITE_API_URL;
+        if (configured) {
+            if (
+                window.location.protocol === 'https:'
+                && configured.startsWith('http://')
+                && !configured.includes('localhost')
+            ) {
+                return configured.replace('http://', 'https://');
+            }
+            return configured;
+        }
+        return window.location.origin;
+    }, []);
 
     useEffect(() => {
         if (token && !socketRef.current) {
-            socketRef.current = io(SOCKET_URL, {
+            socketRef.current = io(socketUrl, {
                 auth: {
                     token,
                 },
                 path: '/socket.io',
+                transports: ['websocket', 'polling'],
             });
 
             socketRef.current.on('connect', () => {
@@ -32,7 +45,7 @@ export const useSocket = () => {
                 socketRef.current = null;
             }
         };
-    }, [token]);
+    }, [token, socketUrl]);
 
     return socketRef.current;
 };
