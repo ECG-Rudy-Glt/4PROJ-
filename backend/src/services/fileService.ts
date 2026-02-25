@@ -128,25 +128,16 @@ export class FileService {
       throw new Error('Fichier trop volumineux pour votre plan. Passez à un plan supérieur.');
     }
 
-    // Check quota via PlanService
     const hasSpace = await PlanService.checkQuota(userId, size);
-
     if (!hasSpace) {
-      // Delete uploaded file if quota exceeded
       await deleteFile(storagePath);
       throw new Error('Quota exceeded');
     }
 
-    // Obtenir un nom unique pour éviter les doublons
     const uniqueName = await this.getUniqueFileName(name, folderId, userId);
-
-    // Encrypt file
     await EncryptionService.encryptFile(storagePath);
-
-    // Déterminer la catégorie basée sur le mimeType
     const category = this.getCategoryFromMimeType(mimeType);
 
-    // Create file record
     const file = await prisma.file.create({
       data: {
         name: uniqueName,
@@ -164,18 +155,14 @@ export class FileService {
       },
     });
 
-    // Update user quota via PlanService
     await PlanService.updateQuotaUsed(userId, size);
 
-    // Audit log
     await AuditService.createLog(userId, 'UPLOAD', {
       fileName: uniqueName,
       fileId: file.id,
       folderId: folderId,
     });
 
-
-    // Emit socket event
     SocketService.emitToUser(userId, 'file_uploaded', file);
     if (folderId) {
       SocketService.emitToUser(userId, 'folder_updated', { folderId });
@@ -206,8 +193,6 @@ export class FileService {
     if (!file) {
       throw new Error('File not found');
     }
-
-    await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
@@ -264,7 +249,6 @@ export class FileService {
       }
     }
 
-    // Check if folder is shared with user
     let sharedFolderPermissions: any = null;
     if (folderId) {
       sharedFolderPermissions = await prisma.sharedFolder.findFirst({
@@ -275,7 +259,7 @@ export class FileService {
       });
     }
 
-    // If folder is shared with user, return files from that folder with shared permissions
+    // Dossier partagé : retourner les fichiers avec les permissions associées
     if (folderId && sharedFolderPermissions) {
       const files = await prisma.file.findMany({
         where: {
@@ -303,10 +287,8 @@ export class FileService {
         },
       });
 
-      // Map files to include shared permissions
       return files.map((file: any) => ({
         ...file,
-        // Include shared folder permissions for UI
         _sharedFolderPermissions: {
           canRead: sharedFolderPermissions.canRead,
           canWrite: sharedFolderPermissions.canWrite,
@@ -352,7 +334,6 @@ export class FileService {
       data,
     });
 
-    // Audit log for rename
     if (data.name && data.name !== file.name) {
       await AuditService.createLog(userId, 'RENAME_FILE', {
         fileName: data.name,
@@ -360,8 +341,6 @@ export class FileService {
         oldName: file.name,
       });
 
-
-      // Emit socket event
       SocketService.emitToUser(userId, 'file_updated', updatedFile);
     }
 
@@ -376,7 +355,6 @@ export class FileService {
     newFileSize: number,
     newMimeType: string
   ) {
-    // Créer une version de l'ancien fichier avant de le remplacer
     await VersionService.createVersion(
       fileId,
       userId,
@@ -436,7 +414,6 @@ export class FileService {
       },
     });
 
-    // Audit log
     await AuditService.createLog(userId, 'MOVE_FILE', {
       fileName: file.name,
       fileId: file.id,
@@ -459,16 +436,12 @@ export class FileService {
     }
 
     if (permanent || file.isDeleted) {
-      // Permanently delete
       await deleteFile(file.storagePath);
       await prisma.file.delete({
         where: { id: fileId },
       });
-
-      // Update user quota
       await PlanService.updateQuotaUsed(userId, -Number(file.size));
     } else {
-      // Move to trash
       await prisma.file.update({
         where: { id: fileId },
         data: {
@@ -478,14 +451,12 @@ export class FileService {
       });
     }
 
-    // Audit log
     await AuditService.createLog(userId, 'DELETE', {
       fileName: file.name,
       fileId: file.id,
       permanent,
     });
 
-    // Emit socket event
     SocketService.emitToUser(userId, 'file_deleted', { fileId });
 
     return { message: 'File deleted successfully' };
@@ -514,7 +485,6 @@ export class FileService {
       },
     });
 
-    // Audit log
     await AuditService.createLog(userId, 'RESTORE', {
       fileName: file.name,
       fileId: file.id,

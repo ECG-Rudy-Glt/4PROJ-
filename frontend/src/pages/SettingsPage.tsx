@@ -62,7 +62,6 @@ export default function SettingsPage() {
       });
     }
   }, [user]);
-
   const handleThemeToggle = async () => {
     const newTheme = isDark ? 'light' : 'dark';
     setIsDark(!isDark);
