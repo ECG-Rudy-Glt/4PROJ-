@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, claude-proto, rgt_ci ]
+    branches: [ main, claude-proto, ci_deploy_vps ]
   pull_request:
-    branches: [ main, claude-proto, rgt_ci ]
+    branches: [ main, claude-proto, ci_deploy_vps ]
 
 jobs:
   validate-env:
@@ -130,4 +130,101 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+  # ===========================
+  # PUSH TO GHCR (main only)
+  # ===========================
+  docker-push:
+    needs: [ docker-build ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Backend
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/${REPO_LOWER}/backend:${{ github.sha }} \
+                       -t ghcr.io/${REPO_LOWER}/backend:latest \
+                       ./backend
+          docker push ghcr.io/${REPO_LOWER}/backend:${{ github.sha }}
+          docker push ghcr.io/${REPO_LOWER}/backend:latest
+
+      - name: Build and Push Frontend
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }} \
+                       -t ghcr.io/${REPO_LOWER}/frontend:latest \
+                       --build-arg VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}/api \
+                       ./frontend
+          docker push ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }}
+          docker push ghcr.io/${REPO_LOWER}/frontend:latest
+
+  # ===========================
+  # DEPLOY PREPROD (main only)
+  # ===========================
+  deploy-preprod:
+    needs: [ docker-push ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: preprod
+      url: https://${{ vars.PREPROD_DEPLOY_HOST }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy docker-compose to VPS
+        run: |
+          scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+
+      - name: Copy .env to VPS
+        run: |
+          if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
+            echo "${PREPROD_ENV_FILE_CONTENT}" > .env.tmp
+            scp .env.tmp ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/.env
+            rm .env.tmp
+          fi
+        env:
+          PREPROD_ENV_FILE_CONTENT: ${{ secrets.PREPROD_ENV_FILE_CONTENT }}
+
+      - name: Deploy on VPS
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          BACKEND_IMAGE="ghcr.io/${REPO_LOWER}/backend:${{ github.sha }}"
+          FRONTEND_IMAGE="ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }}"
+          GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          ACTOR="${{ github.actor }}"
+          DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
+
+          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
+            cd ${DEPLOY_PATH}
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+            export BACKEND_IMAGE=${BACKEND_IMAGE}
+            export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+
+            docker compose pull
+            docker compose up -d --wait --remove-orphans
+            docker image prune -f
+          EOF
 

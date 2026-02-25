@@ -27,7 +27,7 @@ build:
     # Build Backend
     - docker build --pull -t $BACKEND_IMAGE -t $BACKEND_IMAGE_LATEST ./backend
     # Build Frontend
-    - docker build --pull -t $FRONTEND_IMAGE -t $FRONTEND_IMAGE_LATEST --build-arg VITE_API_URL=https://$DEPLOY_HOST/api ./frontend
+    - docker build --pull -t $FRONTEND_IMAGE -t $FRONTEND_IMAGE_LATEST --build-arg VITE_API_URL=https://$PREPROD_DEPLOY_HOST/api ./frontend
   artifacts:
     expire_in: 1 hour
   only:
@@ -50,7 +50,7 @@ push:
     - docker push $BACKEND_IMAGE
     - docker push $BACKEND_IMAGE_LATEST
     # Rebuild & Push Frontend
-    - docker build --pull -t $FRONTEND_IMAGE -t $FRONTEND_IMAGE_LATEST --build-arg VITE_API_URL=https://$DEPLOY_HOST/api ./frontend
+    - docker build --pull -t $FRONTEND_IMAGE -t $FRONTEND_IMAGE_LATEST --build-arg VITE_API_URL=https://$PREPROD_DEPLOY_HOST/api ./frontend
     - docker push $FRONTEND_IMAGE
     - docker push $FRONTEND_IMAGE_LATEST
   only:
@@ -58,34 +58,34 @@ push:
     - master
 
 # ===========================
-# STAGE 3 : DEPLOY
+# STAGE 3 : DEPLOY PREPROD
 # ===========================
-deploy:
+deploy-preprod:
   stage: deploy
   image: alpine:latest
   before_script:
     - apk add --no-cache openssh-client
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - echo "$PREPROD_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+    - ssh-keyscan -H "$PREPROD_DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
   script:
-    - scp docker-compose.yml ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/
+    - scp docker-compose.yml ${PREPROD_DEPLOY_USER}@${PREPROD_DEPLOY_HOST}:${PREPROD_DEPLOY_PATH}/
     - |
-      if [ -n "$ENV_FILE_CONTENT" ]; then
-        echo "$ENV_FILE_CONTENT" > .env.tmp
-        scp .env.tmp ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/.env
+      if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
+        echo "$PREPROD_ENV_FILE_CONTENT" > .env.tmp
+        scp .env.tmp ${PREPROD_DEPLOY_USER}@${PREPROD_DEPLOY_HOST}:${PREPROD_DEPLOY_PATH}/.env
         rm .env.tmp
       fi
     - |
-      ssh ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
-        cd ${DEPLOY_PATH}
+      ssh ${PREPROD_DEPLOY_USER}@${PREPROD_DEPLOY_HOST} << EOF
+        cd ${PREPROD_DEPLOY_PATH}
         echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin ${CI_REGISTRY}
-        
+
         export BACKEND_IMAGE=${BACKEND_IMAGE}
         export FRONTEND_IMAGE=${FRONTEND_IMAGE}
-        
+
         docker compose pull
         docker compose up -d --wait --remove-orphans
         docker image prune -f
@@ -94,5 +94,5 @@ deploy:
     - main
     - master
   environment:
-    name: production
-    url: https://$DEPLOY_HOST
+    name: preprod
+    url: https://$PREPROD_DEPLOY_HOST
