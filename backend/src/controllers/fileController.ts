@@ -4,6 +4,7 @@ import { AuthRequest, FileUploadRequest } from '../types';
 import fs from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
+import { AuditService } from '../services/auditService';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response): Promise<void> {
@@ -161,6 +162,12 @@ export class FileController {
 
       // Increment download count
       FileService.incrementDownloadCount(fileId).catch(console.error);
+
+      // Audit log
+      AuditService.createLog(userId, 'DOWNLOAD', {
+        fileName: file.name,
+        fileId: file.id,
+      }).catch(console.error);
 
       // Decrypt and stream
       res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);

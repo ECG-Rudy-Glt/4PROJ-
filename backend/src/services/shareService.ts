@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { MailService } from './mailService';
+import { AuditService } from './auditService';
+import { SocketService } from './socketService';
 
 export class ShareService {
   static async createShareLink(
@@ -45,6 +47,13 @@ export class ShareService {
         file: true,
       },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'SHARE', {
+      fileName: file.name,
+      fileId,
+      shareToken: shareLink.token,
+    }).catch(console.error);
 
     return shareLink;
   }
@@ -221,6 +230,15 @@ export class ShareService {
     } catch (error) {
       console.error('Error sending share notification:', error);
     }
+
+    // Audit log
+    AuditService.createLog(userId, 'SHARE', {
+      folderName: folder.name,
+      folderId,
+    }).catch(console.error);
+
+    // Socket notification
+    SocketService.emitToUser(targetUserId, 'share_received', { type: 'folder', folderName: folder.name });
 
     return sharedFolder;
   }
@@ -425,6 +443,15 @@ export class ShareService {
     } catch (error) {
       console.error('Error sending share notification:', error);
     }
+
+    // Audit log
+    AuditService.createLog(userId, 'SHARE', {
+      fileName: file.name,
+      fileId,
+    }).catch(console.error);
+
+    // Socket notification
+    SocketService.emitToUser(targetUserId, 'share_received', { type: 'file', fileName: file.name });
 
     return sharedFile;
   }
