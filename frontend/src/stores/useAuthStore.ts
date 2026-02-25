@@ -42,9 +42,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('token', token);
       set({ user, token, isAuthenticated: true, isLoading: false });
       return response;
-    } catch (error) {
+    } catch {
       set({ isLoading: false });
-      throw error;
+      throw new Error('Login failed');
     }
   },
 
@@ -54,9 +54,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { user, token } = await authService.register(data);
       localStorage.setItem('token', token);
       set({ user, token, isAuthenticated: true, isLoading: false });
-    } catch (error) {
+    } catch {
       set({ isLoading: false });
-      throw error;
+      throw new Error('Registration failed');
     }
   },
 
@@ -76,7 +76,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { user } = await authService.getProfile();
       set({ user, isAuthenticated: true, isLoading: false });
-    } catch (error) {
+    } catch {
       localStorage.removeItem('token');
       set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     }
@@ -86,8 +86,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { user } = await authService.updateProfile(data);
       set({ user });
-    } catch (error) {
-      throw error;
+    } catch {
+      throw new Error('Update profile failed');
     }
   },
   refreshProfile: async () => {

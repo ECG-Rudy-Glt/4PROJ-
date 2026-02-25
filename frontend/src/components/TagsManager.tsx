@@ -37,7 +37,7 @@ export default function TagsManager({ isOpen, onClose }: TagsManagerProps) {
     if (isOpen) {
       loadTags();
     }
-  }, [isOpen]);
+  }, [isOpen, loadTags]);
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) {

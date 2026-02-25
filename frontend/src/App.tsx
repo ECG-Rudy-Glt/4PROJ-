@@ -15,10 +15,12 @@ import SettingsPage from './pages/SettingsPage';
 import PlansPage from './pages/PlansPage';
 import SharedLinkPage from './pages/SharedLinkPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import AdminPage from './pages/AdminPage';
 
 // Components
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   const { loadUser, isAuthenticated } = useAuthStore();
@@ -27,7 +29,7 @@ function App() {
     if (isAuthenticated) {
       loadUser();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadUser]);
 
   return (
     <Routes>
@@ -48,6 +50,9 @@ function App() {
           <Route path="/trash" element={<TrashPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/plans" element={<PlansPage />} />
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminPage />} />
+          </Route>
         </Route>
       </Route>
     </Routes>

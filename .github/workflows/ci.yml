@@ -1,0 +1,133 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, claude-proto, rgt_ci ]
+  pull_request:
+    branches: [ main, claude-proto, rgt_ci ]
+
+jobs:
+  validate-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required secrets
+        run: |
+          echo "Checking required CI environment variables..."
+          : "${JWT_SECRET:?JWT_SECRET secret is not set in GitHub Actions}"
+          : "${FILE_ENCRYPTION_KEY:?FILE_ENCRYPTION_KEY secret is not set in GitHub Actions}"
+          echo "Optional secrets present: DATABASE_URL=${DATABASE_URL:+set}"
+          echo "All required environment variables are set."
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
+          FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
+
+  backend-checks:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRES_IN: '7d'
+      DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
+      FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
+      MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
+      PORT: '5001'
+      FRONTEND_URL: 'http://localhost:3000'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Verify Types and Build
+        run: npm run build
+
+      - name: Run Backend Tests with Coverage
+        run: npm test -- --coverage --coverageReporters=text-summary
+
+      - name: Audit Dependencies
+        run: npm audit --audit-level=high
+
+  frontend-checks:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    env:
+      VITE_API_URL: ${{ vars.VITE_API_URL || 'http://localhost:5001' }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Verify Linting
+        run: npm run lint
+
+      - name: Verify Types and Build
+        run: npm run build
+
+      - name: Audit Dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run Cypress Tests
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          build: npm run build
+          start: npm run preview
+          wait-on: 'http://localhost:4173'
+
+  docker-build:
+    needs: [ backend-checks, frontend-checks ]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Backend Docker Image
+        run: docker build -t backend:ci ./backend
+
+      - name: Build Frontend Docker Image
+        run: docker build -t frontend:ci ./frontend
+
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'backend:ci'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'frontend:ci'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+

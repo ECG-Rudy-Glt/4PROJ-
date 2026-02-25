@@ -74,6 +74,7 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
     const avatar = getRandomAvatar();
     setCurrentAvatar(avatar || '');
     setHoveredAvatar('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Changer le hovered avatar basé sur isTyping
@@ -84,6 +85,7 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
     } else {
       setHoveredAvatar('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTyping, currentAvatar]);
 
   // Auto-scroll vers le bas

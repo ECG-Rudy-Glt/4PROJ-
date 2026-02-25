@@ -25,6 +25,8 @@ import userRoutes from './routes/userRoutes';
 import onlyofficeRoutes from './routes/onlyofficeRoutes';
 import aiRoutes from './routes/aiRoutes';
 import mfaRoutes from './routes/mfaRoutes';
+import adminRoutes from './routes/adminRoutes';
+import billingRoutes from './routes/billingRoutes';
 
 // Jobs
 import { startCleanupJob } from './jobs/cleanupJob';
@@ -76,7 +78,14 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Body parsing middleware - Increased limits for large file uploads (5GB)
-app.use(express.json({ limit: '5gb' }));
+app.use(express.json({
+  limit: '5gb',
+  verify: (req: any, _res, buf) => {
+    if (req.originalUrl.includes('/api/billing/webhook')) {
+      req.rawBody = Buffer.from(buf);
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '5gb' }));
 
 // Passport initialization
@@ -102,6 +111,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/onlyoffice', onlyofficeRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/mfa', mfaRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);

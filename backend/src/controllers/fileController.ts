@@ -11,24 +11,42 @@ export class FileController {
     try {
       const userId = req.user!.id;
       const { folderId } = req.body;
-      const file = req.file;
+      const files = Array.isArray(req.files)
+        ? req.files
+        : req.file
+          ? [req.file]
+          : [];
 
-      if (!file) {
+      if (files.length === 0) {
         res.status(400).json({ error: 'No file provided' });
         return;
       }
 
-      const newFile = await FileService.createFile(
+      const { files: createdFiles, errors } = await FileService.createFiles(
         userId,
-        file.originalname,
-        file.originalname,
-        file.mimetype,
-        file.size,
-        file.path,
+        files,
         folderId
       );
 
-      res.status(201).json({ file: newFile });
+      if (createdFiles.length === 0) {
+        res.status(400).json({
+          error: errors[0]?.error || 'Upload failed',
+          errors,
+        });
+        return;
+      }
+
+      const hasPartialFailures = errors.length > 0;
+      res.status(hasPartialFailures ? 207 : 201).json({
+        file: createdFiles[0],
+        files: createdFiles,
+        errors,
+        summary: {
+          total: files.length,
+          success: createdFiles.length,
+          failed: errors.length,
+        },
+      });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

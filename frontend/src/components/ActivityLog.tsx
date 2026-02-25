@@ -93,6 +93,7 @@ export default function ActivityLog() {
   useEffect(() => {
     loadLogs();
     loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, filterAction, filterDays]);
 
   const loadLogs = async () => {

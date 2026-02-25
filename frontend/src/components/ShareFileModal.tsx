@@ -42,6 +42,7 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
   useEffect(() => {
     loadSharedWith();
     generateInviteLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
         clearTimeout(searchTimeoutRef.current);
       }
 
-      searchTimeoutRef.current = setTimeout(() => {
+      searchTimeoutRef.current = window.setTimeout(() => {
         searchUsers(email);
       }, 300);
     } else {
@@ -127,8 +128,12 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
 
     setIsSharing(true);
     try {
-      await shareService.shareFile(file.id, email.trim(), customPermissions);
-      toast.success(`Fichier partagé avec ${email}`);
+      const response = await shareService.shareFile(file.id, email.trim(), customPermissions);
+      if (response && response.isNewUser) {
+        toast.success(`Invitation envoyée à ${email}`);
+      } else {
+        toast.success(`Fichier partagé avec ${email}`);
+      }
       setEmail('');
       setSuggestions([]);
       setShowSuggestions(false);
