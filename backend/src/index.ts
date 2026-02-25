@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
+
 import passport from './config/passport';
 import rateLimit from 'express-rate-limit';
 
@@ -23,44 +24,44 @@ import auditRoutes from './routes/auditRoutes';
 import userRoutes from './routes/userRoutes';
 import onlyofficeRoutes from './routes/onlyofficeRoutes';
 import aiRoutes from './routes/aiRoutes';
+import mfaRoutes from './routes/mfaRoutes';
 
 // Jobs
-import { startTrashCleanupJob } from './jobs/trashCleanup';
 import { startCleanupJob } from './jobs/cleanupJob';
 
-dotenv.config();
+
+
+import { SocketService } from './services/socketService';
+import { createServer } from 'http';
+
+
+
 
 const app = express();
+const httpServer = createServer(app);
+SocketService.init(httpServer);
 const PORT = parseInt(process.env.PORT || '5001', 10);
 
 // Security middleware
-app.use(helmet());
-
-// Configure CORS to allow multiple origins
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-  : ['http://localhost:3000'];
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.originalUrl}`);
+  next();
+});
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      mediaSrc: ["'self'", "blob:", "data:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      frameAncestors: ["'self'", "http://localhost:3000", "http://192.168.1.95:3000"],
+      objectSrc: ["'self'"],
+    },
+  },
+}));
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Check if the origin is in the allowed list or matches the IP pattern
-    const isAllowed = allowedOrigins.some(allowed => {
-      // Extract just the protocol and hostname/IP (without port)
-      const allowedBase = allowed.replace(/:\d+$/, '');
-      const originBase = origin.replace(/:\d+$/, '');
-      return origin === allowed || originBase === allowedBase;
-    });
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('[CORS] Blocked origin:', origin, 'Allowed:', allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Autorise toutes les origines
   credentials: true,
 }));
 
@@ -100,6 +101,7 @@ app.use('/api/tags', tagRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/onlyoffice', onlyofficeRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/mfa', mfaRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);
@@ -117,12 +119,16 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+import { CronService } from './services/cronService';
+
+// ... (other imports)
+
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log(`Accessible depuis le réseau local`);
 
   // Démarrer les jobs de nettoyage automatique
-  startTrashCleanupJob();
+  CronService.init();
   startCleanupJob();
 });
 

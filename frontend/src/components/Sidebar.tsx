@@ -5,9 +5,8 @@ import {
   Share2,
   Trash2,
   Settings,
-  Cloud,
-  FileStack,
   Star,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -20,6 +19,7 @@ export default function Sidebar() {
     { to: '/favorites', icon: Star, label: 'Favoris', section: 'main' },
     { to: '/shared', icon: Share2, label: 'Partagés', section: 'secondary' },
     { to: '/trash', icon: Trash2, label: 'Corbeille', section: 'secondary' },
+    { to: '/plans', icon: CreditCard, label: 'Plans & Tarifs', section: 'bottom' },
     { to: '/settings', icon: Settings, label: 'Paramètres', section: 'bottom' },
   ];
 
@@ -48,17 +48,14 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
       <div className="flex flex-col h-full">
-        {/* Logo - Aligned with header height */}
-        <div className="h-16 flex items-center px-6">
-          <div className="flex items-center space-x-2.5">
-            <div className="relative">
-              <Cloud className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-              <FileStack className="w-3 h-3 text-primary-500 dark:text-primary-300 absolute -bottom-0.5 -right-0.5" />
-            </div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-primary-600 to-primary-500 dark:from-primary-400 dark:to-primary-300 bg-clip-text text-transparent">
-              SupFile
-            </h1>
+        {/* Logo Section */}
+        <div className="flex flex-col py-4">
+          <div className="h-12 flex items-center px-6 w-full">
+            <NavLink to="/dashboard" className="flex items-center">
+              <img src="/icon-full.svg" alt="SupFile" className="h-[34px] w-auto" />
+            </NavLink>
           </div>
+          <div className="w-[80%] h-[2px] bg-gray-200 dark:bg-gray-700 mt-2 ml-6 rounded-full" />
         </div>
 
         {/* Main Navigation */}
@@ -70,10 +67,9 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                    ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`
                 }
               >
@@ -97,10 +93,9 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                    ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`
                 }
               >
@@ -152,10 +147,9 @@ export default function Sidebar() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-700/30'
+                `relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${isActive
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-700/30'
                 }`
               }
             >
@@ -170,8 +164,26 @@ export default function Sidebar() {
               )}
             </NavLink>
           ))}
+
+          <button
+            onClick={() => {
+              useAuthStore.getState().logout();
+              window.location.href = '/login';
+            }}
+            className="w-full relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 mt-1"
+          >
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-transparent group-hover:bg-red-500 rounded-r-full transition-colors" />
+            <div className="w-5 h-5 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </div>
+            <span className="font-medium text-sm">Déconnexion</span>
+          </button>
         </div>
       </div>
-    </aside>
+    </aside >
   );
 }

@@ -5,6 +5,9 @@ import fs from 'fs';
 import archiver from 'archiver';
 import { VersionService } from './versionService';
 import { AuditService } from './auditService';
+import { SocketService } from './socketService';
+import { EncryptionService } from './encryptionService';
+import { PlanService } from './planService';
 
 export class FileService {
   // Fonction pour déterminer la catégorie basée sur le mimeType
@@ -79,16 +82,17 @@ export class FileService {
     storagePath: string,
     folderId?: string
   ) {
-    // Check quota
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new Error('User not found');
+    // Check file size limit per plan
+    const fileSizeAllowed = await PlanService.checkFileSize(userId, size);
+    if (!fileSizeAllowed) {
+      await deleteFile(storagePath);
+      throw new Error('Fichier trop volumineux pour votre plan. Passez à un plan supérieur.');
     }
 
-    if (BigInt(user.quotaUsed) + BigInt(size) > BigInt(user.quotaLimit)) {
+    // Check quota via PlanService
+    const hasSpace = await PlanService.checkQuota(userId, size);
+
+    if (!hasSpace) {
       // Delete uploaded file if quota exceeded
       await deleteFile(storagePath);
       throw new Error('Quota exceeded');
@@ -96,6 +100,9 @@ export class FileService {
 
     // Obtenir un nom unique pour éviter les doublons
     const uniqueName = await this.getUniqueFileName(name, folderId, userId);
+
+    // Encrypt file
+    await EncryptionService.encryptFile(storagePath);
 
     // Déterminer la catégorie basée sur le mimeType
     const category = this.getCategoryFromMimeType(mimeType);
@@ -117,13 +124,8 @@ export class FileService {
       },
     });
 
-    // Update user quota
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        quotaUsed: BigInt(user.quotaUsed) + BigInt(size),
-      },
-    });
+    // Update user quota via PlanService
+    await PlanService.updateQuotaUsed(userId, size);
 
     // Audit log
     await AuditService.createLog(userId, 'UPLOAD', {
@@ -131,6 +133,13 @@ export class FileService {
       fileId: file.id,
       folderId: folderId,
     });
+
+
+    // Emit socket event
+    SocketService.emitToUser(userId, 'file_uploaded', file);
+    if (folderId) {
+      SocketService.emitToUser(userId, 'folder_updated', { folderId });
+    }
 
     return file;
   }
@@ -163,11 +172,44 @@ export class FileService {
     userId: string,
     folderId?: string,
     sortBy: string = 'createdAt',
-    sortOrder: 'asc' | 'desc' = 'desc'
+    sortOrder: 'asc' | 'desc' = 'desc',
+    filters?: {
+      minSize?: number;
+      maxSize?: number;
+      mimeType?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    }
   ) {
     // Validation des champs de tri autorisés
     const allowedSortFields = ['name', 'size', 'createdAt', 'updatedAt', 'mimeType'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+
+    // Construction de la clause WHERE
+    const whereClause: any = {
+      userId,
+      folderId: folderId || null,
+      isDeleted: false,
+    };
+
+    // Application des filtres
+    if (filters) {
+      if (filters.minSize !== undefined) {
+        whereClause.size = { ...whereClause.size, gte: BigInt(filters.minSize) };
+      }
+      if (filters.maxSize !== undefined) {
+        whereClause.size = { ...whereClause.size, lte: BigInt(filters.maxSize) };
+      }
+      if (filters.mimeType) {
+        whereClause.mimeType = { contains: filters.mimeType, mode: 'insensitive' };
+      }
+      if (filters.dateFrom) {
+        whereClause.createdAt = { ...whereClause.createdAt, gte: filters.dateFrom };
+      }
+      if (filters.dateTo) {
+        whereClause.createdAt = { ...whereClause.createdAt, lte: filters.dateTo };
+      }
+    }
 
     // Check if folder is shared with user
     let sharedFolderPermissions: any = null;
@@ -186,6 +228,8 @@ export class FileService {
         where: {
           folderId,
           isDeleted: false,
+          // Nous n'appliquons PAS les filtres ici pour les dossiers partagés pour l'instant (complexité)
+          // Mais on pourrait le faire si nécessaire via include -> permissions
         },
         include: {
           folder: true,
@@ -219,11 +263,7 @@ export class FileService {
     }
 
     return await prisma.file.findMany({
-      where: {
-        userId,
-        folderId: folderId || null,
-        isDeleted: false,
-      },
+      where: whereClause,
       include: {
         folder: true,
         tags: {
@@ -263,6 +303,10 @@ export class FileService {
         fileId: file.id,
         oldName: file.name,
       });
+
+
+      // Emit socket event
+      SocketService.emitToUser(userId, 'file_updated', updatedFile);
     }
 
     return updatedFile;
@@ -354,14 +398,7 @@ export class FileService {
       });
 
       // Update user quota
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          quotaUsed: {
-            decrement: file.size,
-          },
-        },
-      });
+      await PlanService.updateQuotaUsed(userId, -Number(file.size));
     } else {
       // Move to trash
       await prisma.file.update({
@@ -379,6 +416,9 @@ export class FileService {
       fileId: file.id,
       permanent,
     });
+
+    // Emit socket event
+    SocketService.emitToUser(userId, 'file_deleted', { fileId });
 
     return { message: 'File deleted successfully' };
   }
@@ -608,5 +648,24 @@ export class FileService {
       files: sharedFiles,
     };
   }
-}
 
+  static async incrementViewCount(fileId: string) {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: {
+        views: { increment: 1 },
+        lastAccessedAt: new Date(),
+      },
+    });
+  }
+
+  static async incrementDownloadCount(fileId: string) {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: {
+        downloads: { increment: 1 },
+        lastAccessedAt: new Date(),
+      },
+    });
+  }
+}

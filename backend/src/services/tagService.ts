@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { AuditService } from './auditService';
 
 export class TagService {
   // Créer un tag
@@ -132,6 +133,14 @@ export class TagService {
       include: {
         tag: true,
       },
+    }).then(result => {
+      // Audit log
+      AuditService.createLog(userId, 'TAG_ADD', {
+        fileId,
+        fileName: file.name,
+        tagName: tag.name,
+      }).catch(console.error);
+      return result;
     });
   }
 
@@ -167,6 +176,12 @@ export class TagService {
         },
       },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'TAG_REMOVE', {
+      fileId,
+      fileName: file.name,
+    }).catch(console.error);
   }
 
   // Récupérer tous les tags d'un fichier

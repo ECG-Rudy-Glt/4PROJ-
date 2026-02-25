@@ -2,10 +2,11 @@ import { Router } from 'express';
 import { FileController } from '../controllers/fileController';
 import { authenticate } from '../middlewares/auth';
 import { upload } from '../config/multer';
+import { checkQuotaBeforeUpload } from '../middlewares/quotaCheck';
 
 const router = Router();
 
-router.post('/upload', authenticate, upload.single('file'), FileController.uploadFile);
+router.post('/upload', authenticate, checkQuotaBeforeUpload, upload.single('file'), FileController.uploadFile);
 router.get('/', authenticate, FileController.listFiles);
 router.get('/deleted', authenticate, FileController.getDeletedFiles);
 router.get('/favorites', authenticate, FileController.getFavoriteFiles);

@@ -204,12 +204,24 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => formatBytes(value)}
+                    formatter={(value: number) => [formatBytes(value), 'Taille']}
+                    labelFormatter={(label: string) => label}
                     contentStyle={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: 'white'
+                      backgroundColor: 'rgba(30, 30, 30, 0.95)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                    }}
+                    itemStyle={{
+                      color: '#ffffff',
+                      fontSize: '14px',
+                      fontWeight: 500
+                    }}
+                    labelStyle={{
+                      color: '#a1a1aa',
+                      fontSize: '12px',
+                      marginBottom: '4px'
                     }}
                   />
                 </PieChart>

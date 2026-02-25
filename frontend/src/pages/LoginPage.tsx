@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
-import { HardDrive, Github } from 'lucide-react';
+import { Github } from 'lucide-react';
+import MFASetupModal from '@/components/MFASetupModal';
+import BackupCodesModal from '@/components/BackupCodesModal';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,15 +12,68 @@ export default function LoginPage() {
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
+  // États pour le MFA Setup
+  const [showMFASetupModal, setShowMFASetupModal] = useState(false);
+  const [showBackupCodesModal, setShowBackupCodesModal] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('expired') === 'true') {
+      toast.error('Votre session a expiré. Veuillez vous reconnecter.');
+      // Clean URL
+      window.history.replaceState({}, '', '/login');
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login(email, password);
-      toast.success('Bon retour !');
-      navigate('/dashboard');
+      const result = await login(email, password);
+
+      // Cas 1 : MFA setup requis (première connexion ou MFA jamais activé)
+      if (result?.mfaSetupRequired) {
+        localStorage.setItem('tempToken', result.tempToken);
+        setShowMFASetupModal(true);
+        return;
+      }
+
+      // Cas 2 : MFA requis (appareil non trusté)
+      if (result?.mfaRequired) {
+        localStorage.setItem('tempToken', result.tempToken);
+        navigate('/mfa-verify', {
+          state: {
+            userId: result.userId,
+            tempToken: result.tempToken
+          }
+        });
+        return;
+      }
+
+      // Cas 3 : Connexion directe (appareil trusté ou MFA désactivé - ne devrait pas arriver car MFA obligatoire)
+      if (result) {
+        toast.success('Bon retour !');
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Connexion échouée');
     }
+  };
+
+  const handleMFASetupComplete = (codes: string[], token: string) => {
+    setBackupCodes(codes);
+    setShowMFASetupModal(false);
+    setShowBackupCodesModal(true);
+
+    // Stocker le token permanent
+    localStorage.setItem('token', token);
+    localStorage.removeItem('tempToken');
+  };
+
+  const handleBackupCodesComplete = () => {
+    setShowBackupCodesModal(false);
+    toast.success('Authentification à deux facteurs activée !');
+    navigate('/dashboard');
   };
 
   const handleOAuthLogin = (provider: string) => {
@@ -30,9 +85,9 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
         <div className="text-center">
           <div className="flex justify-center">
-            <HardDrive className="w-16 h-16 text-primary-600" />
+            <img src="/icon-full.svg" alt="SupFile Logo" className="w-48 h-auto" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
+          <h2 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
             Bienvenue sur SUPFILE
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -148,6 +203,19 @@ export default function LoginPage() {
           </div>
         </form>
       </div>
+
+      {/* MFA Setup Modal */}
+      <MFASetupModal
+        isOpen={showMFASetupModal}
+        onComplete={handleMFASetupComplete}
+      />
+
+      {/* Backup Codes Modal */}
+      <BackupCodesModal
+        isOpen={showBackupCodesModal}
+        codes={backupCodes}
+        onComplete={handleBackupCodesComplete}
+      />
     </div>
   );
 }

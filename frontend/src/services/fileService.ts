@@ -3,7 +3,7 @@ import { File } from '@/types';
 
 export const fileService = {
   async uploadFile(
-    file: globalThis.File, 
+    file: globalThis.File,
     folderId?: string,
     onProgress?: (progress: number) => void
   ) {
@@ -27,9 +27,21 @@ export const fileService = {
     return response.data;
   },
 
-  async listFiles(folderId?: string, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{ files: File[] }> {
+  async listFiles(
+    folderId?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    filters?: {
+      mimeType?: string;
+      minSize?: number;
+      maxSize?: number;
+      dateFrom?: string;
+      dateTo?: string;
+    }
+  ): Promise<{ files: File[] }> {
     const response = await api.get('/files', {
-      params: { folderId, sortBy, sortOrder },
+      //@ts-ignore - params handling
+      params: { folderId, sortBy, sortOrder, ...filters },
     });
     return response.data;
   },

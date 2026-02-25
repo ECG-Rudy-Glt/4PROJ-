@@ -39,6 +39,7 @@ import { DocumentEditor } from '@/components/DocumentEditor';
 import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -93,17 +94,26 @@ const canEditDocument = (mimeType: string) => {
   return editableMimeTypes.includes(mimeType);
 };
 
+import { FilterBar, FilterState } from '@/components/FilterBar';
+
+// ... (existing imports)
+
 export default function FilesPage() {
   const { folderId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const searchQuery = searchParams.get('search');
   const { files, folders, loadContent, createFolder, deleteFile, sortBy, sortOrder, setSorting } = useFileStore();
+  const { user, loadUser } = useAuthStore();
 
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbType[]>([]);
   const [searchResults, setSearchResults] = useState<File[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Filter state
+  const [activeFilters, setActiveFilters] = useState<FilterState>({});
+
 
   // Upload state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -165,7 +175,8 @@ export default function FilesPage() {
     if (searchQuery) {
       handleSearch(searchQuery);
     } else {
-      loadContent(folderId);
+      // Pass activeFilters to loadContent
+      loadContent(folderId, sortBy, sortOrder, activeFilters);
       setSearchResults([]);
       if (folderId) {
         loadBreadcrumbs(folderId);
@@ -173,7 +184,8 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-  }, [folderId, searchQuery]);
+  }, [folderId, searchQuery, activeFilters]); // Add activeFilters dependency
+
 
   const loadBreadcrumbs = async (folderId: string) => {
     try {
@@ -218,13 +230,55 @@ export default function FilesPage() {
   const startUpload = async (filesToUpload: globalThis.File[]) => {
     uploadCancelledRef.current = false;
 
-    // Initialize uploading files state
-    const initialFiles: UploadingFile[] = filesToUpload.map((file, index) => ({
-      id: `${Date.now()}-${index}`,
-      file,
-      progress: 0,
-      status: 'pending' as const,
-    }));
+    // Vérification du quota AVANT l'upload
+    const quotaUsed = user?.quotaUsed || 0;
+    const quotaLimit = user?.quotaLimit || 0;
+    const availableSpace = quotaLimit - quotaUsed;
+
+    // Calculer la taille totale des fichiers à uploader
+    const totalUploadSize = filesToUpload.reduce((sum, file) => sum + file.size, 0);
+
+    // Vérifier si l'espace disponible est suffisant pour TOUS les fichiers
+    if (totalUploadSize > availableSpace) {
+      const formatSize = (bytes: number) => {
+        if (bytes === 0) return '0 o';
+        const k = 1024;
+        const sizes = ['o', 'Ko', 'Mo', 'Go'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+      };
+
+      toast.error(
+        `Espace insuffisant. Vous avez ${formatSize(availableSpace)} disponible mais les fichiers font ${formatSize(totalUploadSize)}.`,
+        { duration: 5000 }
+      );
+      return;
+    }
+
+    // Initialize uploading files state avec vérification individuelle du quota
+    let runningQuotaUsed = quotaUsed;
+    const initialFiles: UploadingFile[] = filesToUpload.map((file, index) => {
+      const wouldExceedQuota = (runningQuotaUsed + file.size) > quotaLimit;
+
+      if (!wouldExceedQuota) {
+        runningQuotaUsed += file.size;
+      }
+
+      return {
+        id: `${Date.now()}-${index}`,
+        file,
+        progress: 0,
+        status: wouldExceedQuota ? 'error' as const : 'pending' as const,
+        error: wouldExceedQuota ? 'Quota dépassé - espace insuffisant' : undefined,
+      };
+    });
+
+    // Vérifier s'il y a des fichiers valides à uploader
+    const validFiles = initialFiles.filter(f => f.status === 'pending');
+    if (validFiles.length === 0) {
+      toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
+      return;
+    }
 
     setUploadingFiles(initialFiles);
     setShowUploadModal(true);
@@ -234,6 +288,7 @@ export default function FilesPage() {
 
     const uploadFile = async (uploadingFile: UploadingFile) => {
       if (uploadCancelledRef.current) return;
+      if (uploadingFile.status === 'error') return; // Skip files already marked as error
 
       // Set current file to uploading
       setUploadingFiles(prev => prev.map(f =>
@@ -256,27 +311,34 @@ export default function FilesPage() {
           f.id === uploadingFile.id ? { ...f, status: 'success' as const, progress: 100 } : f
         ));
       } catch (error: any) {
+        // Gérer spécifiquement l'erreur de quota
+        const errorMessage = error.response?.data?.code === 'QUOTA_EXCEEDED'
+          ? 'Quota dépassé - espace insuffisant'
+          : error.response?.data?.error || error.response?.data?.message || 'Échec du téléversement';
+
         // Mark as error
         setUploadingFiles(prev => prev.map(f =>
           f.id === uploadingFile.id ? {
             ...f,
             status: 'error' as const,
-            error: error.response?.data?.error || 'Échec du téléversement'
+            error: errorMessage
           } : f
         ));
       }
     };
 
-    // Process uploads in batches
-    for (let i = 0; i < initialFiles.length; i += CONCURRENT_UPLOADS) {
+    // Process uploads in batches (only pending files)
+    const pendingFiles = initialFiles.filter(f => f.status === 'pending');
+    for (let i = 0; i < pendingFiles.length; i += CONCURRENT_UPLOADS) {
       if (uploadCancelledRef.current) break;
 
-      const batch = initialFiles.slice(i, i + CONCURRENT_UPLOADS);
+      const batch = pendingFiles.slice(i, i + CONCURRENT_UPLOADS);
       await Promise.all(batch.map(file => uploadFile(file)));
     }
 
-    // Reload content after all uploads
-    await loadContent(folderId);
+    // Reload content and user data after all uploads to update quota
+    await loadContent(folderId, sortBy, sortOrder, activeFilters);
+    await loadUser(); // Refresh user data to update quota display
   };
 
   const handleCancelUpload = () => {
@@ -289,10 +351,10 @@ export default function FilesPage() {
   const handleCloseUploadModal = () => {
     setShowUploadModal(false);
     setUploadingFiles([]);
-    
+
     const successCount = uploadingFiles.filter(f => f.status === 'success').length;
     const errorCount = uploadingFiles.filter(f => f.status === 'error').length;
-    
+
     if (successCount > 0) {
       toast.success(`${successCount} fichier${successCount > 1 ? 's' : ''} téléversé${successCount > 1 ? 's' : ''}`);
     }
@@ -358,7 +420,7 @@ export default function FilesPage() {
       await fileService.toggleFavorite(fileId);
       toast.success(currentStatus ? 'Retiré des favoris' : 'Ajouté aux favoris');
       // Recharger les fichiers pour mettre à jour l'état
-      loadContent(folderId);
+      loadContent(folderId, sortBy, sortOrder, activeFilters);
     } catch (error) {
       toast.error('Échec de la modification');
     }
@@ -397,7 +459,7 @@ export default function FilesPage() {
     }
 
     setSorting(newSortBy, newSortOrder);
-    await loadContent(folderId, newSortBy, newSortOrder);
+    await loadContent(folderId, newSortBy, newSortOrder, activeFilters);
   };
 
   const handleCreateShareLink = async () => {
@@ -483,9 +545,23 @@ export default function FilesPage() {
     }
   };
 
+
+  const handleFilterChange = (filters: FilterState) => {
+    setActiveFilters(filters);
+    // loadContent will be triggered by useEffect
+  };
+
+  const handleClearFilters = () => {
+    setActiveFilters({});
+  };
+
+  // ... (existing JSX)
+
+
+
   return (
     <div
-      className="space-y-6 relative"
+      className="relative"
       onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (e.currentTarget === e.target) setIsDragging(false); }}
@@ -563,27 +639,33 @@ export default function FilesPage() {
       </div>
 
       {/* Sort Dropdown - Only show when not searching and have files */}
-      {!searchQuery && files.length > 0 && (
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
-          <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par :
-          </label>
-          <select
-            id="sort-select"
-            value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
-            onChange={handleSortChange}
-            className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
-          >
-            <option value="name-asc">Nom (A-Z)</option>
-            <option value="name-desc">Nom (Z-A)</option>
-            <option value="date-desc">Plus récents</option>
-            <option value="date-asc">Plus anciens</option>
-            <option value="size-desc">Plus volumineux</option>
-            <option value="size-asc">Plus petits</option>
-          </select>
-        </div>
-      )}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        {!searchQuery && (
+          <FilterBar onFilterChange={handleFilterChange} onClearFilters={handleClearFilters} />
+        )}
+
+        {!searchQuery && files.length > 0 && (
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 ml-auto">
+            <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Trier par :
+            </label>
+            <select
+              id="sort-select"
+              value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
+              onChange={handleSortChange}
+              className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
+            >
+              <option value="name-asc">Nom (A-Z)</option>
+              <option value="name-desc">Nom (Z-A)</option>
+              <option value="date-desc">Plus récents</option>
+              <option value="date-asc">Plus anciens</option>
+              <option value="size-desc">Plus volumineux</option>
+              <option value="size-asc">Plus petits</option>
+            </select>
+          </div>
+        )}
+      </div>
 
       {isSearching && (
         <div className="flex items-center justify-center py-12">
@@ -693,8 +775,8 @@ export default function FilesPage() {
                     <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4">
                         <button
-                          onClick={() => { 
-                            const enrichedFile = { 
+                          onClick={() => {
+                            const enrichedFile = {
                               ...file,
                               // Copy shared folder permissions to file if they exist
                               ...(file as any)._sharedFolderPermissions && {
@@ -703,8 +785,8 @@ export default function FilesPage() {
                                 canShare: (file as any)._sharedFolderPermissions.canShare,
                               }
                             };
-                            setPreviewFile(enrichedFile); 
-                            setShowPreviewModal(true); 
+                            setPreviewFile(enrichedFile);
+                            setShowPreviewModal(true);
                           }}
                           className="flex items-center space-x-3 hover:opacity-80 transition-opacity group"
                         >
@@ -752,11 +834,10 @@ export default function FilesPage() {
                         <div className="flex items-center justify-end space-x-2">
                           <button
                             onClick={() => handleToggleFavorite(file.id, file.isFavorite)}
-                            className={`p-2 rounded-lg transition-all ${
-                              file.isFavorite
-                                ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            }`}
+                            className={`p-2 rounded-lg transition-all ${file.isFavorite
+                              ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                              }`}
                             title={file.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                           >
                             <Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} />
@@ -771,8 +852,8 @@ export default function FilesPage() {
                             </button>
                           )}
                           <button
-                            onClick={() => { 
-                              const enrichedFile = { 
+                            onClick={() => {
+                              const enrichedFile = {
                                 ...file,
                                 // Copy shared folder permissions to file if they exist
                                 ...(file as any)._sharedFolderPermissions && {
@@ -781,8 +862,8 @@ export default function FilesPage() {
                                   canShare: (file as any)._sharedFolderPermissions.canShare,
                                 }
                               };
-                              setPreviewFile(enrichedFile); 
-                              setShowPreviewModal(true); 
+                              setPreviewFile(enrichedFile);
+                              setShowPreviewModal(true);
                             }}
                             className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                             title="Aperçu"
