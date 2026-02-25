@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
-import { HardDrive, Github } from 'lucide-react';
+import { Github } from 'lucide-react';
 import MFASetupModal from '@/components/MFASetupModal';
 import BackupCodesModal from '@/components/BackupCodesModal';
 
@@ -85,9 +85,9 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
         <div className="text-center">
           <div className="flex justify-center">
-            <HardDrive className="w-16 h-16 text-primary-600" />
+            <img src="/icon-full.svg" alt="SupFile Logo" className="w-48 h-auto" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
+          <h2 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
             Bienvenue sur SUPFILE
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">

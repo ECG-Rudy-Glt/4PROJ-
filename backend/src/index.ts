@@ -54,6 +54,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       mediaSrc: ["'self'", "blob:", "data:"],
       connectSrc: ["'self'", "ws:", "wss:"],
+      frameAncestors: ["'self'", "http://localhost:3000", "http://192.168.1.95:3000"],
+      objectSrc: ["'self'"],
     },
   },
 }));

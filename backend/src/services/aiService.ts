@@ -1,37 +1,32 @@
-import OpenAI from 'openai';
+import { CohereClientV2 } from 'cohere-ai';
 import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
 import pdfParse from 'pdf-parse';
 
 export class AIService {
-  private openai: OpenAI;
+  private cohere: CohereClientV2;
+  private model: string;
 
   constructor() {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.COHERE_API_KEY;
     if (!apiKey) {
-      console.warn('OPENROUTER_API_KEY not found in environment variables. AI features will be disabled.');
-      // Create a dummy client or just leave it uninitialized if we handle it in methods
-      this.openai = null as any; 
-      return;
+      console.warn('⚠️ COHERE_API_KEY not found in environment variables. Bobby will not be available.');
+      this.cohere = null as any;
+    } else {
+      this.cohere = new CohereClientV2({
+        token: apiKey,
+      });
     }
-
-    this.openai = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: apiKey,
-      defaultHeaders: {
-        'HTTP-Referer': 'https://supfile.app',
-        'X-Title': 'SUPFILE - Bobby le robot',
-      },
-    });
+    this.model = process.env.COHERE_MODEL || 'command-r-plus-08-2024';
   }
 
   /**
    * A. Analyser le contenu d'un fichier
    */
   async analyzeFile(fileId: string, userId: string, userPrompt?: string): Promise<string> {
-    if (!this.openai) {
-      throw new Error('AI Service is not configured. Missing API Key.');
+    if (!this.cohere) {
+      throw new Error('AI Service not configured. Please add COHERE_API_KEY to your .env file.');
     }
     // Récupérer le fichier depuis la BDD
     const file = await prisma.file.findFirst({
@@ -54,32 +49,7 @@ export class AIService {
 
       // Si c'est une image
       if (mimeType.startsWith('image/')) {
-        const imageData = fs.readFileSync(filePath);
-        const base64Image = imageData.toString('base64');
-
-        const response = await this.openai.chat.completions.create({
-          model: 'google/gemini-2.0-flash-exp:free',
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un assistant IA qui analyse des fichiers. Tu DOIS TOUJOURS répondre en FRANÇAIS, peu importe la langue du contenu analysé.',
-            },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: `${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.` },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${mimeType};base64,${base64Image}`,
-                  },
-                },
-              ],
-            },
-          ],
-        });
-
-        return response.choices[0]?.message?.content || 'Impossible d\'analyser cette image.';
+        return "L'analyse d'images n'est pas encore supportée avec le modèle Cohere actuel. Veuillez utiliser des fichiers texte ou PDF.";
       }
 
       // Si c'est un PDF
@@ -90,8 +60,8 @@ export class AIService {
 
         const fullPrompt = `Voici le contenu d'un fichier PDF :\n\n${text}\n\n${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.`;
 
-        const response = await this.openai.chat.completions.create({
-          model: 'google/gemini-2.0-flash-exp:free',
+        const response = await this.cohere.chat({
+          model: this.model,
           messages: [
             {
               role: 'system',
@@ -101,7 +71,7 @@ export class AIService {
           ],
         });
 
-        return response.choices[0]?.message?.content || 'Impossible d\'analyser ce PDF.';
+        return (response.message.content as any)?.[0]?.text || 'Impossible d\'analyser ce PDF.';
       }
 
       // Si c'est un fichier texte
@@ -109,8 +79,8 @@ export class AIService {
         const textContent = fs.readFileSync(filePath, 'utf-8');
         const fullPrompt = `Voici le contenu d'un fichier texte :\n\n${textContent}\n\n${prompt}\n\nIMPORTANT : Réponds UNIQUEMENT en français.`;
 
-        const response = await this.openai.chat.completions.create({
-          model: 'google/gemini-2.0-flash-exp:free',
+        const response = await this.cohere.chat({
+          model: this.model,
           messages: [
             {
               role: 'system',
@@ -120,7 +90,7 @@ export class AIService {
           ],
         });
 
-        return response.choices[0]?.message?.content || 'Impossible d\'analyser ce fichier texte.';
+        return (response.message.content as any)?.[0]?.text || 'Impossible d\'analyser ce fichier texte.';
       }
 
       // Pour les autres types de fichiers
@@ -135,8 +105,8 @@ export class AIService {
    * B. Rechercher des fichiers avec function calling
    */
   async searchFiles(userId: string, userPrompt: string): Promise<any> {
-    if (!this.openai) {
-      throw new Error('AI Service is not configured. Missing API Key.');
+    if (!this.cohere) {
+      throw new Error('AI Service not configured. Please add COHERE_API_KEY to your .env file.');
     }
     // Définir la fonction de recherche
     const searchFilesFunction = {
@@ -167,8 +137,8 @@ export class AIService {
     };
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'google/gemini-2.0-flash-exp:free',
+      const response = await this.cohere.chat({
+        model: this.model,
         messages: [
           {
             role: 'system',
@@ -186,14 +156,13 @@ RÈGLES IMPORTANTES :
           { role: 'user', content: userPrompt },
         ],
         tools: [{ type: 'function', function: searchFilesFunction }],
-        tool_choice: 'auto',
       });
 
-      const toolCalls = response.choices[0]?.message?.tool_calls;
+      const toolCalls = response.message?.toolCalls;
 
       if (toolCalls && toolCalls.length > 0) {
         const functionCall = toolCalls[0];
-        const args = JSON.parse((functionCall as any).function.arguments);
+        const args = JSON.parse(functionCall.function?.arguments || '{}');
 
         // Construire la requête Prisma
         const whereClause: any = {
@@ -325,17 +294,17 @@ RÈGLES IMPORTANTES :
     fileName?: string,
     folderId?: string
   ): Promise<any> {
-    if (!this.openai) {
-      throw new Error('AI Service is not configured. Missing API Key.');
+    if (!this.cohere) {
+      throw new Error('AI Service not configured. Please add COHERE_API_KEY to your .env file.');
     }
     try {
-      // Générer le contenu avec OpenRouter
-      const response = await this.openai.chat.completions.create({
-        model: 'google/gemini-2.0-flash-exp:free',
+      // Générer le contenu avec Cohere
+      const response = await this.cohere.chat({
+        model: this.model,
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const generatedContent = response.choices[0]?.message?.content || '';
+      const generatedContent = (response.message.content as any)?.[0]?.text || '';
 
       // Déterminer le nom du fichier
       const finalFileName = fileName || `document-genere-${Date.now()}.txt`;
@@ -405,11 +374,11 @@ RÈGLES IMPORTANTES :
    * Chat général avec l'IA (pour les conversations normales)
    */
   async chat(userId: string, message: string, conversationHistory?: any[]): Promise<string> {
-    if (!this.openai) {
-      throw new Error('AI Service is not configured. Missing API Key.');
+    if (!this.cohere) {
+      return "Je suis désolé, mais mon service d'IA n'est pas encore configuré (Clé API Cohere manquante). Veuillez contacter l'administrateur.";
     }
     try {
-      console.log('[Bobby] Using model: google/gemini-2.0-flash-exp:free');
+      console.log(`[Bobby] Using model: ${this.model}`);
 
       // Définir les fonctions disponibles
       const availableFunctions = [
@@ -457,20 +426,19 @@ Tu peux aider l'utilisateur avec ses fichiers, la recherche, et l'organisation.`
       // Ajouter le message actuel
       messages.push({ role: 'user', content: message });
 
-      const response = await this.openai.chat.completions.create({
-        model: 'google/gemini-2.0-flash-exp:free',
+      const response = await this.cohere.chat({
+        model: this.model,
         messages: messages,
         tools: availableFunctions.map((f) => ({ type: 'function', function: f })),
-        tool_choice: 'auto',
       });
 
-      const toolCalls = response.choices[0]?.message?.tool_calls;
+      const toolCalls = response.message?.toolCalls;
 
       if (toolCalls && toolCalls.length > 0) {
         const functionCall = toolCalls[0];
 
         // Appeler searchFiles
-        if ((functionCall as any).function.name === 'searchFiles') {
+        if (functionCall.function?.name === 'searchFiles') {
           console.log('[Bobby] Calling searchFiles for userId:', userId);
           const searchResult = await this.searchFiles(userId, message);
           console.log('[Bobby] Search result:', searchResult);
@@ -508,7 +476,7 @@ Tu peux aider l'utilisateur avec ses fichiers, la recherche, et l'organisation.`
         }
       }
 
-      return response.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu traiter votre demande.';
+      return (response.message.content as any)?.[0]?.text || 'Désolé, je n\'ai pas pu traiter votre demande.';
     } catch (error: any) {
       console.error('Error in chat:', error);
 
