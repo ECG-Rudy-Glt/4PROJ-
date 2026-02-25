@@ -4,16 +4,16 @@ import toast from 'react-hot-toast';
 import { MessageSquare, Share2, Check } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
-import { requestNotificationPermission, sendPushNotification } from '@/utils/pushNotification';
+import { initPushNotifications } from '@/utils/pushNotification';
 
 export default function SocketListener() {
     const socket = useSocket();
     const { user } = useAuthStore();
     const addNotification = useNotificationStore((s) => s.addNotification);
 
-    // Demander la permission au montage
+    // Enregistrer le service worker push au montage
     useEffect(() => {
-        requestNotificationPermission();
+        initPushNotifications();
     }, []);
 
     useEffect(() => {
@@ -106,10 +106,9 @@ export default function SocketListener() {
             ));
         };
 
-        // Listener pour les notifications persistantes + push
+        // Listener pour les notifications persistantes (push géré côté backend via VAPID)
         const handleNotification = (data: any) => {
             addNotification(data);
-            sendPushNotification(data.title, data.message);
         };
 
         socket.on('comment_added', handleComment);

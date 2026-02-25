@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { NotificationType } from '@prisma/client';
 import { SocketService } from './socketService';
+import { WebPushService } from './webPushService';
 
 export class NotificationService {
   static async create(
@@ -15,6 +16,9 @@ export class NotificationService {
     });
 
     SocketService.emitToUser(userId, 'notification_new', notification);
+
+    // Web Push (navigateur fermé)
+    WebPushService.sendToUser(userId, title, message, data).catch(console.error);
 
     return notification;
   }
