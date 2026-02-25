@@ -19,6 +19,9 @@ import {
   ArrowUpDown,
   Tag as TagIconLucide,
   Edit3,
+  Pencil,
+  Check,
+  X,
   FileSpreadsheet,
   Presentation
 } from 'lucide-react';
@@ -146,6 +149,75 @@ export default function FilesPage() {
   const [pendingSharesCount, setPendingSharesCount] = useState(0);
   const [acceptedSharedFiles, setAcceptedSharedFiles] = useState<any[]>([]);
   const [acceptedSharedFolders, setAcceptedSharedFolders] = useState<any[]>([]);
+
+  // Rename state
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameExtension, setRenameExtension] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const startRenameFile = (file: File) => {
+    setRenamingFileId(file.id);
+    setRenamingFolderId(null);
+    const lastDot = file.name.lastIndexOf('.');
+    if (lastDot > 0) {
+      setRenameValue(file.name.substring(0, lastDot));
+      setRenameExtension(file.name.substring(lastDot));
+    } else {
+      setRenameValue(file.name);
+      setRenameExtension('');
+    }
+    setTimeout(() => renameInputRef.current?.select(), 50);
+  };
+
+  const startRenameFolder = (folder: FolderType) => {
+    setRenamingFolderId(folder.id);
+    setRenamingFileId(null);
+    setRenameValue(folder.name);
+    setTimeout(() => renameInputRef.current?.select(), 50);
+  };
+
+  const cancelRename = () => {
+    setRenamingFileId(null);
+    setRenamingFolderId(null);
+    setRenameValue('');
+    setRenameExtension('');
+  };
+
+  const confirmRenameFile = async () => {
+    if (!renamingFileId || !renameValue.trim()) return;
+    try {
+      await fileService.updateFile(renamingFileId, renameValue.trim() + renameExtension);
+      toast.success('Fichier renommé');
+      loadContent(folderId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erreur lors du renommage');
+    } finally {
+      cancelRename();
+    }
+  };
+
+  const confirmRenameFolder = async () => {
+    if (!renamingFolderId || !renameValue.trim()) return;
+    try {
+      await folderService.updateFolder(renamingFolderId, renameValue.trim());
+      toast.success('Dossier renommé');
+      loadContent(folderId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erreur lors du renommage');
+    } finally {
+      cancelRename();
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent, type: 'file' | 'folder') => {
+    if (e.key === 'Enter') {
+      type === 'file' ? confirmRenameFile() : confirmRenameFolder();
+    } else if (e.key === 'Escape') {
+      cancelRename();
+    }
+  };
 
   const loadPendingSharesCount = async () => {
     try {
@@ -686,32 +758,70 @@ export default function FilesPage() {
                 key={folder.id}
                 className="group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200"
               >
-                <button
-                  onClick={() => navigate(`/files/${folder.id}`)}
-                  className="flex flex-col items-center w-full"
-                >
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
-                    <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                {renamingFolderId === folder.id ? (
+                  <div className="flex flex-col items-center w-full">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3">
+                      <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => handleRenameKeyDown(e, 'folder')}
+                      onBlur={confirmRenameFolder}
+                      className="text-sm font-medium text-center border border-primary-400 dark:border-primary-500 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
+                      autoFocus
+                    />
+                    <div className="flex space-x-1 mt-2">
+                      <button onClick={confirmRenameFolder} className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded" title="Valider">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={cancelRename} className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Annuler">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">
-                    {folder.name}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: fr })}
-                  </span>
-                </button>
-                {!folder._isShared && (
+                ) : (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedFolder(folder);
-                      setShowShareFolderModal(true);
-                    }}
-                    className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-300 dark:hover:border-primary-600 transition-all"
-                    title="Partager ce dossier"
+                    onClick={() => navigate(`/files/${folder.id}`)}
+                    className="flex flex-col items-center w-full"
                   >
-                    <Share2 className="w-4 h-4 text-primary-600 dark:text-primary-300" />
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
+                      <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">
+                      {folder.name}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: fr })}
+                    </span>
                   </button>
+                )}
+                {!folder._isShared && (
+                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startRenameFolder(folder);
+                      }}
+                      className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-300 dark:hover:border-primary-600 transition-all"
+                      title="Renommer le dossier"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-primary-300" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFolder(folder);
+                        setShowShareFolderModal(true);
+                      }}
+                      className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-300 dark:hover:border-primary-600 transition-all"
+                      title="Partager ce dossier"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-primary-300" />
+                    </button>
+                  </div>
                 )}
                 {folder._isShared && (
                   <button
@@ -774,52 +884,80 @@ export default function FilesPage() {
                   return (
                     <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => {
-                            const enrichedFile = {
-                              ...file,
-                              // Copy shared folder permissions to file if they exist
-                              ...(file as any)._sharedFolderPermissions && {
-                                canWrite: (file as any)._sharedFolderPermissions.canWrite,
-                                canDelete: (file as any)._sharedFolderPermissions.canDelete,
-                                canShare: (file as any)._sharedFolderPermissions.canShare,
-                              }
-                            };
-                            setPreviewFile(enrichedFile);
-                            setShowPreviewModal(true);
-                          }}
-                          className="flex items-center space-x-3 hover:opacity-80 transition-opacity group"
-                        >
-                          <div className={`p-2 rounded-lg ${colorClass}`}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                              {file.name}
-                            </span>
-                            {(file as any)._isShared && (file as any)._sharedBy && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                Partagé par {(file as any)._sharedBy.firstName} {(file as any)._sharedBy.lastName}
-                              </span>
-                            )}
-                          </div>
-                          {(file as any)._isShared && (
-                            <div className="ml-auto flex-shrink-0">
-                              {(file as any)._sharedBy?.avatar ? (
-                                <img
-                                  src={(file as any)._sharedBy.avatar}
-                                  alt={(file as any)._sharedBy.firstName}
-                                  className="w-6 h-6 rounded-full"
-                                  title={`Partagé par ${(file as any)._sharedBy.firstName} ${(file as any)._sharedBy.lastName}`}
-                                />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-bold text-primary-600 dark:text-primary-300">
-                                  {((file as any)._sharedBy?.firstName?.[0] || 'U').toUpperCase()}
-                                </div>
+                        {renamingFileId === file.id ? (
+                          <div className="flex items-center space-x-2">
+                            <div className={`p-2 rounded-lg ${colorClass}`}>
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <div className="flex items-center border border-primary-400 dark:border-primary-500 rounded-lg bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-primary-500 max-w-xs w-full">
+                              <input
+                                ref={renameInputRef}
+                                type="text"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => handleRenameKeyDown(e, 'file')}
+                                onBlur={confirmRenameFile}
+                                className="text-sm font-medium px-2 py-1 bg-transparent text-gray-900 dark:text-white focus:outline-none flex-1 min-w-0"
+                                autoFocus
+                              />
+                              {renameExtension && (
+                                <span className="text-sm text-gray-400 dark:text-gray-500 pr-2 shrink-0">{renameExtension}</span>
                               )}
                             </div>
-                          )}
-                        </button>
+                            <button onClick={confirmRenameFile} className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded" title="Valider">
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button onClick={cancelRename} className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Annuler">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const enrichedFile = {
+                                ...file,
+                                ...(file as any)._sharedFolderPermissions && {
+                                  canWrite: (file as any)._sharedFolderPermissions.canWrite,
+                                  canDelete: (file as any)._sharedFolderPermissions.canDelete,
+                                  canShare: (file as any)._sharedFolderPermissions.canShare,
+                                }
+                              };
+                              setPreviewFile(enrichedFile);
+                              setShowPreviewModal(true);
+                            }}
+                            className="flex items-center space-x-3 hover:opacity-80 transition-opacity group"
+                          >
+                            <div className={`p-2 rounded-lg ${colorClass}`}>
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                {file.name}
+                              </span>
+                              {(file as any)._isShared && (file as any)._sharedBy && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  Partagé par {(file as any)._sharedBy.firstName} {(file as any)._sharedBy.lastName}
+                                </span>
+                              )}
+                            </div>
+                            {(file as any)._isShared && (
+                              <div className="ml-auto flex-shrink-0">
+                                {(file as any)._sharedBy?.avatar ? (
+                                  <img
+                                    src={(file as any)._sharedBy.avatar}
+                                    alt={(file as any)._sharedBy.firstName}
+                                    className="w-6 h-6 rounded-full"
+                                    title={`Partagé par ${(file as any)._sharedBy.firstName} ${(file as any)._sharedBy.lastName}`}
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-bold text-primary-600 dark:text-primary-300">
+                                    {((file as any)._sharedBy?.firstName?.[0] || 'U').toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {!(file as any)._isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}
@@ -842,6 +980,15 @@ export default function FilesPage() {
                           >
                             <Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} />
                           </button>
+                          {!(file as any)._isShared && (
+                            <button
+                              onClick={() => startRenameFile(file)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Renommer"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
                           {canEditDocument(file.mimeType) && !(file as any)._isShared && (
                             <button
                               onClick={() => { setEditorFile(file); setShowDocumentEditor(true); }}
