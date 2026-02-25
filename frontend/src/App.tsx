@@ -29,7 +29,7 @@ function App() {
     if (isAuthenticated) {
       loadUser();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadUser]);
 
   return (
     <Routes>

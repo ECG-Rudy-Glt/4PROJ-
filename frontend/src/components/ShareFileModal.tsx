@@ -42,6 +42,7 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
   useEffect(() => {
     loadSharedWith();
     generateInviteLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
         clearTimeout(searchTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
   const searchUsers = async (query: string) => {

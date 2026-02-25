@@ -191,6 +191,22 @@ export default function FilesPage() {
     }
   }, [folderId, searchQuery, activeFilters]); // Add activeFilters dependency
 
+  // Handle auto-preview from dashboard
+  useEffect(() => {
+    const previewId = searchParams.get('preview');
+    if (previewId && files.length > 0) {
+      const file = files.find(f => f.id === previewId);
+      if (file) {
+        setPreviewFile(file);
+        setShowPreviewModal(true);
+        // Clean up the URL
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('preview');
+        navigate({ search: newParams.toString() }, { replace: true });
+      }
+    }
+  }, [files, searchParams, navigate]);
+
   useEffect(() => {
     uploadingFilesRef.current = uploadingFiles;
   }, [uploadingFiles]);

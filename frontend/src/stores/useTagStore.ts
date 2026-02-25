@@ -27,33 +27,21 @@ export const useTagStore = create<TagState>((set, get) => ({
   },
 
   createTag: async (name: string, color?: string) => {
-    try {
-      const { tag } = await tagService.createTag(name, color);
-      set({ tags: [...get().tags, tag] });
-      return tag;
-    } catch (error) {
-      throw error;
-    }
+    const { tag } = await tagService.createTag(name, color);
+    set({ tags: [...get().tags, tag] });
+    return tag;
   },
 
   updateTag: async (tagId: string, name?: string, color?: string) => {
-    try {
-      const { tag } = await tagService.updateTag(tagId, name, color);
-      set({
-        tags: get().tags.map((t) => (t.id === tagId ? tag : t)),
-      });
-      return tag;
-    } catch (error) {
-      throw error;
-    }
+    const { tag } = await tagService.updateTag(tagId, name, color);
+    set({
+      tags: get().tags.map((t) => (t.id === tagId ? tag : t)),
+    });
+    return tag;
   },
 
   deleteTag: async (tagId: string) => {
-    try {
-      await tagService.deleteTag(tagId);
-      set({ tags: get().tags.filter((t) => t.id !== tagId) });
-    } catch (error) {
-      throw error;
-    }
+    await tagService.deleteTag(tagId);
+    set({ tags: get().tags.filter((t) => t.id !== tagId) });
   },
 }));
