@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
+import { activityMiddleware } from './activityMiddleware';
 
 export { AuthRequest };
 
@@ -41,8 +42,20 @@ export const authenticate = async (
       return;
     }
 
+    // Global Logout: Check token version
+    // If token has no version (old tokens), assume version 1
+    const tokenVersion = decoded.tokenVersion || 1;
+    if (user.tokenVersion !== tokenVersion) {
+      console.log(`[Auth] Token version mismatch for user ${user.email}. Expected: ${user.tokenVersion}, Got: ${tokenVersion}`);
+      res.status(401).json({ error: 'Session expired (global logout)' });
+      return;
+    }
+
     req.user = user;
-    next();
+
+    // Check activity / session timeout
+    activityMiddleware(req, res, next);
+    return;
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }

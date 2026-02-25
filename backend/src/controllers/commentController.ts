@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../types';
 import { CommentService } from '../services/commentService';
+import { SocketService } from '../services/socketService';
 
 export class CommentController {
   /**
@@ -22,6 +23,9 @@ export class CommentController {
       }
 
       const comment = await CommentService.createComment(fileId, userId, content.trim(), parentId);
+
+      // Notification temps réel
+      SocketService.emitToFile(fileId, 'comment_added', comment);
 
       res.status(201).json({ comment });
     } catch (error: any) {

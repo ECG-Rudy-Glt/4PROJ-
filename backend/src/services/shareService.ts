@@ -1,6 +1,9 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import { MailService } from './mailService';
+import { AuditService } from './auditService';
+import { SocketService } from './socketService';
 
 export class ShareService {
   static async createShareLink(
@@ -44,6 +47,13 @@ export class ShareService {
         file: true,
       },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'SHARE', {
+      fileName: file.name,
+      fileId,
+      shareToken: shareLink.token,
+    }).catch(console.error);
 
     return shareLink;
   }
@@ -178,7 +188,7 @@ export class ShareService {
       throw new Error('Folder already shared with this user');
     }
 
-    return await prisma.sharedFolder.create({
+    const sharedFolder = await prisma.sharedFolder.create({
       data: {
         folderId,
         sharedById: userId,
@@ -208,6 +218,29 @@ export class ShareService {
         },
       },
     });
+
+    // Send email notification
+    try {
+      await MailService.sendShareNotification(
+        targetUser.email,
+        (await prisma.user.findUnique({ where: { id: userId } }))?.email || 'Un utilisateur',
+        folder.name,
+        'folder'
+      );
+    } catch (error) {
+      console.error('Error sending share notification:', error);
+    }
+
+    // Audit log
+    AuditService.createLog(userId, 'SHARE', {
+      folderName: folder.name,
+      folderId,
+    }).catch(console.error);
+
+    // Socket notification
+    SocketService.emitToUser(targetUserId, 'share_received', { type: 'folder', folderName: folder.name });
+
+    return sharedFolder;
   }
 
   static async listSharedWithMe(userId: string) {
@@ -368,7 +401,7 @@ export class ShareService {
       throw new Error('File already shared with this user');
     }
 
-    return await prisma.sharedFile.create({
+    const sharedFile = await prisma.sharedFile.create({
       data: {
         fileId,
         sharedById: userId,
@@ -398,6 +431,29 @@ export class ShareService {
         },
       },
     });
+
+    // Send email notification
+    try {
+      await MailService.sendShareNotification(
+        targetUser.email,
+        (await prisma.user.findUnique({ where: { id: userId } }))?.email || 'Un utilisateur',
+        file.name,
+        'file'
+      );
+    } catch (error) {
+      console.error('Error sending share notification:', error);
+    }
+
+    // Audit log
+    AuditService.createLog(userId, 'SHARE', {
+      fileName: file.name,
+      fileId,
+    }).catch(console.error);
+
+    // Socket notification
+    SocketService.emitToUser(targetUserId, 'share_received', { type: 'file', fileName: file.name });
+
+    return sharedFile;
   }
 
   static async listFilesSharedWithMe(userId: string) {

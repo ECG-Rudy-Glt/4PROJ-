@@ -39,4 +39,16 @@ export const authService = {
     });
     return response.data;
   },
+
+  async exportUserData() {
+    const response = await api.get('/auth/export-data', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async logoutAll() {
+    const response = await api.post('/auth/logout-all');
+    return response.data;
+  },
 };

@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
+import SocketListener from './SocketListener';
 
 export default function ProtectedRoute() {
   const { isAuthenticated } = useAuthStore();
@@ -8,5 +9,10 @@ export default function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <SocketListener />
+      <Outlet />
+    </>
+  );
 }

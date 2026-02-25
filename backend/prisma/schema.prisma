@@ -11,6 +11,27 @@ datasource db {
 // 1. UTILISATEURS & SÉCURITÉ
 // --------------------------------------
 
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  TRIALING
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -18,6 +39,7 @@ model User {
   firstName     String?
   lastName      String?
   avatar        String?
+  role          Role      @default(USER)
 
   provider      String?   @default("local")
   providerId    String?
@@ -27,6 +49,21 @@ model User {
   quotaLimit    BigInt    @default(32212254720) // 30 GB
   theme         String    @default("light")
 
+  // Plans & Billing
+  plan          Plan      @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId String?
+
+  // MFA (Multi-Factor Authentication)
+  mfaEnabled    Boolean   @default(false)
+  mfaSecret     String?   // Secret TOTP encrypté
+  mfaBackupCodes String[] // Array de codes de récupération hashés
+  mfaSetupAt    DateTime? // Date de configuration du MFA
+  
+  // Sécurité & Sessions
+  tokenVersion  Int       @default(1) // Pour l'invalidation globale des tokens
+  lastActiveAt  DateTime  @default(now()) // Pour le timeout d'inactivité
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -34,6 +71,7 @@ model User {
   files         File[]
   folders       Folder[]
   sharedLinks   SharedLink[]
+  trustedDevices TrustedDevice[]
 
   // Gestion des partages reçus/envoyés
   sharedWithMe  SharedFolder[] @relation("SharedWithUser")
@@ -110,6 +148,11 @@ model File {
   size         BigInt
 
   storagePath  String   @unique // Lien vers Docker
+
+  // Analytics
+  views        Int      @default(0)
+  downloads    Int      @default(0)
+  lastAccessedAt DateTime @default(now())
 
   // Nouveau : Pour la prévisualisation & média
   thumbnailPath String? // Lien vers la miniature
@@ -318,4 +361,26 @@ model FileVersion {
   @@index([fileId])
   @@index([createdById])
   @@index([createdAt])
+}
+
+// --------------------------------------
+// 8. SYSTÈME MFA - APPAREILS DE CONFIANCE
+// --------------------------------------
+
+model TrustedDevice {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deviceFingerprint String   // Hash unique de l'appareil (user-agent + IP + accept-language)
+  deviceName        String   // Ex: "Chrome on Windows", "Firefox on macOS"
+  ipAddress         String
+
+  createdAt         DateTime @default(now())
+  expiresAt         DateTime // 30 jours après création
+  lastUsedAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([deviceFingerprint])
+  @@index([expiresAt])
 }

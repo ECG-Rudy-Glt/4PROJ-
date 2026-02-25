@@ -1,5 +1,6 @@
 import prisma from '../config/database';
-
+import { SocketService } from './socketService';
+import { AuditService } from './auditService';
 export class CommentService {
   /**
    * Créer un nouveau commentaire sur un fichier
@@ -71,6 +72,12 @@ export class CommentService {
         },
       },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'COMMENT_ADD', {
+      fileId,
+      fileName: file.name,
+    }).catch(console.error);
 
     return comment;
   }
@@ -189,6 +196,11 @@ export class CommentService {
     await prisma.comment.delete({
       where: { id: commentId },
     });
+
+    // Audit log
+    AuditService.createLog(userId, 'COMMENT_DELETE', {
+      fileId: comment.fileId,
+    }).catch(console.error);
 
     return { message: 'Commentaire supprimé' };
   }

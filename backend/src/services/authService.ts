@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
+import { MailService } from './mailService';
 
 export class AuthService {
   static async register(
@@ -32,7 +33,14 @@ export class AuthService {
     });
 
     // Generate token
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.tokenVersion);
+
+    // Send welcome email
+    try {
+      await MailService.sendWelcomeNotification(user.email, user.firstName || 'Utilisateur');
+    } catch (error) {
+      console.error('Failed to send welcome email', error);
+    }
 
     return {
       user: {
@@ -66,8 +74,14 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
+    // Update lastActiveAt on login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastActiveAt: new Date() }
+    });
+
     // Generate token
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.tokenVersion);
 
     return {
       user: {
@@ -82,6 +96,15 @@ export class AuthService {
       },
       token,
     };
+  }
+
+  static async logoutGlobal(userId: string) {
+    // Increment token version to invalidate all existing tokens
+    await prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } }
+    });
+    return { message: 'Déconnecté de tous les appareils' };
   }
 
   static async updateProfile(
@@ -133,10 +156,17 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { password: hashedPassword },
     });
+
+    // Send notification
+    try {
+      await MailService.sendPasswordChangeNotification(updatedUser.email, updatedUser.firstName || 'Utilisateur');
+    } catch (error) {
+      console.error('Failed to send password change notification', error);
+    }
 
     return { message: 'Password changed successfully' };
   }

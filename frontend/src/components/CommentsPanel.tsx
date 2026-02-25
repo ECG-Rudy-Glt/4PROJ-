@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSocket } from '@/hooks/useSocket';
 import { commentService, Comment } from '@/services/commentService';
 import { MessageCircle, Send, Edit2, Trash2, Reply } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,16 +23,52 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
   const [editContent, setEditContent] = useState('');
   const [hasError, setHasError] = useState(false);
 
+  const socket = useSocket(); // Added socket initialization
+
   useEffect(() => {
     loadComments();
-  }, [fileId]);
+
+    if (socket && fileId) {
+      socket.emit('join_file', fileId);
+
+      const handleNewComment = (newComment: Comment) => {
+        // Ajouter le commentaire seulement s'il n'est pas déjà présent (évite doublons)
+        setComments(prev => {
+          if (prev.some(c => c.id === newComment.id)) return prev;
+          // Si c'est une réponse
+          if (newComment.parentId) {
+            return prev.map(c => {
+              if (c.id === newComment.parentId) {
+                return { ...c, replies: [...(c.replies || []), newComment] };
+              }
+              return c;
+            });
+          }
+          // Si c'est un commentaire racine
+          return [newComment, ...prev];
+        });
+
+        // Mettre à jour le compteur
+        if (onCommentCountChange) {
+          onCommentCountChange(); // Idéalement on passerait le nouveau count, mais un refresh simple suffit
+        }
+      };
+
+      socket.on('comment_added', handleNewComment);
+
+      return () => {
+        socket.emit('leave_file', fileId);
+        socket.off('comment_added', handleNewComment);
+      };
+    }
+  }, [fileId, socket]); // Added socket to dependency array
 
   const loadComments = async () => {
     setIsLoading(true);
     setHasError(false);
     try {
-      const { comments } = await commentService.getFileComments(fileId);
-      setComments(comments);
+      const { comments: data } = await commentService.getFileComments(fileId); // Changed to data
+      setComments(data); // Changed to data
       if (onCommentCountChange) {
         onCommentCountChange();
       }

@@ -7,7 +7,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
   register: (data: {
     email: string;
     password: string;
@@ -17,6 +17,7 @@ interface AuthState {
   logout: () => void;
   loadUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -28,9 +29,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     set({ isLoading: true });
     try {
-      const { user, token } = await authService.login(email, password);
+      const response = await authService.login(email, password);
+
+      // Si MFA requis ou setup requis, ne pas stocker le token et retourner la réponse
+      if (response.mfaRequired || response.mfaSetupRequired) {
+        set({ isLoading: false });
+        return response;
+      }
+
+      // Connexion normale (appareil de confiance)
+      const { user, token } = response;
       localStorage.setItem('token', token);
       set({ user, token, isAuthenticated: true, isLoading: false });
+      return response;
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -78,5 +89,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       throw error;
     }
+  },
+  refreshProfile: async () => {
+    const { user } = await authService.getProfile();
+    set({ user });
   },
 }));
