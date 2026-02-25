@@ -130,7 +130,7 @@ export default function SocketListener() {
             socket.off('share_accepted', handleShareAccepted);
             socket.off('notification_new', handleNotification);
         };
-    }, [socket, user, addNotification]);
+    }, [socket, user, addNotification, refreshProfile]);
 
     return null;
 }
