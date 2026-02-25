@@ -29,6 +29,7 @@ import adminRoutes from './routes/adminRoutes';
 import billingRoutes from './routes/billingRoutes';
 import vaultRoutes from './routes/vaultRoutes';
 import organizationRoutes from './routes/organizationRoutes';
+import accountAccessRoutes from './routes/accountAccessRoutes';
 
 // Jobs
 import { startCleanupJob } from './jobs/cleanupJob';
@@ -150,6 +151,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/vault', vaultRoutes);
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/account-access', accountAccessRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);

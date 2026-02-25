@@ -4,6 +4,7 @@ import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
 import { activityMiddleware } from './activityMiddleware';
 import { PlanService } from '../services/planService';
+import { getCookieValue, SWITCH_SESSION_COOKIE } from '../utils/cookies';
 
 export { AuthRequest };
 
@@ -42,6 +43,10 @@ export const authenticate = async (
       res.status(401).json({ error: 'User not found' });
       return;
     }
+    if (user.accountStatus !== 'ACTIVE') {
+      res.status(403).json({ error: 'Account inactive or suspended' });
+      return;
+    }
 
     // Global Logout: Check token version
     // If token has no version (old tokens), assume version 1
@@ -50,6 +55,80 @@ export const authenticate = async (
       console.log(`[Auth] Token version mismatch for user ${user.email}. Expected: ${user.tokenVersion}, Got: ${tokenVersion}`);
       res.status(401).json({ error: 'Session expired (global logout)' });
       return;
+    }
+
+    const rootUserId = decoded.switchRootUserId || decoded.userId;
+    const hasContextualSession =
+      !!decoded.switchRootUserId || !!decoded.delegatedByUserId || !!decoded.switchSessionId;
+
+    if (hasContextualSession) {
+      const switchSessionCookie = getCookieValue(req, SWITCH_SESSION_COOKIE);
+      if (!switchSessionCookie || !decoded.switchSessionId || switchSessionCookie !== decoded.switchSessionId) {
+        res.status(401).json({ error: 'Invalid switch session cookie' });
+        return;
+      }
+    }
+
+    const authContext: AuthRequest['authContext'] = {
+      authType: 'DIRECT',
+      rootUserId,
+      actorUserId: user.id,
+    };
+
+    if (decoded.delegatedByUserId) {
+      const now = new Date();
+      const delegation = await prisma.delegation.findFirst({
+        where: {
+          id: decoded.delegationId,
+          ownerUserId: user.id,
+          delegateUserId: decoded.delegatedByUserId,
+          status: 'ACTIVE',
+          revokedAt: null,
+          startsAt: { lte: now },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        select: {
+          id: true,
+          canRead: true,
+          canWrite: true,
+          canDelete: true,
+          canShare: true,
+          expiresAt: true,
+        },
+      });
+
+      if (!delegation) {
+        res.status(401).json({ error: 'Delegation is no longer valid' });
+        return;
+      }
+
+      const delegatedBy = await prisma.user.findUnique({
+        where: { id: decoded.delegatedByUserId },
+        select: { id: true, accountStatus: true },
+      });
+
+      if (!delegatedBy || delegatedBy.accountStatus !== 'ACTIVE') {
+        res.status(401).json({ error: 'Delegate account inactive' });
+        return;
+      }
+
+      authContext.authType = 'DELEGATION';
+      authContext.actorUserId = decoded.delegatedByUserId;
+      authContext.delegation = delegation;
+    } else if (decoded.switchRootUserId && decoded.switchRootUserId !== decoded.userId) {
+      authContext.authType = 'SWITCH';
+      authContext.actorUserId = decoded.switchRootUserId;
+    }
+
+    if (rootUserId !== user.id) {
+      const rootUser = await prisma.user.findUnique({
+        where: { id: rootUserId },
+        select: { id: true, accountStatus: true },
+      });
+      if (!rootUser || rootUser.accountStatus !== 'ACTIVE') {
+        res.status(401).json({ error: 'Root session account inactive' });
+        return;
+      }
     }
 
     // Keep persisted quota limit aligned with current plan limits.
@@ -63,6 +142,7 @@ export const authenticate = async (
     } else {
       req.user = user;
     }
+    req.authContext = authContext;
 
     // Check activity / session timeout
     activityMiddleware(req, res, next);

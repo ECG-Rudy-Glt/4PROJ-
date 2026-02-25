@@ -32,6 +32,17 @@ enum Role {
   ADMIN
 }
 
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum DelegationStatus {
+  ACTIVE
+  REVOKED
+}
+
 enum OrganizationMemberRole {
   OWNER
   ADMIN
@@ -46,6 +57,7 @@ model User {
   lastName      String?
   avatar        String?
   role          Role      @default(USER)
+  accountStatus AccountStatus @default(ACTIVE)
 
   provider      String?   @default("local")
   providerId    String?
@@ -103,6 +115,10 @@ model User {
   tags          Tag[]          // Tags créés par l'utilisateur
   comments      Comment[]      // Commentaires créés par l'utilisateur
   fileVersions  FileVersion[]  // Versions de fichiers créées
+  switchLinksAsRoot   AccountSwitchLink[] @relation("SwitchRootUser")
+  switchLinksAsTarget AccountSwitchLink[] @relation("SwitchTargetUser")
+  delegationsGiven    Delegation[] @relation("DelegationOwner")
+  delegationsReceived Delegation[] @relation("DelegationDelegate")
 
   @@index([email])
   @@index([providerId])
@@ -154,6 +170,45 @@ model Folder {
   @@index([parentId])
   @@index([path])
   @@index([isVault])
+}
+
+model AccountSwitchLink {
+  id                  String   @id @default(uuid())
+  rootUserId          String
+  rootUser            User     @relation("SwitchRootUser", fields: [rootUserId], references: [id], onDelete: Cascade)
+  targetUserId        String
+  targetUser          User     @relation("SwitchTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  label               String?
+  expiresAt           DateTime
+  lastAuthenticatedAt DateTime
+  revokedAt           DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([rootUserId, revokedAt, expiresAt])
+  @@index([targetUserId])
+}
+
+model Delegation {
+  id             String           @id @default(uuid())
+  ownerUserId    String
+  ownerUser      User             @relation("DelegationOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  delegateUserId String
+  delegateUser   User             @relation("DelegationDelegate", fields: [delegateUserId], references: [id], onDelete: Cascade)
+  status         DelegationStatus @default(ACTIVE)
+  canRead        Boolean          @default(true)
+  canWrite       Boolean          @default(false)
+  canDelete      Boolean          @default(false)
+  canShare       Boolean          @default(false)
+  startsAt       DateTime         @default(now())
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([ownerUserId, status, revokedAt, expiresAt])
+  @@index([delegateUserId, status, revokedAt, expiresAt])
+  @@index([ownerUserId, delegateUserId])
 }
 
 // --------------------------------------
