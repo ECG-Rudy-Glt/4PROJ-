@@ -86,6 +86,7 @@ model User {
   tags          Tag[]          // Tags créés par l'utilisateur
   comments      Comment[]      // Commentaires créés par l'utilisateur
   fileVersions  FileVersion[]  // Versions de fichiers créées
+  notifications Notification[] // Notifications de l'utilisateur
 
   @@index([email])
   @@index([providerId])
@@ -383,4 +384,30 @@ model TrustedDevice {
   @@index([userId])
   @@index([deviceFingerprint])
   @@index([expiresAt])
+}
+
+// --------------------------------------
+// 9. NOTIFICATIONS
+// --------------------------------------
+
+enum NotificationType {
+  SHARE
+  COMMENT
+  QUOTA
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  data      Json?            // Metadata (fileId, folderId, etc.)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
 }
