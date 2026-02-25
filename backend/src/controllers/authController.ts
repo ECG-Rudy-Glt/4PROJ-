@@ -127,6 +127,8 @@ export class AuthController {
           role: user.role,
           plan: user.plan,
           subscriptionStatus: user.subscriptionStatus,
+          vaultEnabled: user.vaultEnabled,
+          currentOrganizationId: user.currentOrganizationId,
           quotaUsed: user.quotaUsed,
           quotaLimit: user.quotaLimit,
           theme: user.theme,
