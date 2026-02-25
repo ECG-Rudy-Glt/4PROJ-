@@ -11,6 +11,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { formatBytes } from '@/utils/bytes';
 
 export default function Sidebar() {
   const { user } = useAuthStore();
@@ -29,17 +30,9 @@ export default function Sidebar() {
     { to: '/settings', icon: Settings, label: 'Paramètres', section: 'bottom' },
   ];
 
-  const quotaPercentage = user
-    ? (Number(user.quotaUsed) / Number(user.quotaLimit)) * 100
-    : 0;
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
+  const quotaUsed = Number(user?.quotaUsed || 0);
+  const quotaLimit = Number(user?.quotaLimit || 0);
+  const quotaPercentage = quotaLimit > 0 ? (quotaUsed / quotaLimit) * 100 : 0;
 
   const getStorageColor = () => {
     if (quotaPercentage >= 90) return 'from-red-500 to-red-600';
@@ -136,10 +129,10 @@ export default function Sidebar() {
               </div>
               <div className="flex justify-between items-center">
                 <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-                  {formatBytes(Number(user.quotaUsed))}
+                  {formatBytes(quotaUsed)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-500">
-                  of {formatBytes(Number(user.quotaLimit))}
+                  of {formatBytes(quotaLimit)}
                 </p>
               </div>
             </div>
