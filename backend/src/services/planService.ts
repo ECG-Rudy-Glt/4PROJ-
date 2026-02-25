@@ -6,7 +6,7 @@ const MB = BigInt(1024 * 1024);
 
 export const PLAN_LIMITS = {
     [Plan.FREE]: {
-        storage: BigInt(10) * GB, // 10 GB
+        storage: BigInt(30) * GB, // 30 GB
         maxFileSize: BigInt(100) * MB, // 100 MB per file
         maxShares: 5,
         maxVersions: 3,
@@ -16,6 +16,7 @@ export const PLAN_LIMITS = {
             prioritySupport: false,
             auditLogs: false,
             aiChat: false,
+            vault: false,
         },
     },
     [Plan.PRO]: {
@@ -29,6 +30,7 @@ export const PLAN_LIMITS = {
             prioritySupport: true,
             auditLogs: true,
             aiChat: true,
+            vault: true,
         },
     },
     [Plan.BUSINESS]: {
@@ -42,10 +44,11 @@ export const PLAN_LIMITS = {
             prioritySupport: true,
             auditLogs: true,
             aiChat: true,
+            vault: true,
         },
     },
     [Plan.ENTERPRISE]: {
-        storage: BigInt(1024 * 1024) * GB, // ~Unlimited (1 PB)
+        storage: BigInt(10240) * GB, // 10 TB
         maxFileSize: BigInt(10240) * MB, // 10 GB per file
         maxShares: -1, // unlimited
         maxVersions: -1, // unlimited
@@ -55,6 +58,7 @@ export const PLAN_LIMITS = {
             prioritySupport: true,
             auditLogs: true,
             aiChat: true,
+            vault: true,
         },
     },
 };

@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
+import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
 import { MailService } from './mailService';
+import { PlanService } from './planService';
 
 export class AuthService {
   static async register(
@@ -23,12 +25,16 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
+    const freePlanLimit = PlanService.getStorageLimit(Plan.FREE);
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         firstName,
         lastName,
+        plan: Plan.FREE,
+        subscriptionStatus: SubscriptionStatus.ACTIVE,
+        quotaLimit: freePlanLimit,
       },
     });
 

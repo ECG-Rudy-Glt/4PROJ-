@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
 import { activityMiddleware } from './activityMiddleware';
+import { PlanService } from '../services/planService';
 
 export { AuthRequest };
 
@@ -51,7 +52,17 @@ export const authenticate = async (
       return;
     }
 
-    req.user = user;
+    // Keep persisted quota limit aligned with current plan limits.
+    const expectedQuotaLimit = PlanService.getStorageLimit(user.plan);
+    if (BigInt(user.quotaLimit) !== expectedQuotaLimit) {
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { quotaLimit: expectedQuotaLimit },
+      });
+      req.user = updatedUser;
+    } else {
+      req.user = user;
+    }
 
     // Check activity / session timeout
     activityMiddleware(req, res, next);
