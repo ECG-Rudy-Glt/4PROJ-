@@ -51,6 +51,7 @@ export default function ShareFolderModal({
       loadSharedWith();
       generateInviteLink();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, folderId]);
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export default function ShareFolderModal({
         clearTimeout(searchTimeoutRef.current);
       }
 
-      searchTimeoutRef.current = setTimeout(() => {
+      searchTimeoutRef.current = window.setTimeout(() => {
         searchUsers(email);
       }, 300);
     } else {
@@ -138,8 +139,12 @@ export default function ShareFolderModal({
 
     setIsSharing(true);
     try {
-      await shareService.shareFolder(folderId, email.trim(), customPermissions);
-      toast.success(`Dossier partagé avec ${email}`);
+      const response = await shareService.shareFolder(folderId, email.trim(), customPermissions);
+      if (response && response.isNewUser) {
+        toast.success(`Invitation envoyée à ${email}`);
+      } else {
+        toast.success(`Dossier partagé avec ${email}`);
+      }
       setEmail('');
       setSuggestions([]);
       setShowSuggestions(false);

@@ -20,7 +20,7 @@ export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
     if (file.tags) {
       setFileTags(file.tags.map((ft) => ft.tag));
     }
-  }, [file]);
+  }, [file, loadTags]);
 
   const handleAddTag = async (tag: Tag) => {
     try {

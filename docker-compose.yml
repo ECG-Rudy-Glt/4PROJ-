@@ -47,6 +47,12 @@ services:
       COHERE_MODEL: ${COHERE_MODEL:-command-r-plus}
       # MFA (Multi-Factor Authentication)
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+      # Stripe Billing
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
+      STRIPE_PRICE_BUSINESS_MONTHLY: ${STRIPE_PRICE_BUSINESS_MONTHLY:-}
+      STRIPE_PRICE_ENTERPRISE_MONTHLY: ${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
     volumes:
       - uploads_data:/app/uploads
     ports:

@@ -49,9 +49,13 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar,
+        role: user.role,
+        plan: user.plan,
+        subscriptionStatus: user.subscriptionStatus,
         quotaUsed: Number(user.quotaUsed),
         quotaLimit: Number(user.quotaLimit),
         theme: user.theme,
+        createdAt: user.createdAt,
       },
       token,
     };
@@ -90,9 +94,13 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar,
+        role: user.role,
+        plan: user.plan,
+        subscriptionStatus: user.subscriptionStatus,
         quotaUsed: Number(user.quotaUsed),
         quotaLimit: Number(user.quotaLimit),
         theme: user.theme,
+        createdAt: user.createdAt,
       },
       token,
     };
@@ -127,9 +135,13 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       avatar: user.avatar,
+      role: user.role,
+      plan: user.plan,
+      subscriptionStatus: user.subscriptionStatus,
       quotaUsed: Number(user.quotaUsed),
       quotaLimit: Number(user.quotaLimit),
       theme: user.theme,
+      createdAt: user.createdAt,
     };
   }
 

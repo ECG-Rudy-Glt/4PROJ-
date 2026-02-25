@@ -53,6 +53,7 @@ export default function TrashPage() {
 
   useEffect(() => {
     loadDeletedFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, sortOrder]);
 
   const loadDeletedFiles = async () => {
@@ -78,7 +79,7 @@ export default function TrashPage() {
       });
 
       setDeletedFiles(sortedFiles);
-    } catch (error) {
+    } catch {
       toast.error('Échec du chargement de la corbeille');
     } finally {
       setIsLoading(false);

@@ -1,0 +1,9 @@
+node_modules
+package-lock.json
+dist
+*.log
+*.tsbuildinfo
+*.tgz
+*.zip
+# Ignore coverage reports
+coverage

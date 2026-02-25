@@ -1,8 +1,7 @@
 import { Response } from 'express';
 import { UserService } from '../services/userService';
 import { AuthRequest } from '../types';
-import prisma from '../config/database';
-import { PlanService } from '../services/planService';
+import { BillingService } from '../services/billingService';
 
 export class UserController {
   /**
@@ -46,23 +45,24 @@ export class UserController {
   static async updatePlan(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { plan } = req.body;
+      const rawPlan = req.body.plan;
+      const plan = typeof rawPlan === 'string' ? rawPlan.toUpperCase() : null;
 
-      if (!['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'].includes(plan)) {
+      if (!plan || !['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'].includes(plan)) {
         res.status(400).json({ error: 'Invalid plan' });
         return;
       }
 
-      // Mettre à jour le plan de l'utilisateur
-      await prisma.user.update({
-        where: { id: userId },
-        data: { plan },
-      });
+      if (plan !== 'FREE') {
+        res.status(403).json({
+          error: 'Paid plan upgrades must go through Stripe Checkout',
+          code: 'STRIPE_CHECKOUT_REQUIRED',
+        });
+        return;
+      }
 
-      // Synchroniser les quotas
-      await PlanService.syncUserQuotaLimit(userId);
-
-      res.status(200).json({ message: 'Plan updated successfully', plan });
+      await BillingService.downgradeToFree(userId);
+      res.status(200).json({ message: 'Plan downgraded to FREE', plan: 'FREE' });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
