@@ -13,9 +13,13 @@ jest.mock('../../config/database', () => ({
   }
 }));
 
-jest.mock('bcryptjs', () => ({
-  compare: jest.fn(),
-}));
+jest.mock('bcryptjs', () => {
+  return {
+    compare: jest.fn(),
+    hash: jest.fn(),
+    genSalt: jest.fn(),
+  };
+});
 
 jest.mock('../../utils/jwt', () => ({
   generateToken: jest.fn(),
