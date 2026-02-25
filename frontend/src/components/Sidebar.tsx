@@ -7,6 +7,7 @@ import {
   Settings,
   Star,
   CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -19,6 +20,9 @@ export default function Sidebar() {
     { to: '/favorites', icon: Star, label: 'Favoris', section: 'main' },
     { to: '/shared', icon: Share2, label: 'Partagés', section: 'secondary' },
     { to: '/trash', icon: Trash2, label: 'Corbeille', section: 'secondary' },
+    ...(user?.role === 'ADMIN'
+      ? [{ to: '/admin', icon: ShieldCheck, label: 'Super Admin', section: 'secondary' as const }]
+      : []),
     { to: '/plans', icon: CreditCard, label: 'Plans & Tarifs', section: 'bottom' },
     { to: '/settings', icon: Settings, label: 'Paramètres', section: 'bottom' },
   ];

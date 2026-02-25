@@ -2,13 +2,14 @@ import api from './api';
 import { File } from '@/types';
 
 export const fileService = {
-  async uploadFile(
-    file: globalThis.File,
+  async uploadFiles(
+    files: globalThis.File[],
     folderId?: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    signal?: AbortSignal
   ) {
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => formData.append('files', file));
     if (folderId) {
       formData.append('folderId', folderId);
     }
@@ -17,6 +18,7 @@ export const fileService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      signal,
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -24,7 +26,17 @@ export const fileService = {
         }
       },
     });
+
     return response.data;
+  },
+
+  async uploadFile(
+    file: globalThis.File,
+    folderId?: string,
+    onProgress?: (progress: number) => void,
+    signal?: AbortSignal
+  ) {
+    return this.uploadFiles([file], folderId, onProgress, signal);
   },
 
   async listFiles(
