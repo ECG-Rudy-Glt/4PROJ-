@@ -238,6 +238,11 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: Ensure deploy path exists on VPS
+        run: |
+          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
+            mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
+
       - name: Copy files to VPS
         run: |
           scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
@@ -270,6 +275,6 @@ jobs:
             export FRONTEND_IMAGE=${FRONTEND_IMAGE}
 
             docker compose -f docker-compose.yml -f docker-compose.vps.yml pull
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --remove-orphans
-            docker image prune -f
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --wait-timeout 120 --remove-orphans
+            docker image prune -a -f --filter "until=168h"
           EOF
