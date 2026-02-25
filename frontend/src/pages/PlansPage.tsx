@@ -11,7 +11,7 @@ const plans = [
         price: '0€',
         period: '/mois',
         description: 'Pour démarrer',
-        storage: '10 Go',
+        storage: '30 Go',
         features: [
             { name: 'Stockage Cloud Sécurisé', included: true },
             { name: 'Partage de fichiers', included: true },
