@@ -69,6 +69,7 @@ services:
       - supfile-network
 
   frontend:
+    image: ${FRONTEND_IMAGE:-supfile-frontend:local}
     build:
       context: ./frontend
       dockerfile: Dockerfile
