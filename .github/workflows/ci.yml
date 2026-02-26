@@ -202,6 +202,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          
 
       - name: Build and Push Backend
         uses: docker/build-push-action@v5
@@ -251,18 +252,6 @@ jobs:
           printf '%s\n' "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
-
-      - name: Debug SSH key
-        run: |
-          echo "=== Key first/last line ==="
-          head -1 ~/.ssh/id_rsa
-          tail -1 ~/.ssh/id_rsa
-          echo "=== Line count ==="
-          wc -l ~/.ssh/id_rsa
-          echo "=== SSH verbose test ==="
-          ssh -vvv -o BatchMode=yes -o ConnectTimeout=10 \
-            ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
-            echo ok 2>&1 || true
 
       - name: Ensure deploy path exists on VPS
         run: |
