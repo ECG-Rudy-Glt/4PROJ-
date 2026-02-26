@@ -196,13 +196,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
 
       - name: Build and Push Backend
         uses: docker/build-push-action@v5
@@ -283,6 +284,7 @@ jobs:
           DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
 
           ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
+            export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
             cd ${DEPLOY_PATH}
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
 
