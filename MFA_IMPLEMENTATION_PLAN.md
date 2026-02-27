@@ -5,6 +5,7 @@ Système MFA obligatoire avec TOTP (Time-based One-Time Password), codes de réc
 
 ---
 
+
 ## 1. BACKEND - Base de données
 
 ### 1.1 Schéma Prisma à modifier

@@ -22,6 +22,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-supfile-backend:local}
     container_name: supfile-backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/${POSTGRES_DB:-supfile}
@@ -68,6 +69,7 @@ services:
       - supfile-network
 
   frontend:
+    image: ${FRONTEND_IMAGE:-supfile-frontend:local}
     build:
       context: ./frontend
       dockerfile: Dockerfile

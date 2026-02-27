@@ -1,0 +1,31 @@
+# Override Docker Compose pour le déploiement VPS
+# Usage : docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+#
+# Ajoute un container nginx (reverse proxy SSL) devant les containers applicatifs.
+# Prérequis sur le VPS :
+#   - /etc/ssl/certs/fullchain.pem  (certificat SSL)
+#   - /etc/ssl/certs/privkey.pem    (clé privée SSL)
+#   Pour Let's Encrypt : sudo certbot certonly --standalone -d <domaine>
+#   puis copier les certs : cp /etc/letsencrypt/live/<domaine>/fullchain.pem /etc/ssl/certs/
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: supfile-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.vps.conf:/etc/nginx/nginx.conf:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    depends_on:
+      - frontend
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  # Sur VPS, le frontend n'est plus exposé directement sur le host :
+  # nginx gère tout le trafic entrant. Le port 3000 reste accessible
+  # en interne via le réseau Docker pour nginx → frontend:80.
+  frontend:
+    ports: []

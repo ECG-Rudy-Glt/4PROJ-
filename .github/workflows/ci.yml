@@ -2,9 +2,14 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, claude-proto, rgt_ci ]
+    branches: [ main, claude-proto, ci_deploy_vps ]
   pull_request:
-    branches: [ main, claude-proto, rgt_ci ]
+    branches: [ main, claude-proto, ci_deploy_vps ]
+
+# Permissions par défaut pour tous les jobs (principe de moindre privilège)
+# docker-push surcharge avec packages: write pour pusher sur GHCR
+permissions:
+  contents: read
 
 jobs:
   validate-env:
@@ -47,8 +52,18 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: ./backend/node_modules
+          key: ${{ runner.os }}-backend-${{ hashFiles('./backend/package.json') }}
+          restore-keys: ${{ runner.os }}-backend-
+
       - name: Install Dependencies
         run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Verify Types and Build
         run: npm run build
@@ -77,6 +92,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./frontend/node_modules
+            ~/.cache/Cypress
+          key: ${{ runner.os }}-frontend-${{ hashFiles('./frontend/package.json') }}
+          restore-keys: ${{ runner.os }}-frontend-
+
       - name: Install Dependencies
         run: npm install
 
@@ -93,7 +117,7 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
-          build: npm run build
+          install: false
           start: npm run preview
           wait-on: 'http://localhost:4173'
 
@@ -105,14 +129,31 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Backend Docker Image
-        run: docker build -t backend:ci ./backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
       - name: Build Frontend Docker Image
-        run: docker build -t frontend:ci ./frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          load: true
+          tags: frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
       - name: Scan Backend Image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: 'backend:ci'
           format: 'table'
@@ -122,7 +163,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Scan Frontend Image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: 'frontend:ci'
           format: 'table'
@@ -131,3 +172,126 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
+  # ===========================
+  # PUSH TO GHCR (main + ci_deploy_vps)
+  # ===========================
+  docker-push:
+    needs: [ docker-build ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set image name
+        # Lowercase le repo + supprime les tirets en fin de segment de chemin
+        # ex: ECG-Rudy-Glt/4PROJ- → ecg-rudy-glt/4proj
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+
+      - name: Build and Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
+          build-args: VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ===========================
+  # DEPLOY PREPROD (main + ci_deploy_vps)
+  # ===========================
+  deploy-preprod:
+    needs: [ docker-push ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: preprod
+      url: https://${{ vars.PREPROD_DEPLOY_HOST }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set image name
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Ensure deploy path exists on VPS
+        run: |
+          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
+            mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
+
+      - name: Copy files to VPS
+        run: |
+          scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+          scp docker-compose.vps.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+          scp frontend/nginx.vps.conf ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+
+      - name: Copy .env to VPS
+        run: |
+          if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
+            echo "${PREPROD_ENV_FILE_CONTENT}" > .env.tmp
+            scp .env.tmp ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/.env
+            rm .env.tmp
+          fi
+        env:
+          PREPROD_ENV_FILE_CONTENT: ${{ secrets.PREPROD_ENV_FILE_CONTENT }}
+
+      - name: Deploy on VPS
+        run: |
+          BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
+          FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
+          GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
+          ACTOR="${{ github.actor }}"
+          DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
+
+          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
+            export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
+            cd ${DEPLOY_PATH}
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+            export BACKEND_IMAGE=${BACKEND_IMAGE}
+            export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --wait-timeout 120 --remove-orphans
+            docker image prune -a -f --filter "until=168h"
+          EOF
