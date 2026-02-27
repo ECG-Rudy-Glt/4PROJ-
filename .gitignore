@@ -4,11 +4,10 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
-# Environment variables
+# Environment variables (whitelist approach: ignore all, except examples)
 .env
-.env.local
-.env.production
-.env.development
+.env.*
+!.env.example
 
 # Build outputs
 dist/

@@ -281,10 +281,6 @@ export default function FilesPage() {
   }, [files, searchParams, navigate]);
 
   useEffect(() => {
-    uploadingFilesRef.current = uploadingFiles;
-  }, [uploadingFiles]);
-
-  useEffect(() => {
     const controllers = activeUploadControllersRef.current;
     return () => {
       controllers.forEach((controller) => controller.abort());
@@ -525,20 +521,16 @@ export default function FilesPage() {
     if (pendingCount === 0) {
       toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
       setShowUploadModal(true);
-      setUploadingFiles((prev) => {
-        const next = [...prev, ...queuedFiles];
-        uploadingFilesRef.current = next;
-        return next;
-      });
+      const nextQuota = [...uploadingFilesRef.current, ...queuedFiles];
+      uploadingFilesRef.current = nextQuota;
+      setUploadingFiles(nextQuota);
       return;
     }
 
     setShowUploadModal(true);
-    setUploadingFiles((prev) => {
-      const next = [...prev, ...queuedFiles];
-      uploadingFilesRef.current = next;
-      return next;
-    });
+    const next = [...uploadingFilesRef.current, ...queuedFiles];
+    uploadingFilesRef.current = next;
+    setUploadingFiles(next);
 
     void processUploadQueue();
   };

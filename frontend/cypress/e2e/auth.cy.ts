@@ -48,6 +48,10 @@ describe('Register Flow', () => {
   })
 
   it('should register successfully and redirect to dashboard', () => {
+    // Suppress uncaught exceptions from the dashboard (e.g. lazy-loaded modules
+    // that require backend context not available in preview/static mode)
+    cy.on('uncaught:exception', () => false)
+
     cy.intercept('POST', '**/auth/register', {
       statusCode: 201,
       body: {

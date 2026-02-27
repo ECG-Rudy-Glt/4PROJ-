@@ -87,6 +87,7 @@ export class EncryptionService {
         fs.closeSync(fd);
 
         const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+        decipher.setAuthTagLength(16); // Explicit tag length prevents tag-truncation attacks (GCM)
         decipher.setAuthTag(tag);
 
         const input = fs.createReadStream(filePath, { start: 16, end: fileSize - 17 });

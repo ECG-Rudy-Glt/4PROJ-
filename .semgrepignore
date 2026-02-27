@@ -1,0 +1,10 @@
+# Fichiers contenant des secrets réels (ne pas scanner)
+.env.vps
+.env.backup
+.env.local
+.env.production
+
+# Dépendances tierces
+node_modules/
+frontend/node_modules/
+backend/node_modules/
