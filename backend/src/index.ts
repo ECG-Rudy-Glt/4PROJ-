@@ -83,25 +83,11 @@ app.use(helmet({
       preload: true,
     }
     : false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      mediaSrc: ["'self'", "blob:", "data:"],
-      connectSrc: ["'self'", ...ALLOWED_ORIGINS, 'ws:', 'wss:'],
-      frameAncestors: ["'self'", ...ALLOWED_ORIGINS],
-      objectSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false,
 }));
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (isOriginAllowed(ALLOWED_ORIGINS, origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error('Origin not allowed by CORS'));
-  },
+  origin: true,
   credentials: true,
 }));
 
