@@ -91,10 +91,10 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting - Much more permissive for development
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 50000, // 500 requests per minute
+  max: 500, // 500 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
