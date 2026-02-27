@@ -224,7 +224,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
             ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
-          build-args: VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}/api
+          build-args: VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
