@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   validate-env:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Check required secrets
         run: |
@@ -29,7 +29,7 @@ jobs:
 
   backend-checks:
     needs: validate-env
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./backend
@@ -76,7 +76,7 @@ jobs:
 
   frontend-checks:
     needs: validate-env
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./frontend
@@ -123,7 +123,7 @@ jobs:
 
   docker-build:
     needs: [ backend-checks, frontend-checks ]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
@@ -177,7 +177,7 @@ jobs:
   # ===========================
   docker-push:
     needs: [ docker-build ]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -233,7 +233,7 @@ jobs:
   # ===========================
   deploy-preprod:
     needs: [ docker-push ]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: preprod
