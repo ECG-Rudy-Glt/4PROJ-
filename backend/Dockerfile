@@ -15,4 +15,7 @@ RUN npm run build
 
 EXPOSE 5001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+CMD ["./entrypoint.sh"]
