@@ -121,8 +121,27 @@ jobs:
           start: npm run preview
           wait-on: 'http://localhost:4173'
 
+  semgrep:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST
+        run: |
+          semgrep scan \
+            --config "p/default" \
+            --config "p/nodejs" \
+            --config "p/react" \
+            --error \
+            --severity ERROR \
+            .
+
   docker-build:
-    needs: [ backend-checks, frontend-checks ]
+    needs: [ backend-checks, frontend-checks, semgrep ]
     runs-on: ubuntu-latest
 
     steps:
@@ -171,6 +190,22 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+      - name: Install Dockle
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/goodwithtech/dockle/releases/latest \
+            | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          curl -sL "https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Linux-64bit.tar.gz" \
+            | tar xz
+          sudo mv dockle /usr/local/bin/
+
+      - name: Scan Backend Image with Dockle
+        run: dockle --exit-code 1 --exit-level fatal backend:ci
+        continue-on-error: true
+
+      - name: Scan Frontend Image with Dockle
+        run: dockle --exit-code 1 --exit-level fatal frontend:ci
+        continue-on-error: true
 
   # ===========================
   # PUSH TO GHCR (main + ci_deploy_vps)
