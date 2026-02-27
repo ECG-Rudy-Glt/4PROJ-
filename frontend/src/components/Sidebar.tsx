@@ -116,36 +116,6 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* Storage Info */}
-        {user && (
-          <div className="p-4 m-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Storage
-                </span>
-                <span className={`text-sm font-bold ${quotaPercentage >= 90 ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`}>
-                  {quotaPercentage.toFixed(0)}%
-                </span>
-              </div>
-              <div className="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className={`h-full bg-gradient-to-r ${getStorageColor()} rounded-full transition-all duration-500 shadow-sm`}
-                  style={{ width: `${Math.min(quotaPercentage, 100)}%` }}
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-                  {formatBytes(quotaUsed)}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  of {formatBytes(quotaLimit)}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Settings */}
         <div className="px-3 pb-4">
           {bottomItems.map((item) => (
@@ -171,23 +141,35 @@ export default function Sidebar() {
             </NavLink>
           ))}
 
-          <button
-            onClick={() => {
-              useAuthStore.getState().logout();
-              window.location.href = '/login';
-            }}
-            className="w-full relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 mt-1"
-          >
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-transparent group-hover:bg-red-500 rounded-r-full transition-colors" />
-            <div className="w-5 h-5 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
+          {/* Storage Info */}
+          {user && (
+            <div className="p-4 mt-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Storage
+                  </span>
+                  <span className={`text-sm font-bold ${quotaPercentage >= 90 ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`}>
+                    {quotaPercentage.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-full bg-gradient-to-r ${getStorageColor()} rounded-full transition-all duration-500 shadow-sm`}
+                    style={{ width: `${Math.min(quotaPercentage, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                    {formatBytes(quotaUsed)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    of {formatBytes(quotaLimit)}
+                  </p>
+                </div>
+              </div>
             </div>
-            <span className="font-medium text-sm">Déconnexion</span>
-          </button>
+          )}
         </div>
       </div>
     </aside >
