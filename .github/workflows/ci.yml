@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, claude-proto, ci_deploy_vps ]
+    branches: [ main, claude-proto, scanning_code ]
   pull_request:
-    branches: [ main, claude-proto, ci_deploy_vps ]
+    branches: [ main, claude-proto, scanning_code ]
 
 # Permissions par défaut pour tous les jobs (principe de moindre privilège)
 # docker-push surcharge avec packages: write pour pusher sur GHCR
