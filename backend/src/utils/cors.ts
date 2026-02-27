@@ -6,13 +6,16 @@ const DEFAULT_LOCAL_ORIGINS = [
 export const normalizeOrigin = (origin: string) => origin.replace(/\/+$/, '');
 
 export const buildAllowedOrigins = (): string[] => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrls = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   const fromEnv = (process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  const combined = [frontendUrl, ...DEFAULT_LOCAL_ORIGINS, ...fromEnv];
+  const combined = [...frontendUrls, ...DEFAULT_LOCAL_ORIGINS, ...fromEnv];
   const unique = Array.from(new Set(combined.map(normalizeOrigin)));
   return unique;
 };
