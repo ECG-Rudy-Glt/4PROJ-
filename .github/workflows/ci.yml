@@ -1,17 +1,41 @@
 name: CI Pipeline
 
+# Déclenchement sur push et PR vers les branches principales
 on:
   push:
     branches: [ main, claude-proto, scanning_code ]
   pull_request:
     branches: [ main, claude-proto, scanning_code ]
 
-# Permissions par défaut pour tous les jobs (principe de moindre privilège)
-# docker-push surcharge avec packages: write pour pusher sur GHCR
+# Permissions globales : lecture seule par défaut (principe de moindre privilège)
+# Les jobs qui ont besoin de plus de droits les déclarent localement (ex: docker-push)
 permissions:
   contents: read
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Ordre d'exécution :
+#
+#  [1] validate-env          → Vérifie que les secrets requis sont configurés
+#       │
+#       ├─ [2a] backend-checks   ┐
+#       ├─ [2b] frontend-checks  ├─ Qualité & tests (parallèle)
+#       ├─ [2c] semgrep          ┤  Sécurité code source (SAST)
+#       └─ [2d] trufflehog       ┘  Détection de secrets dans l'historique git
+#            │
+#           [3] docker-build  → Build images + scan CVE (Trivy) + config (Dockle) + SBOM
+#            │
+#           [4] docker-push   → Push GHCR (main uniquement)
+#            │
+#           [5] deploy-preprod → Déploiement VPS via SSH (main uniquement)
+# ─────────────────────────────────────────────────────────────────────────────
+
 jobs:
+
+  # ===========================
+  # [1] VALIDATION PRÉ-REQUIS
+  # Vérifie que les secrets nécessaires au pipeline sont bien configurés
+  # dans GitHub Actions avant de lancer les jobs coûteux.
+  # ===========================
   validate-env:
     runs-on: ubuntu-latest
     steps:
@@ -27,6 +51,11 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
           FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
 
+  # ===========================
+  # [2a] QUALITÉ BACKEND
+  # Installe les dépendances, génère le client Prisma, compile TypeScript,
+  # exécute les tests unitaires avec couverture et audite les dépendances npm.
+  # ===========================
   backend-checks:
     needs: validate-env
     runs-on: ubuntu-latest
@@ -74,6 +103,11 @@ jobs:
       - name: Audit Dependencies
         run: npm audit --audit-level=high
 
+  # ===========================
+  # [2b] QUALITÉ FRONTEND
+  # Installe les dépendances, vérifie le linting ESLint, compile le bundle Vite,
+  # audite les dépendances npm et exécute les tests E2E Cypress sur le preview.
+  # ===========================
   frontend-checks:
     needs: validate-env
     runs-on: ubuntu-latest
@@ -113,7 +147,7 @@ jobs:
       - name: Audit Dependencies
         run: npm audit --audit-level=high
 
-      - name: Run Cypress Tests
+      - name: Run Cypress E2E Tests
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
@@ -121,6 +155,12 @@ jobs:
           start: npm run preview
           wait-on: 'http://localhost:4173'
 
+  # ===========================
+  # [2c] SAST — ANALYSE STATIQUE DE SÉCURITÉ (Semgrep)
+  # Analyse le code source à la recherche de vulnérabilités connues
+  # via les règles communautaires Semgrep (défaut, Node.js, React).
+  # Bloque le pipeline sur toute finding de niveau ERROR.
+  # ===========================
   semgrep:
     needs: validate-env
     runs-on: ubuntu-latest
@@ -140,6 +180,12 @@ jobs:
             --severity ERROR \
             .
 
+  # ===========================
+  # [2d] DÉTECTION DE SECRETS (TruffleHog)
+  # Scanne tout l'historique git à la recherche de secrets (clés API, tokens,
+  # mots de passe) qui auraient été commités. Seuls les secrets vérifiés
+  # (actifs et confirmés) bloquent le pipeline (--only-verified).
+  # ===========================
   trufflehog:
     needs: validate-env
     runs-on: ubuntu-latest
@@ -147,7 +193,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Historique complet pour scanner tous les commits
+          fetch-depth: 0  # Historique complet requis pour scanner tous les commits
 
       - name: Scan secrets with TruffleHog
         uses: trufflesecurity/trufflehog@main
@@ -157,6 +203,15 @@ jobs:
           head: HEAD
           extra_args: --only-verified
 
+  # ===========================
+  # [3] BUILD & SÉCURITÉ IMAGES DOCKER
+  # Construit les images backend et frontend, puis enchaîne trois niveaux
+  # de contrôle de sécurité :
+  #   - Trivy   : scan CVE sur OS et librairies (CRITICAL + HIGH)
+  #   - Dockle  : audit de configuration Dockerfile (CIS Docker Benchmark)
+  #   - SBOM    : génération du Software Bill of Materials (format SPDX-JSON)
+  #               conservé 90 jours comme artifact CI pour traçabilité supply chain
+  # ===========================
   docker-build:
     needs: [ backend-checks, frontend-checks, semgrep, trufflehog ]
     runs-on: ubuntu-latest
@@ -188,6 +243,7 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
+      # — Trivy : scan CVE ——————————————————————————————————————————————————
       - name: Scan Backend Image with Trivy
         uses: aquasecurity/trivy-action@0.20.0
         with:
@@ -208,6 +264,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
+      # — Dockle : audit configuration Dockerfile ——————————————————————————
       - name: Install Dockle
         run: |
           VERSION=$(curl -s https://api.github.com/repos/goodwithtech/dockle/releases/latest \
@@ -224,6 +281,7 @@ jobs:
         run: dockle --exit-code 1 --exit-level fatal frontend:ci
         continue-on-error: true
 
+      # — SBOM : traçabilité supply chain ——————————————————————————————————
       - name: Generate SBOM - Backend
         uses: anchore/sbom-action@v0
         with:
@@ -246,7 +304,11 @@ jobs:
           retention-days: 90
 
   # ===========================
-  # PUSH TO GHCR (main + ci_deploy_vps)
+  # [4] PUSH GHCR
+  # Pousse les images buildées vers le GitHub Container Registry avec deux tags :
+  #   - :latest          → dernière version stable
+  #   - :<git-sha>       → version immuable liée au commit exact
+  # Exécuté uniquement sur push vers main.
   # ===========================
   docker-push:
     needs: [ docker-build ]
@@ -254,14 +316,14 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
-      packages: write
+      packages: write  # Requis pour pousser sur GHCR
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set image name
-        # Lowercase le repo + supprime les tirets en fin de segment de chemin
+        # Normalise le nom du dépôt en minuscules et supprime les tirets en fin de segment
         # ex: ECG-Rudy-Glt/4PROJ- → ecg-rudy-glt/4proj
         run: |
           echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
@@ -269,14 +331,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
 
       - name: Build and Push Backend
         uses: docker/build-push-action@v5
@@ -302,7 +362,11 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
 
   # ===========================
-  # DEPLOY PREPROD (main + ci_deploy_vps)
+  # [5] DÉPLOIEMENT PRÉPROD
+  # Copie les fichiers de configuration (docker-compose, nginx, .env) sur le VPS
+  # via SSH, puis lance un docker compose pull + up pour déployer les nouvelles
+  # images depuis GHCR. Nettoie les images âgées de plus de 7 jours.
+  # Exécuté uniquement sur push vers main.
   # ===========================
   deploy-preprod:
     needs: [ docker-push ]
@@ -332,7 +396,7 @@ jobs:
           ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
             mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
 
-      - name: Copy files to VPS
+      - name: Copy compose and nginx config to VPS
         run: |
           scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
           scp docker-compose.vps.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
