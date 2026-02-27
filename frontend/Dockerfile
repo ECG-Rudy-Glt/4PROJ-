@@ -21,6 +21,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 
+# Déclaration explicite du user non-root (nginx-unprivileged le définit dans son image de base)
+# Nécessaire pour que les outils d'analyse statique (Semgrep, Dockle) le détectent
+USER nginx
+
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://localhost:8080/ || exit 1
 
