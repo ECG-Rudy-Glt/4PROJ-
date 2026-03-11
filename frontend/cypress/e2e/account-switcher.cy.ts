@@ -1,104 +1,25 @@
-const ORG_ID = 'org-1';
+import { createBaseUser, interceptAppShell } from './helpers/appMocks';
 
-const profileUser = {
+const rootUser = createBaseUser({
   id: 'user-1',
   email: 'root@supfile.com',
   firstName: 'Root',
   lastName: 'User',
-  avatar: null,
   role: 'ADMIN',
-  accountStatus: 'ACTIVE',
   plan: 'PRO',
-  subscriptionStatus: 'ACTIVE',
-  vaultEnabled: false,
-  currentOrganizationId: ORG_ID,
-  quotaUsed: 0,
-  quotaLimit: 32212254720,
-  theme: 'light',
-  createdAt: '2026-01-01T00:00:00.000Z',
+});
+
+const directSession = {
+  authType: 'DIRECT',
+  rootUserId: rootUser.id,
+  actorUserId: rootUser.id,
+  delegation: null,
 };
 
 const interceptBaseAppCalls = () => {
-  cy.intercept('GET', '**/api/auth/profile', {
-    statusCode: 200,
-    body: {
-      user: profileUser,
-      session: {
-        authType: 'DIRECT',
-        rootUserId: profileUser.id,
-        actorUserId: profileUser.id,
-        delegation: null,
-      },
-    },
-  }).as('getProfile');
-
-  cy.intercept('GET', '**/api/vault/status', {
-    statusCode: 200,
-    body: {
-      status: {
-        available: true,
-        enabled: false,
-        unlocked: false,
-        locked: false,
-      },
-      rootFolder: null,
-    },
-  });
-
-  cy.intercept('GET', '**/api/notifications*', {
-    statusCode: 200,
-    body: { notifications: [], unreadCount: 0 },
-  });
-
-  cy.intercept('GET', '**/api/push/vapid-public-key', {
-    statusCode: 200,
-    body: { publicKey: null },
-  });
-  cy.intercept('POST', '**/api/push/subscribe', {
-    statusCode: 200,
-    body: { success: true },
-  });
-  cy.intercept('POST', '**/api/push/unsubscribe', {
-    statusCode: 200,
-    body: { success: true },
-  });
-
-  cy.intercept('GET', '**/api/organizations/mine', {
-    statusCode: 200,
-    body: {
-      organizations: [
-        {
-          id: 'membership-1',
-          organizationId: ORG_ID,
-          userId: profileUser.id,
-          role: 'OWNER',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-          organization: {
-            id: ORG_ID,
-            name: 'Org QA',
-            slug: 'org-qa',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-          },
-        },
-      ],
-    },
-  });
-
-  cy.intercept('GET', `**/api/organizations/${ORG_ID}`, {
-    statusCode: 200,
-    body: {
-      organization: {
-        id: ORG_ID,
-        name: 'Org QA',
-        slug: 'org-qa',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-        members: [],
-      },
-      membershipRole: 'OWNER',
-    },
+  interceptAppShell({
+    user: rootUser,
+    session: directSession,
   });
 };
 
@@ -134,7 +55,7 @@ describe('Account Switcher Modal', () => {
           lastAuthenticatedAt: '2026-01-01T00:00:00.000Z',
           createdAt: '2026-01-01T00:00:00.000Z',
           targetUser: {
-            ...profileUser,
+            ...rootUser,
             id: 'target-1',
             email: 'linked@example.com',
           },
@@ -179,7 +100,7 @@ describe('Account Switcher Modal', () => {
             lastAuthenticatedAt: '2026-01-01T00:00:00.000Z',
             createdAt: '2026-01-01T00:00:00.000Z',
             targetUser: {
-              ...profileUser,
+              ...rootUser,
               id: 'target-2',
               email: 'target@example.com',
             },
@@ -198,7 +119,7 @@ describe('Account Switcher Modal', () => {
       body: {
         token: 'switched-token',
         user: {
-          ...profileUser,
+          ...rootUser,
           id: 'target-2',
           email: 'target@example.com',
         },
@@ -222,6 +143,116 @@ describe('Account Switcher Modal', () => {
 
     cy.window().then((win) => {
       expect(win.localStorage.getItem('token')).to.equal('switched-token');
+    });
+  });
+
+  it('switches to another account and then returns to the root account', () => {
+    const switchedUser = {
+      ...rootUser,
+      id: 'target-3',
+      email: 'switched@example.com',
+      firstName: 'Switched',
+    };
+
+    let currentProfile = {
+      user: rootUser,
+      session: directSession,
+    };
+
+    cy.intercept(
+      {
+        method: 'GET',
+        url: '**/api/auth/profile',
+        middleware: true,
+      },
+      (req) => {
+        req.reply({
+          statusCode: 200,
+          body: currentProfile,
+        });
+      }
+    ).as('getDynamicProfile');
+
+    cy.intercept('GET', '**/api/account-access/switch-links', {
+      statusCode: 200,
+      body: {
+        links: [
+          {
+            id: 'link-1',
+            label: 'Compte bascule',
+            expiresAt: '2026-12-31T00:00:00.000Z',
+            lastAuthenticatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            targetUser: switchedUser,
+          },
+        ],
+      },
+    }).as('listSwitchLinks');
+
+    cy.intercept('GET', '**/api/account-access/delegations', {
+      statusCode: 200,
+      body: { given: [], received: [] },
+    }).as('listDelegations');
+
+    cy.intercept('POST', '**/api/account-access/switch-links/link-1/switch', () => {
+      currentProfile = {
+        user: switchedUser,
+        session: {
+          authType: 'SWITCH',
+          rootUserId: rootUser.id,
+          actorUserId: rootUser.id,
+          delegation: null,
+        },
+      };
+
+      return {
+        statusCode: 200,
+        body: {
+          token: 'switched-token-2',
+          user: switchedUser,
+        },
+      };
+    }).as('switchAccount');
+
+    cy.intercept('POST', '**/api/account-access/switch/back', () => {
+      currentProfile = {
+        user: rootUser,
+        session: directSession,
+      };
+
+      return {
+        statusCode: 200,
+        body: {
+          token: 'root-token',
+          user: rootUser,
+        },
+      };
+    }).as('switchBack');
+
+    cy.visit('/organization-admin', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('token', 'test-token');
+      },
+    });
+
+    cy.wait('@getDynamicProfile');
+
+    cy.get('button[title="Switch de comptes"]').click();
+    cy.wait('@listSwitchLinks');
+    cy.wait('@listDelegations');
+    cy.contains('button', 'Switch').click();
+    cy.wait('@switchAccount');
+
+    cy.window().then((win) => {
+      expect(win.localStorage.getItem('token')).to.equal('switched-token-2');
+    });
+
+    cy.get('button[title="Switch de comptes"]').click();
+    cy.contains('button', 'Revenir au compte principal').click();
+    cy.wait('@switchBack');
+
+    cy.window().then((win) => {
+      expect(win.localStorage.getItem('token')).to.equal('root-token');
     });
   });
 });
