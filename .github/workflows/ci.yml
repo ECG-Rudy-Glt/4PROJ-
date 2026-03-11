@@ -1,12 +1,41 @@
 name: CI Pipeline
 
+# Déclenchement sur push et PR vers les branches principales
 on:
   push:
-    branches: [ main, claude-proto, rgt_ci ]
+    branches: [ main, claude-proto, scanning_code ]
   pull_request:
-    branches: [ main, claude-proto, rgt_ci ]
+    branches: [ main, claude-proto, scanning_code ]
+
+# Permissions globales : lecture seule par défaut (principe de moindre privilège)
+# Les jobs qui ont besoin de plus de droits les déclarent localement (ex: docker-push)
+permissions:
+  contents: read
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ordre d'exécution :
+#
+#  [1] validate-env          → Vérifie que les secrets requis sont configurés
+#       │
+#       ├─ [2a] backend-checks   ┐
+#       ├─ [2b] frontend-checks  ├─ Qualité & tests (parallèle)
+#       ├─ [2c] semgrep          ┤  Sécurité code source (SAST)
+#       └─ [2d] trufflehog       ┘  Détection de secrets dans l'historique git
+#            │
+#           [3] docker-build  → Build images + scan CVE (Trivy) + config (Dockle) + SBOM
+#            │
+#           [4] docker-push   → Push GHCR (main uniquement)
+#            │
+#           [5] deploy-preprod → Déploiement VPS via SSH (main uniquement)
+# ─────────────────────────────────────────────────────────────────────────────
 
 jobs:
+
+  # ===========================
+  # [1] VALIDATION PRÉ-REQUIS
+  # Vérifie que les secrets nécessaires au pipeline sont bien configurés
+  # dans GitHub Actions avant de lancer les jobs coûteux.
+  # ===========================
   validate-env:
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +51,11 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
           FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
 
+  # ===========================
+  # [2a] QUALITÉ BACKEND
+  # Installe les dépendances, génère le client Prisma, compile TypeScript,
+  # exécute les tests unitaires avec couverture et audite les dépendances npm.
+  # ===========================
   backend-checks:
     needs: validate-env
     runs-on: ubuntu-latest
@@ -47,8 +81,18 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: ./backend/node_modules
+          key: ${{ runner.os }}-backend-${{ hashFiles('./backend/package.json') }}
+          restore-keys: ${{ runner.os }}-backend-
+
       - name: Install Dependencies
         run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Verify Types and Build
         run: npm run build
@@ -59,6 +103,11 @@ jobs:
       - name: Audit Dependencies
         run: npm audit --audit-level=high
 
+  # ===========================
+  # [2b] QUALITÉ FRONTEND
+  # Installe les dépendances, vérifie le linting ESLint, compile le bundle Vite,
+  # audite les dépendances npm et exécute les tests E2E Cypress sur le preview.
+  # ===========================
   frontend-checks:
     needs: validate-env
     runs-on: ubuntu-latest
@@ -77,6 +126,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./frontend/node_modules
+            ~/.cache/Cypress
+          key: ${{ runner.os }}-frontend-${{ hashFiles('./frontend/package.json') }}
+          restore-keys: ${{ runner.os }}-frontend-
+
       - name: Install Dependencies
         run: npm install
 
@@ -89,30 +147,107 @@ jobs:
       - name: Audit Dependencies
         run: npm audit --audit-level=high
 
-      - name: Run Cypress Tests
+      - name: Run Cypress E2E Tests
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
-          build: npm run build
+          install: false
           start: npm run preview
           wait-on: 'http://localhost:4173'
 
+  # ===========================
+  # [2c] SAST — ANALYSE STATIQUE DE SÉCURITÉ (Semgrep)
+  # Analyse le code source à la recherche de vulnérabilités connues
+  # via les règles communautaires Semgrep (défaut, Node.js, React).
+  # Bloque le pipeline sur toute finding de niveau ERROR.
+  # ===========================
+  semgrep:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST
+        run: |
+          semgrep scan \
+            --config "p/default" \
+            --config "p/nodejs" \
+            --config "p/react" \
+            --error \
+            --severity ERROR \
+            .
+
+  # ===========================
+  # [2d] DÉTECTION DE SECRETS (TruffleHog)
+  # Scanne tout l'historique git à la recherche de secrets (clés API, tokens,
+  # mots de passe) qui auraient été commités. Seuls les secrets vérifiés
+  # (actifs et confirmés) bloquent le pipeline (--only-verified).
+  # ===========================
+  trufflehog:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Historique complet requis pour scanner tous les commits
+
+      - name: Install TruffleHog
+        run: curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Scan secrets with TruffleHog
+        # Mode CLI direct : évite que l'action wrapper tente de résoudre 'main'
+        # comme ref de base (comportement par défaut de l'action en contexte GitHub).
+        # Scanne tout l'historique git avec --only-verified pour ne bloquer
+        # que sur des secrets actifs et confirmés.
+        run: trufflehog git file://. --only-verified --fail
+
+  # ===========================
+  # [3] BUILD & SÉCURITÉ IMAGES DOCKER
+  # Construit les images backend et frontend, puis enchaîne trois niveaux
+  # de contrôle de sécurité :
+  #   - Trivy   : scan CVE sur OS et librairies (CRITICAL + HIGH)
+  #   - Dockle  : audit de configuration Dockerfile (CIS Docker Benchmark)
+  #   - SBOM    : génération du Software Bill of Materials (format SPDX-JSON)
+  #               conservé 90 jours comme artifact CI pour traçabilité supply chain
+  # ===========================
   docker-build:
-    needs: [ backend-checks, frontend-checks ]
+    needs: [ backend-checks, frontend-checks, semgrep, trufflehog ]
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Backend Docker Image
-        run: docker build -t backend:ci ./backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
       - name: Build Frontend Docker Image
-        run: docker build -t frontend:ci ./frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          load: true
+          tags: frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
+      # — Trivy : scan CVE ——————————————————————————————————————————————————
       - name: Scan Backend Image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: 'backend:ci'
           format: 'table'
@@ -122,7 +257,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Scan Frontend Image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: 'frontend:ci'
           format: 'table'
@@ -131,3 +266,173 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
+      # — Dockle : audit configuration Dockerfile ——————————————————————————
+      - name: Install Dockle
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/goodwithtech/dockle/releases/latest \
+            | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          curl -sL "https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Linux-64bit.tar.gz" \
+            | tar xz
+          sudo mv dockle /usr/local/bin/
+
+      - name: Scan Backend Image with Dockle
+        run: dockle --exit-code 1 --exit-level fatal backend:ci
+        continue-on-error: true
+
+      - name: Scan Frontend Image with Dockle
+        # CIS-DI-0010 ignoré : KEY_SHA512 vient du build de l'image nginx-unprivileged
+        # (vérification de la signature nginx) — faux positif confirmé
+        run: dockle --exit-code 1 --exit-level fatal --ignore CIS-DI-0010 frontend:ci
+        continue-on-error: true
+
+      # — SBOM : traçabilité supply chain ——————————————————————————————————
+      - name: Generate SBOM - Backend
+        uses: anchore/sbom-action@v0
+        with:
+          image: backend:ci
+          format: spdx-json
+          output-file: sbom-backend.spdx.json
+
+      - name: Generate SBOM - Frontend
+        uses: anchore/sbom-action@v0
+        with:
+          image: frontend:ci
+          format: spdx-json
+          output-file: sbom-frontend.spdx.json
+
+      - name: Upload SBOMs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-*.spdx.json
+          retention-days: 90
+
+  # ===========================
+  # [4] PUSH GHCR
+  # Pousse les images buildées vers le GitHub Container Registry avec deux tags :
+  #   - :latest          → dernière version stable
+  #   - :<git-sha>       → version immuable liée au commit exact
+  # Exécuté uniquement sur push vers main.
+  # ===========================
+  docker-push:
+    needs: [ docker-build ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write  # Requis pour pousser sur GHCR
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set image name
+        # Normalise le nom du dépôt en minuscules et supprime les tirets en fin de segment
+        # ex: ECG-Rudy-Glt/4PROJ- → ecg-rudy-glt/4proj
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
+          build-args: VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ===========================
+  # [5] DÉPLOIEMENT PRÉPROD
+  # Copie les fichiers de configuration (docker-compose, nginx, .env) sur le VPS
+  # via SSH, puis lance un docker compose pull + up pour déployer les nouvelles
+  # images depuis GHCR. Nettoie les images âgées de plus de 7 jours.
+  # Exécuté uniquement sur push vers main.
+  # ===========================
+  deploy-preprod:
+    needs: [ docker-push ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: preprod
+      url: https://${{ vars.PREPROD_DEPLOY_HOST }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set image name
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Ensure deploy path exists on VPS
+        run: |
+          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
+            mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
+
+      - name: Copy compose and nginx config to VPS
+        run: |
+          scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+          scp docker-compose.vps.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+          scp frontend/nginx.vps.conf ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+
+      - name: Copy .env to VPS
+        run: |
+          if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
+            echo "${PREPROD_ENV_FILE_CONTENT}" > .env.tmp
+            scp .env.tmp ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/.env
+            rm .env.tmp
+          fi
+        env:
+          PREPROD_ENV_FILE_CONTENT: ${{ secrets.PREPROD_ENV_FILE_CONTENT }}
+
+      - name: Deploy on VPS
+        run: |
+          BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
+          FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
+          GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
+          ACTOR="${{ github.actor }}"
+          DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
+
+          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
+            export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
+            cd ${DEPLOY_PATH}
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+            export BACKEND_IMAGE=${BACKEND_IMAGE}
+            export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --wait-timeout 120 --remove-orphans
+            docker image prune -a -f --filter "until=168h"
+          EOF

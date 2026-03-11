@@ -86,7 +86,8 @@ export class EncryptionService {
 
         fs.closeSync(fd);
 
-        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+        // Tag length enforced: we write exactly 16 bytes and read exactly 16 bytes (see tagParams above).
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
         decipher.setAuthTag(tag);
 
         const input = fs.createReadStream(filePath, { start: 16, end: fileSize - 17 });

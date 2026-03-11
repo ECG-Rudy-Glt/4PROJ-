@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 // Use environment variable or fallback to relative URL
-// If VITE_API_URL is set, append /api to it
+// VITE_API_URL should be the server root (e.g. https://domain.com), /api is appended automatically
 const baseURL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
+  ? `${import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '')}/api`
   : '/api';
 
 const api = axios.create({

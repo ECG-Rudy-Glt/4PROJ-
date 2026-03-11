@@ -83,32 +83,18 @@ app.use(helmet({
       preload: true,
     }
     : false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      mediaSrc: ["'self'", "blob:", "data:"],
-      connectSrc: ["'self'", ...ALLOWED_ORIGINS, 'ws:', 'wss:'],
-      frameAncestors: ["'self'", ...ALLOWED_ORIGINS],
-      objectSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false,
 }));
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (isOriginAllowed(ALLOWED_ORIGINS, origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error('Origin not allowed by CORS'));
-  },
+  origin: true,
   credentials: true,
 }));
 
-// Rate limiting - Much more permissive for development
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 50000, // 500 requests per minute
+  max: 500, // 500 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },

@@ -19,14 +19,9 @@ export class SocketService {
 
         this.io = new Server(httpServer, {
             cors: {
-                origin: (origin, callback) => {
-                    if (isOriginAllowed(allowedOrigins, origin)) {
-                        callback(null, true);
-                        return;
-                    }
-                    callback(new Error('Origin not allowed'));
-                },
+                origin: true,
                 methods: ['GET', 'POST'],
+                credentials: true,
             },
             path: '/socket.io',
         });

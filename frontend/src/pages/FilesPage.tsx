@@ -43,8 +43,6 @@ import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useVaultStore } from '@/stores/useVaultStore';
-import { vaultService } from '@/services/vaultService';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -110,10 +108,6 @@ export default function FilesPage() {
   const searchQuery = searchParams.get('search');
   const { files, folders, loadContent, createFolder, deleteFile, sortBy, sortOrder, setSorting } = useFileStore();
   const { user, loadUser } = useAuthStore();
-  const vaultRootFolder = useVaultStore((state) => state.rootFolder);
-  const vaultStatus = useVaultStore((state) => state.status);
-  const isInVaultContext = useVaultStore((state) => state.isInVaultContext);
-  const setInVaultContext = useVaultStore((state) => state.setInVaultContext);
 
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbType[]>([]);
   const [searchResults, setSearchResults] = useState<File[]>([]);
@@ -160,7 +154,6 @@ export default function FilesPage() {
   const [pendingSharesCount, setPendingSharesCount] = useState(0);
   const [acceptedSharedFiles, setAcceptedSharedFiles] = useState<any[]>([]);
   const [acceptedSharedFolders, setAcceptedSharedFolders] = useState<any[]>([]);
-  const previousVaultContextRef = useRef(false);
 
   // Rename state
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
@@ -268,7 +261,7 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folderId, searchQuery, activeFilters]);
 
   // Handle auto-preview from dashboard
@@ -288,56 +281,10 @@ export default function FilesPage() {
   }, [files, searchParams, navigate]);
 
   useEffect(() => {
-    uploadingFilesRef.current = uploadingFiles;
-  }, [uploadingFiles]);
-
-  useEffect(() => {
     const controllers = activeUploadControllersRef.current;
     return () => {
       controllers.forEach((controller) => controller.abort());
       controllers.clear();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!folderId || !vaultRootFolder?.id) {
-      setInVaultContext(false);
-      return;
-    }
-
-    const isVaultRoot = folderId === vaultRootFolder.id;
-    const isVaultChild = breadcrumbs.length > 0 && breadcrumbs[0].id === vaultRootFolder.id;
-    setInVaultContext(isVaultRoot || isVaultChild);
-  }, [folderId, breadcrumbs, vaultRootFolder?.id, setInVaultContext]);
-
-  useEffect(() => {
-    const wasInVault = previousVaultContextRef.current;
-    if (wasInVault && !isInVaultContext && vaultStatus?.enabled && vaultStatus?.unlocked) {
-      void vaultService
-        .lock()
-        .then(() => useVaultStore.getState().refreshStatus())
-        .catch(() => undefined);
-    }
-
-    previousVaultContextRef.current = isInVaultContext;
-  }, [isInVaultContext, vaultStatus?.enabled, vaultStatus?.unlocked]);
-
-  useEffect(() => {
-    return () => {
-      const state = useVaultStore.getState();
-      const shouldAutoLock =
-        state.status?.enabled &&
-        state.status?.unlocked &&
-        state.isInVaultContext;
-
-      state.setInVaultContext(false);
-
-      if (shouldAutoLock) {
-        void vaultService
-          .lock()
-          .then(() => state.refreshStatus())
-          .catch(() => undefined);
-      }
     };
   }, []);
 
@@ -363,21 +310,13 @@ export default function FilesPage() {
     }
   };
 
-  interface FileWithPath {
-    file: globalThis.File;
-    relativePath: string;
-  }
-
-  const collectEntriesWithPaths = async (entry: any, currentPath: string = ''): Promise<FileWithPath[]> => {
+  const collectFilesFromEntry = async (entry: any): Promise<globalThis.File[]> => {
     if (!entry) return [];
 
     if (entry.isFile) {
       return new Promise((resolve) => {
         entry.file(
-          (file: globalThis.File) => {
-            const rel = currentPath ? `${currentPath}/${file.name}` : file.name;
-            resolve([{ file, relativePath: rel }]);
-          },
+          (file: globalThis.File) => resolve([file]),
           () => resolve([])
         );
       });
@@ -395,92 +334,41 @@ export default function FilesPage() {
         entries.push(...batch);
       } while (batch.length > 0);
 
-      const childPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-      const nested = await Promise.all(entries.map((child) => collectEntriesWithPaths(child, childPath)));
-      return nested.flat();
+      const nestedFiles = await Promise.all(entries.map((child) => collectFilesFromEntry(child)));
+      return nestedFiles.flat();
     }
 
     return [];
   };
 
-  const extractDroppedEntries = async (e: React.DragEvent): Promise<FileWithPath[]> => {
+  const extractDroppedFiles = async (e: React.DragEvent): Promise<globalThis.File[]> => {
     const items = Array.from(e.dataTransfer.items || []);
     if (items.length === 0) {
-      return Array.from(e.dataTransfer.files || []).map((file) => ({ file, relativePath: file.name }));
+      return Array.from(e.dataTransfer.files || []);
     }
 
-    const grouped = await Promise.all(
+    const groupedFiles = await Promise.all(
       items.map(async (item) => {
-        const withEntry = item as DataTransferItem & { webkitGetAsEntry?: () => any };
+        const withEntry = item as DataTransferItem & {
+          webkitGetAsEntry?: () => any;
+        };
         const entry = withEntry.webkitGetAsEntry ? withEntry.webkitGetAsEntry() : null;
 
         if (entry) {
-          return await collectEntriesWithPaths(entry);
+          return await collectFilesFromEntry(entry);
         }
 
         const file = item.getAsFile();
-        return file ? [{ file, relativePath: file.name }] : [];
+        return file ? [file] : [];
       })
     );
 
-    const flattened = grouped.flat();
-    if (flattened.length > 0) return flattened;
-
-    return Array.from(e.dataTransfer.files || []).map((file) => ({ file, relativePath: file.name }));
-  };
-
-  // Crée la structure de dossiers et enfile les fichiers avec les bons targetFolderId
-  const enqueueUploadWithStructure = async (filesWithPaths: FileWithPath[]) => {
-    if (filesWithPaths.length === 0) return;
-
-    const hasStructure = filesWithPaths.some(({ relativePath }) => relativePath.includes('/'));
-
-    if (!hasStructure) {
-      enqueueUpload(filesWithPaths.map(({ file }) => ({ file })));
-      return;
+    const flattened = groupedFiles.flat();
+    if (flattened.length > 0) {
+      return flattened;
     }
 
-    // Collecter tous les chemins de dossiers uniques, triés du plus court au plus long
-    const allFolderPaths = new Set<string>();
-    for (const { relativePath } of filesWithPaths) {
-      const parts = relativePath.split('/');
-      let path = '';
-      for (let i = 0; i < parts.length - 1; i++) {
-        path = path ? `${path}/${parts[i]}` : parts[i];
-        allFolderPaths.add(path);
-      }
-    }
-
-    const sortedPaths = Array.from(allFolderPaths).sort((a, b) => a.split('/').length - b.split('/').length);
-
-    // Map path → folderId ('' = dossier courant)
-    const folderIdMap = new Map<string, string | undefined>();
-    folderIdMap.set('', folderId);
-
-    for (const folderPath of sortedPaths) {
-      const parts = folderPath.split('/');
-      const name = parts[parts.length - 1];
-      const parentPath = parts.slice(0, -1).join('/');
-      const parentId = folderIdMap.get(parentPath);
-
-      try {
-        const data = await folderService.createFolder(name, parentId);
-        folderIdMap.set(folderPath, data.folder.id);
-      } catch {
-        // dossier déjà existant : continuer
-      }
-    }
-
-    // Refresh pour afficher les dossiers créés
-    await loadContent(folderId, sortBy, sortOrder, activeFilters);
-
-    const items = filesWithPaths.map(({ file, relativePath }) => {
-      const parts = relativePath.split('/');
-      const folderPath = parts.slice(0, -1).join('/');
-      return { file, targetFolderId: folderIdMap.get(folderPath) };
-    });
-
-    enqueueUpload(items);
+    return Array.from(e.dataTransfer.files || []);
   };
 
   const uploadSingleFile = async (uploadingFile: UploadingFile): Promise<void> => {
@@ -504,7 +392,7 @@ export default function FilesPage() {
     try {
       await fileService.uploadFile(
         uploadingFile.file,
-        uploadingFile.targetFolderId ?? folderId,
+        folderId,
         (progress) => {
           setUploadingFiles((prev) => {
             const next = prev.map((file) =>
@@ -601,7 +489,7 @@ export default function FilesPage() {
     await loadUser();
   };
 
-  const enqueueUpload = (filesToUpload: { file: globalThis.File; targetFolderId?: string }[]) => {
+  const enqueueUpload = (filesToUpload: globalThis.File[]) => {
     if (filesToUpload.length === 0) {
       return;
     }
@@ -613,7 +501,7 @@ export default function FilesPage() {
       .reduce((sum, file) => sum + file.file.size, 0);
 
     let runningQuotaUsed = quotaUsed + reservedBytes;
-    const queuedFiles: UploadingFile[] = filesToUpload.map(({ file, targetFolderId }, index) => {
+    const queuedFiles: UploadingFile[] = filesToUpload.map((file, index) => {
       const wouldExceedQuota = quotaLimit > 0 && (runningQuotaUsed + file.size) > quotaLimit;
 
       if (!wouldExceedQuota) {
@@ -626,26 +514,23 @@ export default function FilesPage() {
         progress: 0,
         status: wouldExceedQuota ? 'error' as const : 'pending' as const,
         error: wouldExceedQuota ? 'Quota dépassé - espace insuffisant' : undefined,
-        targetFolderId,
       };
     });
 
     const pendingCount = queuedFiles.filter((file) => file.status === 'pending').length;
     if (pendingCount === 0) {
       toast.error('Aucun fichier ne peut être téléversé - quota dépassé');
-      const updatedFiles = [...uploadingFilesRef.current, ...queuedFiles];
-      uploadingFilesRef.current = updatedFiles;
       setShowUploadModal(true);
-      setUploadingFiles(updatedFiles);
+      const nextQuota = [...uploadingFilesRef.current, ...queuedFiles];
+      uploadingFilesRef.current = nextQuota;
+      setUploadingFiles(nextQuota);
       return;
     }
 
-    // Mettre à jour le ref de façon synchrone AVANT de démarrer la file
-    const updatedFiles = [...uploadingFilesRef.current, ...queuedFiles];
-    uploadingFilesRef.current = updatedFiles;
-
     setShowUploadModal(true);
-    setUploadingFiles(updatedFiles);
+    const next = [...uploadingFilesRef.current, ...queuedFiles];
+    uploadingFilesRef.current = next;
+    setUploadingFiles(next);
 
     void processUploadQueue();
   };
@@ -654,7 +539,7 @@ export default function FilesPage() {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    enqueueUpload(Array.from(selectedFiles).map((file) => ({ file })));
+    enqueueUpload(Array.from(selectedFiles));
     e.target.value = '';
   };
 
@@ -662,12 +547,7 @@ export default function FilesPage() {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    const filesWithPaths: FileWithPath[] = Array.from(selectedFiles).map((file) => ({
-      file,
-      relativePath: (file as any).webkitRelativePath || file.name,
-    }));
-
-    void enqueueUploadWithStructure(filesWithPaths);
+    enqueueUpload(Array.from(selectedFiles));
     e.target.value = '';
   };
 
@@ -676,10 +556,10 @@ export default function FilesPage() {
     e.stopPropagation();
     setIsDragging(false);
 
-    const entries = await extractDroppedEntries(e);
-    if (entries.length === 0) return;
+    const droppedFiles = await extractDroppedFiles(e);
+    if (droppedFiles.length === 0) return;
 
-    void enqueueUploadWithStructure(entries);
+    enqueueUpload(droppedFiles);
   };
 
   const handleCancelUpload = () => {
@@ -697,7 +577,6 @@ export default function FilesPage() {
     setShowUploadModal(false);
     setUploadingFiles([]);
     uploadingFilesRef.current = [];
-    isQueueProcessingRef.current = false;
 
     const successCount = uploadingFiles.filter((file) => file.status === 'success').length;
     const errorCount = uploadingFiles.filter((file) => file.status === 'error').length;
@@ -729,7 +608,6 @@ export default function FilesPage() {
     try {
       await deleteFile(fileId);
       toast.success('Déplacé vers la corbeille');
-      await loadUser(); // Refresh quota display
     } catch {
       toast.error('Échec de la suppression');
     }

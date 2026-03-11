@@ -8,8 +8,15 @@ jest.mock('../../config/database', () => ({
   default: {
     user: {
       findUnique: jest.fn(),
+      create: jest.fn(),
       update: jest.fn(),
     }
+  }
+}));
+
+jest.mock('../planService', () => ({
+  PlanService: {
+    getStorageLimit: jest.fn().mockReturnValue(BigInt(104857600)),
   }
 }));
 
@@ -35,6 +42,67 @@ jest.mock('../mailService', () => ({
 describe('AuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('register', () => {
+    const mockCreatedUser = {
+      id: 'new-user-id',
+      email: 'new@example.com',
+      password: 'hashedpassword',
+      firstName: 'John',
+      lastName: 'Doe',
+      avatar: null,
+      role: 'USER',
+      accountStatus: 'ACTIVE',
+      plan: 'FREE',
+      subscriptionStatus: 'ACTIVE',
+      vaultEnabled: false,
+      currentOrganizationId: null,
+      quotaUsed: BigInt(0),
+      quotaLimit: BigInt(104857600),
+      theme: 'light',
+      tokenVersion: 1,
+      mfaEnabled: false,
+      lastActiveAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('should register a new user successfully', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashedpassword');
+      (prisma.user.create as jest.Mock).mockResolvedValue(mockCreatedUser);
+      (generateToken as jest.Mock).mockReturnValue('mock-token');
+
+      const result = await AuthService.register('new@example.com', 'password123', 'John', 'Doe');
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: 'new@example.com' } });
+      expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
+      expect(prisma.user.create).toHaveBeenCalled();
+      expect(result.token).toBe('mock-token');
+      expect(result.user.email).toBe('new@example.com');
+      expect(result.user.firstName).toBe('John');
+      expect(result.user.lastName).toBe('Doe');
+    });
+
+    it('should throw an error if user already exists', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'existing-id', email: 'new@example.com' });
+
+      await expect(AuthService.register('new@example.com', 'password123')).rejects.toThrow('User already exists');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('should register without firstName and lastName', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashedpassword');
+      (prisma.user.create as jest.Mock).mockResolvedValue({ ...mockCreatedUser, firstName: undefined, lastName: undefined });
+      (generateToken as jest.Mock).mockReturnValue('mock-token');
+
+      const result = await AuthService.register('new@example.com', 'password123');
+
+      expect(result.token).toBe('mock-token');
+      expect(result.user.email).toBe('new@example.com');
+    });
   });
 
   describe('login', () => {
