@@ -87,7 +87,19 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    if (ENFORCE_HTTPS && origin && origin.startsWith('http://') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      callback(new Error('Secure transport required'));
+      return;
+    }
+
+    if (isOriginAllowed(ALLOWED_ORIGINS, origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 

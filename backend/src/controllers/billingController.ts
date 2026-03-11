@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Plan } from '@prisma/client';
+import { Plan, Role } from '@prisma/client';
 import { AuthRequest } from '../types';
 import { BillingService } from '../services/billingService';
 import { PlanService } from '../services/planService';
@@ -20,8 +20,16 @@ export class BillingController {
         return;
       }
 
-      // Mode développement sans Stripe : changement de plan direct
+      // Bypass Stripe uniquement pour les comptes ADMIN (mode dev / secours)
       if (!process.env.STRIPE_SECRET_KEY) {
+        if (req.user?.role !== Role.ADMIN) {
+          res.status(503).json({
+            error: 'Stripe non configuré',
+            message: 'Paiement indisponible temporairement. Contactez un administrateur.',
+          });
+          return;
+        }
+
         const newLimit = PlanService.getStorageLimit(plan as Plan);
         await prisma.user.update({
           where: { id: userId },

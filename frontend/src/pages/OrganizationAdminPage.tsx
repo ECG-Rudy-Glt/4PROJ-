@@ -5,6 +5,7 @@ import { OrganizationMembership, OrganizationMemberRow } from '@/types';
 import api from '@/services/api';
 
 const ROLE_OPTIONS: Array<'OWNER' | 'ADMIN' | 'MEMBER'> = ['OWNER', 'ADMIN', 'MEMBER'];
+const NON_OWNER_ROLE_OPTIONS: Array<'ADMIN' | 'MEMBER'> = ['ADMIN', 'MEMBER'];
 
 interface UserSuggestion {
   id: string;
@@ -28,6 +29,7 @@ export default function OrganizationAdminPage() {
   const searchTimeoutRef = useRef<number | undefined>();
 
   const canManageMembers = membershipRole === 'OWNER' || membershipRole === 'ADMIN';
+  const assignableRoles = membershipRole === 'OWNER' ? ROLE_OPTIONS : NON_OWNER_ROLE_OPTIONS;
 
   const selectedOrganization = useMemo(
     () => organizations.find((item) => item.organizationId === selectedOrgId)?.organization,
@@ -77,6 +79,12 @@ export default function OrganizationAdminPage() {
   useEffect(() => {
     void loadOrganizationDetails(selectedOrgId);
   }, [selectedOrgId]);
+
+  useEffect(() => {
+    if (membershipRole !== 'OWNER' && inviteRole === 'OWNER') {
+      setInviteRole('MEMBER');
+    }
+  }, [membershipRole, inviteRole]);
 
   useEffect(() => {
     if (inviteEmail.length >= 2) {
@@ -272,7 +280,7 @@ export default function OrganizationAdminPage() {
                 onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
                 className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
               >
-                {ROLE_OPTIONS.map((role) => (
+                {assignableRoles.map((role) => (
                   <option key={role} value={role}>
                     {role}
                   </option>
@@ -322,13 +330,13 @@ export default function OrganizationAdminPage() {
                         <div className="text-xs text-gray-500 dark:text-gray-400">{member.user.email}</div>
                       </td>
                       <td className="px-4 py-3">
-                        {canManageMembers ? (
+                        {canManageMembers && (membershipRole === 'OWNER' || member.role !== 'OWNER') ? (
                           <select
                             value={member.role}
                             onChange={(e) => handleRoleUpdate(member.id, e.target.value as 'OWNER' | 'ADMIN' | 'MEMBER')}
                             className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
                           >
-                            {ROLE_OPTIONS.map((role) => (
+                            {(membershipRole === 'OWNER' ? ROLE_OPTIONS : NON_OWNER_ROLE_OPTIONS).map((role) => (
                               <option key={role} value={role}>
                                 {role}
                               </option>

@@ -19,7 +19,13 @@ export class SocketService {
 
         this.io = new Server(httpServer, {
             cors: {
-                origin: true,
+                origin: (origin, callback) => {
+                    if (isOriginAllowed(allowedOrigins, origin)) {
+                        callback(null, true);
+                        return;
+                    }
+                    callback(new Error('Not allowed by CORS'));
+                },
                 methods: ['GET', 'POST'],
                 credentials: true,
             },
@@ -28,6 +34,9 @@ export class SocketService {
 
         this.io.use((socket: AuthenticatedSocket, next) => {
             const origin = socket.handshake.headers.origin;
+            if (!isOriginAllowed(allowedOrigins, origin)) {
+                return next(new Error('Not allowed by CORS'));
+            }
             if (enforceHttps && origin && origin.startsWith('http://') && !origin.includes('localhost')) {
                 return next(new Error('Secure transport required'));
             }

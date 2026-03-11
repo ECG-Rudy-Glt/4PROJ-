@@ -140,6 +140,9 @@ export class OrganizationService {
   ) {
     const actorMembership = await this.ensureMembership(actorId, organizationId);
     this.assertRoleAtLeast(actorMembership.role, OrganizationMemberRole.ADMIN);
+    if (role === OrganizationMemberRole.OWNER && actorMembership.role !== OrganizationMemberRole.OWNER) {
+      throw new Error('Seul un propriétaire peut attribuer le rôle OWNER');
+    }
 
     const user = await prisma.user.findUnique({
       where: { email: targetEmail.toLowerCase().trim() },
@@ -207,8 +210,24 @@ export class OrganizationService {
       throw new Error('Membre introuvable');
     }
 
+    if (role === OrganizationMemberRole.OWNER && actorMembership.role !== OrganizationMemberRole.OWNER) {
+      throw new Error('Seul un propriétaire peut attribuer le rôle OWNER');
+    }
+
     if (targetMember.role === OrganizationMemberRole.OWNER && actorMembership.role !== OrganizationMemberRole.OWNER) {
       throw new Error('Seul le propriétaire peut modifier un propriétaire');
+    }
+
+    if (targetMember.role === OrganizationMemberRole.OWNER && role !== OrganizationMemberRole.OWNER) {
+      const ownersCount = await prisma.organizationMember.count({
+        where: {
+          organizationId,
+          role: OrganizationMemberRole.OWNER,
+        },
+      });
+      if (ownersCount <= 1) {
+        throw new Error('L’organisation doit conserver au moins un propriétaire');
+      }
     }
 
     const updated = await prisma.organizationMember.update({
