@@ -8,6 +8,9 @@ jest.mock('../../config/database', () => ({
     accountSwitchLink: {
       findFirst: jest.fn(),
     },
+    delegation: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -117,5 +120,64 @@ describe('AccountAccessService', () => {
       );
     });
   });
-});
 
+  describe('assumeDelegation', () => {
+    it('should reject expired or revoked delegations', async () => {
+      (prisma.delegation.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        AccountAccessService.assumeDelegation('delegate-user', 'delegation-1', 'switch-session-1')
+      ).rejects.toThrow('Délégation invalide ou expirée');
+    });
+
+    it('should return delegation token when delegation is valid', async () => {
+      (prisma.delegation.findFirst as jest.Mock).mockResolvedValue({
+        id: 'delegation-1',
+        canRead: true,
+        canWrite: true,
+        canDelete: false,
+        canShare: false,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        ownerUser: {
+          ...baseTargetUser,
+          id: 'owner-user',
+          email: 'owner@example.com',
+          tokenVersion: 12,
+        },
+      });
+      (generateToken as jest.Mock).mockReturnValue('delegation-token');
+
+      const result = await AccountAccessService.assumeDelegation(
+        'delegate-user',
+        'delegation-1',
+        'switch-session-7'
+      );
+
+      expect(generateToken).toHaveBeenCalledWith(
+        'owner-user',
+        'owner@example.com',
+        12,
+        {
+          switchRootUserId: 'delegate-user',
+          switchSessionId: 'switch-session-7',
+          delegatedByUserId: 'delegate-user',
+          delegationId: 'delegation-1',
+        }
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          token: 'delegation-token',
+          user: expect.objectContaining({
+            id: 'owner-user',
+            email: 'owner@example.com',
+          }),
+          delegation: expect.objectContaining({
+            id: 'delegation-1',
+            canRead: true,
+            canWrite: true,
+          }),
+        })
+      );
+    });
+  });
+});
