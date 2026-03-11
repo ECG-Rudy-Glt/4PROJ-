@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { organizationService } from '@/services/organizationService';
 import { OrganizationMembership, OrganizationMemberRow } from '@/types';
+import api from '@/services/api';
 
 const ROLE_OPTIONS: Array<'OWNER' | 'ADMIN' | 'MEMBER'> = ['OWNER', 'ADMIN', 'MEMBER'];
+
+interface UserSuggestion {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}
 
 export default function OrganizationAdminPage() {
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([]);
@@ -13,8 +21,11 @@ export default function OrganizationAdminPage() {
   const [newOrgName, setNewOrgName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'OWNER' | 'ADMIN' | 'MEMBER'>('MEMBER');
+  const [suggestions, setSuggestions] = useState<UserSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const searchTimeoutRef = useRef<number | undefined>();
 
   const canManageMembers = membershipRole === 'OWNER' || membershipRole === 'ADMIN';
 
@@ -67,6 +78,44 @@ export default function OrganizationAdminPage() {
     void loadOrganizationDetails(selectedOrgId);
   }, [selectedOrgId]);
 
+  useEffect(() => {
+    if (inviteEmail.length >= 2) {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      searchTimeoutRef.current = window.setTimeout(() => {
+        void searchUsers(inviteEmail);
+      }, 300);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [inviteEmail]);
+
+  const searchUsers = async (query: string) => {
+    try {
+      const { data } = await api.get(`/users/search?query=${encodeURIComponent(query)}&limit=5`);
+      setSuggestions(data.users || []);
+      setShowSuggestions(true);
+    } catch {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (user: UserSuggestion) => {
+    setInviteEmail(user.email);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
+
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrgName.trim()) return;
@@ -90,6 +139,8 @@ export default function OrganizationAdminPage() {
       toast.success('Membre ajouté');
       setInviteEmail('');
       setInviteRole('MEMBER');
+      setSuggestions([]);
+      setShowSuggestions(false);
       await loadOrganizationDetails(selectedOrgId);
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Ajout membre échoué');
@@ -188,13 +239,34 @@ export default function OrganizationAdminPage() {
 
           {canManageMembers && (
             <form onSubmit={handleInvite} className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-2">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="Email du membre"
-                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="Email du membre"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {suggestions.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(user)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {(user.firstName || user.lastName)
+                            ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                            : user.email}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
