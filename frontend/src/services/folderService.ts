@@ -41,9 +41,14 @@ export const folderService = {
     return response.data;
   },
 
-  async getDeletedFolders(): Promise<{ folders: Folder[] }> {
-    const response = await api.get('/folders/deleted');
-    return response.data;
+  async getDeletedFolders() {
+    const { data } = await api.get('/folders/deleted');
+    return data;
+  },
+
+  async getFolderTrashContents(folderId: string) {
+    const { data } = await api.get(`/folders/${folderId}/trash-contents`);
+    return data;
   },
 
   async getBreadcrumbs(folderId: string): Promise<{ breadcrumbs: Breadcrumb[] }> {

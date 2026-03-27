@@ -12,7 +12,9 @@ import {
   Archive,
   File as FileIcon,
   Folder as FolderIcon,
-  ArrowUpDown
+  ArrowUpDown,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TagSelector from '@/components/TagSelector';
@@ -58,6 +60,8 @@ export default function TrashPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<string>('deletedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [folderContents, setFolderContents] = useState<Record<string, { files: File[], folders: Folder[] }>>({});
 
   useEffect(() => {
     loadTrash();
@@ -135,6 +139,26 @@ export default function TrashPage() {
     setSortOrder(order as 'asc' | 'desc');
   };
 
+  const toggleFolder = async (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+        if (!folderContents[folderId]) {
+          // Fetch contents in background
+          folderService.getFolderTrashContents(folderId).then(contents => {
+            setFolderContents(curr => ({ ...curr, [folderId]: contents }));
+          }).catch(() => {
+            toast.error('Impossible de charger le contenu');
+          });
+        }
+      }
+      return next;
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -189,108 +213,104 @@ export default function TrashPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {/* Dossiers */}
-              {deletedFolders.map((folder) => (
-                <tr key={folder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20">
-                        <FolderIcon className="w-5 h-5" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {folder.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-400 italic">--</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 italic">--</td>
-                  <td className="px-6 py-4 text-sm font-medium">
-                    {folder.deletedAt && (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs ${
-                        (getRemainingDays(folder.deletedAt) || 0) < 10 
-                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      }`}>
-                        {getRemainingDays(folder.deletedAt)} jours
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => handleRestore(folder.id, 'folder')}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                        title="Restaurer"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handlePermanentDelete(folder.id, 'folder')}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                        title="Supprimer définitivement"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              
-              {/* Fichiers */}
-              {deletedFiles.map((file) => {
-                const Icon = getMimeTypeIcon(file.mimeType);
-                const colorClass = getMimeTypeColor(file.mimeType);
+              {/* Dossiers et Fichiers racine */}
+              {(() => {
+                const renderRows = (items: (File | Folder)[], type: 'file' | 'folder', depth = 0): JSX.Element[] => {
+                  return items.flatMap((item: any) => {
+                    const isFolder = type === 'folder';
+                    const isExpanded = isFolder && expandedFolders.has(item.id);
+                    const contents = isFolder ? folderContents[item.id] : null;
+                    const Icon = isFolder ? FolderIcon : getMimeTypeIcon(item.mimeType);
+                    const colorClass = isFolder ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : getMimeTypeColor(item.mimeType);
 
-                return (
-                  <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg ${colorClass}`}>
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {file.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <TagSelector file={file} onTagsChanged={loadTrash} />
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {formatBytes(Number(file.size))}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium">
-                      {file.deletedAt && (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs ${
-                          (getRemainingDays(file.deletedAt) || 0) < 10 
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                        }`}>
-                          {getRemainingDays(file.deletedAt)} jours
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleRestore(file.id, 'file')}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                          title="Restaurer"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handlePermanentDelete(file.id, 'file')}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                          title="Supprimer définitivement"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                    const row = (
+                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center" style={{ paddingLeft: `${depth * 1.5}rem` }}>
+                            {isFolder && (
+                              <button 
+                                onClick={() => toggleFolder(item.id)}
+                                className="p-1 mr-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                                )}
+                              </button>
+                            )}
+                            {!isFolder && <div className="w-6 mr-1" />} {/* Spacer to align with folders */}
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-2 rounded-lg ${colorClass}`}>
+                                <Icon className="w-5 h-5" />
+                              </div>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {item.name}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {!isFolder ? (
+                            <TagSelector file={item} onTagsChanged={loadTrash} />
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">--</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {!isFolder ? formatBytes(Number(item.size)) : '--'}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium">
+                          {item.deletedAt ? (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs ${
+                              (getRemainingDays(item.deletedAt) || 0) < 10 
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            }`}>
+                              {getRemainingDays(item.deletedAt)} jours
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 italic text-xs">Hérité</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => handleRestore(item.id, type)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Restaurer"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handlePermanentDelete(item.id, type)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                              title="Supprimer définitivement"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+
+                    if (isExpanded && contents) {
+                      return [
+                        row,
+                        ...renderRows(contents.folders, 'folder', depth + 1),
+                        ...renderRows(contents.files, 'file', depth + 1)
+                      ];
+                    }
+
+                    return [row];
+                  });
+                };
+
+                return [
+                  ...renderRows(deletedFolders, 'folder'),
+                  ...renderRows(deletedFiles, 'file')
+                ];
+              })()}
             </tbody>
           </table>
         ) : (

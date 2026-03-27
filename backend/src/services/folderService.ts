@@ -341,4 +341,18 @@ export class FolderService {
       orderBy: { deletedAt: 'desc' },
     });
   }
+
+  static async getFolderTrashContents(folderId: string, userId: string) {
+    const [files, folders] = await Promise.all([
+      prisma.file.findMany({
+        where: { folderId, userId },
+        include: { tags: { include: { tag: true } } },
+      }),
+      prisma.folder.findMany({
+        where: { parentId: folderId, userId },
+      }),
+    ]);
+
+    return { files, folders };
+  }
 }

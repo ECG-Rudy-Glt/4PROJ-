@@ -106,4 +106,15 @@ export class FolderController {
       res.status(200).json({ breadcrumbs });
     } catch (error) { next(error); }
   }
+
+  static async getFolderTrashContents(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+
+      const contents = await FolderService.getFolderTrashContents(folderId, userId);
+
+      res.status(200).json(contents);
+    } catch (error) { next(error); }
+  }
 }
