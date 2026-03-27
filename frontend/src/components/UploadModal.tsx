@@ -2,8 +2,10 @@ import { X, Upload, CheckCircle, XCircle, File as FileIcon } from 'lucide-react'
 import { formatBytes } from '@/utils/bytes';
 import { useUploadStore } from '@/stores/useUploadStore';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 export default function UploadModal() {
+  const { t } = useTranslation();
   const { 
     showUploadModal, 
     uploadingFiles, 
@@ -29,10 +31,10 @@ export default function UploadModal() {
     const errorCount = uploadingFiles.filter((file) => file.status === 'error').length;
 
     if (successCount > 0) {
-      toast.success(`${successCount} fichier${successCount > 1 ? 's' : ''} téléversé${successCount > 1 ? 's' : ''}`);
+      toast.success(t('upload.success_count', { count: successCount }));
     }
     if (errorCount > 0) {
-      toast.error(`${errorCount} fichier${errorCount > 1 ? 's' : ''} en erreur`);
+      toast.error(t('upload.error_count', { count: errorCount }));
     }
     
     setShowUploadModal(false);
@@ -82,11 +84,11 @@ export default function UploadModal() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {isUploading ? 'Téléversement en cours...' : 'Téléversement terminé'}
+                {isUploading ? t('upload.in_progress') : t('upload.finished')}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {completedFiles}/{totalFiles} fichier{totalFiles > 1 ? 's' : ''} 
-                {failedFiles > 0 && ` • ${failedFiles} erreur${failedFiles > 1 ? 's' : ''}`}
+                {completedFiles}/{totalFiles} {totalFiles > 1 ? t('common.file_plural') : t('common.file')} 
+                {failedFiles > 0 && ` • ${failedFiles} ${failedFiles > 1 ? t('upload.error_count_plural', { count: failedFiles }) : t('upload.error_count', { count: failedFiles })}`}
               </p>
             </div>
           </div>
@@ -105,7 +107,7 @@ export default function UploadModal() {
           <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Progression globale
+                {t('upload.global_progress')}
               </span>
               <span className="text-sm font-semibold text-primary-600 dark:text-primary-400">
                 {overallProgress}%
@@ -148,7 +150,7 @@ export default function UploadModal() {
                   </div>
                   <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {uploadingFile.status === 'error' 
-                      ? 'Erreur' 
+                      ? t('common.error') 
                       : uploadingFile.status === 'success'
                         ? formatBytes(uploadingFile.size)
                         : `${uploadingFile.progress}%`
@@ -173,14 +175,14 @@ export default function UploadModal() {
               onClick={cancelUpload}
               className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium"
             >
-              Annuler tout
+              {t('upload.cancel_all')}
             </button>
           ) : (
             <button
               onClick={handleClose}
               className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium shadow-md hover:shadow-lg"
             >
-              Fermer
+              {t('common.close')}
             </button>
           )}
         </div>

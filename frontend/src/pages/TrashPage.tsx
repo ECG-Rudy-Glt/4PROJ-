@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import TagSelector from '@/components/TagSelector';
 import { formatBytes } from '@/utils/bytes';
+import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -49,6 +50,7 @@ const getRemainingDays = (deletedAt: string | Date | undefined) => {
 };
 
 export default function TrashPage() {
+  const { t } = useTranslation();
   const [deletedFiles, setDeletedFiles] = useState<File[]>([]);
   const [deletedFolders, setDeletedFolders] = useState<Folder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,7 +93,7 @@ export default function TrashPage() {
       setDeletedFiles(sortItems(files));
       setDeletedFolders(sortItems(folders));
     } catch {
-      toast.error('Échec du chargement de la corbeille');
+      toast.error(t('trash.error_loading_trash'));
     } finally {
       setIsLoading(false);
     }
@@ -104,15 +106,18 @@ export default function TrashPage() {
       } else {
         await folderService.restoreFolder(id);
       }
-      toast.success(type === 'file' ? 'Fichier restauré' : 'Dossier restauré');
+      toast.success(t('trash.restore_success', { 
+        type: type === 'file' ? t('common.file') : t('common.folder') 
+      }));
       loadTrash();
     } catch {
-      toast.error('Échec de la restauration');
+      toast.error(t('trash.error_restore'));
     }
   };
 
   const handlePermanentDelete = async (id: string, type: 'file' | 'folder') => {
-    if (!confirm(`Supprimer définitivement ce ${type === 'file' ? 'fichier' : 'dossier'} ? Cette action est irréversible.`)) return;
+    const typeLabel = type === 'file' ? t('common.file') : t('common.folder');
+    if (!confirm(t('trash.confirm_delete', { type: typeLabel }))) return;
 
     try {
       if (type === 'file') {
@@ -120,10 +125,10 @@ export default function TrashPage() {
       } else {
         await folderService.deleteFolder(id, true);
       }
-      toast.success(type === 'file' ? 'Fichier supprimé définitivement' : 'Dossier supprimé définitivement');
+      toast.success(t('trash.delete_success', { type: typeLabel }));
       loadTrash();
     } catch {
-      toast.error('Échec de la suppression');
+      toast.error(t('common.error_loading'));
     }
   };
 
@@ -145,7 +150,7 @@ export default function TrashPage() {
           folderService.getFolderTrashContents(folderId).then(contents => {
             setFolderContents(curr => ({ ...curr, [folderId]: contents }));
           }).catch(() => {
-            toast.error('Impossible de charger le contenu');
+            toast.error(t('trash.error_contents'));
           });
         }
       }
@@ -163,20 +168,18 @@ export default function TrashPage() {
 
   return (
     <div className="space-y-6 relative">
-      {/* Header simple comme FilesPage */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Corbeille</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('trash.title')}</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          {deletedFolders.length} dossier{deletedFolders.length !== 1 ? 's' : ''} · {deletedFiles.length} fichier{deletedFiles.length !== 1 ? 's' : ''}
+          {deletedFolders.length} {deletedFolders.length > 1 ? t('common.folder_plural') : t('common.folder')} · {deletedFiles.length} {deletedFiles.length > 1 ? t('common.file_plural') : t('common.file')}
         </p>
       </div>
 
-      {/* Tri */}
       {(deletedFiles.length > 0 || deletedFolders.length > 0) && (
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
           <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par :
+            {t('common.sort_by')} :
           </label>
           <select
             id="sort-select"
@@ -184,12 +187,12 @@ export default function TrashPage() {
             onChange={handleSortChange}
             className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
           >
-            <option value="name-asc">Nom (A-Z)</option>
-            <option value="name-desc">Nom (Z-A)</option>
-            <option value="date-desc">Plus récemment supprimés</option>
-            <option value="date-asc">Moins récemment supprimés</option>
-            <option value="size-desc">Plus volumineux</option>
-            <option value="size-asc">Plus petits</option>
+            <option value="name-asc">{t('trash.sort.name_asc')}</option>
+            <option value="name-desc">{t('trash.sort.name_desc')}</option>
+            <option value="date-desc">{t('trash.sort.date_desc')}</option>
+            <option value="date-asc">{t('trash.sort.date_asc')}</option>
+            <option value="size-desc">{t('trash.sort.size_desc')}</option>
+            <option value="size-asc">{t('trash.sort.size_asc')}</option>
           </select>
         </div>
       )}
@@ -199,15 +202,14 @@ export default function TrashPage() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nom</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Tags</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Taille</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase italic text-amber-600 dark:text-amber-400">Temps restant</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.size')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase italic text-amber-600 dark:text-amber-400">{t('trash.remaining_time')}</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {/* Dossiers et Fichiers racine */}
               {(() => {
                 const renderRows = (items: (File | Folder)[], type: 'file' | 'folder', depth = 0): JSX.Element[] => {
                   return items.flatMap((item: any) => {
@@ -261,10 +263,10 @@ export default function TrashPage() {
                                 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
                                 : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                             }`}>
-                              {getRemainingDays(item.deletedAt)} jours
+                              {t('trash.days_remaining', { count: getRemainingDays(item.deletedAt) })}
                             </span>
                           ) : (
-                            <span className="text-gray-400 italic text-xs">Hérité</span>
+                            <span className="text-gray-400 italic text-xs">{t('trash.inherited')}</span>
                           )}
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -272,14 +274,14 @@ export default function TrashPage() {
                             <button
                               onClick={() => handleRestore(item.id, type)}
                               className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                              title="Restaurer"
+                              title={t('trash.restore')}
                             >
                               <RotateCcw className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handlePermanentDelete(item.id, type)}
                               className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                              title="Supprimer définitivement"
+                              title={t('trash.delete_perm')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -311,10 +313,10 @@ export default function TrashPage() {
           <div className="text-center py-12">
             <Trash2 className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
             <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">
-              La corbeille est vide
+              {t('trash.empty')}
             </p>
             <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-              Les fichiers supprimés apparaissent ici et sont automatiquement purgés après 90 jours
+              {t('trash.empty_desc')}
             </p>
           </div>
         )}

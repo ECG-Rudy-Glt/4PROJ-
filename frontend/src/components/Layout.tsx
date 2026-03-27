@@ -12,8 +12,10 @@ import { extractDroppedFiles } from '@/utils/dragUtils';
 import { Upload } from 'lucide-react';
 import UploadModal from './UploadModal';
 import { useFileStore } from '@/stores/useFileStore';
+import { useTranslation } from 'react-i18next';
 
 export default function Layout() {
+  const { t } = useTranslation();
   const location = useLocation();
   const userId = useAuthStore((state) => state.user?.id);
   const vaultStatus = useVaultStore((state) => state.status);
@@ -63,49 +65,57 @@ export default function Layout() {
     previousPathRef.current = location.pathname;
   }, [location.pathname, refreshVaultStatus, vaultRootFolder?.id, vaultStatus?.enabled, vaultStatus?.unlocked]);
 
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current++;
-    if (dragCounter.current === 1) {
-      setIsDraggingGlobal(true);
-    }
-  };
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current++;
+      if (dragCounter.current === 1) {
+        setIsDraggingGlobal(true);
+      }
+    };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current--;
+      if (dragCounter.current === 0) {
+        setIsDraggingGlobal(false);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current = 0;
       setIsDraggingGlobal(false);
-    }
-  };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+      const files = await extractDroppedFiles(e as any);
+      if (files.length > 0) {
+        enqueueUpload(files, currentFolderId);
+      }
+    };
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current = 0;
-    setIsDraggingGlobal(false);
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
 
-    const files = await extractDroppedFiles(e);
-    if (files.length > 0) {
-      enqueueUpload(files, currentFolderId);
-    }
-  };
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, [setIsDraggingGlobal, enqueueUpload, currentFolderId]);
 
   return (
-    <div 
-      className="flex h-screen bg-gray-50 dark:bg-gray-900 relative"
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 relative">
       {/* Global Drag Overlay */}
       {isDraggingGlobal && (
         <div className="fixed inset-0 z-[100] bg-primary-600/90 flex items-center justify-center pointer-events-none transition-all duration-200">
@@ -113,8 +123,8 @@ export default function Layout() {
             <div className="bg-white/20 p-6 rounded-full inline-block mb-6 shadow-2xl backdrop-blur-sm">
               <Upload className="w-20 h-20 animate-bounce" />
             </div>
-            <p className="text-4xl font-black tracking-tight mb-2">Déposez vos fichiers</p>
-            <p className="text-xl opacity-90 font-medium">Relâchez pour téléverser instantanément</p>
+            <p className="text-4xl font-black tracking-tight mb-2">{t('common.drag_overlay.title')}</p>
+            <p className="text-xl opacity-90 font-medium">{t('common.drag_overlay.subtitle')}</p>
           </div>
         </div>
       )}

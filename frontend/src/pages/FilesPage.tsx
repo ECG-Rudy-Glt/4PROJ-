@@ -18,7 +18,8 @@ import {
   Star,
   ArrowUpDown,
   Tag as TagIconLucide,
-  Pencil
+  Pencil,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fileService } from '@/services/fileService';
@@ -35,9 +36,10 @@ import ShareFolderModal from '@/components/ShareFolderModal';
 import { ShareFileModal } from '@/components/ShareFileModal';
 import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import { formatBytes } from '@/utils/bytes';
 import { FilterBar, FilterState } from '@/components/FilterBar';
+import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -63,6 +65,9 @@ const getMimeTypeColor = (mimeType: string) => {
 };
 
 export default function FilesPage() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'fr' ? fr : enUS;
+  
   const { folderId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -206,9 +211,9 @@ export default function FilesPage() {
       setPreviewFile(file);
       setShowPreviewModal(true);
     }).catch(() => {
-      toast.error('Fichier introuvable');
+      toast.error(t('common.error_loading'));
     });
-  }, [searchParams, files, acceptedSharedFiles]);
+  }, [searchParams, files, acceptedSharedFiles, t]);
 
   const loadBreadcrumbs = async (folderId: string) => {
     try {
@@ -235,7 +240,7 @@ export default function FilesPage() {
       const result = await fileService.searchFiles(query);
       setSearchResults(result.files);
     } catch {
-      toast.error('Échec de la recherche');
+      toast.error(t('files.error_search'));
     } finally {
       setIsSearching(false);
     }
@@ -259,52 +264,52 @@ export default function FilesPage() {
     if (!newFolderName.trim()) return;
     try {
       await createFolder(newFolderName, folderId);
-      toast.success('Dossier créé');
+      toast.success(t('files.create_folder_success'));
       setShowNewFolderModal(false);
       setNewFolderName('');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la création du dossier');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleDelete = async (fileId: string) => {
-    if (!confirm('Déplacer ce fichier vers la corbeille ?')) return;
+    if (!confirm(t('trash.confirm_delete', { type: t('common.file') }))) return;
     try {
       await deleteFile(fileId);
-      toast.success('Fichier déplacé vers la corbeille');
+      toast.success(t('trash.delete_success', { type: t('common.file') }));
     } catch {
-      toast.error('Échec de la suppression');
+      toast.error(t('common.error'));
     }
   };
 
   const handleDeleteFolder = async (folderId: string, folderName: string) => {
-    if (!confirm(`Déplacer le dossier "${folderName}" et tout son contenu vers la corbeille ?`)) return;
+    if (!confirm(t('files.delete_folder_confirm', { name: folderName }))) return;
     try {
       await deleteFolder(folderId);
-      toast.success('Dossier déplacé vers la corbeille');
+      toast.success(t('trash.delete_success', { type: t('common.folder') }));
     } catch {
-      toast.error('Échec de la suppression du dossier');
+      toast.error(t('common.error'));
     }
   };
 
   const handleRemoveSharedFolder = async (sharedFolderId: string, folderName: string) => {
-    if (!confirm(`Arrêter de partager "${folderName}" ?`)) return;
+    if (!confirm(t('files.stop_sharing_confirm', { name: folderName }))) return;
     try {
       await shareService.rejectSharedFolder(sharedFolderId);
-      toast.success('Partage supprimé');
+      toast.success(t('files.stop_sharing_success'));
       getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
     } catch {
-      toast.error('Échec de la suppression du partage');
+      toast.error(t('common.error'));
     }
   };
 
   const handleToggleFavorite = async (fileId: string, currentStatus: boolean) => {
     try {
       await fileService.toggleFavorite(fileId);
-      toast.success(currentStatus ? 'Retiré des favoris' : 'Ajouté aux favoris');
+      toast.success(currentStatus ? t('files.favorites_removed') : t('files.favorites_added'));
       loadContent(folderId, sortBy, sortOrder, activeFilters);
     } catch {
-      toast.error('Échec de la modification');
+      toast.error(t('common.error'));
     }
   };
 
@@ -332,15 +337,15 @@ export default function FilesPage() {
       if (shareMaxDownloads) options.maxDownloads = parseInt(shareMaxDownloads);
       const result = await shareService.createShareLink(selectedFile.id, options);
       setShareLink(result.shareLink.url);
-      toast.success('Lien de partage créé !');
+      toast.success(t('files.share_link_created'));
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la création du lien de partage');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleCopyShareLink = () => {
     navigator.clipboard.writeText(shareLink);
-    toast.success('Lien copié dans le presse-papiers !');
+    toast.success(t('files.copy_link_success'));
   };
 
   const startRenameFile = (file: File) => {
@@ -375,10 +380,10 @@ export default function FilesPage() {
     if (!renamingFileId || !renameValue.trim()) return;
     try {
       await fileService.updateFile(renamingFileId, renameValue.trim() + renameExtension);
-      toast.success('Fichier renommé');
+      toast.success(t('files.rename_success', { type: t('common.file') }));
       loadContent(folderId);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erreur lors du renommage');
+      toast.error(error.response?.data?.error || t('files.rename_error'));
     } finally {
       cancelRename();
     }
@@ -388,10 +393,10 @@ export default function FilesPage() {
     if (!renamingFolderId || !renameValue.trim()) return;
     try {
       await folderService.updateFolder(renamingFolderId, renameValue.trim());
-      toast.success('Dossier renommé');
+      toast.success(t('files.rename_success', { type: t('common.folder') }));
       loadContent(folderId);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erreur lors du renommage');
+      toast.error(error.response?.data?.error || t('files.rename_error'));
     } finally {
       cancelRename();
     }
@@ -412,12 +417,12 @@ export default function FilesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {searchQuery ? `Résultats pour "${searchQuery}"` : 'Mes fichiers'}
+            {searchQuery ? t('files.search_results', { query: searchQuery }) : t('files.title')}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {searchQuery
-              ? `${displayFiles.length} résultat${displayFiles.length > 1 ? 's' : ''}`
-              : `${folders.length + acceptedSharedFolders.length} dossier${(folders.length + acceptedSharedFolders.length) > 1 ? 's' : ''} · ${files.length + acceptedSharedFiles.length} fichier${(files.length + acceptedSharedFiles.length) > 1 ? 's' : ''}`
+              ? `${displayFiles.length} ${displayFiles.length > 1 ? t('common.file_plural') : t('common.file')}`
+              : `${folders.length + acceptedSharedFolders.length} ${ (folders.length + acceptedSharedFolders.length) > 1 ? t('common.folder_plural') : t('common.folder')} · ${files.length + acceptedSharedFiles.length} ${ (files.length + acceptedSharedFiles.length) > 1 ? t('common.file_plural') : t('common.file')}`
             }
           </p>
         </div>
@@ -427,10 +432,10 @@ export default function FilesPage() {
               <button
                 onClick={() => setShowPendingShares(true)}
                 className="relative flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-                title="Voir les partages en attente"
+                title={t('files.pending_shares_title')}
               >
                 <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Partages</span>
+                <span className="hidden sm:inline">{t('common.share')}</span>
                 {pendingSharesCount > 0 && (
                   <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-bold text-white bg-orange-500">
                     {pendingSharesCount}
@@ -442,14 +447,14 @@ export default function FilesPage() {
                 className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
               >
                 <TagIconLucide className="w-4 h-4" />
-                <span className="hidden sm:inline">Tags</span>
+                <span className="hidden sm:inline">{t('common.tags')}</span>
               </button>
               <button
                 onClick={() => setShowNewFolderModal(true)}
                 className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
               >
                 <FolderPlus className="w-4 h-4" />
-                <span className="hidden sm:inline">Nouveau dossier</span>
+                <span className="hidden sm:inline">{t('files.new_folder')}</span>
               </button>
             </div>
             <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
@@ -458,11 +463,11 @@ export default function FilesPage() {
                 className="flex items-center gap-2 px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all font-medium"
               >
                 <Folder className="w-4 h-4" />
-                <span className="hidden sm:inline">Dossier</span>
+                <span className="hidden sm:inline">{t('files.upload_folder')}</span>
               </button>
               <label className="flex items-center gap-2 px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer transition-all font-medium">
                 <Upload className="w-4 h-4" />
-                Téléverser
+                {t('files.upload')}
                 <input type="file" multiple onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
@@ -484,19 +489,19 @@ export default function FilesPage() {
           {files.length > 0 && (
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shrink-0">
               <ArrowUpDown className="w-4 h-4 text-gray-400" />
-              <label htmlFor="sort-select" className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"> Trier : </label>
+              <label htmlFor="sort-select" className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"> {t('common.sort_by')} : </label>
               <select
                 id="sort-select"
                 value={`${sortBy}-${sortOrder}`}
                 onChange={handleSortChange}
                 className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
               >
-                <option value="name-asc">Nom (A-Z)</option>
-                <option value="name-desc">Nom (Z-A)</option>
-                <option value="createdAt-desc">Plus récents</option>
-                <option value="createdAt-asc">Plus anciens</option>
-                <option value="size-desc">Plus volumineux</option>
-                <option value="size-asc">Plus petits</option>
+                <option value="name-asc">{t('files.sort.name_asc')}</option>
+                <option value="name-desc">{t('files.sort.name_desc')}</option>
+                <option value="createdAt-desc">{t('files.sort.date_desc')}</option>
+                <option value="createdAt-asc">{t('files.sort.date_asc')}</option>
+                <option value="size-desc">{t('files.sort.size_desc')}</option>
+                <option value="size-asc">{t('files.sort.size_asc')}</option>
               </select>
             </div>
           )}
@@ -506,13 +511,13 @@ export default function FilesPage() {
       {isSearching && (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <span className="ml-3 text-gray-600 dark:text-gray-400">Recherche en cours...</span>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">{t('files.searching')}</span>
         </div>
       )}
 
       {!searchQuery && (folders.length > 0 || acceptedSharedFolders.length > 0) && (
         <div className="mb-8">
-          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Dossiers</h2>
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">{t('files.folders')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => (
               <div
@@ -541,18 +546,18 @@ export default function FilesPage() {
                       <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">{folder.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: fr })}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</span>
                   </button>
                 )}
                 {!folder._isShared && (
                   <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 hover:border-primary-300 transition-all"><Pencil className="w-3.5 h-3.5 text-primary-600" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 hover:border-primary-300 transition-all"><Share2 className="w-3.5 h-3.5 text-primary-600" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 hover:border-red-300 transition-all"><Trash2 className="w-3.5 h-3.5 text-red-600" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 hover:border-primary-300 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 hover:border-primary-300 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 hover:border-red-300 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600" /></button>
                   </div>
                 )}
                 {folder._isShared && (
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder(folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all"><Trash2 className="w-4 h-4 text-red-600" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder(folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600" /></button>
                 )}
               </div>
             ))}
@@ -562,16 +567,16 @@ export default function FilesPage() {
 
       {(displayFiles.length > 0 || acceptedSharedFiles.length > 0) && (
         <div>
-          {!searchQuery && <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Fichiers</h2>}
+          {!searchQuery && <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">{t('files.files')}</h2>}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nom</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Tags</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Taille</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Modifié</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.size')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.modified')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -600,19 +605,24 @@ export default function FilesPage() {
                           <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
                             <div className={`p-2 rounded-lg ${colorClass}`}><Icon className="w-5 h-5" /></div>
                             <span className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</span>
+                            {['.exe', '.msi', '.bat', '.sh', '.cmd', '.com', '.bin', '.app', '.run'].some(ext => file.name.toLowerCase().endsWith(ext)) && (
+                              <span title={t('common.dangerous_file')}>
+                                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                              </span>
+                            )}
                           </button>
                         )}
                       </td>
                       <td className="px-6 py-4">{!(file as any)._isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{formatBytes(Number(file.size))}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{format(new Date(file.updatedAt), 'dd MMM yyyy', { locale: fr })}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{format(new Date(file.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end space-x-2">
-                          <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>
-                          {!(file as any)._isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600"><Pencil className="w-4 h-4" /></button>}
-                          <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => window.open(fileService.getDownloadUrl(file.id))} className="p-2 text-gray-400 hover:text-primary-600"><Download className="w-4 h-4" /></button>
-                          {!(file as any)._isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>}
+                          <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>
+                          {!(file as any)._isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
+                          <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.preview')}><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => window.open(fileService.getDownloadUrl(file.id))} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
+                          {!(file as any)._isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
                         </div>
                       </td>
                     </tr>
@@ -629,8 +639,8 @@ export default function FilesPage() {
           <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
             {searchQuery ? <FileIcon className="w-12 h-12 text-gray-400" /> : <Folder className="w-12 h-12 text-gray-400" />}
           </div>
-          <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">{searchQuery ? 'Aucun résultat' : 'Aucun fichier'}</p>
-          <p className="text-gray-600 dark:text-gray-400 text-center max-w-sm">{searchQuery ? 'Aucun fichier ne correspond à votre recherche' : 'Commencez par téléverser des fichiers ou créer un dossier'}</p>
+          <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">{searchQuery ? t('files.no_results') : t('files.no_files')}</p>
+          <p className="text-gray-600 dark:text-gray-400 text-center max-w-sm">{searchQuery ? t('files.no_results_desc') : t('files.no_files_desc')}</p>
         </div>
       )}
 

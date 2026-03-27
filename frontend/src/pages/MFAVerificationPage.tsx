@@ -4,8 +4,10 @@ import { Shield, Loader2, Key, ArrowLeft } from 'lucide-react';
 import { mfaService } from '@/services/mfaService';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 export default function MFAVerificationPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { userId, tempToken } = location.state || {};
@@ -25,7 +27,7 @@ export default function MFAVerificationPage() {
 
   const handleVerifyTOTP = async () => {
     if (code.length !== 6) {
-      toast.error('Le code doit contenir 6 chiffres');
+      toast.error(t('mfa_verify.error_invalid'));
       return;
     }
 
@@ -40,10 +42,10 @@ export default function MFAVerificationPage() {
       // Charger l'utilisateur dans le store
       await loadUser();
 
-      toast.success('Authentification réussie !');
+      toast.success(t('mfa_verify.success'));
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Code invalide');
+      toast.error(error.response?.data?.error || t('mfa_verify.error_invalid'));
       setCode('');
     } finally {
       setLoading(false);
@@ -52,7 +54,7 @@ export default function MFAVerificationPage() {
 
   const handleVerifyBackupCode = async () => {
     if (backupCode.length !== 8) {
-      toast.error('Le code de récupération doit contenir 8 caractères');
+      toast.error(t('mfa_verify.error_backup_invalid'));
       return;
     }
 
@@ -70,12 +72,12 @@ export default function MFAVerificationPage() {
       if (result.warning) {
         toast.success(result.warning, { duration: 5000 });
       } else {
-        toast.success('Authentification réussie !');
+        toast.success(t('mfa_verify.success'));
       }
 
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Code de récupération invalide');
+      toast.error(error.response?.data?.error || t('mfa_verify.error_backup_invalid'));
       setBackupCode('');
     } finally {
       setLoading(false);
@@ -118,12 +120,12 @@ export default function MFAVerificationPage() {
             <Shield className="w-8 h-8 text-primary-600 dark:text-primary-300" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Vérification en deux étapes
+            {t('mfa_verify.title')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             {useBackupCode
-              ? 'Entrez un code de récupération'
-              : 'Entrez le code de votre application d\'authentification'}
+              ? t('mfa_verify.subtitle_backup')
+              : t('mfa_verify.subtitle_totp')}
           </p>
         </div>
 
@@ -134,7 +136,7 @@ export default function MFAVerificationPage() {
                 {/* Code TOTP */}
                 <div>
                   <label htmlFor="code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Code de vérification
+                    {t('mfa_verify.code_label')}
                   </label>
                   <input
                     id="code"
@@ -156,7 +158,7 @@ export default function MFAVerificationPage() {
                 {/* Code de récupération */}
                 <div>
                   <label htmlFor="backupCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Code de récupération
+                    {t('mfa_verify.backup_code_label')}
                   </label>
                   <input
                     id="backupCode"
@@ -170,7 +172,7 @@ export default function MFAVerificationPage() {
                     disabled={loading}
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Chaque code ne peut être utilisé qu'une seule fois
+                    {t('mfa_verify.backup_code_hint')}
                   </p>
                 </div>
               </>
@@ -188,10 +190,10 @@ export default function MFAVerificationPage() {
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Se souvenir de cet appareil pendant 30 jours
+                    {t('mfa_verify.remember_device')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Vous ne devrez pas saisir de code lors de vos prochaines connexions
+                    {t('mfa_verify.remember_device_hint')}
                   </p>
                 </div>
               </label>
@@ -206,12 +208,12 @@ export default function MFAVerificationPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Vérification...
+                  {t('mfa_verify.button_loading')}
                 </>
               ) : (
                 <>
                   <Shield className="w-5 h-5 mr-2" />
-                  Vérifier
+                  {t('mfa_verify.button')}
                 </>
               )}
             </button>
@@ -229,7 +231,7 @@ export default function MFAVerificationPage() {
                 disabled={loading}
               >
                 <Key className="w-4 h-4 mr-1" />
-                {useBackupCode ? 'Utiliser un code d\'authentification' : 'Utiliser un code de récupération'}
+                {useBackupCode ? t('mfa_verify.use_totp_code') : t('mfa_verify.use_backup_code')}
               </button>
             </div>
 
@@ -242,7 +244,7 @@ export default function MFAVerificationPage() {
                 disabled={loading}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Me déconnecter
+                {t('mfa_verify.logout_button')}
               </button>
             </div>
           </form>
@@ -250,8 +252,8 @@ export default function MFAVerificationPage() {
 
         {/* Aide */}
         <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          <p>Vous ne pouvez pas accéder à votre application d'authentification ?</p>
-          <p className="mt-1">Utilisez un code de récupération pour vous connecter.</p>
+          <p>{t('mfa_verify.help_title')}</p>
+          <p className="mt-1">{t('mfa_verify.help_desc')}</p>
         </div>
       </div>
     </div>

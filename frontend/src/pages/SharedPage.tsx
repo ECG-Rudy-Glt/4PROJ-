@@ -29,9 +29,10 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import FilePreviewModal from '@/components/FilePreviewModal';
 import { formatBytes } from '@/utils/bytes';
+import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -60,6 +61,8 @@ const getMimeTypeColor = (mimeType: string) => {
 type TabType = 'shared-with-me' | 'my-shares' | 'pending';
 
 export default function SharedPage() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'fr' ? fr : enUS;
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('shared-with-me');
   const [shareLinks, setShareLinks] = useState<SharedLink[]>([]);
@@ -120,7 +123,7 @@ export default function SharedPage() {
       setPendingFolders(pendingData.pendingFolders || []);
       setPendingFiles(pendingData.pendingFiles || []);
     } catch {
-      toast.error('Échec du chargement des éléments partagés');
+      toast.error(t('shared.error_loading_shared'));
     } finally {
       setIsLoading(false);
     }
@@ -133,43 +136,43 @@ export default function SharedPage() {
       } else {
         await shareService.acceptSharedFolder(shareId);
       }
-      toast.success('Partage accepté');
+      toast.success(t('shared.pending.accept_success'));
       loadShared();
     } catch {
-      toast.error('Échec de l\'acceptation');
+      toast.error(t('shared.pending.error_accept'));
     }
   };
 
   const handleRejectShare = async (shareId: string, type: 'file' | 'folder') => {
-    if (!confirm('Refuser ce partage ?')) return;
+    if (!confirm(t('shared.pending.confirm_reject'))) return;
     try {
       if (type === 'file') {
         await shareService.rejectSharedFile(shareId);
       } else {
         await shareService.rejectSharedFolder(shareId);
       }
-      toast.success('Partage refusé');
+      toast.success(t('shared.pending.reject_success'));
       loadShared();
     } catch {
-      toast.error('Échec du refus');
+      toast.error(t('shared.pending.error_reject'));
     }
   };
 
   const handleDeleteLink = async (linkId: string) => {
-    if (!confirm('Supprimer ce lien de partage ?')) return;
+    if (!confirm(t('shared.my_shares.delete_link_confirm'))) return;
 
     try {
       await shareService.deleteShareLink(linkId);
-      toast.success('Lien de partage supprimé');
+      toast.success(t('shared.my_shares.delete_link_success'));
       loadShared();
     } catch {
-      toast.error('Échec de la suppression du lien');
+      toast.error(t('shared.my_shares.error_delete_link'));
     }
   };
 
   const handleCopyLink = (url: string) => {
     navigator.clipboard.writeText(url);
-    toast.success('Lien copié dans le presse-papiers');
+    toast.success(t('shared.my_shares.copy_link_success'));
   };
 
   const handleOpenLink = (url: string) => {
@@ -191,16 +194,16 @@ export default function SharedPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success('Téléchargement démarré');
+      toast.success(t('shared.download_started'));
     } catch {
-      toast.error('Échec du téléchargement');
+      toast.error(t('shared.error_download'));
     }
   };
 
   const tabs = [
-    { id: 'shared-with-me' as TabType, label: 'Partagés avec moi', icon: Users, count: sharedFiles.length + sharedFolders.length },
-    { id: 'pending' as TabType, label: 'En attente', icon: Clock, count: pendingFiles.length + pendingFolders.length, highlight: true },
-    { id: 'my-shares' as TabType, label: 'Mes partages', icon: Share2, count: shareLinks.length + sharedByMeFiles.length + sharedByMeFolders.length },
+    { id: 'shared-with-me' as TabType, label: t('shared.tabs.with_me'), icon: Users, count: sharedFiles.length + sharedFolders.length },
+    { id: 'pending' as TabType, label: t('shared.tabs.pending'), icon: Clock, count: pendingFiles.length + pendingFolders.length, highlight: true },
+    { id: 'my-shares' as TabType, label: t('shared.tabs.my_shares'), icon: Share2, count: shareLinks.length + sharedByMeFiles.length + sharedByMeFolders.length },
   ];
 
   return (
@@ -208,9 +211,9 @@ export default function SharedPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Partages</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('shared.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Gérez vos fichiers partagés et vos liens de partage
+            {t('shared.subtitle')}
           </p>
         </div>
       </div>
@@ -263,7 +266,7 @@ export default function SharedPage() {
                   <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <FileIcon className="w-5 h-5 text-primary-600" />
-                      Fichiers partagés avec moi
+                      {t('shared.with_me_files')}
                     </h2>
                   </div>
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -285,21 +288,21 @@ export default function SharedPage() {
                             <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
                               <span>{formatBytes(Number(file.size))}</span>
                               <span>•</span>
-                              <span>Partagé par {(file as any).sharedBy?.email || file.user?.email || 'Inconnu'}</span>
+                              <span>{t('shared.shared_by', { name: (file as any).sharedBy?.email || file.user?.email || t('common.others') })}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handlePreviewFile(file)}
                               className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-                              title="Prévisualiser"
+                              title={t('common.preview')}
                             >
                               <Eye className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => handleDownloadFile(file)}
                               className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                              title="Télécharger"
+                              title={t('common.download')}
                             >
                               <Download className="w-5 h-5" />
                             </button>
@@ -317,7 +320,7 @@ export default function SharedPage() {
                   <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <Folder className="w-5 h-5 text-amber-500" />
-                      Dossiers partagés avec moi
+                      {t('shared.with_me_folders')}
                     </h2>
                   </div>
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -332,21 +335,21 @@ export default function SharedPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {folder.folder?.name || 'Dossier partagé'}
+                            {folder.folder?.name || t('shared.my_shares.shared_folder')}
                           </p>
                           <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            <span>Partagé par {folder.sharedBy?.email || 'Inconnu'}</span>
+                            <span>{t('shared.shared_by', { name: folder.sharedBy?.email || t('common.others') })}</span>
                             <span>•</span>
                             <span className={`flex items-center gap-1 ${folder.canWrite ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`}>
                               {folder.canWrite ? (
                                 <>
                                   <Unlock className="w-3 h-3" />
-                                  Modification
+                                  {t('shared.permissions.write')}
                                 </>
                               ) : (
                                 <>
                                   <Lock className="w-3 h-3" />
-                                  Lecture seule
+                                  {t('shared.permissions.read_only')}
                                 </>
                               )}
                             </span>
@@ -363,10 +366,10 @@ export default function SharedPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
                   <Users className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Aucun élément partagé avec vous
+                    {t('shared.no_shared_with_me')}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">
-                    Les fichiers et dossiers que d'autres utilisateurs partagent avec vous apparaîtront ici.
+                    {t('shared.no_shared_with_me_desc')}
                   </p>
                 </div>
               )}
@@ -390,7 +393,7 @@ export default function SharedPage() {
                             {share.file?.name}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Partagé par {share.sharedBy?.firstName || share.sharedBy?.email}
+                            {t('shared.shared_by', { name: share.sharedBy?.firstName || share.sharedBy?.email })}
                           </p>
                         </div>
                       </div>
@@ -399,13 +402,13 @@ export default function SharedPage() {
                           onClick={() => handleRejectShare(share.id, 'file')}
                           className="px-4 py-2 text-sm font-bold bg-red-600 text-white hover:bg-red-700 rounded-lg shadow-sm shadow-red-600/20 transition-all"
                         >
-                          Refuser
+                          {t('shared.pending.reject')}
                         </button>
                         <button
                           onClick={() => handleAcceptShare(share.id, 'file')}
                           className="px-4 py-2 text-sm font-bold bg-primary-600 text-white hover:bg-primary-700 rounded-lg shadow-sm transition-all shadow-primary-600/20"
                         >
-                          Accepter
+                          {t('shared.pending.accept')}
                         </button>
                       </div>
                     </div>
@@ -423,7 +426,7 @@ export default function SharedPage() {
                             {share.folder?.name}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Partagé par {share.sharedBy?.firstName || share.sharedBy?.email}
+                            {t('shared.shared_by', { name: share.sharedBy?.firstName || share.sharedBy?.email })}
                           </p>
                         </div>
                       </div>
@@ -432,13 +435,13 @@ export default function SharedPage() {
                           onClick={() => handleRejectShare(share.id, 'folder')}
                           className="px-4 py-2 text-sm font-bold bg-red-600 text-white hover:bg-red-700 rounded-lg shadow-sm shadow-red-600/20 transition-all"
                         >
-                          Refuser
+                          {t('shared.pending.reject')}
                         </button>
                         <button
                           onClick={() => handleAcceptShare(share.id, 'folder')}
                           className="px-4 py-2 text-sm font-bold bg-primary-600 text-white hover:bg-primary-700 rounded-lg shadow-sm transition-all shadow-primary-600/20"
                         >
-                          Accepter
+                          {t('shared.pending.accept')}
                         </button>
                       </div>
                     </div>
@@ -447,7 +450,7 @@ export default function SharedPage() {
               ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center text-gray-500">
                   <Clock className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>Aucun partage en attente pour le moment.</p>
+                  <p>{t('shared.pending.no_pending')}</p>
                 </div>
               )}
             </div>
@@ -462,7 +465,7 @@ export default function SharedPage() {
                   <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <Link2 className="w-5 h-5 text-primary-600" />
-                      Liens de partage actifs
+                      {t('shared.my_shares.active_links')}
                     </h2>
                   </div>
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -487,22 +490,22 @@ export default function SharedPage() {
                                 <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                                   <Download className="w-4 h-4" />
                                   <span>
-                                    {link.downloads} téléchargement{link.downloads !== 1 ? 's' : ''}
-                                    {link.maxDownloads && ` / ${link.maxDownloads} max`}
+                                    {link.downloads} {link.downloads > 1 ? t('shared.my_shares.downloads_plural') : t('shared.my_shares.downloads')}
+                                    {link.maxDownloads && t('shared.my_shares.max_downloads', { count: link.maxDownloads })}
                                   </span>
                                 </div>
                                 {link.expiresAt && (
                                   <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                                     <Clock className="w-4 h-4" />
                                     <span>
-                                      Expire le {format(new Date(link.expiresAt), 'dd MMM yyyy', { locale: fr })}
+                                      {t('shared.my_shares.expires_at', { date: format(new Date(link.expiresAt), 'dd MMM yyyy', { locale: dateLocale }) })}
                                     </span>
                                   </div>
                                 )}
                                 {link.password && (
                                   <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
                                     <Shield className="w-4 h-4" />
-                                    <span>Protégé</span>
+                                    <span>{t('shared.my_shares.protected')}</span>
                                   </div>
                                 )}
                               </div>
@@ -512,21 +515,21 @@ export default function SharedPage() {
                             <button
                               onClick={() => handleCopyLink(link.url)}
                               className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-                              title="Copier le lien"
+                              title={t('shared.my_shares.copy_link')}
                             >
                               <Copy className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => handleOpenLink(link.url)}
                               className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-                              title="Ouvrir le lien"
+                              title={t('shared.my_shares.open_link')}
                             >
                               <ExternalLink className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => handleDeleteLink(link.id)}
                               className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              title="Supprimer le lien"
+                              title={t('shared.my_shares.delete_link')}
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
@@ -544,7 +547,7 @@ export default function SharedPage() {
                   <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <Share2 className="w-5 h-5 text-green-500" />
-                      Fichiers partagés
+                      {t('shared.my_shares.shared_files')}
                     </h2>
                   </div>
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -564,8 +567,8 @@ export default function SharedPage() {
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
                                 {((file as any).sharedWith?.firstName || (file as any).sharedWith?.email) ? 
-                                  `Partagé avec ${(file as any).sharedWith.firstName || (file as any).sharedWith.email}` 
-                                  : 'Non partagé'}
+                                  t('shared.my_shares.shared_with', { name: (file as any).sharedWith.firstName || (file as any).sharedWith.email }) 
+                                  : t('shared.my_shares.not_shared')}
                               </p>
                             </div>
                           </div>
@@ -582,14 +585,14 @@ export default function SharedPage() {
                   <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <Folder className="w-5 h-5 text-amber-500" />
-                      Dossiers partagés
+                      {t('shared.my_shares.shared_folders')}
                     </h2>
                   </div>
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
                     {sharedByMeFolders.map((folder) => (
                       <div
                         key={folder.id}
-                        className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                        className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                         onClick={() => navigate(`/files/${folder.folderId}`)}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -599,10 +602,10 @@ export default function SharedPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 dark:text-white truncate">
-                                {folder.folder?.name || 'Dossier partagé'}
+                                {folder.folder?.name || t('shared.my_shares.shared_folder')}
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
-                                Partagé avec {folder.sharedWith?.email || 'Inconnu'}
+                                {t('shared.my_shares.shared_with', { name: folder.sharedWith?.email || t('common.others') })}
                               </p>
                             </div>
                           </div>
@@ -619,17 +622,17 @@ export default function SharedPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
                   <Link2 className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Aucun partage
+                    {t('shared.my_shares.no_shares')}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    Créez un lien de partage ou partagez un fichier avec d'autres utilisateurs depuis la page de vos fichiers.
+                    {t('shared.my_shares.no_shares_desc')}
                   </p>
                   <button
                     onClick={() => navigate('/files')}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
                     <FolderOpen className="w-5 h-5" />
-                    Aller à mes fichiers
+                    {t('shared.my_shares.go_to_files')}
                   </button>
                 </div>
               )}

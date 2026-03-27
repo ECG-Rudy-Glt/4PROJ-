@@ -3,10 +3,12 @@ import { Shield, Smartphone, Trash2, RefreshCw, AlertCircle, Check, Loader2 } fr
 import { mfaService, TrustedDevice } from '@/services/mfaService';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import BackupCodesModal from './BackupCodesModal';
+import { useTranslation } from 'react-i18next';
 
 export default function MFASettingsSection() {
+  const { t, i18n } = useTranslation();
   const [trustedDevices, setTrustedDevices] = useState<TrustedDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [regenerateCode, setRegenerateCode] = useState('');
@@ -25,27 +27,27 @@ export default function MFASettingsSection() {
       const devices = await mfaService.getTrustedDevices();
       setTrustedDevices(devices);
     } catch {
-      toast.error('Erreur lors du chargement des appareils');
+      toast.error(t('mfa.error_loading_devices', { defaultValue: 'Erreur lors du chargement des appareils' }));
     } finally {
       setLoading(false);
     }
   };
 
   const handleRevokeDevice = async (deviceId: string, deviceName: string) => {
-    if (!confirm(`Révoquer l'appareil "${deviceName}" ?`)) return;
+    if (!confirm(t('mfa.revoke_confirm', { name: deviceName }))) return;
 
     try {
       await mfaService.revokeTrustedDevice(deviceId);
-      toast.success('Appareil révoqué');
+      toast.success(t('mfa.revoke_success'));
       loadTrustedDevices();
     } catch {
-      toast.error('Erreur lors de la révocation');
+      toast.error(t('common.error'));
     }
   };
 
   const handleRegenerateCodes = async () => {
     if (regenerateCode.length !== 6) {
-      toast.error('Code invalide');
+      toast.error(t('account_access.mfa_invalid', { defaultValue: 'Code invalide' }));
       return;
     }
 
@@ -56,9 +58,9 @@ export default function MFASettingsSection() {
       setShowRegenerateModal(false);
       setShowBackupCodesModal(true);
       setRegenerateCode('');
-      toast.success('Codes de récupération régénérés');
+      toast.success(t('mfa.regenerate_success'));
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erreur lors de la régénération');
+      toast.error(error.response?.data?.error || t('common.error'));
     } finally {
       setRegenerating(false);
     }
@@ -69,6 +71,8 @@ export default function MFASettingsSection() {
     setRegenerateCode(numericValue);
   };
 
+  const dateLocale = i18n.language === 'fr' ? fr : enUS;
+
   return (
     <>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
@@ -78,10 +82,10 @@ export default function MFASettingsSection() {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Authentification à deux facteurs
+              {t('mfa.title')}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Sécurisez votre compte avec un code de vérification
+              {t('mfa.subtitle')}
             </p>
           </div>
         </div>
@@ -96,10 +100,10 @@ export default function MFASettingsSection() {
             </div>
             <div className="flex-1">
               <p className="font-medium text-green-900 dark:text-green-100">
-                Authentification à deux facteurs activée
+                {t('mfa.enabled_title')}
               </p>
               <p className="text-sm text-green-700 dark:text-green-300">
-                Votre compte est sécurisé avec la vérification en deux étapes
+                {t('mfa.enabled_desc')}
               </p>
             </div>
           </div>
@@ -109,17 +113,17 @@ export default function MFASettingsSection() {
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
             <RefreshCw className="w-5 h-5 mr-2" />
-            Codes de récupération
+            {t('mfa.backup_codes')}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Régénérez vos codes de récupération si vous les avez perdus ou si vous pensez qu'ils ont été compromis.
+            {t('mfa.backup_codes_desc')}
           </p>
           <button
             onClick={() => setShowRegenerateModal(true)}
             className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Régénérer les codes
+            {t('mfa.regenerate_button')}
           </button>
         </div>
 
@@ -127,10 +131,10 @@ export default function MFASettingsSection() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
             <Smartphone className="w-5 h-5 mr-2" />
-            Appareils de confiance ({trustedDevices.length})
+            {t('mfa.trusted_devices')} ({trustedDevices.length})
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Ces appareils ne nécessitent pas de code lors de la connexion pendant 30 jours
+            {t('mfa.trusted_devices_desc')}
           </p>
 
           {loading ? (
@@ -140,7 +144,7 @@ export default function MFASettingsSection() {
           ) : trustedDevices.length === 0 ? (
             <div className="p-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
               <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 dark:text-gray-400">Aucun appareil de confiance</p>
+              <p className="text-gray-600 dark:text-gray-400">{t('mfa.no_trusted_devices')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -164,10 +168,10 @@ export default function MFASettingsSection() {
                       </p>
                       <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
                         <span>
-                          Ajouté le {format(new Date(device.createdAt), 'dd MMM yyyy', { locale: fr })}
+                          {t('mfa.added_on', { date: format(new Date(device.createdAt), 'dd MMM yyyy', { locale: dateLocale }) })}
                         </span>
                         <span>
-                          Expire le {format(new Date(device.expiresAt), 'dd MMM yyyy', { locale: fr })}
+                          {t('mfa.expires_on', { date: format(new Date(device.expiresAt), 'dd MMM yyyy', { locale: dateLocale }) })}
                         </span>
                       </div>
                     </div>
@@ -175,7 +179,7 @@ export default function MFASettingsSection() {
                   <button
                     onClick={() => handleRevokeDevice(device.id, device.deviceName)}
                     className="ml-4 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Révoquer"
+                    title={t('mfa.revoke')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -191,14 +195,14 @@ export default function MFASettingsSection() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              Régénérer les codes de récupération
+              {t('mfa.regenerate_modal_title')}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Pour des raisons de sécurité, veuillez entrer votre code d'authentification pour régénérer vos codes de récupération.
+              {t('mfa.regenerate_modal_desc')}
             </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Code d'authentification
+                {t('mfa.auth_code_label')}
               </label>
               <input
                 type="text"
@@ -221,7 +225,7 @@ export default function MFASettingsSection() {
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 disabled={regenerating}
               >
-                Annuler
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleRegenerateCodes}
@@ -231,12 +235,12 @@ export default function MFASettingsSection() {
                 {regenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Régénération...
+                    {t('mfa.regenerating')}
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Régénérer
+                    {t('mfa.regenerate_button')}
                   </>
                 )}
               </button>

@@ -1,3 +1,13 @@
+Traduction :
+Page setting ok
+page trash ok
+page partage ok
+page favoris ok
+
+modal pas ok
+
+
+
 createur de tag a refaire 
 
 revoir les couleurs du header inversé avec couleurs contenu principal

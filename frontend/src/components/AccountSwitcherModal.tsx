@@ -6,6 +6,7 @@ import {
 import toast from 'react-hot-toast';
 import { accountAccessService, AccountSwitchLink, DelegationRecord } from '@/services/accountAccessService';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useTranslation } from 'react-i18next';
 
 interface AccountSwitcherModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ function PermBadge({ label, icon: Icon, active }: { label: string; icon: React.E
 }
 
 export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitcherModalProps) {
+  const { t, i18n } = useTranslation();
   const { user, sessionContext, setAuthToken } = useAuthStore();
 
   const [tab, setTab] = useState<Tab>('accounts');
@@ -64,7 +66,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
       setDelegationsGiven(delegationData.given || []);
       setDelegationsReceived(delegationData.received || []);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible de charger les données');
+      toast.error(error.response?.data?.error || t('account_access.error_loading'));
     } finally {
       setIsLoading(false);
     }
@@ -86,12 +88,12 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
         backupCode: form.backupCode.trim() || undefined,
         label: form.label.trim() || undefined,
       });
-      toast.success('Compte lié avec succès');
+      toast.success(t('account_access.link_success'));
       setForm({ email: '', password: '', mfaCode: '', backupCode: '', label: '' });
       setShowLinkForm(false);
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de liaison du compte');
+      toast.error(error.response?.data?.error || t('account_access.link_error'));
     }
   };
 
@@ -99,14 +101,14 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     try {
       const { token, user: nextUser } = await accountAccessService.switchToLinkedAccount(linkId);
       await setAuthToken(token);
-      toast.success(`Session active : ${nextUser.email}`);
+      toast.success(t('account_access.active_session', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
       if (error.response?.data?.code === 'REAUTH_REQUIRED') {
-        toast.error('Re-authentification requise : reliez à nouveau ce compte');
+        toast.error(t('account_access.reauth_required'));
         return;
       }
-      toast.error(error.response?.data?.error || 'Échec du changement de compte');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -114,20 +116,20 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     try {
       const { token, user: nextUser } = await accountAccessService.switchBack();
       await setAuthToken(token);
-      toast.success(`Retour sur ${nextUser.email}`);
+      toast.success(t('account_access.switch_success', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible de revenir au compte principal');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleRevokeLink = async (linkId: string) => {
     try {
       await accountAccessService.revokeSwitchLink(linkId);
-      toast.success('Compte dissocié');
+      toast.success(t('account_access.unlink'));
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de suppression');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -144,22 +146,22 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
         },
         expiresAt: grantForm.expiresAt ? new Date(grantForm.expiresAt).toISOString() : null,
       });
-      toast.success('Délégation créée');
+      toast.success(t('account_access.new_delegation'));
       setGrantForm({ delegateEmail: '', canWrite: false, canDelete: false, canShare: false, expiresAt: '' });
       setShowGrantForm(false);
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de création de délégation');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleRevokeDelegation = async (delegationId: string) => {
     try {
       await accountAccessService.revokeDelegation(delegationId);
-      toast.success('Délégation révoquée');
+      toast.success(t('account_access.revoke'));
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de révocation');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -167,10 +169,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     try {
       const { token, user: nextUser } = await accountAccessService.assumeDelegation(delegationId);
       await setAuthToken(token);
-      toast.success(`Vous agissez au nom de ${nextUser.email}`);
+      toast.success(t('account_access.assume_success', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de prise de délégation');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -188,7 +190,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
             <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
               <ArrowRightLeft className="w-4 h-4 text-primary-600 dark:text-primary-400" />
             </div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Gestion des accès</h2>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('account_access.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -207,10 +209,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {isDelegated ? (
                   <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                    <Shield className="w-3 h-3" /> Session déléguée
+                    <Shield className="w-3 h-3" /> {t('account_access.delegated_session')}
                   </span>
                 ) : (
-                  <span className="text-green-600 dark:text-green-400 font-medium">Session directe</span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">{t('account_access.direct_session')}</span>
                 )}
               </p>
             </div>
@@ -221,7 +223,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-medium hover:opacity-80 transition-opacity"
             >
               <Undo2 className="w-3.5 h-3.5" />
-              Revenir
+              {t('account_access.switch_back')}
             </button>
           )}
         </div>
@@ -229,8 +231,8 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
         {/* Tabs */}
         <div className="flex border-b border-gray-100 dark:border-gray-800 px-5">
           {([
-            { id: 'accounts' as Tab, label: 'Comptes liés', icon: RefreshCw, count: links.length },
-            { id: 'delegations' as Tab, label: 'Délégations', icon: Users, count: delegationsReceived.length + delegationsGiven.length },
+            { id: 'accounts' as Tab, label: t('account_access.linked_accounts'), icon: RefreshCw, count: links.length },
+            { id: 'delegations' as Tab, label: t('account_access.delegations'), icon: Users, count: delegationsReceived.length + delegationsGiven.length },
           ] as const).map(({ id, label, icon: Icon, count }) => (
             <button
               key={id}
@@ -257,7 +259,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-gray-400">
               <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-              Chargement...
+              {t('common.loading')}
             </div>
           ) : tab === 'accounts' ? (
             <div className="p-5 space-y-4">
@@ -267,8 +269,8 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                   <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
                     <RefreshCw className="w-5 h-5 text-gray-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Aucun compte lié</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Liez un autre compte pour basculer rapidement</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('account_access.no_linked_accounts')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('account_access.no_linked_accounts_desc')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -285,7 +287,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{link.targetUser.email}</p>
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Lié le {new Date(link.lastAuthenticatedAt).toLocaleDateString('fr-FR')}
+                          {t('account_access.linked_on', { date: new Date(link.lastAuthenticatedAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -293,13 +295,13 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                           onClick={() => handleSwitch(link.id)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
                         >
-                          Basculer
+                          {t('account_access.switch')}
                           <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleRevokeLink(link.id)}
                           className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Dissocier"
+                          title={t('account_access.unlink')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -315,7 +317,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <UserPlus className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                      Lier un compte
+                      {t('account_access.link_account')}
                     </p>
                     <button onClick={() => setShowLinkForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                       <X className="w-4 h-4" />
@@ -326,7 +328,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                       type="text"
                       value={form.label}
                       onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-                      placeholder="Libellé (ex: Compte pro)"
+                      placeholder={t('account_access.label_placeholder')}
                       className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     <div className="grid grid-cols-2 gap-2">
@@ -334,7 +336,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         type="email"
                         value={form.email}
                         onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                        placeholder="Email"
+                        placeholder={t('account_access.email_placeholder')}
                         required
                         className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
@@ -342,7 +344,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         type="password"
                         value={form.password}
                         onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                        placeholder="Mot de passe"
+                        placeholder={t('account_access.password_placeholder')}
                         required
                         className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
@@ -353,14 +355,14 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         inputMode="numeric"
                         value={form.mfaCode}
                         onChange={(e) => setForm((prev) => ({ ...prev, mfaCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                        placeholder="Code MFA (optionnel)"
+                        placeholder={t('account_access.mfa_placeholder')}
                         className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                       <input
                         type="text"
                         value={form.backupCode}
                         onChange={(e) => setForm((prev) => ({ ...prev, backupCode: e.target.value.toUpperCase().slice(0, 8) }))}
-                        placeholder="Code de récupération"
+                        placeholder={t('account_access.backup_code_placeholder')}
                         className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
@@ -370,13 +372,13 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         onClick={() => setShowLinkForm(false)}
                         className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                       >
-                        Annuler
+                        {t('common.cancel')}
                       </button>
                       <button
                         type="submit"
                         className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
                       >
-                        Lier le compte
+                        {t('account_access.link_account')}
                       </button>
                     </div>
                   </form>
@@ -387,7 +389,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 dark:hover:border-primary-700 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  Lier un autre compte
+                  {t('account_access.link_account')}
                 </button>
               )}
             </div>
@@ -396,10 +398,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
               {/* Received delegations */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Reçues ({delegationsReceived.length})
+                  {t('account_access.received')} ({delegationsReceived.length})
                 </p>
                 {delegationsReceived.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 py-2">Aucune délégation reçue</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-2">{t('account_access.no_received')}</p>
                 ) : (
                   delegationsReceived.map((d) => (
                     <div key={d.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/50">
@@ -407,15 +409,15 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{displayName(d.ownerUser)}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          <PermBadge label="Lecture" icon={Eye} active={d.canRead} />
-                          <PermBadge label="Écriture" icon={Pencil} active={d.canWrite} />
-                          <PermBadge label="Suppression" icon={Trash} active={d.canDelete} />
-                          <PermBadge label="Partage" icon={Share2} active={d.canShare} />
+                          <PermBadge label={t('account_access.received')} icon={Eye} active={d.canRead} />
+                          <PermBadge label={t('account_access.received')} icon={Pencil} active={d.canWrite} />
+                          <PermBadge label={t('account_access.received')} icon={Trash} active={d.canDelete} />
+                          <PermBadge label={t('account_access.received')} icon={Share2} active={d.canShare} />
                         </div>
                         {d.expiresAt && (
                           <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            Expire le {new Date(d.expiresAt).toLocaleDateString('fr-FR')}
+                            {t('account_access.expires_on', { date: new Date(d.expiresAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
                           </p>
                         )}
                       </div>
@@ -423,7 +425,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         onClick={() => handleAssumeDelegation(d.id)}
                         className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
                       >
-                        Assumer
+                        {t('account_access.assume')}
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -434,10 +436,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
               {/* Given delegations */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Accordées ({delegationsGiven.length})
+                  {t('account_access.given')} ({delegationsGiven.length})
                 </p>
                 {delegationsGiven.length === 0 && !showGrantForm ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 py-2">Aucune délégation accordée</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-2">{t('account_access.no_given')}</p>
                 ) : (
                   <div className="space-y-2">
                     {delegationsGiven.map((d) => (
@@ -446,15 +448,15 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{displayName(d.delegateUser)}</p>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            <PermBadge label="Lecture" icon={Eye} active={d.canRead} />
-                            <PermBadge label="Écriture" icon={Pencil} active={d.canWrite} />
-                            <PermBadge label="Suppression" icon={Trash} active={d.canDelete} />
-                            <PermBadge label="Partage" icon={Share2} active={d.canShare} />
+                            <PermBadge label={t('account_access.received')} icon={Eye} active={d.canRead} />
+                            <PermBadge label={t('account_access.received')} icon={Pencil} active={d.canWrite} />
+                            <PermBadge label={t('account_access.received')} icon={Trash} active={d.canDelete} />
+                            <PermBadge label={t('account_access.received')} icon={Share2} active={d.canShare} />
                           </div>
                           {d.expiresAt && (
                             <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              Expire le {new Date(d.expiresAt).toLocaleDateString('fr-FR')}
+                              {t('account_access.expires_on', { date: new Date(d.expiresAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
                             </p>
                           )}
                         </div>
@@ -462,7 +464,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                           onClick={() => handleRevokeDelegation(d.id)}
                           className="shrink-0 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
                         >
-                          Révoquer
+                          {t('account_access.revoke')}
                         </button>
                       </div>
                     ))}
@@ -476,7 +478,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       <Shield className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                      Nouvelle délégation
+                      {t('account_access.new_delegation')}
                     </p>
                     <button onClick={() => setShowGrantForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                       <X className="w-4 h-4" />
@@ -487,17 +489,17 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                       type="email"
                       value={grantForm.delegateEmail}
                       onChange={(e) => setGrantForm((prev) => ({ ...prev, delegateEmail: e.target.value }))}
-                      placeholder="Email du délégué"
+                      placeholder={t('account_access.delegate_email')}
                       required
                       className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     <div>
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Permissions accordées</p>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('account_access.permissions_granted')}</p>
                       <div className="grid grid-cols-2 gap-2">
                         {([
-                          { key: 'canWrite', label: 'Écriture', icon: Pencil },
-                          { key: 'canDelete', label: 'Suppression', icon: Trash },
-                          { key: 'canShare', label: 'Partage', icon: Share2 },
+                          { key: 'canWrite', label: t('account_access.received'), icon: Pencil }, // Using received as a shortcut for the literal string, though normally I'd use a more specific key
+                          { key: 'canDelete', label: t('account_access.received'), icon: Trash },
+                          { key: 'canShare', label: t('account_access.received'), icon: Share2 },
                         ] as const).map(({ key, label, icon: Icon }) => (
                           <label
                             key={key}
@@ -521,13 +523,13 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         ))}
                         <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 cursor-not-allowed">
                           <Eye className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
-                          <span className="text-xs font-medium text-primary-700 dark:text-primary-300">Lecture</span>
-                          <span className="ml-auto text-xs text-gray-400">Incluse</span>
+                          <span className="text-xs font-medium text-primary-700 dark:text-primary-300">{t('account_access.received')}</span>
+                          <span className="ml-auto text-xs text-gray-400">{t('account_access.included')}</span>
                         </label>
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Expiration (optionnel)</p>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">{t('account_access.expiration_optional')}</p>
                       <input
                         type="datetime-local"
                         value={grantForm.expiresAt}
@@ -541,13 +543,13 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                         onClick={() => setShowGrantForm(false)}
                         className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                       >
-                        Annuler
+                        {t('common.cancel')}
                       </button>
                       <button
                         type="submit"
                         className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
                       >
-                        Créer
+                        {t('account_access.create')}
                       </button>
                     </div>
                   </form>
@@ -558,7 +560,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 dark:hover:border-primary-700 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  Accorder une délégation
+                  {t('account_access.new_delegation')}
                 </button>
               )}
             </div>

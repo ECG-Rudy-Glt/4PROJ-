@@ -379,8 +379,9 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
                     {t('common.warning')} : {t('common.dangerous_file')}
                   </h4>
                   <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-                    Ce fichier ({file.name.split('.').pop()?.toUpperCase()}) est un format exécutable. 
-                    Il pourrait contenir des logiciels malveillants. Soyez prudent avant de l'exécuter sur votre ordinateur.
+                    {t('common.dangerous_file_format', { ext: file.name.split('.').pop()?.toUpperCase() })}
+                    <br />
+                    {t('common.dangerous_file_desc')}
                   </p>
                 </div>
               </div>
