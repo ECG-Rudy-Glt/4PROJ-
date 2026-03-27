@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { VaultService } from './vaultService';
+import logger from '../config/logger';
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -61,7 +62,7 @@ export class FolderService {
     AuditService.createLog(userId, 'CREATE_FOLDER', {
       folderId: folder.id,
       folderName: name,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     // Socket event
     SocketService.emitToUser(userId, 'folder_created', folder);
@@ -266,7 +267,7 @@ export class FolderService {
     AuditService.createLog(userId, 'DELETE_FOLDER', {
       folderId: folder.id,
       folderName: folder.name,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     // Socket event
     SocketService.emitToUser(userId, 'folder_deleted', { folderId });

@@ -6,6 +6,7 @@ import pdfParse from 'pdf-parse';
 import { EncryptionService } from './encryptionService';
 import { FileService } from './fileService';
 import { VaultService } from './vaultService';
+import logger from '../config/logger';
 
 export class AIService {
   private cohere: CohereClientV2;
@@ -14,7 +15,7 @@ export class AIService {
   constructor() {
     const apiKey = process.env.COHERE_API_KEY;
     if (!apiKey) {
-      console.warn('⚠️ COHERE_API_KEY not found in environment variables. Bobby will not be available.');
+      console.warn('️ COHERE_API_KEY not found in environment variables. Bobby will not be available.');
       this.cohere = null as any;
     } else {
       this.cohere = new CohereClientV2({
@@ -100,7 +101,7 @@ export class AIService {
       // Pour les autres types de fichiers
       return `Je ne peux pas analyser ce type de fichier (${mimeType}) pour le moment. Je supporte les images, PDF et fichiers texte.`;
     } catch (error: any) {
-      console.error('Error analyzing file:', error);
+      logger.error('Error analyzing file:', error);
       throw new Error(`Failed to analyze file: ${error.message}`);
     }
   }
@@ -247,7 +248,7 @@ RÈGLES IMPORTANTES :
         }
 
         // Exécuter la recherche
-        console.log('[searchFiles] WHERE clause:', JSON.stringify(whereClause, null, 2));
+        logger.info('[searchFiles] WHERE clause:', JSON.stringify(whereClause, null, 2));
         const files = await prisma.file.findMany({
           where: whereClause,
           include: {
@@ -263,7 +264,7 @@ RÈGLES IMPORTANTES :
           },
           take: 20, // Limiter à 20 résultats
         });
-        console.log('[searchFiles] Found files:', files.length);
+        logger.info('[searchFiles] Found files:', files.length);
 
         return {
           files,
@@ -326,7 +327,7 @@ RÈGLES IMPORTANTES :
           : 'Aucun fichier trouvé.',
       };
     } catch (error: any) {
-      console.error('Error searching files:', error);
+      logger.error('Error searching files:', error);
       throw new Error(`Failed to search files: ${error.message}`);
     }
   }
@@ -388,7 +389,7 @@ RÈGLES IMPORTANTES :
         message: `Fichier "${finalFileName}" créé avec succès !`,
       };
     } catch (error: any) {
-      console.error('Error creating generated file:', error);
+      logger.error('Error creating generated file:', error);
       throw new Error(`Failed to create file: ${error.message}`);
     }
   }
@@ -401,7 +402,7 @@ RÈGLES IMPORTANTES :
       return "Je suis désolé, mais mon service d'IA n'est pas encore configuré (Clé API Cohere manquante). Veuillez contacter l'administrateur.";
     }
     try {
-      console.log(`[Bobby] Using model: ${this.model}`);
+      logger.info(`[Bobby] Using model: ${this.model}`);
 
       // Définir les fonctions disponibles
       const availableFunctions = [
@@ -462,16 +463,16 @@ Tu peux aider l'utilisateur avec ses fichiers, la recherche, et l'organisation.`
 
         // Appeler searchFiles
         if (functionCall.function?.name === 'searchFiles') {
-          console.log('[Bobby] Calling searchFiles for userId:', userId);
+          logger.info('[Bobby] Calling searchFiles for userId:', userId);
           const searchResult = await this.searchFiles(userId, message);
-          console.log('[Bobby] Search result:', searchResult);
+          logger.info('[Bobby] Search result:', searchResult);
 
           // Vérifier si l'utilisateur veut analyser un fichier spécifique
           const isAnalysisRequest = message.toLowerCase().match(/qu'est-ce que|analyse|décris|décrit|c'est quoi|que contient/);
 
           if (isAnalysisRequest && searchResult.files && searchResult.files.length === 1) {
             // Si c'est une demande d'analyse et qu'on a trouvé exactement 1 fichier, l'analyser
-            console.log('[Bobby] Analyzing single file found:', searchResult.files[0].id);
+            logger.info('[Bobby] Analyzing single file found:', searchResult.files[0].id);
             const file = searchResult.files[0];
             const analysis = await this.analyzeFile(file.id, userId, message);
             return `Voici l'analyse de **${file.name}** :\n\n${analysis}`;
@@ -480,7 +481,7 @@ Tu peux aider l'utilisateur avec ses fichiers, la recherche, et l'organisation.`
           // Si l'utilisateur dit "analyse le/la" sans nom de fichier mais qu'on a trouvé des fichiers
           const isSimpleAnalysisRequest = message.toLowerCase().match(/^(analyse|décris|décrit)[\s-]*(le|la|les|l'|ce|cette|celui|celle)?$/i);
           if (isSimpleAnalysisRequest && searchResult.files && searchResult.files.length === 1) {
-            console.log('[Bobby] Simple analysis request, analyzing:', searchResult.files[0].id);
+            logger.info('[Bobby] Simple analysis request, analyzing:', searchResult.files[0].id);
             const file = searchResult.files[0];
             const analysis = await this.analyzeFile(file.id, userId, 'Décris le contenu de ce fichier de manière détaillée.');
             return `Voici l'analyse de **${file.name}** :\n\n${analysis}`;
@@ -501,7 +502,7 @@ Tu peux aider l'utilisateur avec ses fichiers, la recherche, et l'organisation.`
 
       return (response.message.content as any)?.[0]?.text || 'Désolé, je n\'ai pas pu traiter votre demande.';
     } catch (error: any) {
-      console.error('Error in chat:', error);
+      logger.error('Error in chat:', error);
 
       // Détecter les erreurs de rate limit
       if (error.message && error.message.includes('429')) {

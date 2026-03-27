@@ -6,6 +6,7 @@ import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { PlanService } from './planService';
 import { VaultService } from './vaultService';
+import logger from '../config/logger';
 
 export class ShareService {
   private static async assertShareLimit(userId: string) {
@@ -81,7 +82,7 @@ export class ShareService {
       fileName: file.name,
       fileId,
       shareToken: shareLink.token,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     return shareLink;
   }
@@ -266,14 +267,14 @@ export class ShareService {
         'folder'
       );
     } catch (error) {
-      console.error('Error sending share notification:', error);
+      logger.error('Error sending share notification:', error);
     }
 
     // Audit log
     AuditService.createLog(userId, 'SHARE', {
       folderName: folder.name,
       folderId,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     // Socket notification
     SocketService.emitToUser(targetUserId, 'share_received', { type: 'folder', folderName: folder.name });
@@ -485,14 +486,14 @@ export class ShareService {
         'file'
       );
     } catch (error) {
-      console.error('Error sending share notification:', error);
+      logger.error('Error sending share notification:', error);
     }
 
     // Audit log
     AuditService.createLog(userId, 'SHARE', {
       fileName: file.name,
       fileId,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     // Socket notification
     SocketService.emitToUser(targetUserId, 'share_received', { type: 'file', fileName: file.name });

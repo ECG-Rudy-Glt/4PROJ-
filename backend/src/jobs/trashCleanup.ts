@@ -3,11 +3,12 @@ import prisma from '../config/database';
 import fs from 'fs/promises';
 import path from 'path';
 import { PlanService } from '../services/planService';
+import logger from '../config/logger';
 
 // Cron job qui s'exécute tous les jours à 2h du matin
 export const startTrashCleanupJob = () => {
   cron.schedule('0 2 * * *', async () => {
-    console.log('🗑️  Démarrage de la purge automatique de la corbeille...');
+    logger.info('️  Démarrage de la purge automatique de la corbeille...');
 
     try {
       // Date limite : il y a 90 jours
@@ -33,11 +34,11 @@ export const startTrashCleanupJob = () => {
       });
 
       if (oldDeletedFiles.length === 0) {
-        console.log('✅ Aucun fichier à purger');
+        logger.info(' Aucun fichier à purger');
         return;
       }
 
-      console.log(`📋 ${oldDeletedFiles.length} fichier(s) à purger`);
+      logger.info(` ${oldDeletedFiles.length} fichier(s) à purger`);
 
       let purgedCount = 0;
       let errorCount = 0;
@@ -47,9 +48,9 @@ export const startTrashCleanupJob = () => {
           // Supprimer le fichier physique
           try {
             await fs.unlink(file.storagePath);
-            console.log(`  ✓ Fichier supprimé : ${file.name}`);
+            logger.info(`   Fichier supprimé : ${file.name}`);
           } catch (err) {
-            console.warn(`  ⚠️  Impossible de supprimer le fichier physique : ${file.name}`, err);
+            console.warn(`  ️  Impossible de supprimer le fichier physique : ${file.name}`, err);
           }
 
           // Supprimer la miniature si elle existe
@@ -69,16 +70,16 @@ export const startTrashCleanupJob = () => {
 
           purgedCount++;
         } catch (error) {
-          console.error(`  ✗ Erreur lors de la purge de ${file.name}:`, error);
+          logger.error(`   Erreur lors de la purge de ${file.name}:`, error);
           errorCount++;
         }
       }
 
-      console.log(`✅ Purge terminée : ${purgedCount} fichier(s) purgé(s), ${errorCount} erreur(s)`);
+      logger.info(` Purge terminée : ${purgedCount} fichier(s) purgé(s), ${errorCount} erreur(s)`);
     } catch (error) {
-      console.error('❌ Erreur lors de la purge automatique:', error);
+      logger.error(' Erreur lors de la purge automatique:', error);
     }
   });
 
-  console.log('✅ Job de purge automatique démarré (tous les jours à 2h)');
+  logger.info(' Job de purge automatique démarré (tous les jours à 2h)');
 };

@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { buildAllowedOrigins, isOriginAllowed } from '../utils/cors';
+import logger from '../config/logger';
 
 interface AuthenticatedSocket extends Socket {
     user?: {
@@ -61,7 +62,7 @@ export class SocketService {
         });
 
         this.io.on('connection', (socket: AuthenticatedSocket) => {
-            console.log(`[Socket] User connected: ${socket.user?.email} (${socket.id})`);
+            logger.info(`[Socket] User connected: ${socket.user?.email} (${socket.id})`);
 
             const roomId = (socket.user as any)?.userId || socket.user?.id;
             if (roomId) {
@@ -70,7 +71,7 @@ export class SocketService {
 
             socket.on('join_file', (fileId: string) => {
                 socket.join(`file_${fileId}`);
-                console.log(`[Socket] User ${socket.user?.email} joined file_${fileId}`);
+                logger.info(`[Socket] User ${socket.user?.email} joined file_${fileId}`);
             });
 
             socket.on('leave_file', (fileId: string) => {
@@ -78,7 +79,7 @@ export class SocketService {
             });
 
             socket.on('disconnect', () => {
-                console.log(`[Socket] User disconnected: ${socket.user?.email}`);
+                logger.info(`[Socket] User disconnected: ${socket.user?.email}`);
             });
         });
     }
