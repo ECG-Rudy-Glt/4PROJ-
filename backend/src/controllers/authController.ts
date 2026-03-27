@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/authService';
 import { AuthRequest } from '../types';
 import { generateToken } from '../utils/jwt';
@@ -8,9 +8,10 @@ import { trustedDeviceService } from '../services/trustedDeviceService';
 import { generateTempToken } from './mfaController';
 import prisma from '../config/database';
 import { clearSwitchSessionCookie } from '../utils/cookies';
+import logger from '../config/logger';
 
 export class AuthController {
-  static async register(req: Request, res: Response): Promise<void> {
+  static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password, firstName, lastName } = req.body;
 
@@ -28,12 +29,10 @@ export class AuthController {
       const result = await AuthService.register(email, password, firstName, lastName);
 
       res.status(201).json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async logoutAll(req: AuthRequest, res: Response): Promise<void> {
+  static async logoutAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const result = await AuthService.logoutGlobal(userId);
@@ -43,16 +42,14 @@ export class AuthController {
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
         globalLogout: true,
-      }).catch(console.error);
+      }).catch((e) => logger.error(e));
       clearSwitchSessionCookie(res);
 
       res.status(200).json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async login(req: Request, res: Response): Promise<void> {
+  static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password } = req.body;
 
@@ -110,12 +107,10 @@ export class AuthController {
         });
         return;
       }
-    } catch (error: any) {
-      res.status(401).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getProfile(req: AuthRequest, res: Response): Promise<void> {
+  static async getProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = req.user!;
 
@@ -144,12 +139,10 @@ export class AuthController {
           delegation: req.authContext?.delegation || null,
         },
       });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async updateProfile(req: AuthRequest, res: Response): Promise<void> {
+  static async updateProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { firstName, lastName, avatar, theme } = req.body;
@@ -162,12 +155,10 @@ export class AuthController {
       });
 
       res.status(200).json({ user });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async changePassword(req: AuthRequest, res: Response): Promise<void> {
+  static async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { oldPassword, newPassword } = req.body;
@@ -178,15 +169,13 @@ export class AuthController {
       AuditService.createLog(userId, 'PASSWORD_CHANGE', {
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
-      }).catch(console.error);
+      }).catch((e) => logger.error(e));
 
       res.status(200).json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async oauthCallback(req: AuthRequest, res: Response): Promise<void> {
+  static async oauthCallback(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = req.user!;
       const token = generateToken(user.id, user.email);
@@ -194,13 +183,14 @@ export class AuthController {
       // Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
-    } catch (error: any) {
+    } catch (error) {
+      const msg = encodeURIComponent(error instanceof Error ? error.message : 'Unknown error');
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      res.redirect(`${frontendUrl}/auth/callback?error=${error.message}`);
+      res.redirect(`${frontendUrl}/auth/callback?error=${msg}`);
     }
   }
 
-  static async uploadAvatar(req: AuthRequest, res: Response): Promise<void> {
+  static async uploadAvatar(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const file = req.file;
@@ -219,12 +209,10 @@ export class AuthController {
       });
 
       res.status(200).json({ avatarUrl, user });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async exportUserData(req: AuthRequest, res: Response): Promise<void> {
+  static async exportUserData(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
 
@@ -493,11 +481,10 @@ export class AuthController {
       // BOM UTF-8 pour meilleure compatibilité Excel
       res.status(200).send(`\uFEFF${csv}`);
 
-    } catch (error: any) {
-      console.error('Error exporting user data:', error);
-      // Si les headers n'ont pas encore été envoyés, on peut renvoyer une erreur JSON
+    } catch (error) {
+      logger.error({ err: error }, 'Error exporting user data');
       if (!res.headersSent) {
-        res.status(500).json({ error: error.message });
+        next(error);
       }
     }
   }

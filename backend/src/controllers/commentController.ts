@@ -1,9 +1,10 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { CommentService } from '../services/commentService';
 import { SocketService } from '../services/socketService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
+import logger from '../config/logger';
 
 export class CommentController {
   /**
@@ -38,14 +39,11 @@ export class CommentController {
           'Nouveau commentaire',
           `${req.user!.firstName || req.user!.email} a commenté "${file.name}".`,
           { fileId }
-        ).catch(console.error);
+        ).catch((e) => logger.error(e));
       }
 
       res.status(201).json({ comment });
-    } catch (error: any) {
-      console.error('Erreur lors de la création du commentaire:', error);
-      res.status(500).json({ error: error.message || 'Échec de la création du commentaire' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
@@ -60,10 +58,7 @@ export class CommentController {
       const comments = await CommentService.getFileComments(fileId, userId);
 
       res.json({ comments });
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des commentaires:', error);
-      res.status(500).json({ error: error.message || 'Échec de la récupération des commentaires' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
@@ -87,10 +82,7 @@ export class CommentController {
       const comment = await CommentService.updateComment(commentId, userId, content.trim());
 
       res.json({ comment });
-    } catch (error: any) {
-      console.error('Erreur lors de la mise à jour du commentaire:', error);
-      res.status(500).json({ error: error.message || 'Échec de la mise à jour du commentaire' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
@@ -105,10 +97,7 @@ export class CommentController {
       await CommentService.deleteComment(commentId, userId);
 
       res.json({ message: 'Commentaire supprimé' });
-    } catch (error: any) {
-      console.error('Erreur lors de la suppression du commentaire:', error);
-      res.status(500).json({ error: error.message || 'Échec de la suppression du commentaire' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
@@ -123,9 +112,6 @@ export class CommentController {
       const count = await CommentService.countFileComments(fileId, userId);
 
       res.json({ count });
-    } catch (error: any) {
-      console.error('Erreur lors du comptage des commentaires:', error);
-      res.status(500).json({ error: error.message || 'Échec du comptage des commentaires' });
-    }
+    } catch (error) { next(error); }
   }
 }

@@ -1,3 +1,4 @@
+import logger from 'logger';
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptions } from 'passport-jwt';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
@@ -6,14 +7,15 @@ import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from './database';
 import { JWTPayload, OAuth2Profile } from '../types';
 import { PlanService } from '../services/planService';
+import logger from './logger';
 
 if (!process.env.JWT_SECRET) {
-  console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start.");
+  logger.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start.");
   process.exit(1);
 }
 const JWT_SECRET = process.env.JWT_SECRET as string;
 if (!JWT_SECRET) {
-  console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start.");
+  logger.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start.");
   process.exit(1);
 }
 
@@ -34,10 +36,10 @@ passport.use(
         // Validation du token version (Logout global)
         const tokenVersion = payload.tokenVersion || 1;
 
-        console.log(`[Auth Debug] User ${user.email} | DB Version: ${user.tokenVersion} | Token Version: ${tokenVersion}`);
+        logger.info(`[Auth Debug] User ${user.email} | DB Version: ${user.tokenVersion} | Token Version: ${tokenVersion}`);
 
         if (user.tokenVersion !== tokenVersion) {
-          console.log('[Auth Debug] Token rejected due to version mismatch');
+          logger.info('[Auth Debug] Token rejected due to version mismatch');
           return done(null, false, { message: 'Token invalide (version mismatch)' });
         }
         return done(null, user);

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
 import jwt from 'jsonwebtoken';
@@ -15,6 +15,7 @@ function generateTempToken(userId: string): string {
 }
 
 import { generateToken } from '../utils/jwt';
+import logger from '../config/logger';
 
 /**
  * Contrôleur MFA
@@ -24,7 +25,7 @@ export class MFAController {
    * POST /api/mfa/setup
    * Génère le secret TOTP et le QR code pour la configuration initiale
    */
-  async setupMFA(req: Request, res: Response): Promise<void> {
+  async setupMFA(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as any).user;
       const userId = user.id;
@@ -49,17 +50,14 @@ export class MFAController {
         qrCodeDataUrl,
         backupCodes,
       });
-    } catch (error: any) {
-      console.error('Error in setupMFA:', error);
-      res.status(500).json({ error: error.message || 'Échec de la configuration MFA' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * POST /api/mfa/verify-setup
    * Vérifie le code initial et active le MFA
    */
-  async verifySetup(req: Request, res: Response): Promise<void> {
+  async verifySetup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as any).user;
       const userId = user.id;
@@ -93,17 +91,14 @@ export class MFAController {
         message: 'MFA activé avec succès',
         token: authToken,
       });
-    } catch (error: any) {
-      console.error('Error in verifySetup:', error);
-      res.status(500).json({ error: error.message || 'Échec de la vérification' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * POST /api/mfa/verify
    * Vérifie le code TOTP lors de la connexion
    */
-  async verifyMFA(req: Request, res: Response): Promise<void> {
+  async verifyMFA(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, token, rememberDevice } = req.body;
 
@@ -151,17 +146,14 @@ export class MFAController {
         token: authToken,
         user,
       });
-    } catch (error: any) {
-      console.error('Error in verifyMFA:', error);
-      res.status(500).json({ error: error.message || 'Échec de la vérification' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * POST /api/mfa/verify-backup-code
    * Vérifie un code de récupération
    */
-  async verifyBackupCode(req: Request, res: Response): Promise<void> {
+  async verifyBackupCode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId, backupCode, rememberDevice } = req.body;
 
@@ -217,17 +209,14 @@ export class MFAController {
             ? `Il vous reste ${remainingCodes} code(s) de récupération.`
             : null,
       });
-    } catch (error: any) {
-      console.error('Error in verifyBackupCode:', error);
-      res.status(500).json({ error: error.message || 'Échec de la vérification' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * POST /api/mfa/regenerate-codes
    * Régénère les codes de récupération
    */
-  async regenerateBackupCodes(req: Request, res: Response): Promise<void> {
+  async regenerateBackupCodes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = (req as any).user.id;
       const { token } = req.body;
@@ -251,34 +240,28 @@ export class MFAController {
         message: 'Codes de récupération régénérés avec succès',
         backupCodes,
       });
-    } catch (error: any) {
-      console.error('Error in regenerateBackupCodes:', error);
-      res.status(500).json({ error: error.message || 'Échec de la régénération' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * GET /api/mfa/trusted-devices
    * Liste les appareils de confiance
    */
-  async getTrustedDevices(req: Request, res: Response): Promise<void> {
+  async getTrustedDevices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = (req as any).user.id;
 
       const devices = await trustedDeviceService.getUserTrustedDevices(userId);
 
       res.json({ devices });
-    } catch (error: any) {
-      console.error('Error in getTrustedDevices:', error);
-      res.status(500).json({ error: error.message || 'Échec de la récupération des appareils' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * DELETE /api/mfa/trusted-devices/:deviceId
    * Révoque un appareil de confiance
    */
-  async revokeTrustedDevice(req: Request, res: Response): Promise<void> {
+  async revokeTrustedDevice(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = (req as any).user.id;
       const { deviceId } = req.params;
@@ -291,17 +274,14 @@ export class MFAController {
       await trustedDeviceService.revokeTrustedDevice(userId, deviceId);
 
       res.json({ message: 'Appareil révoqué avec succès' });
-    } catch (error: any) {
-      console.error('Error in revokeTrustedDevice:', error);
-      res.status(500).json({ error: error.message || 'Échec de la révocation' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * POST /api/mfa/disable
    * Désactive le MFA
    */
-  async disableMFA(req: Request, res: Response): Promise<void> {
+  async disableMFA(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = (req as any).user.id;
       const { token } = req.body;
@@ -322,17 +302,14 @@ export class MFAController {
       await mfaService.disableMFA(userId);
 
       res.json({ message: 'MFA désactivé avec succès' });
-    } catch (error: any) {
-      console.error('Error in disableMFA:', error);
-      res.status(500).json({ error: error.message || 'Échec de la désactivation' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * GET /api/mfa/status
    * Vérifie le statut MFA de l'utilisateur
    */
-  async getMFAStatus(req: Request, res: Response): Promise<void> {
+  async getMFAStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = (req as any).user.id;
 
@@ -358,10 +335,7 @@ export class MFAController {
         remainingBackupCodes: user.mfaBackupCodes?.length || 0,
         activeTrustedDevices,
       });
-    } catch (error: any) {
-      console.error('Error in getMFAStatus:', error);
-      res.status(500).json({ error: error.message || 'Échec de la récupération du statut' });
-    }
+    } catch (error) { next(error); }
   }
 }
 
