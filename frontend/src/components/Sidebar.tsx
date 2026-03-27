@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Home,
@@ -14,10 +15,29 @@ import {
 import { useAuthStore } from '@/stores/useAuthStore';
 import { formatBytes } from '@/utils/bytes';
 import { useVaultStore } from '@/stores/useVaultStore';
+import { shareService } from '@/services/shareService';
 
 export default function Sidebar() {
   const { user } = useAuthStore();
   const { status: vaultStatus, rootFolder: vaultRootFolder } = useVaultStore();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const data = await shareService.getPendingShares();
+        const count = (data.pendingFiles?.length || 0) + (data.pendingFolders?.length || 0);
+        setPendingCount(count);
+      } catch (error) {
+        console.error('Failed to fetch pending shares count', error);
+      }
+    };
+
+    fetchPendingCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     { to: '/dashboard', icon: Home, label: 'Accueil', section: 'main' },
@@ -99,6 +119,40 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
+                  `group flex items-center justify-between space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                    ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="flex items-center space-x-3">
+                      <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400'} transition-colors`} />
+                      <span className={`font-medium text-sm ${isActive ? 'font-semibold' : ''}`}>{item.label}</span>
+                    </div>
+                    {item.to === '/shared' && pendingCount > 0 && (
+                      <span className={`flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
+                        isActive ? 'bg-white text-primary-600' : 'bg-amber-500 text-white animate-pulse'
+                      }`}>
+                        {pendingCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+
+        {/* Settings */}
+        <div className="px-3 pb-4">
+          <div className="space-y-1">
+            {bottomItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
                   `group flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
                     ? 'bg-primary-600 dark:bg-primary-600 text-white shadow-md shadow-primary-600/30'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -114,32 +168,6 @@ export default function Sidebar() {
               </NavLink>
             ))}
           </div>
-        </nav>
-
-        {/* Settings */}
-        <div className="px-3 pb-4">
-          {bottomItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `relative group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${isActive
-                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-700/30'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-600 dark:bg-primary-400 rounded-r-full" />
-                  )}
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-primary-500'} transition-colors`} />
-                  <span className={`font-medium text-sm ${isActive ? 'font-semibold' : ''}`}>{item.label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
 
           {/* Storage Info */}
           {user && (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Filter, X, Calendar, FileType, HardDrive } from 'lucide-react';
 
 interface FilterBarProps {
@@ -17,6 +17,23 @@ export interface FilterState {
 export function FilterBar({ onFilterChange, onClearFilters }: FilterBarProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [filters, setFilters] = useState<FilterState>({});
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
 
     const handleApply = () => {
         onFilterChange(filters);
@@ -32,7 +49,7 @@ export function FilterBar({ onFilterChange, onClearFilters }: FilterBarProps) {
     const activeFiltersCount = Object.keys(filters).length;
 
     return (
-        <div className="relative mb-4">
+        <div className="relative mb-4" ref={containerRef}>
             <div className="flex items-center gap-2">
                 <button
                     onClick={() => setIsOpen(!isOpen)}

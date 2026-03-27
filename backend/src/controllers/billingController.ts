@@ -21,15 +21,9 @@ export class BillingController {
         return;
       }
 
-      // Bypass Stripe uniquement pour les comptes ADMIN (mode dev / secours)
+      // Simulation si Stripe n'est pas configuré
       if (!process.env.STRIPE_SECRET_KEY) {
-        if (req.user?.role !== Role.ADMIN) {
-          res.status(503).json({
-            error: 'Stripe non configuré',
-            message: 'Paiement indisponible temporairement. Contactez un administrateur.',
-          });
-          return;
-        }
+        logger.info(`Simulated Stripe Checkout for user ${userId} and plan ${plan}`);
 
         const newLimit = PlanService.getStorageLimit(plan as Plan);
         await prisma.user.update({

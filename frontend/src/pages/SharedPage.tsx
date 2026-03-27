@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { shareService } from '@/services/shareService';
 import { fileService } from '@/services/fileService';
-import { SharedLink, SharedFolder, File } from '@/types';
+import { SharedLink, SharedFolder, SharedFile, File } from '@/types';
 import {
   Link2,
   Trash2,
@@ -63,7 +63,7 @@ const formatBytes = (bytes: number) => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
-type TabType = 'shared-with-me' | 'my-shares';
+type TabType = 'shared-with-me' | 'my-shares' | 'pending';
 
 export default function SharedPage() {
   const navigate = useNavigate();
@@ -78,6 +78,10 @@ export default function SharedPage() {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
+  // Partages en attente
+  const [pendingFolders, setPendingFolders] = useState<SharedFolder[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<SharedFile[]>([]);
+  
   useEffect(() => {
     loadShared();
   }, []);
@@ -85,12 +89,13 @@ export default function SharedPage() {
   const loadShared = async () => {
     setIsLoading(true);
     try {
-      const [linksData, foldersData, filesData, sharedByMeFoldersData, sharedByMeFilesData] = await Promise.all([
+      const [linksData, foldersData, filesData, sharedByMeFoldersData, sharedByMeFilesData, pendingData] = await Promise.all([
         shareService.listShareLinks(),
         shareService.listSharedWithMe(),
         shareService.listFilesSharedWithMe().catch(() => ({ sharedFiles: [] })),
         shareService.listSharedByMe().catch(() => ({ sharedFolders: [] })),
         shareService.listFilesSharedByMe().catch(() => ({ sharedFiles: [] })),
+        shareService.getPendingShares().catch(() => ({ pendingFolders: [], pendingFiles: [] })),
       ]);
       setShareLinks(linksData.shareLinks || []);
       setSharedFolders(foldersData.sharedFolders || []);
@@ -116,10 +121,43 @@ export default function SharedPage() {
         canShare: sf.canShare,
       })).filter((f: any) => f && f.id);
       setSharedByMeFiles(sharedByMeFilesList);
+
+      // Partages en attente
+      setPendingFolders(pendingData.pendingFolders || []);
+      setPendingFiles(pendingData.pendingFiles || []);
     } catch {
       toast.error('Échec du chargement des éléments partagés');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAcceptShare = async (shareId: string, type: 'file' | 'folder') => {
+    try {
+      if (type === 'file') {
+        await shareService.acceptSharedFile(shareId);
+      } else {
+        await shareService.acceptSharedFolder(shareId);
+      }
+      toast.success('Partage accepté');
+      loadShared();
+    } catch {
+      toast.error('Échec de l\'acceptation');
+    }
+  };
+
+  const handleRejectShare = async (shareId: string, type: 'file' | 'folder') => {
+    if (!confirm('Refuser ce partage ?')) return;
+    try {
+      if (type === 'file') {
+        await shareService.rejectSharedFile(shareId);
+      } else {
+        await shareService.rejectSharedFolder(shareId);
+      }
+      toast.success('Partage refusé');
+      loadShared();
+    } catch {
+      toast.error('Échec du refus');
     }
   };
 
@@ -167,6 +205,7 @@ export default function SharedPage() {
 
   const tabs = [
     { id: 'shared-with-me' as TabType, label: 'Partagés avec moi', icon: Users, count: sharedFiles.length + sharedFolders.length },
+    { id: 'pending' as TabType, label: 'En attente', icon: Clock, count: pendingFiles.length + pendingFolders.length, highlight: true },
     { id: 'my-shares' as TabType, label: 'Mes partages', icon: Share2, count: shareLinks.length + sharedByMeFiles.length + sharedByMeFolders.length },
   ];
 
@@ -192,7 +231,9 @@ export default function SharedPage() {
               className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab.id
                   ? 'border-primary-600 text-primary-600 dark:text-primary-300'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  : tab.highlight && tab.count > 0
+                    ? 'border-transparent text-amber-600 dark:text-amber-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
               <tab.icon className="w-5 h-5" />
@@ -201,7 +242,9 @@ export default function SharedPage() {
                 <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
                   activeTab === tab.id
                     ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/50 dark:text-primary-300'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                    : tab.highlight 
+                      ? 'bg-amber-100 text-amber-600 animate-pulse'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                 }`}>
                   {tab.count}
                 </span>
@@ -331,6 +374,86 @@ export default function SharedPage() {
                   <p className="text-gray-500 dark:text-gray-400">
                     Les fichiers et dossiers que d'autres utilisateurs partagent avec vous apparaîtront ici.
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Partages en attente */}
+          {activeTab === 'pending' && (
+            <div className="space-y-6">
+              {(pendingFiles.length > 0 || pendingFolders.length > 0) ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Fichiers en attente */}
+                  {pendingFiles.map((share) => (
+                    <div key={share.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-amber-200 dark:border-amber-900/30 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+                          <FileIcon className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-white truncate">
+                            {share.file?.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Partagé par {share.sharedBy?.firstName || share.sharedBy?.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRejectShare(share.id, 'file')}
+                          className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          Refuser
+                        </button>
+                        <button
+                          onClick={() => handleAcceptShare(share.id, 'file')}
+                          className="px-4 py-2 text-sm font-bold bg-primary-600 text-white hover:bg-primary-700 rounded-lg shadow-sm transition-all shadow-primary-600/20"
+                        >
+                          Accepter
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Dossiers en attente */}
+                  {pendingFolders.map((share) => (
+                    <div key={share.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-amber-200 dark:border-amber-900/30 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+                          <Folder className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-white truncate">
+                            {share.folder?.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Partagé par {share.sharedBy?.firstName || share.sharedBy?.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRejectShare(share.id, 'folder')}
+                          className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          Refuser
+                        </button>
+                        <button
+                          onClick={() => handleAcceptShare(share.id, 'folder')}
+                          className="px-4 py-2 text-sm font-bold bg-primary-600 text-white hover:bg-primary-700 rounded-lg shadow-sm transition-all shadow-primary-600/20"
+                        >
+                          Accepter
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center text-gray-500">
+                  <Clock className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                  <p>Aucun partage en attente pour le moment.</p>
                 </div>
               )}
             </div>

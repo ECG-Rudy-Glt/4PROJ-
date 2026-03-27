@@ -14,8 +14,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TagSelector from '@/components/TagSelector';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -41,6 +39,15 @@ const formatBytes = (bytes: number) => {
   const sizes = ['o', 'Ko', 'Mo', 'Go'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+};
+
+const getRemainingDays = (deletedAt: string | Date | undefined) => {
+  if (!deletedAt) return null;
+  const deletedDate = new Date(deletedAt);
+  const now = new Date();
+  const diffTime = (deletedDate.getTime() + 90 * 24 * 60 * 60 * 1000) - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
 };
 
 export default function TrashPage() {
@@ -161,7 +168,7 @@ export default function TrashPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nom</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Tags</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Taille</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Supprimé</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase italic text-amber-600 dark:text-amber-400">Temps restant</th>
                 <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Actions</th>
               </tr>
             </thead>
@@ -188,8 +195,16 @@ export default function TrashPage() {
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                       {formatBytes(Number(file.size))}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {file.deletedAt && format(new Date(file.deletedAt), 'dd MMM yyyy', { locale: fr })}
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {file.deletedAt && (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs ${
+                          (getRemainingDays(file.deletedAt) || 0) < 10 
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {getRemainingDays(file.deletedAt)} jours
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-2">

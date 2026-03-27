@@ -4,10 +4,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
-import { billingService } from '@/services/billingService';
 import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
-
-type PaidPlanId = Exclude<PlanId, 'FREE'>;
 
 const plans: Array<{
   id: PlanId;
@@ -105,17 +102,17 @@ export default function PlansPage() {
   const { user, refreshProfile } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
     const checkoutState = searchParams.get('checkout');
     if (!checkoutState) return;
 
     if (checkoutState === 'success') {
-      toast.success('Paiement confirme. Votre abonnement est en cours de synchronisation.');
+      toast.success('Paiement confirmé. Votre abonnement est actif.');
       refreshProfile().catch(() => undefined);
     } else if (checkoutState === 'cancel') {
-      toast('Paiement annule');
+      toast('Paiement annulé');
     }
 
     const nextParams = new URLSearchParams(searchParams);
@@ -128,148 +125,129 @@ export default function PlansPage() {
 
     setLoading(planId);
     try {
-      if (user?.role === 'ADMIN') {
-        await api.put('/users/plan', { plan: planId });
-        await refreshProfile();
-        toast.success(`Plan ${planId} applique (bypass admin)`);
-        return;
-      }
-
       if (planId === 'FREE') {
-        await api.put('/users/plan', { plan: 'FREE' });
+        await api.post('/billing/downgrade-free');
         await refreshProfile();
-        toast.success('Passage au plan FREE effectue');
+        toast.success('Retour au plan gratuit effectué');
         return;
       }
 
-      const { url } = await billingService.createCheckoutSession(planId as PaidPlanId);
-      if (!url) {
-        throw new Error('Stripe checkout URL not returned');
+      // Simulation Stripe Checkout
+      setIsRedirecting(true);
+      
+      const response = await api.post('/billing/checkout-session', { plan: planId });
+      
+      // Simuler le délai de redirection Stripe
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (response.data.url) {
+        window.location.href = response.data.url;
       }
-
-      window.location.href = url;
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Echec de la mise a jour du plan');
+      setIsRedirecting(false);
+      toast.error(error.response?.data?.error || 'Échec de la transition vers le paiement');
     } finally {
       setLoading(null);
     }
   };
 
-  const handleOpenBillingPortal = async () => {
-    setPortalLoading(true);
-    try {
-      const { url } = await billingService.createPortalSession();
-      window.location.href = url;
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible d ouvrir le portail Stripe');
-    } finally {
-      setPortalLoading(false);
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-12 py-8">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-          Plans et Tarifs
+        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          Choisissez votre forfait
         </h1>
-        <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-          Choisissez le plan adapte a vos besoins de stockage et de securite.
+        <p className="text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
+          Des solutions de stockage adaptées à tous vos besoins, du personnel au professionnel.
         </p>
-        {user?.role === 'ADMIN' && (
-          <p className="text-sm text-amber-600 dark:text-amber-400">
-            Mode admin: les changements de plan contournent Stripe.
-          </p>
-        )}
-        {user?.role !== 'ADMIN' && user?.plan && user.plan !== 'FREE' && (
-          <button
-            onClick={handleOpenBillingPortal}
-            disabled={portalLoading}
-            className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
-          >
-            {portalLoading ? 'Ouverture...' : 'Gerer ma facturation'}
-          </button>
-        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mt-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
         {plans.map((plan) => {
-          const Icon = plan.icon;
           const isCurrentPlan = user?.plan === plan.id;
 
           return (
             <div
               key={plan.id}
-              className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 transition-transform hover:scale-105 ${isCurrentPlan ? 'border-primary-500 ring-4 ring-primary-500/10' : 'border-transparent'
-                }`}
+              className={`relative bg-white dark:bg-gray-800 rounded-3xl p-8 border-2 transition-all duration-300 hover:shadow-2xl ${isCurrentPlan 
+                ? 'border-primary-500 ring-4 ring-primary-500/5' 
+                : 'border-gray-100 dark:border-gray-700 hover:border-primary-200'
+              }`}
             >
               {plan.popular && (
-                <div className="absolute top-0 right-0 -mr-2 -mt-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                  POPULAIRE
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-xl uppercase tracking-widest">
+                  Recommandé
                 </div>
               )}
 
-              <div className="p-8 space-y-6">
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${plan.color}`}>
-                  <Icon className="w-8 h-8" />
-                </div>
-
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
-                  <div className="flex items-baseline mt-2">
-                    <span className="text-4xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
-                    <span className="text-gray-500 dark:text-gray-400 ml-2">{plan.period}</span>
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{plan.description}</p>
                   </div>
-                  <p className="text-gray-500 dark:text-gray-400 mt-2">{plan.description}</p>
+                  <div className="text-right">
+                    <span className="text-3xl font-black text-gray-900 dark:text-white">{plan.price}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{plan.period}</span>
+                  </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="py-6 border-t border-gray-100 dark:border-gray-700 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-1 rounded-full bg-green-100 dark:bg-green-900/30">
-                      <Database className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    </div>
-                    <span className="font-semibold text-gray-900 dark:text-white">{plan.storage}</span>
+                    <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                      {plan.storage}
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">de stockage sécurisé</span>
                   </div>
 
-                  {plan.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      {feature.included ? (
-                        <div className="p-1 rounded-full bg-primary-100 dark:bg-primary-900/30">
-                          <Check className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                        </div>
-                      ) : (
-                        <div className="p-1 rounded-full bg-gray-100 dark:bg-gray-700">
-                          <X className="w-4 h-4 text-gray-400" />
-                        </div>
-                      )}
-                      <span className={`text-sm ${feature.included ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
-                        {feature.name}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="space-y-3">
+                    {plan.features.slice(0, 4).map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        {feature.included ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4 text-gray-300" />
+                        )}
+                        <span className={`text-sm ${feature.included ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
+                          {feature.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <button
                   onClick={() => handlePlanSelection(plan.id)}
                   disabled={isCurrentPlan || loading !== null}
-                  className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${isCurrentPlan ? 'bg-gray-400 cursor-not-allowed' : plan.buttonColor
-                    } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
+                  className={`w-full py-4 px-6 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                    isCurrentPlan 
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                      : 'bg-gray-900 dark:bg-white dark:text-gray-900 text-white hover:bg-gray-800 dark:hover:bg-gray-100 shadow-xl'
+                  } ${loading === plan.id ? 'opacity-50 animate-pulse' : ''}`}
                 >
-                  {isCurrentPlan
-                    ? 'Plan actuel'
-                    : loading === plan.id
-                      ? 'Redirection...'
-                      : user?.role === 'ADMIN'
-                        ? 'Activer (Admin)'
-                        : plan.id === 'FREE'
-                          ? 'Basculer vers FREE'
-                          : 'Choisir ce plan'}
+                  {isCurrentPlan ? 'Plan actuel' : loading === plan.id ? 'Activation...' : 'Sélectionner'}
                 </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {isRedirecting && (
+        <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-4 p-8 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Redirection sécurisée...</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">Nous vous connectons à Stripe pour finaliser votre abonnement.</p>
+            </div>
+            <div className="mt-4 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-widest">Connexion chiffrée SSL</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
