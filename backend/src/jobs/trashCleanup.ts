@@ -70,14 +70,38 @@ export const startTrashCleanupJob = () => {
 
           purgedCount++;
         } catch (error) {
-          logger.error(`   Erreur lors de la purge de ${file.name}:`, error);
+          logger.error(`   Erreur lors de la purge de ${file.name}: ${error}`);
           errorCount++;
         }
       }
 
       logger.info(` Purge terminée : ${purgedCount} fichier(s) purgé(s), ${errorCount} erreur(s)`);
+
+      // Purger les DOSSIERS
+      const oldDeletedFolders = await prisma.folder.findMany({
+        where: {
+          isDeleted: true,
+          deletedAt: {
+            lte: ninetyDaysAgo,
+          },
+        },
+      });
+
+      if (oldDeletedFolders.length > 0) {
+        logger.info(` ${oldDeletedFolders.length} dossier(s) à purger`);
+        for (const folder of oldDeletedFolders) {
+          try {
+            await prisma.folder.delete({
+              where: { id: folder.id },
+            });
+            logger.info(`   Dossier purgé : ${folder.name}`);
+          } catch (err) {
+            logger.error(`   Erreur lors de la purge du dossier ${folder.id}: ${err}`);
+          }
+        }
+      }
     } catch (error) {
-      logger.error(' Erreur lors de la purge automatique:', error);
+      logger.error(` Erreur lors de la purge automatique: ${error}`);
     }
   });
 

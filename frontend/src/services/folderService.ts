@@ -29,8 +29,20 @@ export const folderService = {
     return response.data;
   },
 
-  async deleteFolder(folderId: string) {
-    const response = await api.delete(`/folders/${folderId}`);
+  async deleteFolder(folderId: string, permanent: boolean = false) {
+    const response = await api.delete(`/folders/${folderId}`, {
+      params: { permanent },
+    });
+    return response.data;
+  },
+
+  async restoreFolder(folderId: string) {
+    const response = await api.post(`/folders/${folderId}/restore`);
+    return response.data;
+  },
+
+  async getDeletedFolders(): Promise<{ folders: Folder[] }> {
+    const response = await api.get('/folders/deleted');
     return response.data;
   },
 

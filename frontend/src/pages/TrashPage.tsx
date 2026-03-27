@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fileService } from '@/services/fileService';
-import { File } from '@/types';
+import { folderService } from '@/services/folderService';
+import { File, Folder } from '@/types';
 import {
   RotateCcw,
   Trash2,
@@ -10,6 +11,7 @@ import {
   FileText,
   Archive,
   File as FileIcon,
+  Folder as FolderIcon,
   ArrowUpDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -52,38 +54,44 @@ const getRemainingDays = (deletedAt: string | Date | undefined) => {
 
 export default function TrashPage() {
   const [deletedFiles, setDeletedFiles] = useState<File[]>([]);
+  const [deletedFolders, setDeletedFolders] = useState<Folder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<string>('deletedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    loadDeletedFiles();
+    loadTrash();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, sortOrder]);
 
-  const loadDeletedFiles = async () => {
+  const loadTrash = async () => {
     try {
       setIsLoading(true);
-      const { files } = await fileService.getDeletedFiles();
+      const [{ files }, { folders }] = await Promise.all([
+        fileService.getDeletedFiles(),
+        folderService.getDeletedFolders()
+      ]);
 
-      // Tri local
-      const sortedFiles = [...files].sort((a, b) => {
-        let aVal: any = a[sortBy as keyof File];
-        let bVal: any = b[sortBy as keyof File];
+      const sortItems = (items: any[]) => {
+        return [...items].sort((a, b) => {
+          let aVal: any = a[sortBy === 'date' ? 'deletedAt' : sortBy];
+          let bVal: any = b[sortBy === 'date' ? 'deletedAt' : sortBy];
 
-        if (sortBy === 'name') {
-          aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
-        }
+          if (sortBy === 'name') {
+            aVal = aVal?.toLowerCase() || '';
+            bVal = bVal?.toLowerCase() || '';
+          }
 
-        if (sortOrder === 'asc') {
-          return aVal > bVal ? 1 : -1;
-        } else {
-          return aVal < bVal ? 1 : -1;
-        }
-      });
+          if (sortOrder === 'asc') {
+            return aVal > bVal ? 1 : -1;
+          } else {
+            return aVal < bVal ? 1 : -1;
+          }
+        });
+      };
 
-      setDeletedFiles(sortedFiles);
+      setDeletedFiles(sortItems(files));
+      setDeletedFolders(sortItems(folders));
     } catch {
       toast.error('Échec du chargement de la corbeille');
     } finally {
@@ -91,25 +99,33 @@ export default function TrashPage() {
     }
   };
 
-  const handleRestore = async (fileId: string) => {
+  const handleRestore = async (id: string, type: 'file' | 'folder') => {
     try {
-      await fileService.restoreFile(fileId);
-      toast.success('Fichier restauré');
-      loadDeletedFiles();
+      if (type === 'file') {
+        await fileService.restoreFile(id);
+      } else {
+        await folderService.restoreFolder(id);
+      }
+      toast.success(type === 'file' ? 'Fichier restauré' : 'Dossier restauré');
+      loadTrash();
     } catch {
-      toast.error('Échec de la restauration du fichier');
+      toast.error('Échec de la restauration');
     }
   };
 
-  const handlePermanentDelete = async (fileId: string) => {
-    if (!confirm('Supprimer définitivement ce fichier ? Cette action est irréversible.')) return;
+  const handlePermanentDelete = async (id: string, type: 'file' | 'folder') => {
+    if (!confirm(`Supprimer définitivement ce ${type === 'file' ? 'fichier' : 'dossier'} ? Cette action est irréversible.`)) return;
 
     try {
-      await fileService.deleteFile(fileId, true);
-      toast.success('Fichier supprimé définitivement');
-      loadDeletedFiles();
+      if (type === 'file') {
+        await fileService.deleteFile(id, true);
+      } else {
+        await folderService.deleteFolder(id, true);
+      }
+      toast.success(type === 'file' ? 'Fichier supprimé définitivement' : 'Dossier supprimé définitivement');
+      loadTrash();
     } catch {
-      toast.error('Échec de la suppression du fichier');
+      toast.error('Échec de la suppression');
     }
   };
 
@@ -133,12 +149,12 @@ export default function TrashPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Corbeille</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          {deletedFiles.length} fichier{deletedFiles.length !== 1 ? 's' : ''}
+          {deletedFolders.length} dossier{deletedFolders.length !== 1 ? 's' : ''} · {deletedFiles.length} fichier{deletedFiles.length !== 1 ? 's' : ''}
         </p>
       </div>
 
       {/* Tri */}
-      {deletedFiles.length > 0 && (
+      {(deletedFiles.length > 0 || deletedFolders.length > 0) && (
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
           <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -161,7 +177,7 @@ export default function TrashPage() {
       )}
 
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {deletedFiles.length > 0 ? (
+        {(deletedFiles.length > 0 || deletedFolders.length > 0) ? (
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
@@ -173,6 +189,54 @@ export default function TrashPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {/* Dossiers */}
+              {deletedFolders.map((folder) => (
+                <tr key={folder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20">
+                        <FolderIcon className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {folder.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-400 italic">--</td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 italic">--</td>
+                  <td className="px-6 py-4 text-sm font-medium">
+                    {folder.deletedAt && (
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs ${
+                        (getRemainingDays(folder.deletedAt) || 0) < 10 
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
+                        {getRemainingDays(folder.deletedAt)} jours
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        onClick={() => handleRestore(folder.id, 'folder')}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                        title="Restaurer"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handlePermanentDelete(folder.id, 'folder')}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                        title="Supprimer définitivement"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              
+              {/* Fichiers */}
               {deletedFiles.map((file) => {
                 const Icon = getMimeTypeIcon(file.mimeType);
                 const colorClass = getMimeTypeColor(file.mimeType);
@@ -190,7 +254,7 @@ export default function TrashPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <TagSelector file={file} onTagsChanged={loadDeletedFiles} />
+                      <TagSelector file={file} onTagsChanged={loadTrash} />
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                       {formatBytes(Number(file.size))}
@@ -209,14 +273,14 @@ export default function TrashPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-2">
                         <button
-                          onClick={() => handleRestore(file.id)}
+                          onClick={() => handleRestore(file.id, 'file')}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                           title="Restaurer"
                         >
                           <RotateCcw className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handlePermanentDelete(file.id)}
+                          onClick={() => handlePermanentDelete(file.id, 'file')}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                           title="Supprimer définitivement"
                         >

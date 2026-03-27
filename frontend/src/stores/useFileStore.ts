@@ -19,6 +19,7 @@ interface FileState {
   uploadFile: (file: globalThis.File, folderId?: string) => Promise<void>;
   deleteFile: (fileId: string, permanent?: boolean) => Promise<void>;
   createFolder: (name: string, parentId?: string) => Promise<void>;
+  deleteFolder: (folderId: string, permanent?: boolean) => Promise<void>;
   setCurrentFolder: (folderId: string | null) => void;
   setSorting: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
 }
@@ -76,6 +77,15 @@ export const useFileStore = create<FileState>((set, get) => ({
       await get().loadContent(parentId);
     } catch {
       throw new Error('Failed to create folder');
+    }
+  },
+
+  deleteFolder: async (folderId, permanent = false) => {
+    try {
+      await folderService.deleteFolder(folderId, permanent);
+      await get().loadContent(get().currentFolderId || undefined);
+    } catch {
+      throw new Error('Failed to delete folder');
     }
   },
 

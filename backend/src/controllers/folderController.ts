@@ -67,10 +67,32 @@ export class FolderController {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
+      const { permanent } = req.query;
 
-      const result = await FolderService.deleteFolder(folderId, userId);
+      const result = await FolderService.deleteFolder(folderId, userId, permanent === 'true');
 
       res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+
+  static async restoreFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+
+      const folder = await FolderService.restoreFolder(folderId, userId);
+
+      res.status(200).json({ folder });
+    } catch (error) { next(error); }
+  }
+
+  static async getDeletedFolders(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+
+      const folders = await FolderService.getDeletedFolders(userId);
+
+      res.status(200).json({ folders });
     } catch (error) { next(error); }
   }
 

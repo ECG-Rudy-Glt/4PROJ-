@@ -102,6 +102,7 @@ export class FolderService {
       where: {
         userId,
         parentId: parentId || null,
+        isDeleted: false,
         ...(vaultUnlocked ? {} : { isVault: false }),
       },
       include: {
@@ -244,7 +245,7 @@ export class FolderService {
     });
   }
 
-  static async deleteFolder(folderId: string, userId: string) {
+  static async deleteFolder(folderId: string, userId: string, permanent = false) {
     const folder = await prisma.folder.findFirst({
       where: {
         id: folderId,
@@ -258,10 +259,17 @@ export class FolderService {
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
-    // This will cascade delete all children folders and files
-    await prisma.folder.delete({
-      where: { id: folderId },
-    });
+    if (permanent || folder.isDeleted) {
+      // This will cascade delete all children folders and files
+      await prisma.folder.delete({
+        where: { id: folderId },
+      });
+    } else {
+      await prisma.folder.update({
+        where: { id: folderId },
+        data: { isDeleted: true, deletedAt: new Date() },
+      });
+    }
 
     // Audit log
     AuditService.createLog(userId, 'DELETE_FOLDER', {
@@ -309,5 +317,28 @@ export class FolderService {
     }
 
     return breadcrumbs;
+  }
+
+  static async restoreFolder(folderId: string, userId: string) {
+    const folder = await prisma.folder.findFirst({
+      where: { id: folderId, userId, isDeleted: true },
+    });
+    if (!folder) throw new Error('Folder not found in trash');
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
+    const restoredFolder = await prisma.folder.update({
+      where: { id: folderId },
+      data: { isDeleted: false, deletedAt: null },
+    });
+
+    await AuditService.createLog(userId, 'RESTORE', { folderName: folder.name, folderId: folder.id });
+    return restoredFolder;
+  }
+
+  static async getDeletedFolders(userId: string) {
+    return await prisma.folder.findMany({
+      where: { userId, isDeleted: true },
+      orderBy: { deletedAt: 'desc' },
+    });
   }
 }

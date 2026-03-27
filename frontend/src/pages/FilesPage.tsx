@@ -106,7 +106,7 @@ export default function FilesPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const searchQuery = searchParams.get('search');
-  const { files, folders, loadContent, createFolder, deleteFile, sortBy, sortOrder, setSorting } = useFileStore();
+  const { files, folders, loadContent, createFolder, deleteFile, deleteFolder, sortBy, sortOrder, setSorting } = useFileStore();
   const { user, loadUser } = useAuthStore();
 
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbType[]>([]);
@@ -613,13 +613,24 @@ export default function FilesPage() {
   };
 
   const handleDelete = async (fileId: string) => {
-    if (!confirm('Déplacer vers la corbeille ?')) return;
+    if (!confirm('Déplacer ce fichier vers la corbeille ?')) return;
 
     try {
       await deleteFile(fileId);
-      toast.success('Déplacé vers la corbeille');
+      toast.success('Fichier déplacé vers la corbeille');
     } catch {
       toast.error('Échec de la suppression');
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+    if (!confirm(`Déplacer le dossier "${folderName}" et tout son contenu vers la corbeille ?`)) return;
+
+    try {
+      await deleteFolder(folderId);
+      toast.success('Dossier déplacé vers la corbeille');
+    } catch {
+      toast.error('Échec de la suppression du dossier');
     }
   };
 
@@ -998,6 +1009,16 @@ export default function FilesPage() {
                       title="Partager ce dossier"
                     >
                       <Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-primary-300" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFolder(folder.id, folder.name);
+                      }}
+                      className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-600 transition-all"
+                      title="Supprimer le dossier"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
                     </button>
                   </div>
                 )}
