@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Fix uploads directory permissions on volume mount (volume may be owned by root)
+mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails
+chown -R node:node /app/uploads 2>/dev/null || true
+
 run_migrations() {
   MIGRATE_OUTPUT=$(npx prisma migrate deploy 2>&1)
   MIGRATE_EXIT=$?
@@ -42,4 +46,4 @@ echo "[entrypoint] Running Prisma migrations..."
 run_migrations || exit 1
 
 echo "[entrypoint] Database ready, starting server..."
-exec npm start
+exec su-exec node npm start
