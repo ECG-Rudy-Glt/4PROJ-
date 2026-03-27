@@ -1,0 +1,154 @@
+import prisma from '../config/database';
+import { MailService } from './mailService';
+import { AuditService } from './auditService';
+import { SocketService } from './socketService';
+import { SharedLinkService } from './sharedLinkService';
+import logger from '../config/logger';
+
+type Permissions = {
+  canRead?: boolean;
+  canWrite?: boolean;
+  canDelete?: boolean;
+  canShare?: boolean;
+};
+
+const DEFAULT_PERMS: Required<Permissions> = {
+  canRead: true,
+  canWrite: false,
+  canDelete: false,
+  canShare: false,
+};
+
+const resolvePerms = (input: Permissions) => ({
+  canRead: input.canRead ?? DEFAULT_PERMS.canRead,
+  canWrite: input.canWrite ?? DEFAULT_PERMS.canWrite,
+  canDelete: input.canDelete ?? DEFAULT_PERMS.canDelete,
+  canShare: input.canShare ?? DEFAULT_PERMS.canShare,
+});
+
+const sharedBySelect = { select: { id: true, email: true, firstName: true, lastName: true } };
+const sharedWithSelect = { select: { id: true, email: true, firstName: true, lastName: true } };
+
+export class SharedFolderService {
+  static async shareFolder(
+    userId: string,
+    folderId: string,
+    targetUserId: string,
+    permissions: Permissions = {}
+  ) {
+    const folder = await prisma.folder.findFirst({ where: { id: folderId, userId } });
+    if (!folder) throw new Error('Folder not found');
+    if (folder.isVault) throw new Error('Le partage est interdit pour les dossiers du coffre-fort');
+
+    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!targetUser) throw new Error('Target user not found');
+
+    const existing = await prisma.sharedFolder.findFirst({ where: { folderId, sharedWithId: targetUserId } });
+    if (existing) throw new Error('Folder already shared with this user');
+
+    await SharedLinkService.assertShareLimit(userId);
+
+    const sharedFolder = await prisma.sharedFolder.create({
+      data: { folderId, sharedById: userId, sharedWithId: targetUserId, ...resolvePerms(permissions) },
+      include: {
+        folder: true,
+        sharedBy: sharedBySelect,
+        sharedWith: sharedWithSelect,
+      },
+    });
+
+    try {
+      const owner = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      await MailService.sendShareNotification(targetUser.email, owner?.email || 'Un utilisateur', folder.name, 'folder');
+    } catch (error) {
+      logger.error({ err: error }, 'Error sending folder share notification');
+    }
+
+    AuditService.createLog(userId, 'SHARE', { folderName: folder.name, folderId }).catch((e) => logger.error(e));
+    SocketService.emitToUser(targetUserId, 'share_received', { type: 'folder', folderName: folder.name });
+
+    return sharedFolder;
+  }
+
+  static async listSharedWithMe(userId: string) {
+    return prisma.sharedFolder.findMany({
+      where: { sharedWithId: userId },
+      include: { sharedBy: sharedBySelect },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  static async listSharedByMe(userId: string) {
+    return prisma.sharedFolder.findMany({
+      where: { sharedById: userId },
+      include: { sharedWith: sharedWithSelect },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
+    const sharedFolder = await prisma.sharedFolder.findFirst({ where: { id: shareId, sharedById: userId } });
+    if (!sharedFolder) throw new Error('Shared folder not found');
+
+    return prisma.sharedFolder.update({
+      where: { id: shareId },
+      data: {
+        canRead: permissions.canRead ?? sharedFolder.canRead,
+        canWrite: permissions.canWrite ?? sharedFolder.canWrite,
+        canDelete: permissions.canDelete ?? sharedFolder.canDelete,
+        canShare: permissions.canShare ?? sharedFolder.canShare,
+      },
+      include: { folder: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
+    });
+  }
+
+  static async removeSharedFolder(shareId: string, userId: string) {
+    const sharedFolder = await prisma.sharedFolder.findFirst({ where: { id: shareId, sharedById: userId } });
+    if (!sharedFolder) throw new Error('Shared folder not found');
+
+    await prisma.sharedFolder.delete({ where: { id: shareId } });
+    return { message: 'Shared folder removed successfully' };
+  }
+
+  static async getPendingFolders(userId: string) {
+    return prisma.sharedFolder.findMany({
+      where: { sharedWithId: userId, accepted: false },
+      include: {
+        folder: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
+        sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
+      },
+    });
+  }
+
+  static async acceptSharedFolder(shareId: string, userId: string) {
+    const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId } });
+    if (!sharedFolder || sharedFolder.sharedWithId !== userId) throw new Error('Shared folder not found or not shared with you');
+
+    return prisma.sharedFolder.update({
+      where: { id: shareId },
+      data: { accepted: true },
+      include: { folder: true, sharedBy: sharedBySelect },
+    });
+  }
+
+  static async rejectSharedFolder(shareId: string, userId: string) {
+    const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId } });
+    if (!sharedFolder || sharedFolder.sharedWithId !== userId) throw new Error('Shared folder not found or not shared with you');
+
+    return prisma.sharedFolder.delete({ where: { id: shareId } });
+  }
+
+  static async getAcceptedSharedFolders(userId: string, vaultUnlocked: boolean) {
+    return prisma.sharedFolder.findMany({
+      where: {
+        sharedWithId: userId,
+        accepted: true,
+        ...(vaultUnlocked ? {} : { folder: { isVault: false } }),
+      },
+      include: {
+        folder: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
+        sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
+      },
+    });
+  }
+}
