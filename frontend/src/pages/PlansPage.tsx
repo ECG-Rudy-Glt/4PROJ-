@@ -137,11 +137,16 @@ export default function PlansPage() {
       
       const response = await api.post('/billing/checkout-session', { plan: planId });
       
-      // Simuler le délai de redirection Stripe
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simuler le délai de paiement "en cours"
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      if (response.data.url) {
+      if (response.data.url && !response.data.url.includes('/plans?checkout=success')) {
         window.location.href = response.data.url;
+      } else {
+        // En mode simulation, le plan est déjà activé sur le backend
+        await refreshProfile();
+        setIsRedirecting(false);
+        toast.success('Paiement confirmé. Votre abonnement est actif.');
       }
     } catch (error: any) {
       setIsRedirecting(false);
@@ -234,16 +239,15 @@ export default function PlansPage() {
       </div>
 
       {isRedirecting && (
-        <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-          <div className="flex flex-col items-center gap-4 p-8 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700">
-            <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Redirection sécurisée...</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-2">Nous vous connectons à Stripe pour finaliser votre abonnement.</p>
+        <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6 p-10 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-gray-100 dark:border-gray-700 rounded-full"></div>
+              <div className="absolute inset-0 w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <div className="mt-4 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-widest">Connexion chiffrée SSL</span>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Paiement en cours...</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">Nous traitons votre demande d'abonnement.</p>
             </div>
           </div>
         </div>
