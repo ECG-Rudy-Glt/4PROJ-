@@ -34,8 +34,7 @@ const avatarStorage = multer.diskStorage({
   },
 });
 
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Allow all file types
+const fileFilter = (_req: any, _file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   cb(null, true);
 };
 

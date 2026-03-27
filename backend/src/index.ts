@@ -103,15 +103,26 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting
+// Rate limiting — global
 const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 500, // 500 requests per minute per IP
+  windowMs: 1 * 60 * 1000,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
+
+// Rate limiting — strict sur les routes d'authentification sensibles
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 tentatives par IP par 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts, please try again later.' },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // Body parsing middleware - Increased limits for large file uploads (5GB)
 app.use(express.json({

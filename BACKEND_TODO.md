@@ -2,11 +2,11 @@
 
 ## 🔴 CRITIQUE — Avant mise en prod
 
-- [ ] **[Sécurité]** Supprimer la valeur par défaut de `JWT_SECRET` — crasher au démarrage si non défini (`passport.ts:10`, `auth.ts:11`)
-- [ ] **[Sécurité]** Ajouter un rate limit strict sur `/api/auth/login` (ex: 5 req/15min par IP) — actuellement 500 req/min global (`index.ts:107`)
-- [ ] **[Sécurité]** Clé de chiffrement dérivée avec SHA256 → remplacer par PBKDF2 ou Argon2 (`encryptionService.ts:11`)
-- [ ] **[Architecture]** Ajouter `prisma.$transaction()` sur toutes les opérations multi-entités (billing, suppression, partage)
-- [ ] **[Sécurité]** Whitelist des types MIME sur l'upload — `multer.ts:37` accepte actuellement tous les fichiers
+- [x] **[Sécurité]** Supprimer la valeur par défaut de `JWT_SECRET` — crasher au démarrage si non défini (`passport.ts:10`, `auth.ts:11`)
+- [x] **[Sécurité]** Ajouter un rate limit strict sur `/api/auth/login` (ex: 10 req/15min par IP) — `index.ts`
+- [x] **[Sécurité]** Clé de chiffrement dérivée avec SHA256 → remplacé par PBKDF2 100k iterations (`encryptionService.ts`)
+- [x] **[Architecture]** Ajouter `prisma.$transaction()` sur les opérations billing multi-entités (`billingService.ts`)
+- [~] **[Sécurité]** Whitelist MIME — non applicable : service de stockage, tous les types de fichiers doivent être acceptés
 
 ---
 

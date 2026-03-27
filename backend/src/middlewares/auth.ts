@@ -8,7 +8,11 @@ import { getCookieValue, SWITCH_SESSION_COOKIE } from '../utils/cookies';
 
 export { AuthRequest };
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+if (!process.env.JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET environment variable is not set. Refusing to start.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export const authenticate = async (
   req: AuthRequest,

@@ -7,7 +7,15 @@ import prisma from './database';
 import { JWTPayload, OAuth2Profile } from '../types';
 import { PlanService } from '../services/planService';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+if (!process.env.JWT_SECRET) {
+  console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start.");
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET as string;
+if (!JWT_SECRET) {
+  console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start.");
+  process.exit(1);
+}
 
 // JWT Strategy
 const jwtOptions: StrategyOptions = {

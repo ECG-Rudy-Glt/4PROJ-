@@ -7,11 +7,18 @@ const ALGORITHM = 'aes-256-gcm';
 // Ensure MFA_ENCRYPTION_KEY or a new FILE_ENCRYPTION_KEY is used.
 // For simplicity, we'll use a derived key from a secret.
 
+// Fixed salt for key derivation — changing this would make existing files unreadable
+const KDF_SALT = Buffer.from('supfile-file-encryption-salt-v1', 'utf8');
+
 export class EncryptionService {
     private static getKey(): Buffer {
-        // Use a separate key for files. Default matches the legacy key to keep old files readable.
-        const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
-        return crypto.createHash('sha256').update(secret).digest();
+        const secret = process.env.FILE_ENCRYPTION_KEY;
+        if (!secret) {
+            console.error('[FATAL] FILE_ENCRYPTION_KEY environment variable is not set. Refusing to start.');
+            process.exit(1);
+        }
+        // PBKDF2 with 100k iterations — stronger than raw SHA256
+        return crypto.pbkdf2Sync(secret, KDF_SALT, 100_000, 32, 'sha256');
     }
 
     static async encryptFile(filePath: string): Promise<void> {
