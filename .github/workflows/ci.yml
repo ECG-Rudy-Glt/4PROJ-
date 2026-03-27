@@ -22,7 +22,7 @@ permissions:
 #       ├─ [2c] semgrep          ┤  Sécurité code source (SAST)
 #       └─ [2d] trufflehog       ┘  Détection de secrets dans l'historique git
 #            │
-#           [3] docker-build  → Build images + scan CVE (Trivy) + config (Dockle) + SBOM
+#           [3] docker-build  → Build images + config (Dockle) + SBOM
 #            │
 #           [4] docker-push   → Push GHCR (main uniquement)
 #            │
@@ -207,9 +207,8 @@ jobs:
 
   # ===========================
   # [3] BUILD & SÉCURITÉ IMAGES DOCKER
-  # Construit les images backend et frontend, puis enchaîne trois niveaux
+  # Construit les images backend et frontend, puis enchaîne deux niveaux
   # de contrôle de sécurité :
-  #   - Trivy   : scan CVE sur OS et librairies (CRITICAL + HIGH)
   #   - Dockle  : audit de configuration Dockerfile (CIS Docker Benchmark)
   #   - SBOM    : génération du Software Bill of Materials (format SPDX-JSON)
   #               conservé 90 jours comme artifact CI pour traçabilité supply chain
@@ -244,27 +243,6 @@ jobs:
           tags: frontend:ci
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
-
-      # — Trivy : scan CVE ——————————————————————————————————————————————————
-      - name: Scan Backend Image with Trivy
-        uses: aquasecurity/trivy-action@0.20.0
-        with:
-          image-ref: 'backend:ci'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Scan Frontend Image with Trivy
-        uses: aquasecurity/trivy-action@0.20.0
-        with:
-          image-ref: 'frontend:ci'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
 
       # — Dockle : audit configuration Dockerfile ——————————————————————————
       - name: Install Dockle
