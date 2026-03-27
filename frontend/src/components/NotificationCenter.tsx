@@ -114,8 +114,8 @@ export default function NotificationCenter() {
                       <Icon className={`w-4 h-4 ${config.color}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{notif.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{notif.message}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{t(notif.title)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t(notif.message, (notif.data as Record<string, unknown>) || {}) as string}</p>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{timeAgo(notif.createdAt)}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>

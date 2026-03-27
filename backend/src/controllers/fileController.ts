@@ -50,9 +50,9 @@ export class FileController {
           NotificationService.create(
             userId,
             'QUOTA',
-            'Quota presque atteint',
-            `Vous utilisez ${Math.round(usage * 100)}% de votre espace de stockage.`,
-            { quotaUsed: Number(user.quotaUsed), quotaLimit: Number(user.quotaLimit) }
+            'notifications.quota.title',
+            'notifications.quota.message',
+            { usage: Math.round(usage * 100), quotaUsed: Number(user.quotaUsed), quotaLimit: Number(user.quotaLimit) }
           ).catch((e) => logger.error(e));
         }
       }

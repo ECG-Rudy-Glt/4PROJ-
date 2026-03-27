@@ -3,6 +3,7 @@ import { X, Check, XCircle, File, Folder } from 'lucide-react';
 import { shareService } from '@/services/shareService';
 import toast from 'react-hot-toast';
 import { formatBytes } from '@/utils/bytes';
+import { useTranslation } from 'react-i18next';
 
 interface PendingShare {
   id: string;
@@ -28,6 +29,7 @@ interface PendingSharesModalProps {
 }
 
 export default function PendingSharesModal({ isOpen, onClose, onAccept }: PendingSharesModalProps) {
+  const { t } = useTranslation();
   const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
 
       setPendingShares(shares);
     } catch {
-      toast.error('Erreur au chargement des partages');
+      toast.error(t('pending_shares.error_loading'));
     } finally {
       setLoading(false);
     }
@@ -89,11 +91,11 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       } else {
         await shareService.acceptSharedFolder(share.id);
       }
-      toast.success('Partage accepté');
+      toast.success(t('pending_shares.accept_success'));
       setPendingShares(pendingShares.filter((s) => s.id !== share.id));
       onAccept?.();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erreur lors de l\'acceptation');
+      toast.error(error.response?.data?.error || t('pending_shares.error_accepting'));
     } finally {
       setAccepting(null);
     }
@@ -106,10 +108,10 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       } else {
         await shareService.rejectSharedFolder(share.id);
       }
-      toast.success('Partage rejeté');
+      toast.success(t('pending_shares.reject_success'));
       setPendingShares(pendingShares.filter((s) => s.id !== share.id));
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erreur lors du rejet');
+      toast.error(error.response?.data?.error || t('pending_shares.error_rejecting'));
     }
   };
 
@@ -119,7 +121,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Partages en attente</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('pending_shares.title')}</h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -134,7 +136,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
           </div>
         ) : pendingShares.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">Aucun partage en attente</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('pending_shares.no_shares')}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -154,7 +156,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 dark:text-white truncate">{share.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Partagé par {share.sharedBy.firstName} {share.sharedBy.lastName} ({share.sharedBy.email})
+                      {t('pending_shares.shared_by', { firstName: share.sharedBy.firstName, lastName: share.sharedBy.lastName, email: share.sharedBy.email })}
                     </p>
                     {share.file && (
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -169,14 +171,14 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
                       onClick={() => handleAccept(share)}
                       disabled={accepting === share.id}
                       className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors disabled:opacity-50"
-                      title="Accepter"
+                      title={t('pending_shares.accept')}
                     >
                       <Check className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleReject(share)}
                       className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/50"
-                      title="Rejeter"
+                      title={t('pending_shares.reject')}
                     >
                       <XCircle className="w-5 h-5 fill-red-50 dark:fill-red-900/20" />
                     </button>

@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
+import { useTranslation } from 'react-i18next';
 import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
 
 const plans: Array<{
@@ -21,18 +22,18 @@ const plans: Array<{
 }> = [
   {
     id: 'FREE',
-    name: 'Gratuit',
+    name: 'plans_page.free_name',
     price: '0€',
-    period: '/mois',
-    description: 'Pour demarrer',
+    period: 'plans_page.period_month',
+    description: 'plans_page.free_desc',
     storage: PLAN_STORAGE_LABELS.FREE,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage de fichiers', included: true },
-      { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: false },
-      { name: 'Coffre-fort securise', included: false },
-      { name: 'Support prioritaire', included: false },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.file_sharing', included: true },
+      { name: 'plans_page.features.standard_support', included: true },
+      { name: 'plans_page.features.audit_history', included: false },
+      { name: 'plans_page.features.vault', included: false },
+      { name: 'plans_page.features.priority_support', included: false },
     ],
     icon: Database,
     color: 'bg-blue-100 text-blue-600',
@@ -40,18 +41,18 @@ const plans: Array<{
   },
   {
     id: 'PRO',
-    name: 'Pro',
+    name: 'plans_page.pro_name',
     price: '9.99€',
-    period: '/mois',
-    description: 'Pour les professionnels',
+    period: 'plans_page.period_month',
+    description: 'plans_page.pro_desc',
     storage: PLAN_STORAGE_LABELS.PRO,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage de fichiers', included: true },
-      { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: true },
-      { name: 'Coffre-fort securise', included: true },
-      { name: 'Support prioritaire', included: true },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.file_sharing', included: true },
+      { name: 'plans_page.features.standard_support', included: true },
+      { name: 'plans_page.features.audit_history', included: true },
+      { name: 'plans_page.features.vault', included: true },
+      { name: 'plans_page.features.priority_support', included: true },
     ],
     icon: Zap,
     color: 'bg-purple-100 text-purple-600',
@@ -60,18 +61,18 @@ const plans: Array<{
   },
   {
     id: 'BUSINESS',
-    name: 'Business',
+    name: 'plans_page.business_name',
     price: '29.99€',
-    period: '/mois',
-    description: 'Pour les equipes',
+    period: 'plans_page.period_month',
+    description: 'plans_page.business_desc',
     storage: PLAN_STORAGE_LABELS.BUSINESS,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage de fichiers', included: true },
-      { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: true },
-      { name: 'Coffre-fort securise', included: true },
-      { name: 'Support prioritaire 24/7', included: true },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.file_sharing', included: true },
+      { name: 'plans_page.features.standard_support', included: true },
+      { name: 'plans_page.features.audit_history', included: true },
+      { name: 'plans_page.features.vault', included: true },
+      { name: 'plans_page.features.priority_support_247', included: true },
     ],
     icon: Server,
     color: 'bg-orange-100 text-orange-600',
@@ -79,18 +80,18 @@ const plans: Array<{
   },
   {
     id: 'ENTERPRISE',
-    name: 'Enterprise',
+    name: 'plans_page.enterprise_name',
     price: '99.99€',
-    period: '/mois',
-    description: 'Pour les organisations exigeantes',
+    period: 'plans_page.period_month',
+    description: 'plans_page.enterprise_desc',
     storage: PLAN_STORAGE_LABELS.ENTERPRISE,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage avance et gouvernance', included: true },
-      { name: 'Support dedie', included: true },
-      { name: "Historique d'audit complet", included: true },
-      { name: 'Coffre-fort securise', included: true },
-      { name: 'SLA entreprise', included: true },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.adv_sharing', included: true },
+      { name: 'plans_page.features.dedicated_support', included: true },
+      { name: 'plans_page.features.full_audit', included: true },
+      { name: 'plans_page.features.vault', included: true },
+      { name: 'plans_page.features.sla', included: true },
     ],
     icon: Server,
     color: 'bg-gray-200 text-gray-700',
@@ -99,6 +100,7 @@ const plans: Array<{
 ];
 
 export default function PlansPage() {
+  const { t } = useTranslation();
   const { user, refreshProfile } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
@@ -109,10 +111,10 @@ export default function PlansPage() {
     if (!checkoutState) return;
 
     if (checkoutState === 'success') {
-      toast.success('Paiement confirmé. Votre abonnement est actif.');
+      toast.success(t('plans_page.payment_success'));
       refreshProfile().catch(() => undefined);
     } else if (checkoutState === 'cancel') {
-      toast('Paiement annulé');
+      toast(t('plans_page.payment_cancelled'));
     }
 
     const nextParams = new URLSearchParams(searchParams);
@@ -128,7 +130,7 @@ export default function PlansPage() {
       if (planId === 'FREE') {
         await api.post('/billing/downgrade-free');
         await refreshProfile();
-        toast.success('Retour au plan gratuit effectué');
+        toast.success(t('plans_page.downgrade_success'));
         return;
       }
 
@@ -146,11 +148,11 @@ export default function PlansPage() {
         // En mode simulation, le plan est déjà activé sur le backend
         await refreshProfile();
         setIsRedirecting(false);
-        toast.success('Paiement confirmé. Votre abonnement est actif.');
+        toast.success(t('plans_page.payment_success'));
       }
     } catch (error: any) {
       setIsRedirecting(false);
-      toast.error(error.response?.data?.error || 'Échec de la transition vers le paiement');
+      toast.error(error.response?.data?.error || t('plans_page.payment_failed'));
     } finally {
       setLoading(null);
     }
@@ -160,10 +162,10 @@ export default function PlansPage() {
     <div className="max-w-6xl mx-auto space-y-12 py-8">
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-          Choisissez votre forfait
+          {t('plans_page.title')}
         </h1>
         <p className="text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
-          Des solutions de stockage adaptées à tous vos besoins, du personnel au professionnel.
+          {t('plans_page.subtitle')}
         </p>
       </div>
 
@@ -181,19 +183,19 @@ export default function PlansPage() {
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-xl uppercase tracking-widest">
-                  Recommandé
+                  {t('plans_page.recommended')}
                 </div>
               )}
 
               <div className="space-y-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{plan.description}</p>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t(plan.name)}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t(plan.description)}</p>
                   </div>
                   <div className="text-right">
                     <span className="text-3xl font-black text-gray-900 dark:text-white">{plan.price}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{plan.period}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{t(plan.period)}</span>
                   </div>
                 </div>
 
@@ -202,7 +204,7 @@ export default function PlansPage() {
                     <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
                       {plan.storage}
                     </span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">de stockage sécurisé</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{t('plans_page.storage_secure')}</span>
                   </div>
 
                   <div className="space-y-3">
@@ -214,7 +216,7 @@ export default function PlansPage() {
                           <X className="w-4 h-4 text-gray-300" />
                         )}
                         <span className={`text-sm ${feature.included ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
-                          {feature.name}
+                          {t(feature.name)}
                         </span>
                       </div>
                     ))}
@@ -230,7 +232,7 @@ export default function PlansPage() {
                       : 'bg-gray-900 dark:bg-white dark:text-gray-900 text-white hover:bg-gray-800 dark:hover:bg-gray-100 shadow-xl'
                   } ${loading === plan.id ? 'opacity-50 animate-pulse' : ''}`}
                 >
-                  {isCurrentPlan ? 'Plan actuel' : loading === plan.id ? 'Activation...' : 'Sélectionner'}
+                  {isCurrentPlan ? t('plans_page.current') : loading === plan.id ? t('plans_page.activating') : t('plans_page.select')}
                 </button>
               </div>
             </div>
@@ -246,8 +248,8 @@ export default function PlansPage() {
               <div className="absolute inset-0 w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Paiement en cours...</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-2">Nous traitons votre demande d'abonnement.</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('plans_page.processing')}</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">{t('plans_page.processing_desc')}</p>
             </div>
           </div>
         </div>

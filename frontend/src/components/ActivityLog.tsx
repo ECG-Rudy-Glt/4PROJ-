@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 
 const ACTION_ICONS: { [key in AuditAction]: JSX.Element } = {
   UPLOAD: <Upload className="w-4 h-4" />,
@@ -56,47 +57,7 @@ function Undo2Icon() {
   return <RefreshCw className="w-4 h-4" />;
 }
 
-const ACTION_LABELS: { [key in AuditAction]: string } = {
-  UPLOAD: 'Fichier téléversé',
-  DELETE: 'Fichier supprimé',
-  RESTORE: 'Fichier restauré',
-  DOWNLOAD: 'Fichier téléchargé',
-  SHARE: 'Fichier partagé',
-  UNSHARE: 'Partage annulé',
-  CREATE_FOLDER: 'Dossier créé',
-  DELETE_FOLDER: 'Dossier supprimé',
-  MOVE_FILE: 'Fichier déplacé',
-  RENAME_FILE: 'Fichier renommé',
-  LOGIN: 'Connexion',
-  LOGOUT: 'Déconnexion',
-  PASSWORD_CHANGE: 'Mot de passe modifié',
-  PROFILE_UPDATE: 'Profil mis à jour',
-  TAG_ADD: 'Tag ajouté',
-  TAG_REMOVE: 'Tag retiré',
-  COMMENT_ADD: 'Commentaire ajouté',
-  COMMENT_DELETE: 'Commentaire supprimé',
-  VERSION_RESTORE: 'Version restaurée',
-  VERSION_DELETE: 'Version supprimée',
-  ADMIN_PLAN_CHANGE: 'Plan modifié (admin)',
-  PLAN_DOWNGRADE: 'Plan downgradé',
-  VAULT_SETUP: 'Coffre-fort activé',
-  VAULT_UNLOCK: 'Coffre-fort déverrouillé',
-  VAULT_LOCK: 'Coffre-fort verrouillé',
-  VAULT_PASSWORD_ROTATE: 'Mot de passe coffre-fort modifié',
-  ORG_CREATE: 'Organisation créée',
-  ORG_MEMBER_ADD: 'Membre ajouté à l’organisation',
-  ORG_MEMBER_ROLE_UPDATE: 'Rôle membre organisation modifié',
-  ORG_MEMBER_REMOVE: 'Membre retiré de l’organisation',
-  ORG_SWITCH: 'Organisation active changée',
-  ACCOUNT_SWITCH_LINK_ADDED: 'Compte lié pour switch',
-  ACCOUNT_SWITCH_LINK_REVOKED: 'Compte lié supprimé',
-  ACCOUNT_SWITCH: 'Switch de compte',
-  ACCOUNT_SWITCH_BACK: 'Retour compte principal',
-  DELEGATION_GRANTED: 'Délégation accordée',
-  DELEGATION_REVOKED: 'Délégation révoquée',
-  DELEGATION_ASSUME: 'Délégation assumée',
-  DELEGATION_STOP: 'Session déléguée arrêtée',
-};
+// Action labels handled by translations 
 
 const ACTION_COLORS: { [key in AuditAction]: string } = {
   UPLOAD: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
@@ -140,13 +101,14 @@ const ACTION_COLORS: { [key in AuditAction]: string } = {
   DELEGATION_STOP: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50',
 };
 
-const getActionLabel = (action: AuditAction) => ACTION_LABELS[action] || action;
+// ACTION_LABELS removed in favor of i18n
 const getActionColor = (action: AuditAction) =>
   ACTION_COLORS[action] || 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50';
 const getActionIcon = (action: AuditAction) =>
   ACTION_ICONS[action] || <Activity className="w-4 h-4" />;
 
 export default function ActivityLog() {
+  const { t, i18n } = useTranslation();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [stats, setStats] = useState<ActivityStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -202,19 +164,19 @@ export default function ActivityLog() {
     const parts: string[] = [];
 
     if (log.details.fileName) {
-      parts.push(`Fichier: ${log.details.fileName}`);
+      parts.push(t('audit.file', { name: log.details.fileName }));
     }
     if (log.details.folderName) {
-      parts.push(`Dossier: ${log.details.folderName}`);
+      parts.push(t('audit.folder', { name: log.details.folderName }));
     }
     if (log.details.tagName) {
-      parts.push(`Tag: ${log.details.tagName}`);
+      parts.push(t('audit.tag', { name: log.details.tagName }));
     }
     if (log.details.versionNumber) {
-      parts.push(`Version: ${log.details.versionNumber}`);
+      parts.push(t('audit.version', { name: log.details.versionNumber }));
     }
     if (log.details.ipAddress) {
-      parts.push(`IP: ${log.details.ipAddress}`);
+      parts.push(t('audit.ip', { name: log.details.ipAddress }));
     }
 
     if (parts.length > 0) {
@@ -239,10 +201,10 @@ export default function ActivityLog() {
           <Activity className="w-8 h-8 text-primary-600 dark:text-primary-300" />
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Historique d'activité
+              {t('audit.title')}
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Suivi complet de vos actions
+              {t('audit.subtitle')}
             </p>
           </div>
         </div>
@@ -257,7 +219,7 @@ export default function ActivityLog() {
                 <Activity className="w-6 h-6 text-primary-600 dark:text-primary-300" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total d'actions</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('audit.total_actions')}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {stats.totalActions}
                 </p>
@@ -271,7 +233,7 @@ export default function ActivityLog() {
                 <Upload className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Fichiers téléversés</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('audit.files_uploaded')}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {stats.actionCounts.UPLOAD || 0}
                 </p>
@@ -285,7 +247,7 @@ export default function ActivityLog() {
                 <Download className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Téléchargements</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('audit.downloads')}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {stats.actionCounts.DOWNLOAD || 0}
                 </p>
@@ -300,7 +262,7 @@ export default function ActivityLog() {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtres:</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('audit.filters')}</span>
           </div>
 
           <select
@@ -311,10 +273,10 @@ export default function ActivityLog() {
             }}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600"
           >
-            <option value="">Toutes les actions</option>
-            {Object.entries(ACTION_LABELS).map(([action, label]) => (
+            <option value="">{t('audit.all_actions')}</option>
+            {Object.keys(ACTION_COLORS).map((action) => (
               <option key={action} value={action}>
-                {label}
+                {t(`audit.actions.${action}`)}
               </option>
             ))}
           </select>
@@ -327,10 +289,10 @@ export default function ActivityLog() {
             }}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600"
           >
-            <option value="7">7 derniers jours</option>
-            <option value="30">30 derniers jours</option>
-            <option value="90">90 derniers jours</option>
-            <option value="365">1 an</option>
+            <option value="7">{t('audit.last_7_days')}</option>
+            <option value="30">{t('audit.last_30_days')}</option>
+            <option value="90">{t('audit.last_90_days')}</option>
+            <option value="365">{t('audit.one_year')}</option>
           </select>
 
           {(filterAction || filterDays !== 7) && (
@@ -342,7 +304,7 @@ export default function ActivityLog() {
               }}
               className="text-sm text-primary-600 dark:text-primary-300 hover:underline"
             >
-              Réinitialiser
+              {t('audit.reset')}
             </button>
           )}
         </div>
@@ -357,9 +319,9 @@ export default function ActivityLog() {
         ) : logs.length === 0 ? (
           <div className="text-center py-12">
             <Activity className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">Aucune activité trouvée</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('audit.no_activity')}</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-              Essayez de modifier les filtres
+              {t('audit.try_filters')}
             </p>
           </div>
         ) : (
@@ -380,7 +342,7 @@ export default function ActivityLog() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                          {getActionLabel(log.action)}
+                          {t(`audit.actions.${log.action}`)}
                         </h4>
                         {getLogDetails(log) && (
                           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -389,7 +351,7 @@ export default function ActivityLog() {
                         )}
                       </div>
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {format(new Date(log.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
+                        {format(new Date(log.createdAt), 'dd MMM yyyy HH:mm', { locale: i18n.language === 'fr' ? fr : enUS })}
                       </span>
                     </div>
                   </div>
@@ -404,7 +366,7 @@ export default function ActivityLog() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Affichage {page * ITEMS_PER_PAGE + 1} à {Math.min((page + 1) * ITEMS_PER_PAGE, total)} sur {total}
+            {t('audit.showing')} {page * ITEMS_PER_PAGE + 1} {t('audit.to')} {Math.min((page + 1) * ITEMS_PER_PAGE, total)} {t('audit.of')} {total}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -415,7 +377,7 @@ export default function ActivityLog() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Page {page + 1} sur {totalPages}
+              {t('audit.page')} {page + 1} {t('audit.of')} {totalPages}
             </span>
             <button
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}

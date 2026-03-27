@@ -323,7 +323,7 @@ export default function AIChatbot() {
               </div>
 
               {/* Input */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
                 <div className="flex items-end space-x-2">
                   <textarea
                     value={inputText}

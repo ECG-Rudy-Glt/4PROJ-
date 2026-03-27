@@ -36,9 +36,9 @@ export class CommentController {
         NotificationService.create(
           file.userId,
           'COMMENT',
-          'Nouveau commentaire',
-          `${req.user!.firstName || req.user!.email} a commenté "${file.name}".`,
-          { fileId }
+          'notifications.comment.title',
+          'notifications.comment.message',
+          { fileId, userName: req.user!.firstName || req.user!.email, fileName: file.name }
         ).catch((e) => logger.error(e));
       }
 

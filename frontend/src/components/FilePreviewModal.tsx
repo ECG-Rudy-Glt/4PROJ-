@@ -403,7 +403,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
               >
                 <div className="flex items-center justify-center gap-2">
                   <MessageCircle className="w-4 h-4" />
-                  <span>Commentaires</span>
+                  <span>{t('common.comments_tab')}</span>
                   {commentCount > 0 && (
                     <span className="bg-primary-600 text-white text-xs font-bold rounded-full px-2 py-0.5">
                       {commentCount > 9 ? '9+' : commentCount}
@@ -424,7 +424,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
               >
                 <div className="flex items-center justify-center gap-2">
                   <History className="w-4 h-4" />
-                  <span>Versions</span>
+                  <span>{t('common.versions_tab')}</span>
                 </div>
                 {activePanel === 'versions' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />

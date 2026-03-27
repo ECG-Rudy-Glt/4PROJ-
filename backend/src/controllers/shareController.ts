@@ -168,9 +168,9 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'Nouveau partage reçu',
-        `${req.user!.firstName || req.user!.email} vous a partagé un dossier.`,
-        { folderId, sharedById: userId }
+        'notifications.share.folder_received.title',
+        'notifications.share.folder_received.message',
+        { folderId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
       res.status(201).json({ sharedFolder });
@@ -280,9 +280,9 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'Nouveau partage reçu',
-        `${req.user!.firstName || req.user!.email} vous a partagé un fichier.`,
-        { fileId, sharedById: userId }
+        'notifications.share.file_received.title',
+        'notifications.share.file_received.message',
+        { fileId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
       res.status(201).json({ sharedFile, isNewUser: false });

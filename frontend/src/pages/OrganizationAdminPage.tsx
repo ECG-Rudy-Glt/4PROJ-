@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { organizationService } from '@/services/organizationService';
 import { OrganizationMembership, OrganizationMemberRow } from '@/types';
 import api from '@/services/api';
+import { useTranslation } from 'react-i18next';
 
 const ROLE_OPTIONS: Array<'OWNER' | 'ADMIN' | 'MEMBER'> = ['OWNER', 'ADMIN', 'MEMBER'];
 const NON_OWNER_ROLE_OPTIONS: Array<'ADMIN' | 'MEMBER'> = ['ADMIN', 'MEMBER'];
@@ -15,6 +16,7 @@ interface UserSuggestion {
 }
 
 export default function OrganizationAdminPage() {
+  const { t } = useTranslation();
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [members, setMembers] = useState<OrganizationMemberRow[]>([]);
@@ -47,7 +49,7 @@ export default function OrganizationAdminPage() {
         setSelectedOrgId('');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible de charger les organisations');
+      toast.error(error.response?.data?.error || t('organization_admin.toast_load_org_error'));
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ export default function OrganizationAdminPage() {
       setMembers(data.organization.members || []);
       setMembershipRole(data.membershipRole);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible de charger le détail de l’organisation');
+      toast.error(error.response?.data?.error || t('organization_admin.toast_load_detail_error'));
     } finally {
       setLoadingMembers(false);
     }
@@ -130,11 +132,11 @@ export default function OrganizationAdminPage() {
 
     try {
       await organizationService.create(newOrgName.trim());
-      toast.success('Organisation créée');
+      toast.success(t('organization_admin.toast_create_success'));
       setNewOrgName('');
       await loadOrganizations();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Création organisation échouée');
+      toast.error(error.response?.data?.error || t('organization_admin.toast_create_error'));
     }
   };
 
@@ -144,14 +146,14 @@ export default function OrganizationAdminPage() {
 
     try {
       await organizationService.addMember(selectedOrgId, inviteEmail.trim(), inviteRole);
-      toast.success('Membre ajouté');
+      toast.success(t('organization_admin.toast_add_success'));
       setInviteEmail('');
       setInviteRole('MEMBER');
       setSuggestions([]);
       setShowSuggestions(false);
       await loadOrganizationDetails(selectedOrgId);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Ajout membre échoué');
+      toast.error(error.response?.data?.error || t('organization_admin.toast_add_error'));
     }
   };
 
@@ -159,10 +161,10 @@ export default function OrganizationAdminPage() {
     if (!selectedOrgId) return;
     try {
       await organizationService.updateMemberRole(selectedOrgId, memberId, role);
-      toast.success('Rôle mis à jour');
+      toast.success(t('organization_admin.toast_role_success'));
       await loadOrganizationDetails(selectedOrgId);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Mise à jour rôle échouée');
+      toast.error(error.response?.data?.error || t('organization_admin.toast_role_error'));
     }
   };
 
@@ -170,10 +172,10 @@ export default function OrganizationAdminPage() {
     if (!selectedOrgId) return;
     try {
       await organizationService.removeMember(selectedOrgId, memberId);
-      toast.success('Membre supprimé');
+      toast.success(t('organization_admin.toast_remove_success'));
       await loadOrganizationDetails(selectedOrgId);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Suppression membre échouée');
+      toast.error(error.response?.data?.error || t('organization_admin.toast_remove_error'));
     }
   };
 
@@ -188,35 +190,35 @@ export default function OrganizationAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Organisation</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('organization_admin.title')}</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Gérez vos espaces d’équipe, rôles et membres.
+          {t('organization_admin.subtitle')}
         </p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Créer une organisation</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('organization_admin.create_title')}</h2>
         <form onSubmit={handleCreateOrganization} className="flex flex-col md:flex-row gap-3">
           <input
             type="text"
             value={newOrgName}
             onChange={(e) => setNewOrgName(e.target.value)}
-            placeholder="Nom de l'organisation"
+            placeholder={t('organization_admin.org_name_placeholder')}
             className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
           />
           <button
             type="submit"
             className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
           >
-            Créer
+            {t('organization_admin.create_button')}
           </button>
         </form>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Mes organisations</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('organization_admin.my_orgs_title')}</h2>
         {organizations.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Aucune organisation pour l’instant.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('organization_admin.no_orgs')}</p>
         ) : (
           <select
             value={selectedOrgId}
@@ -237,10 +239,10 @@ export default function OrganizationAdminPage() {
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Membres - {selectedOrganization?.name}
+                {t('organization_admin.members_title', { name: selectedOrganization?.name })}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Votre rôle: {membershipRole || 'MEMBER'}
+                {t('organization_admin.your_role', { role: membershipRole || 'MEMBER' })}
               </p>
             </div>
           </div>
@@ -252,7 +254,7 @@ export default function OrganizationAdminPage() {
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="Email du membre"
+                  placeholder={t('organization_admin.member_email_placeholder')}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
                 />
                 {showSuggestions && suggestions.length > 0 && (
@@ -290,7 +292,7 @@ export default function OrganizationAdminPage() {
                 type="submit"
                 className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
               >
-                Ajouter
+                {t('organization_admin.add_button')}
               </button>
             </form>
           )}
@@ -299,23 +301,23 @@ export default function OrganizationAdminPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700/40">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Membre</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Rôle</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Dernière activité</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">{t('organization_admin.table_member')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">{t('organization_admin.table_role')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">{t('organization_admin.table_last_active')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">{t('organization_admin.table_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {loadingMembers ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      Chargement...
+                      {t('organization_admin.loading')}
                     </td>
                   </tr>
                 ) : members.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      Aucun membre
+                      {t('organization_admin.no_members')}
                     </td>
                   </tr>
                 ) : (
@@ -355,7 +357,7 @@ export default function OrganizationAdminPage() {
                             onClick={() => handleRemoveMember(member.id)}
                             className="px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 text-sm"
                           >
-                            Retirer
+                            {t('organization_admin.remove_button')}
                           </button>
                         )}
                       </td>

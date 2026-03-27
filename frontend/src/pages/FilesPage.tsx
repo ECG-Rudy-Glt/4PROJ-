@@ -411,7 +411,7 @@ export default function FilesPage() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative pb-48">
       {!searchQuery && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
 
       <div className="flex items-center justify-between mb-6">
@@ -550,14 +550,14 @@ export default function FilesPage() {
                   </button>
                 )}
                 {!folder._isShared && (
-                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="absolute top-2 right-2 flex space-x-1 transition-all">
                     <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 hover:border-primary-300 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600" /></button>
                     <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 hover:border-primary-300 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600" /></button>
                     <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 hover:border-red-300 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600" /></button>
                   </div>
                 )}
                 {folder._isShared && (
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder(folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder(folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600" /></button>
                 )}
               </div>
             ))}
@@ -568,9 +568,9 @@ export default function FilesPage() {
       {(displayFiles.length > 0 || acceptedSharedFiles.length > 0) && (
         <div>
           {!searchQuery && <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">{t('files.files')}</h2>}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <thead className="bg-gray-50 dark:bg-gray-700/50 [&>tr>th:first-child]:rounded-tl-xl [&>tr>th:last-child]:rounded-tr-xl">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
