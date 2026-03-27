@@ -1,7 +1,9 @@
-import { X, Download, MessageCircle, History, Edit3 } from 'lucide-react';
-import { File } from '@/types';
+import { X, Download, MessageCircle, History, Edit3, Save, Pencil } from 'lucide-react';
+import { File as FileType } from '@/types';
 import { fileService } from '@/services/fileService';
+import api from '@/services/api';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import CommentsPanel from './CommentsPanel';
 import VersionHistory from './VersionHistory';
 import { commentService } from '@/services/commentService';
@@ -10,7 +12,7 @@ import { OfficePreview } from './OfficePreview';
 import MarkdownPreview from './MarkdownPreview';
 
 interface FilePreviewModalProps {
-  file: File;
+  file: FileType;
   onClose: () => void;
   isShared?: boolean;
 }
@@ -29,6 +31,139 @@ const editableMimeTypes = [
 ];
 
 const canEditDocument = (mimeType: string) => editableMimeTypes.includes(mimeType);
+
+function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
+  const [rows, setRows] = useState<string[][]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(downloadUrl)
+      .then((r) => r.text())
+      .then((text) => {
+        const parsed = text.trim().split('\n').map((line) =>
+          line.split(',').map((cell) => cell.trim().replace(/^"|"$/g, ''))
+        );
+        setRows(parsed);
+      })
+      .catch(() => setError('Impossible de charger le fichier CSV'));
+  }, [downloadUrl]);
+
+  if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
+  if (rows.length === 0) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
+
+  const headers = rows[0];
+  const body = rows.slice(1);
+
+  return (
+    <div className="overflow-auto max-h-[65vh] rounded-lg border border-gray-200 dark:border-gray-700">
+      <table className="min-w-full text-sm">
+        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+          <tr>
+            {headers.map((h, i) => (
+              <th key={i} className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+          {body.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+              {headers.map((_, j) => (
+                <td key={j} className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  {row[j] ?? ''}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl: string; fileId: string; fileName: string; mimeType: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [edited, setEdited] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(downloadUrl)
+      .then((r) => r.text())
+      .then((text) => { setContent(text); setEdited(text); })
+      .catch(() => setError('Impossible de charger le fichier'));
+  }, [downloadUrl]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const blob = new Blob([edited], { type: mimeType || 'text/plain' });
+      const newFile = new File([blob], fileName, { type: mimeType || 'text/plain' });
+      const formData = new FormData();
+      formData.append('files', newFile);
+      formData.append('replaceFileId', fileId);
+      await api.post('/files/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setContent(edited);
+      setIsEditing(false);
+      toast.success('Fichier sauvegardé');
+    } catch {
+      toast.error('Échec de la sauvegarde');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
+  if (content === null) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
+
+  return (
+    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between px-3 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{fileName}</span>
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <>
+              <button
+                onClick={() => { setEdited(content); setIsEditing(false); }}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-3 h-3" /> Annuler
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-3 h-3" /> {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Pencil className="w-3 h-3" /> Modifier
+            </button>
+          )}
+        </div>
+      </div>
+      {isEditing ? (
+        <textarea
+          value={edited}
+          onChange={(e) => setEdited(e.target.value)}
+          className="w-full h-[60vh] p-4 text-sm font-mono bg-gray-950 text-gray-200 focus:outline-none resize-none"
+          spellCheck={false}
+        />
+      ) : (
+        <div className="bg-gray-950 overflow-auto max-h-[60vh]">
+          <pre className="p-4 text-sm text-gray-200 font-mono whitespace-pre-wrap break-words">{content}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FilePreviewModal({ file, onClose, isShared = false }: FilePreviewModalProps) {
   const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments'); // Onglet actif
@@ -139,15 +274,10 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
         return <MarkdownPreview file={file} isShared={isShared} />;
 
       case 'text':
-        return (
-          <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4">
-            <iframe
-              src={streamUrl}
-              className="w-full h-[70vh] bg-white dark:bg-gray-800 rounded"
-              title={file.name}
-            />
-          </div>
-        );
+        if (file.mimeType === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
+          return <CsvPreview downloadUrl={downloadUrl} />;
+        }
+        return <TextPreview downloadUrl={downloadUrl} fileId={file.id} fileName={file.name} mimeType={file.mimeType} />;
 
       default:
         // Pour les documents Office, afficher la prévisualisation avec OnlyOffice

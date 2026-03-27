@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Share2, MessageSquare, AlertTriangle, Check, Trash2 } from 'lucide-react';
 import { useNotificationStore, Notification } from '@/stores/useNotificationStore';
+import { useNavigate } from 'react-router-dom';
 
 const typeConfig: Record<Notification['type'], { icon: typeof Bell; color: string; bg: string }> = {
   SHARE: { icon: Share2, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900' },
@@ -19,9 +20,21 @@ function timeAgo(dateStr: string): string {
   return `Il y a ${days}j`;
 }
 
+function getNotificationUrl(notif: Notification): string | null {
+  const data = notif.data;
+  if (!data) return null;
+  if (notif.type === 'SHARE') {
+    if (data.folderId) return `/files/${data.folderId}`;
+    if (data.fileId) return `/files?preview=${data.fileId}`;
+  }
+  if (notif.type === 'COMMENT' && data.fileId) return `/files?preview=${data.fileId}`;
+  return null;
+}
+
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } =
     useNotificationStore();
 
@@ -80,12 +93,20 @@ export default function NotificationCenter() {
               notifications.map((notif) => {
                 const config = typeConfig[notif.type];
                 const Icon = config.icon;
+                const url = getNotificationUrl(notif);
                 return (
                   <div
                     key={notif.id}
-                    className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
+                    className={`flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
                       !notif.read ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''
-                    }`}
+                    } ${url ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''} transition-colors`}
+                    onClick={() => {
+                      if (url) {
+                        if (!notif.read) markAsRead(notif.id);
+                        setIsOpen(false);
+                        navigate(url);
+                      }
+                    }}
                   >
                     <div className={`p-2 rounded-full ${config.bg} flex-shrink-0`}>
                       <Icon className={`w-4 h-4 ${config.color}`} />
@@ -95,7 +116,7 @@ export default function NotificationCenter() {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{notif.message}</p>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{timeAgo(notif.createdAt)}</p>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       {!notif.read && (
                         <button
                           onClick={() => markAsRead(notif.id)}

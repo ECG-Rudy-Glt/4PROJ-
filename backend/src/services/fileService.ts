@@ -84,11 +84,12 @@ export class FileService {
     const errors: Array<{ fileName: string; error: string }> = [];
 
     for (const uploadedFile of files) {
+      const originalName = Buffer.from(uploadedFile.originalname, 'latin1').toString('utf8');
       try {
         const createdFile = await this.createFile(
           userId,
-          uploadedFile.originalname,
-          uploadedFile.originalname,
+          originalName,
+          originalName,
           uploadedFile.mimetype,
           uploadedFile.size,
           uploadedFile.path,
@@ -100,7 +101,7 @@ export class FileService {
         await deleteFile(uploadedFile.path).catch(() => undefined);
 
         errors.push({
-          fileName: uploadedFile.originalname,
+          fileName: originalName,
           error: error?.message || 'Upload failed',
         });
       }

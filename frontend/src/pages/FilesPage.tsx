@@ -264,21 +264,31 @@ export default function FilesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folderId, searchQuery, activeFilters]);
 
-  // Handle auto-preview from dashboard
+  // Handle auto-preview from notification or dashboard
   useEffect(() => {
     const previewId = searchParams.get('preview');
-    if (previewId && files.length > 0) {
-      const file = files.find(f => f.id === previewId);
-      if (file) {
-        setPreviewFile(file);
-        setShowPreviewModal(true);
-        // Clean up the URL
-        const newParams = new URLSearchParams(searchParams);
-        newParams.delete('preview');
-        navigate({ search: newParams.toString() }, { replace: true });
-      }
+    if (!previewId) return;
+
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('preview');
+    navigate({ search: newParams.toString() }, { replace: true });
+
+    // Try local files first, then fetch directly
+    const local = [...files, ...acceptedSharedFiles].find(f => f.id === previewId);
+    if (local) {
+      setPreviewFile(local);
+      setShowPreviewModal(true);
+      return;
     }
-  }, [files, searchParams, navigate]);
+
+    fileService.getFile(previewId).then(({ file }) => {
+      setPreviewFile(file);
+      setShowPreviewModal(true);
+    }).catch(() => {
+      toast.error('Fichier introuvable');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const controllers = activeUploadControllersRef.current;
@@ -807,66 +817,66 @@ export default function FilesPage() {
       {/* Breadcrumb */}
       {!searchQuery && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
 
-      {/* Header with Sort */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {searchQuery ? `Recherche : "${searchQuery}"` : 'Mes fichiers'}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {searchQuery ? `Résultats pour "${searchQuery}"` : 'Mes fichiers'}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {searchQuery
               ? `${displayFiles.length} résultat${displayFiles.length > 1 ? 's' : ''}`
-              : `${folders.length + acceptedSharedFolders.length} dossier${(folders.length + acceptedSharedFolders.length) > 1 ? 's' : ''}, ${files.length + acceptedSharedFiles.length} fichier${(files.length + acceptedSharedFiles.length) > 1 ? 's' : ''}`
+              : `${folders.length + acceptedSharedFolders.length} dossier${(folders.length + acceptedSharedFolders.length) > 1 ? 's' : ''} · ${files.length + acceptedSharedFiles.length} fichier${(files.length + acceptedSharedFiles.length) > 1 ? 's' : ''}`
             }
           </p>
         </div>
         {!searchQuery && (
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowPendingShares(true)}
-              className="relative flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all"
-              title="Voir les partages en attente"
-            >
-              <Share2 className="w-5 h-5 mr-2" />
-              Partages en attente
-              {pendingSharesCount > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold text-white bg-orange-500 dark:bg-orange-600">
-                  {pendingSharesCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setShowTagsManager(true)}
-              className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all"
-              title="Gérer les tags"
-            >
-              <TagIconLucide className="w-5 h-5 mr-2" />
-              Tags
-            </button>
-            <button
-              onClick={() => setShowNewFolderModal(true)}
-              className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all"
-            >
-              <FolderPlus className="w-5 h-5 mr-2" />
-              Nouveau dossier
-            </button>
-            <label className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer transition-all">
-              <Upload className="w-5 h-5 mr-2" />
-              Téléverser
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-            <button
-              onClick={() => folderUploadInputRef.current?.click()}
-              className="flex items-center px-4 py-2 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-all"
-            >
-              <Folder className="w-5 h-5 mr-2" />
-              Téléverser dossier
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Secondary actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowPendingShares(true)}
+                className="relative flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                title="Voir les partages en attente"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Partages</span>
+                {pendingSharesCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-bold text-white bg-orange-500">
+                    {pendingSharesCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setShowTagsManager(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              >
+                <TagIconLucide className="w-4 h-4" />
+                <span className="hidden sm:inline">Tags</span>
+              </button>
+              <button
+                onClick={() => setShowNewFolderModal(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              >
+                <FolderPlus className="w-4 h-4" />
+                <span className="hidden sm:inline">Nouveau dossier</span>
+              </button>
+            </div>
+            {/* Primary upload actions */}
+            <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => folderUploadInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all font-medium"
+              >
+                <Folder className="w-4 h-4" />
+                <span className="hidden sm:inline">Dossier</span>
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer transition-all font-medium">
+                <Upload className="w-4 h-4" />
+                Téléverser
+                <input type="file" multiple onChange={handleFileUpload} className="hidden" />
+              </label>
+            </div>
             <input
               ref={folderUploadInputRef}
               type="file"
@@ -879,34 +889,33 @@ export default function FilesPage() {
         )}
       </div>
 
-      {/* Sort Dropdown - Only show when not searching and have files */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-        {!searchQuery && (
+      {/* Filter + Sort bar */}
+      {!searchQuery && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <FilterBar onFilterChange={handleFilterChange} onClearFilters={handleClearFilters} />
-        )}
-
-        {!searchQuery && files.length > 0 && (
-          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 ml-auto">
-            <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Trier par :
-            </label>
-            <select
-              id="sort-select"
-              value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
-              onChange={handleSortChange}
-              className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
-            >
-              <option value="name-asc">Nom (A-Z)</option>
-              <option value="name-desc">Nom (Z-A)</option>
-              <option value="date-desc">Plus récents</option>
-              <option value="date-asc">Plus anciens</option>
-              <option value="size-desc">Plus volumineux</option>
-              <option value="size-asc">Plus petits</option>
-            </select>
-          </div>
-        )}
-      </div>
+          {files.length > 0 && (
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shrink-0">
+              <ArrowUpDown className="w-4 h-4 text-gray-400" />
+              <label htmlFor="sort-select" className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Trier :
+              </label>
+              <select
+                id="sort-select"
+                value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
+                onChange={handleSortChange}
+                className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
+              >
+                <option value="name-asc">Nom (A-Z)</option>
+                <option value="name-desc">Nom (Z-A)</option>
+                <option value="date-desc">Plus récents</option>
+                <option value="date-asc">Plus anciens</option>
+                <option value="size-desc">Plus volumineux</option>
+                <option value="size-asc">Plus petits</option>
+              </select>
+            </div>
+          )}
+        </div>
+      )}
 
       {isSearching && (
         <div className="flex items-center justify-center py-12">
@@ -917,11 +926,11 @@ export default function FilesPage() {
 
       {/* Folders */}
       {!searchQuery && (folders.length > 0 || acceptedSharedFolders.length > 0) && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
+        <div className="mb-8">
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">
             Dossiers
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => (
               <div
                 key={folder.id}
@@ -1029,8 +1038,8 @@ export default function FilesPage() {
       {/* Files */}
       {(displayFiles.length > 0 || acceptedSharedFiles.length > 0) && (
         <div>
-          {!searchQuery && folders.length > 0 && (
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider">
+          {!searchQuery && (
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">
               Fichiers
             </h2>
           )}

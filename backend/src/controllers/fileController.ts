@@ -246,9 +246,19 @@ export class FileController {
       res.writeHead(200, head);
 
       const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      decryptStream.on('error', (err) => {
+        console.error('[streamFile] decrypt error:', err.message);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to stream file' });
+        } else {
+          res.destroy();
+        }
+      });
       decryptStream.pipe(res);
     } catch (error: any) {
-      res.status(404).json({ error: error.message });
+      if (!res.headersSent) {
+        res.status(404).json({ error: error.message });
+      }
     }
   }
 
