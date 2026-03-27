@@ -3,22 +3,11 @@ import fs from 'fs';
 import path from 'path';
 
 const ALGORITHM = 'aes-256-gcm';
-// Using a fixed key for now (from ENV). In production, this should be a managed key or per-user key.
-// Ensure MFA_ENCRYPTION_KEY or a new FILE_ENCRYPTION_KEY is used.
-// For simplicity, we'll use a derived key from a secret.
-
-// Fixed salt for key derivation — changing this would make existing files unreadable
-const KDF_SALT = Buffer.from('supfile-file-encryption-salt-v1', 'utf8');
 
 export class EncryptionService {
     private static getKey(): Buffer {
-        const secret = process.env.FILE_ENCRYPTION_KEY;
-        if (!secret) {
-            console.error('[FATAL] FILE_ENCRYPTION_KEY environment variable is not set. Refusing to start.');
-            process.exit(1);
-        }
-        // PBKDF2 with 100k iterations — stronger than raw SHA256
-        return crypto.pbkdf2Sync(secret, KDF_SALT, 100_000, 32, 'sha256');
+        const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
+        return crypto.createHash('sha256').update(secret).digest();
     }
 
     static async encryptFile(filePath: string): Promise<void> {
