@@ -7,6 +7,11 @@ import AIChatbot from './AIChatbot';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useVaultStore } from '@/stores/useVaultStore';
 import { vaultService } from '@/services/vaultService';
+import { useUploadStore } from '@/stores/useUploadStore';
+import { extractDroppedFiles } from '@/utils/dragUtils';
+import { Upload } from 'lucide-react';
+import UploadModal from './UploadModal';
+import { useFileStore } from '@/stores/useFileStore';
 
 export default function Layout() {
   const location = useLocation();
@@ -18,6 +23,9 @@ export default function Layout() {
   const resetVaultStore = useVaultStore((state) => state.reset);
   const previousPathRef = useRef(location.pathname);
   const autoLockInFlightRef = useRef(false);
+  const dragCounter = useRef(0);
+  const { isDragging: isDraggingGlobal, setIsDragging: setIsDraggingGlobal, enqueueUpload } = useUploadStore();
+  const currentFolderId = useFileStore((state) => state.currentFolderId);
 
   useEffect(() => {
     if (userId) {
@@ -55,8 +63,62 @@ export default function Layout() {
     previousPathRef.current = location.pathname;
   }, [location.pathname, refreshVaultStatus, vaultRootFolder?.id, vaultStatus?.enabled, vaultStatus?.unlocked]);
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (dragCounter.current === 1) {
+      setIsDraggingGlobal(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDraggingGlobal(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDraggingGlobal(false);
+
+    const files = await extractDroppedFiles(e);
+    if (files.length > 0) {
+      enqueueUpload(files, currentFolderId);
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div 
+      className="flex h-screen bg-gray-50 dark:bg-gray-900 relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Global Drag Overlay */}
+      {isDraggingGlobal && (
+        <div className="fixed inset-0 z-[100] bg-primary-600/90 flex items-center justify-center pointer-events-none transition-all duration-200">
+          <div className="text-center text-white p-8 rounded-3xl border-4 border-dashed border-white/50 animate-in fade-in zoom-in duration-300">
+            <div className="bg-white/20 p-6 rounded-full inline-block mb-6 shadow-2xl backdrop-blur-sm">
+              <Upload className="w-20 h-20 animate-bounce" />
+            </div>
+            <p className="text-4xl font-black tracking-tight mb-2">Déposez vos fichiers</p>
+            <p className="text-xl opacity-90 font-medium">Relâchez pour téléverser instantanément</p>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
@@ -65,6 +127,7 @@ export default function Layout() {
         </main>
       </div>
       <AIChatbot />
+      <UploadModal />
     </div>
   );
 }

@@ -8,6 +8,7 @@ interface FileState {
   folders: Folder[];
   currentFolderId: string | null;
   isLoading: boolean;
+  isDragging: boolean;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   loadContent: (
@@ -22,6 +23,7 @@ interface FileState {
   deleteFolder: (folderId: string, permanent?: boolean) => Promise<void>;
   setCurrentFolder: (folderId: string | null) => void;
   setSorting: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+  setIsDragging: (isDragging: boolean) => void;
 }
 
 export const useFileStore = create<FileState>((set, get) => ({
@@ -29,6 +31,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   folders: [],
   currentFolderId: null,
   isLoading: false,
+  isDragging: false,
   sortBy: 'createdAt',
   sortOrder: 'desc',
 
@@ -95,5 +98,9 @@ export const useFileStore = create<FileState>((set, get) => ({
 
   setSorting: (sortBy, sortOrder) => {
     set({ sortBy, sortOrder });
+  },
+
+  setIsDragging: (isDragging) => {
+    set({ isDragging });
   },
 }));

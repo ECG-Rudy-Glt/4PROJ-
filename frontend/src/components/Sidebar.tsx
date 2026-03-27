@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Home,
   FolderOpen,
@@ -18,6 +19,7 @@ import { useVaultStore } from '@/stores/useVaultStore';
 import { shareService } from '@/services/shareService';
 
 export default function Sidebar() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { status: vaultStatus, rootFolder: vaultRootFolder } = useVaultStore();
   const [pendingCount, setPendingCount] = useState(0);
@@ -40,20 +42,20 @@ export default function Sidebar() {
   }, []);
 
   const navItems = [
-    { to: '/dashboard', icon: Home, label: 'Accueil', section: 'main' },
-    { to: '/files', icon: FolderOpen, label: 'Mes fichiers', section: 'main' },
-    { to: '/favorites', icon: Star, label: 'Favoris', section: 'main' },
+    { to: '/dashboard', icon: Home, label: t('common.dashboard'), section: 'main' },
+    { to: '/files', icon: FolderOpen, label: t('common.files'), section: 'main' },
+    { to: '/favorites', icon: Star, label: t('common.favorites'), section: 'main' },
     ...(vaultStatus?.enabled && vaultStatus?.unlocked && vaultRootFolder
-      ? [{ to: `/files/${vaultRootFolder.id}`, icon: Shield, label: 'Coffre-fort', section: 'main' as const }]
+      ? [{ to: `/files/${vaultRootFolder.id}`, icon: Shield, label: t('common.vault'), section: 'main' as const }]
       : []),
-    { to: '/shared', icon: Share2, label: 'Partagés', section: 'secondary' },
-    { to: '/trash', icon: Trash2, label: 'Corbeille', section: 'secondary' },
-    { to: '/organization-admin', icon: Building2, label: 'Organisation', section: 'secondary' },
+    { to: '/shared', icon: Share2, label: t('common.shared'), section: 'secondary' },
+    { to: '/trash', icon: Trash2, label: t('common.trash'), section: 'secondary' },
+    { to: '/organization-admin', icon: Building2, label: t('common.organization'), section: 'secondary' },
     ...(user?.role === 'ADMIN'
-      ? [{ to: '/admin', icon: ShieldCheck, label: 'Super Admin', section: 'secondary' as const }]
+      ? [{ to: '/admin', icon: ShieldCheck, label: t('common.super_admin'), section: 'secondary' as const }]
       : []),
-    { to: '/plans', icon: CreditCard, label: 'Plans & Tarifs', section: 'bottom' },
-    { to: '/settings', icon: Settings, label: 'Paramètres', section: 'bottom' },
+    { to: '/plans', icon: CreditCard, label: t('common.plans'), section: 'bottom' },
+    { to: '/settings', icon: Settings, label: t('common.settings'), section: 'bottom' },
   ];
 
   const quotaUsed = Number(user?.quotaUsed || 0);
@@ -112,7 +114,7 @@ export default function Sidebar() {
           {/* Secondary actions */}
           <div className="space-y-1">
             <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Autres
+              {t('common.others')}
             </div>
             {secondaryItems.map((item) => (
               <NavLink
@@ -175,7 +177,7 @@ export default function Sidebar() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Storage
+                    {t('common.storage')}
                   </span>
                   <span className={`text-sm font-bold ${quotaPercentage >= 90 ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`}>
                     {quotaPercentage.toFixed(0)}%
@@ -192,7 +194,7 @@ export default function Sidebar() {
                     {formatBytes(quotaUsed)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">
-                    of {formatBytes(quotaLimit)}
+                    {t('common.of')} {formatBytes(quotaLimit)}
                   </p>
                 </div>
               </div>

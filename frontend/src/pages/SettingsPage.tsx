@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
-import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield } from 'lucide-react';
+import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
@@ -12,6 +13,7 @@ import { isVaultAvailableForPlan } from '@/constants/plans';
 import { useVaultStore } from '@/stores/useVaultStore';
 
 export default function SettingsPage() {
+  const { t, i18n } = useTranslation();
   const { user, updateProfile } = useAuthStore();
   const [isDark, setIsDark] = useState(user?.theme === 'dark');
   const [profile, setProfile] = useState({
@@ -201,8 +203,50 @@ export default function SettingsPage() {
           <User className="w-8 h-8 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Mon Profil</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400">Gérez les paramètres de votre compte</p>
+        </div>
+      </div>
+
+      {/* Language Selection Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Languages className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('settings.language')}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('settings.language_choice')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => i18n.changeLanguage('fr')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                i18n.language.startsWith('fr')
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+               Français
+            </button>
+            <button
+              onClick={() => i18n.changeLanguage('en')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                i18n.language.startsWith('en')
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              English
+            </button>
+          </div>
         </div>
       </div>
 
@@ -213,17 +257,17 @@ export default function SettingsPage() {
             <HardDrive className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Stockage
+            {t('settings.storage')}
           </h2>
         </div>
 
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaUsed)} utilisés
+              {formatBytes(quotaUsed)} {t('settings.storage_used').toLowerCase().split(' ')[1] || 'utilisés'}
             </span>
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaLimit)} au total
+              {formatBytes(quotaLimit)} {t('settings.storage_total').toLowerCase().split(' ')[1] || 'au total'}
             </span>
           </div>
 
@@ -263,10 +307,10 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Apparence
+                {t('settings.theme')}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {isDark ? 'Mode sombre activé' : 'Mode clair activé'}
+                {isDark ? t('settings.theme_dark') : t('settings.theme_light')}
               </p>
             </div>
           </div>
@@ -299,7 +343,7 @@ export default function SettingsPage() {
             <User className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Informations du profil
+            {t('settings.personal_info')}
           </h2>
         </div>
 
@@ -307,7 +351,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Prénom
+                {t('settings.first_name')}
               </label>
               <input
                 type="text"
@@ -319,7 +363,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nom
+                {t('settings.last_name')}
               </label>
               <input
                 type="text"
@@ -348,7 +392,7 @@ export default function SettingsPage() {
             type="submit"
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
           >
-            Enregistrer les modifications
+            {t('settings.save')}
           </button>
         </form>
       </div>
@@ -360,7 +404,7 @@ export default function SettingsPage() {
             <Lock className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Sécurité
+            {t('settings.security')}
           </h2>
         </div>
 

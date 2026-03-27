@@ -1,8 +1,9 @@
-import { X, Download, MessageCircle, History, Edit3, Save, Pencil } from 'lucide-react';
+import { X, Download, MessageCircle, History, Edit3, Save, Pencil, AlertTriangle } from 'lucide-react';
 import { File as FileType } from '@/types';
 import { fileService } from '@/services/fileService';
 import api from '@/services/api';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import CommentsPanel from './CommentsPanel';
 import VersionHistory from './VersionHistory';
@@ -31,6 +32,11 @@ const editableMimeTypes = [
 ];
 
 const canEditDocument = (mimeType: string) => editableMimeTypes.includes(mimeType);
+
+const isExecutable = (fileName: string) => {
+  const exts = ['.exe', '.msi', '.bat', '.sh', '.cmd', '.com', '.bin', '.app', '.run'];
+  return exts.some(ext => fileName.toLowerCase().endsWith(ext));
+};
 
 function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
   const [rows, setRows] = useState<string[][]>([]);
@@ -166,6 +172,7 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
 }
 
 export default function FilePreviewModal({ file, onClose, isShared = false }: FilePreviewModalProps) {
+  const { t } = useTranslation();
   const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments'); // Onglet actif
   const [commentCount, setCommentCount] = useState(0);
   const [showDocumentEditor, setShowDocumentEditor] = useState(false);
@@ -344,7 +351,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
             <button
               onClick={() => window.open(downloadUrl)}
               className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              title="Télécharger"
+              title={t('common.download')}
             >
               <Download className="w-5 h-5" />
             </button>
@@ -362,6 +369,22 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
         <div className="flex-1 overflow-hidden flex">
           {/* Preview Content */}
           <div className="w-2/3 overflow-auto p-4 border-r border-gray-200 dark:border-gray-700">
+            {isExecutable(file.name) && (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+                <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-red-800 dark:text-red-300">
+                    {t('common.warning')} : {t('common.dangerous_file')}
+                  </h4>
+                  <p className="text-xs text-red-700 dark:text-red-400 mt-1">
+                    Ce fichier ({file.name.split('.').pop()?.toUpperCase()}) est un format exécutable. 
+                    Il pourrait contenir des logiciels malveillants. Soyez prudent avant de l'exécuter sur votre ordinateur.
+                  </p>
+                </div>
+              </div>
+            )}
             {renderPreview()}
           </div>
 
