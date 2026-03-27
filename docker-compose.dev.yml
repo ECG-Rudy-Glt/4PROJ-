@@ -1,0 +1,122 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: supfile-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_DB: ${POSTGRES_DB:-supfile}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - supfile-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    image: supfile-backend:dev
+    container_name: supfile-backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/${POSTGRES_DB:-supfile}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      API_URL: ${API_URL:-http://localhost:5001}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:5001}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      PORT: ${BACKEND_PORT:-5001}
+      UPLOAD_DIR: /app/uploads
+      NODE_ENV: development
+      ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
+      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:8080}
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+      COHERE_MODEL: ${COHERE_MODEL:-command-r-plus}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
+      STRIPE_PRICE_BUSINESS_MONTHLY: ${STRIPE_PRICE_BUSINESS_MONTHLY:-}
+      STRIPE_PRICE_ENTERPRISE_MONTHLY: ${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - uploads_data:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-5001}:${BACKEND_PORT:-5001}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    image: supfile-frontend:dev
+    container_name: supfile-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: supfile-onlyoffice
+    environment:
+      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
+      - JWT_ENABLED=false
+      - JWT_HEADER=Authorization
+      - ALLOW_PRIVATE_IP_ADDRESS=true
+      - ALLOW_META_IP_ADDRESS=true
+    ports:
+      - "${ONLYOFFICE_PORT:-8080}:80"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_log:/var/log/onlyoffice
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+networks:
+  supfile-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  onlyoffice_data:
+    driver: local
+  onlyoffice_log:
+    driver: local
