@@ -72,7 +72,7 @@ export class SharedFolderService {
 
   static async listSharedWithMe(userId: string) {
     return prisma.sharedFolder.findMany({
-      where: { sharedWithId: userId },
+      where: { sharedWithId: userId, accepted: true },
       include: { sharedBy: sharedBySelect },
       orderBy: { createdAt: 'desc' },
     });

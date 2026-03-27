@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Check, XCircle, File, Folder } from 'lucide-react';
 import { shareService } from '@/services/shareService';
 import toast from 'react-hot-toast';
+import { formatBytes } from '@/utils/bytes';
 
 interface PendingShare {
   id: string;
@@ -157,7 +158,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
                     </p>
                     {share.file && (
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {(share.file.size / 1024 / 1024).toFixed(2)} MB • {share.file.mimeType}
+                        {formatBytes(share.file.size)} • {share.file.mimeType}
                       </p>
                     )}
                   </div>
@@ -174,10 +175,10 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
                     </button>
                     <button
                       onClick={() => handleReject(share)}
-                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/50"
                       title="Rejeter"
                     >
-                      <XCircle className="w-5 h-5" />
+                      <XCircle className="w-5 h-5 fill-red-50 dark:fill-red-900/20" />
                     </button>
                   </div>
                 </div>

@@ -62,7 +62,7 @@ export class SharedFileService {
 
   static async listFilesSharedWithMe(userId: string) {
     return prisma.sharedFile.findMany({
-      where: { sharedWithId: userId },
+      where: { sharedWithId: userId, accepted: true },
       include: { file: true, sharedBy: sharedBySelect },
       orderBy: { createdAt: 'desc' },
     });

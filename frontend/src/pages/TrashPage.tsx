@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TagSelector from '@/components/TagSelector';
+import { formatBytes } from '@/utils/bytes';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -37,13 +38,6 @@ const getMimeTypeColor = (mimeType: string) => {
   return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
 };
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 o';
-  const k = 1024;
-  const sizes = ['o', 'Ko', 'Mo', 'Go'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
 
 const getRemainingDays = (deletedAt: string | Date | undefined) => {
   if (!deletedAt) return null;

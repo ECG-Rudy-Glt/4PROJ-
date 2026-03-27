@@ -1,7 +1,9 @@
 import prisma from '../config/database';
+import fs from 'fs/promises';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { VaultService } from './vaultService';
+import { PlanService } from './planService';
 import logger from '../config/logger';
 
 export class FolderService {
@@ -260,7 +262,38 @@ export class FolderService {
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
     if (permanent || folder.isDeleted) {
-      // This will cascade delete all children folders and files
+      // 1. Trouver tous les fichiers dans ce dossier et ses sous-dossiers pour suppression physique
+      const filesInFolder = await prisma.file.findMany({
+        where: {
+          OR: [
+            { folderId: folder.id },
+            { folder: { path: { startsWith: `${folder.path}/` } } }
+          ]
+        },
+        select: {
+          id: true,
+          storagePath: true,
+          thumbnailPath: true,
+          size: true,
+          userId: true,
+        }
+      });
+
+      // 2. Supprimer physiquement chaque fichier et ajuster les quotas
+      for (const file of filesInFolder) {
+        try {
+          await fs.unlink(file.storagePath).catch(() => {});
+          if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
+          await PlanService.updateQuotaUsed(file.userId, -Number(file.size));
+          // File record suppression is handled by the manual delete loop below 
+          // to ensure consistency since File -> Folder is onDelete: SetNull
+          await prisma.file.delete({ where: { id: file.id } });
+        } catch (err) {
+          logger.error(`Error purging file ${file.id} during folder deletion: ${err}`);
+        }
+      }
+
+      // 3. Supprimer le dossier (cascades subfolders)
       await prisma.folder.delete({
         where: { id: folderId },
       });

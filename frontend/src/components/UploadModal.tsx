@@ -1,4 +1,5 @@
 import { X, Upload, CheckCircle, XCircle, File as FileIcon } from 'lucide-react';
+import { formatBytes } from '@/utils/bytes';
 
 export interface UploadingFile {
   id: string;
@@ -16,13 +17,6 @@ interface UploadModalProps {
   onCancel: () => void;
 }
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 o';
-  const k = 1024;
-  const sizes = ['o', 'Ko', 'Mo', 'Go'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
 
 export default function UploadModal({ isOpen, files, onClose, onCancel }: UploadModalProps) {
   if (!isOpen) return null;

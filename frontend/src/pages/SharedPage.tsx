@@ -31,6 +31,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import FilePreviewModal from '@/components/FilePreviewModal';
+import { formatBytes } from '@/utils/bytes';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -55,13 +56,6 @@ const getMimeTypeColor = (mimeType: string) => {
   return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
 };
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 o';
-  const k = 1024;
-  const sizes = ['o', 'Ko', 'Mo', 'Go'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
 
 type TabType = 'shared-with-me' | 'my-shares' | 'pending';
 
@@ -403,7 +397,7 @@ export default function SharedPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleRejectShare(share.id, 'file')}
-                          className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          className="px-4 py-2 text-sm font-bold bg-red-600 text-white hover:bg-red-700 rounded-lg shadow-sm shadow-red-600/20 transition-all"
                         >
                           Refuser
                         </button>
@@ -436,7 +430,7 @@ export default function SharedPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleRejectShare(share.id, 'folder')}
-                          className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          className="px-4 py-2 text-sm font-bold bg-red-600 text-white hover:bg-red-700 rounded-lg shadow-sm shadow-red-600/20 transition-all"
                         >
                           Refuser
                         </button>
