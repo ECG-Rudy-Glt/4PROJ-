@@ -14,20 +14,19 @@
 
 ### Sécurité
 - [ ] Retirer l'acceptation du token JWT en query param (apparaît dans les logs serveur) — `auth.ts:27-29`
-- [ ] Ajouter protection CSRF (middleware `csurf` ou équivalent)
-- [ ] Valider que `FRONTEND_URL` est dans une whitelist avant redirect OAuth — `authController.ts:189`
+- [~] Ajouter protection CSRF — non applicable : auth via JWT en header Authorization, pas de cookies de session
 - [ ] Limiter la taille de la `query` de recherche (ex: max 100 chars) — `userService.ts:14`
 - [ ] Valider `limit` params (min 0, max 1000) — `auditController.ts:12`, `userController.ts:22`
 
 ### Architecture
-- [ ] Créer un middleware d'erreur centralisé — remplacer les `catch (error: any)` dans les 24 controllers
-- [ ] Déplacer la logique d'invitation email hors des controllers → dans `ShareInvitationService` — `shareController.ts:129-167 & 265-307`
-- [ ] Ajouter middleware `requireFolderPermission` sur les routes de dossier partagé
+- [x] Créer un middleware d'erreur centralisé — `middlewares/errorHandler.ts`, `AppError` class, branché dans `index.ts`
+- [x] Déplacer la logique d'invitation email hors des controllers → `ShareInvitationService` (`shareController.ts:129-167 & 265-307`)
+- [x] Ajouter middleware `requireFolderPermission` sur les routes de dossier partagé — `folderRoutes.ts`
 
 ### Cohérence
 - [ ] Normaliser le schéma de réponse API : `{ success, data?, error?, code? }` sur tous les endpoints
 - [ ] Corriger les status HTTP incohérents (utiliser 401/403/404/409/422 correctement au lieu de 400 systématique)
-- [ ] Remplacer tous les `console.log` / `console.error` par un logger centralisé (pino ou winston)
+- [x] Remplacer tous les `console.log` / `console.error` par un logger centralisé (pino) — `config/logger.ts`, appliqué sur tous les controllers, services et middlewares
 
 ---
 

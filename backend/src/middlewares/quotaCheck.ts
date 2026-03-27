@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { PlanService } from '../services/planService';
+import logger from '../config/logger';
 
 /**
  * Middleware qui vérifie le quota AVANT l'upload du fichier
@@ -50,7 +51,7 @@ export const checkQuotaBeforeUpload = async (
 
     next();
   } catch (error: any) {
-    console.error('Erreur lors de la vérification du quota:', error);
+    logger.error('Erreur lors de la vérification du quota:', error);
     res.status(500).json({ error: 'Erreur lors de la vérification du quota' });
   }
 };
