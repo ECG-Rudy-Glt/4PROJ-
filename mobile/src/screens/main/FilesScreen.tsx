@@ -16,7 +16,9 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import Toast from 'react-native-toast-message';
 import { useFileStore } from '../../stores/useFileStore';
+import { uploadService } from '../../services/uploadService';
 import FileRow from '../../components/FileRow';
 import FolderRow from '../../components/FolderRow';
 import EmptyState from '../../components/EmptyState';
@@ -30,6 +32,22 @@ export default function FilesScreen() {
 
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async () => {
+    setUploading(true);
+    try {
+      const { success, count } = await uploadService.pickAndUpload(currentFolderId);
+      if (success) {
+        Toast.show({ type: 'success', text1: `${count} fichier(s) envoyé(s)` });
+        fetchContents(currentFolderId);
+      }
+    } catch {
+      Toast.show({ type: 'error', text1: "Erreur lors de l'envoi" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     fetchContents();
@@ -144,6 +162,16 @@ export default function FilesScreen() {
         }}
       />
 
+      {/* FAB Upload */}
+      <TouchableOpacity
+        style={[styles.fab, uploading && styles.fabDisabled]}
+        onPress={handleUpload}
+        disabled={uploading}
+        activeOpacity={0.8}
+      >
+        <Ionicons name={uploading ? 'hourglass-outline' : 'cloud-upload-outline'} size={26} color={colors.white} />
+      </TouchableOpacity>
+
       {/* Modal nouveau dossier */}
       <Modal visible={showNewFolder} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -228,6 +256,21 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['4xl'],
+  },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.xl,
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary[600],
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.lg,
+  },
+  fabDisabled: {
+    opacity: 0.6,
   },
   modalOverlay: {
     flex: 1,
