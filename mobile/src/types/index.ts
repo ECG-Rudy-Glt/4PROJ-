@@ -285,6 +285,7 @@ export type RootStackParamList = {
   Register: undefined;
   MfaVerify: { tempToken: string; mfaSetupRequired?: boolean; qrCode?: string; secret?: string };
   Main: undefined;
+  Trash: undefined;
 };
 
 export type TabParamList = {
