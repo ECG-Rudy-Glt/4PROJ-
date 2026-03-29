@@ -26,6 +26,13 @@ import { useNotificationStore } from '../../stores/useNotificationStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+const formatQuota = (bytes: number): string => {
+  if (bytes === 0) return '0 o';
+  const units = ['o', 'Ko', 'Mo', 'Go', 'To'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`;
+};
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
@@ -39,6 +46,10 @@ export default function SettingsScreen() {
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [saving, setSaving] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPwd, setChangingPwd] = useState(false);
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -54,6 +65,29 @@ export default function SettingsScreen() {
       Toast.show({ type: 'error', text1: 'Erreur lors de la mise à jour' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) {
+      Toast.show({ type: 'error', text1: 'Veuillez remplir les deux champs' });
+      return;
+    }
+    if (newPassword.length < 8) {
+      Toast.show({ type: 'error', text1: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
+      return;
+    }
+    setChangingPwd(true);
+    try {
+      await authService.changePassword(oldPassword, newPassword);
+      setShowPasswordChange(false);
+      setOldPassword('');
+      setNewPassword('');
+      Toast.show({ type: 'success', text1: 'Mot de passe modifié' });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err.response?.data?.error || 'Erreur' });
+    } finally {
+      setChangingPwd(false);
     }
   };
 
@@ -158,6 +192,85 @@ export default function SettingsScreen() {
           <Text style={styles.menuLabel}>Corbeille</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
+      </View>
+
+      {/* Sécurité */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Sécurité</Text>
+
+        <SettingsRow
+          icon="shield-checkmark-outline"
+          label="MFA"
+          value={user?.mfaEnabled ? 'Activé' : 'Désactivé'}
+        />
+
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => setShowPasswordChange(!showPasswordChange)}
+        >
+          <Ionicons name="key-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Changer le mot de passe</Text>
+          <Ionicons name={showPasswordChange ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        {showPasswordChange && (
+          <View style={styles.passwordSection}>
+            <Text style={styles.label}>Mot de passe actuel</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={oldPassword}
+              onChangeText={setOldPassword}
+              placeholder="••••••••"
+              placeholderTextColor={colors.neutral[400]}
+            />
+            <Text style={styles.label}>Nouveau mot de passe</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="8 caractères minimum"
+              placeholderTextColor={colors.neutral[400]}
+            />
+            <TouchableOpacity
+              style={[styles.saveBtn, changingPwd && styles.saveBtnDisabled]}
+              onPress={handleChangePassword}
+              disabled={changingPwd}
+            >
+              {changingPwd ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <Text style={styles.saveBtnText}>Modifier</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* Stockage */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Stockage</Text>
+        <SettingsRow
+          icon="cloud-outline"
+          label="Utilisé"
+          value={user ? formatQuota(user.quotaUsed) : '–'}
+        />
+        <SettingsRow
+          icon="pie-chart-outline"
+          label="Limite"
+          value={user ? formatQuota(user.quotaLimit) : '–'}
+        />
+        <View style={styles.storageBar}>
+          <View
+            style={[
+              styles.storageBarFill,
+              {
+                width: `${user ? Math.min(Math.round((user.quotaUsed / user.quotaLimit) * 100), 100) : 0}%`,
+              },
+            ]}
+          />
+        </View>
       </View>
 
       {/* Déconnexion */}
@@ -343,5 +456,20 @@ const styles = StyleSheet.create({
   logoutText: {
     ...typography.button,
     color: colors.error,
+  },
+  passwordSection: {
+    marginTop: spacing.sm,
+  },
+  storageBar: {
+    height: 8,
+    backgroundColor: colors.neutral[100],
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+    marginTop: spacing.md,
+  },
+  storageBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary[500],
+    borderRadius: borderRadius.full,
   },
 });
