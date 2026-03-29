@@ -22,6 +22,8 @@ import { uploadService } from '../../services/uploadService';
 import FileRow from '../../components/FileRow';
 import FolderRow from '../../components/FolderRow';
 import EmptyState from '../../components/EmptyState';
+import FilePreviewModal from '../../components/FilePreviewModal';
+import { FileItem } from '../../types';
 
 export default function FilesScreen() {
   const insets = useSafeAreaInsets();
@@ -33,6 +35,7 @@ export default function FilesScreen() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   const handleUpload = async () => {
     setUploading(true);
@@ -156,6 +159,7 @@ export default function FilesScreen() {
             <FileRow
               file={item.data}
               showFavorite
+              onPress={() => setPreviewFile(item.data)}
               onToggleFavorite={() => toggleFavorite(item.data.id)}
             />
           );
@@ -171,6 +175,15 @@ export default function FilesScreen() {
       >
         <Ionicons name={uploading ? 'hourglass-outline' : 'cloud-upload-outline'} size={26} color={colors.white} />
       </TouchableOpacity>
+
+      {/* Preview modal */}
+      <FilePreviewModal
+        file={previewFile}
+        visible={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        onDelete={async (id) => { await useFileStore.getState().deleteFile(id); }}
+        onToggleFavorite={async (id) => { await toggleFavorite(id); setPreviewFile((f) => f ? { ...f, isFavorite: !f.isFavorite } : null); }}
+      />
 
       {/* Modal nouveau dossier */}
       <Modal visible={showNewFolder} transparent animationType="fade">
