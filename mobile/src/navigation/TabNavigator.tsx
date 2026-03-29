@@ -2,19 +2,12 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { TabParamList } from '../types';
 import DashboardScreen from '../screens/main/DashboardScreen';
 import FilesScreen from '../screens/main/FilesScreen';
 import FavoritesScreen from '../screens/main/FavoritesScreen';
 import SharedScreen from '../screens/main/SharedScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
-
-export type TabParamList = {
-  Dashboard: undefined;
-  Files: { folderId?: string } | undefined;
-  Favorites: undefined;
-  Shared: undefined;
-  Settings: undefined;
-};
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -42,7 +35,7 @@ export default function TabNavigator() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: '600' as const,
         },
         tabBarIcon: ({ focused, color, size }) => {
           const iconSet = tabIcons[route.name];
