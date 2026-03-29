@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useDashboardStore } from '../../stores/useDashboardStore';
+import SearchBar from '../../components/SearchBar';
 
 const formatSize = (bytes: number): string => {
   if (bytes === 0) return '0 o';
@@ -42,6 +43,7 @@ export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
   const { data, loading, fetch } = useDashboardStore();
   const navigation = useNavigation<any>();
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     fetch();
@@ -67,6 +69,9 @@ export default function DashboardScreen() {
           </Text>
           <Text style={styles.subGreeting}>Votre espace de stockage</Text>
         </View>
+        <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.searchBtn}>
+          <Ionicons name="search" size={22} color={colors.primary[600]} />
+        </TouchableOpacity>
       </View>
 
       {/* Carte quota */}
@@ -143,6 +148,8 @@ export default function DashboardScreen() {
           </View>
         </View>
       ))}
+
+      <SearchBar visible={showSearch} onClose={() => setShowSearch(false)} />
     </ScrollView>
   );
 }
@@ -171,6 +178,15 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.neutral[500],
     marginTop: 2,
+  },
+  searchBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
   },
   quotaCard: {
     backgroundColor: colors.white,
