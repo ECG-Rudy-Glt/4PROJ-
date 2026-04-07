@@ -77,11 +77,12 @@ describe('Account Switcher Modal', () => {
     cy.wait('@listSwitchLinks');
     cy.wait('@listDelegations');
 
+    cy.contains('button', 'Link an account').click();
     cy.get('input[placeholder="Email"]').type('linked@example.com');
     cy.get('input[placeholder="Password"]').type('password123');
     cy.get('input[placeholder="MFA Code (optional)"]').type('123456');
     cy.get('input[placeholder="Label (e.g., Work account)"]').type('Compte secondaire');
-    cy.contains('button', 'Link an account').click();
+    cy.get('form').contains('button', 'Link an account').click();
 
     cy.wait('@addSwitchLink');
     cy.wait('@listSwitchLinks');

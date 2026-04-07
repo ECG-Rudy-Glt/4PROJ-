@@ -50,14 +50,15 @@ describe('Onboarding FREE plan', () => {
 
     cy.wait('@registerRequest');
     cy.url().should('include', '/dashboard');
+    cy.wait('@getDashboard');
 
     cy.contains('of 30.00 GB').should('be.visible');
-    cy.contains('a', 'Plans & Tarifs').click();
+    cy.contains('a', 'Plans & Pricing').click();
 
-    cy.contains('h3', 'Gratuit')
+    cy.contains('h3', 'Free')
       .closest('div.relative')
       .within(() => {
-        cy.contains('Plan actuel').should('be.visible');
+        cy.contains('Current plan').should('be.visible');
       });
   });
 });

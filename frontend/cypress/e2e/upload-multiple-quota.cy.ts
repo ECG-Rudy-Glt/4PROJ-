@@ -83,7 +83,7 @@ describe('Multi-upload and quota guard', () => {
 
     cy.contains('first.txt').should('exist');
     cy.contains('second.txt').should('exist');
-    cy.contains(/2\/2 fichier/).should('be.visible');
+    cy.contains(/2\/2 file/).should('be.visible');
     cy.then(() => {
       expect(uploadCount).to.equal(2);
     });
@@ -135,7 +135,7 @@ describe('Multi-upload and quota guard', () => {
 
     cy.wait('@uploadFile');
     cy.contains('too-much.txt').should('exist');
-    cy.contains('Quota dépassé - espace insuffisant').should('exist');
+    cy.contains('Quota exceeded - insufficient storage space').should('exist');
     cy.then(() => {
       expect(uploadCount).to.equal(1);
     });

@@ -98,7 +98,7 @@ describe('Vault auto-lock on page leave', () => {
     cy.wait('@listFolders');
     cy.wait('@getBreadcrumbs');
 
-    cy.contains('a', 'Accueil').click();
+    cy.contains('a', 'Dashboard').click();
     cy.wait('@lockVault');
     cy.url().should('include', '/dashboard');
   });

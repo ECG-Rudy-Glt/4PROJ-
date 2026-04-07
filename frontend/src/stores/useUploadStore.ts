@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { fileService } from '@/services/fileService';
 import { useFileStore } from './useFileStore';
+import { useAuthStore } from './useAuthStore';
 
 export interface UploadingFile {
   id: string;
@@ -100,14 +101,33 @@ export const useUploadStore = create<UploadState>((set, get) => {
     setShowUploadModal: (showUploadModal) => set({ showUploadModal }),
 
     enqueueUpload: (files, folderId) => {
-      const newUploads: UploadingFile[] = files.map(file => ({
-        id: Math.random().toString(36).substring(7),
-        file,
-        name: file.name,
-        size: file.size,
-        progress: 0,
-        status: 'pending'
-      }));
+      const user = useAuthStore.getState().user;
+      const quotaLimit = Number(user?.quotaLimit ?? 0);
+      const quotaUsed = Number(user?.quotaUsed ?? 0);
+
+      let runningSize = quotaUsed;
+      const newUploads: UploadingFile[] = files.map(file => {
+        if (quotaLimit > 0 && runningSize + file.size > quotaLimit) {
+          return {
+            id: Math.random().toString(36).substring(7),
+            file,
+            name: file.name,
+            size: file.size,
+            progress: 0,
+            status: 'error' as const,
+            error: 'Quota exceeded - insufficient storage space',
+          };
+        }
+        runningSize += file.size;
+        return {
+          id: Math.random().toString(36).substring(7),
+          file,
+          name: file.name,
+          size: file.size,
+          progress: 0,
+          status: 'pending' as const,
+        };
+      });
 
       set(state => ({
         uploadingFiles: [...state.uploadingFiles, ...newUploads],

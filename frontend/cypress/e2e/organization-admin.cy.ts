@@ -172,10 +172,10 @@ describe('Organization Admin Guardrails', () => {
       });
     }).as('addMember');
 
-    cy.get('input[placeholder="Email du membre"]')
+    cy.get('input[placeholder="Member email"]')
       .closest('form')
       .within(() => {
-        cy.get('input[placeholder="Email du membre"]').type('new-owner@example.com');
+        cy.get('input[placeholder="Member email"]').type('new-owner@example.com');
         cy.get('select').first().select('OWNER');
         cy.get('button[type="submit"]').click();
       });
@@ -186,7 +186,7 @@ describe('Organization Admin Guardrails', () => {
   it('hides OWNER role choices for ADMIN and keeps OWNER row non-editable', () => {
     mountOrganizationPage('ADMIN');
 
-    cy.get('input[placeholder="Email du membre"]')
+    cy.get('input[placeholder="Member email"]')
       .closest('form')
       .within(() => {
         cy.get('select')
