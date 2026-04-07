@@ -13,6 +13,8 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import Toast from 'react-native-toast-message';
+import { Alert } from 'react-native';
 import { shareService } from '../../services/shareService';
 import { SharedFile, SharedFolder } from '../../types';
 import EmptyState from '../../components/EmptyState';
@@ -31,20 +33,53 @@ export default function SharedScreen() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [withMe, byMe] = await Promise.all([
-        shareService.getSharedWithMe(),
-        shareService.getSharedByMe(),
+      const [filesWith, filesBy, foldersWith, foldersBy] = await Promise.all([
+        shareService.listFilesSharedWithMe(),
+        shareService.listFilesSharedByMe(),
+        shareService.listFoldersSharedWithMe(),
+        shareService.listFoldersSharedByMe(),
       ]);
-      setFilesWithMe(withMe.files);
-      setFoldersWithMe(withMe.folders);
-      setFilesByMe(byMe.files);
-      setFoldersByMe(byMe.folders);
+      setFilesWithMe(filesWith.sharedFiles ?? []);
+      setFilesByMe(filesBy.sharedFiles ?? []);
+      setFoldersWithMe(foldersWith.sharedFolders ?? []);
+      setFoldersByMe(foldersBy.sharedFolders ?? []);
     } catch {
       // silently fail
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handlePendingAction = (type: 'file' | 'folder', shareId: string, accepted: boolean) => {
+    Alert.alert(
+      accepted ? 'Accepter ce partage ?' : 'Refuser ce partage ?',
+      undefined,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: accepted ? 'Accepter' : 'Refuser',
+          style: accepted ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              if (type === 'file') {
+                accepted
+                  ? await shareService.acceptSharedFile(shareId)
+                  : await shareService.rejectSharedFile(shareId);
+              } else {
+                accepted
+                  ? await shareService.acceptSharedFolder(shareId)
+                  : await shareService.rejectSharedFolder(shareId);
+              }
+              Toast.show({ type: 'success', text1: accepted ? 'Partage accepté' : 'Partage refusé' });
+              fetchData();
+            } catch {
+              Toast.show({ type: 'error', text1: 'Erreur' });
+            }
+          },
+        },
+      ],
+    );
+  };
 
   useEffect(() => {
     fetchData();
@@ -126,9 +161,13 @@ export default function SharedScreen() {
                   </View>
                 </View>
                 {!sf.accepted && tab === 'withMe' && (
-                  <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingText}>En attente</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.pendingBadge}
+                    onPress={() => handlePendingAction('folder', sf.id, true)}
+                    onLongPress={() => handlePendingAction('folder', sf.id, false)}
+                  >
+                    <Text style={styles.pendingText}>Accepter</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             );
@@ -152,9 +191,13 @@ export default function SharedScreen() {
                 </View>
               </View>
               {!sf.accepted && tab === 'withMe' && (
-                <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingText}>En attente</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.pendingBadge}
+                  onPress={() => handlePendingAction('file', sf.id, true)}
+                  onLongPress={() => handlePendingAction('file', sf.id, false)}
+                >
+                  <Text style={styles.pendingText}>Accepter</Text>
+                </TouchableOpacity>
               )}
             </View>
           );
