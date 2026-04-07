@@ -74,7 +74,14 @@ export class AuthController {
         userId: user.id,
         user: { email: user.email, firstName: user.firstName, lastName: user.lastName },
       });
-    } catch (error) { next(error); }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      if (msg === 'Account inactive or suspended') {
+        res.status(401).json({ error: msg });
+        return;
+      }
+      next(error);
+    }
   }
 
   static async logoutAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

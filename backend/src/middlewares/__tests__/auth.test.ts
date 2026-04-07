@@ -49,6 +49,10 @@ const baseUser = {
 };
 
 describe('authenticate middleware', () => {
+  beforeAll(() => {
+    process.env.JWT_SECRET = 'test-secret';
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (PlanService.getStorageLimit as jest.Mock).mockReturnValue(BigInt(1024));

@@ -84,7 +84,7 @@ describe('AuthController', () => {
       };
       const res = createRes();
 
-      await AuthController.login(req, res);
+      await AuthController.login(req, res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
@@ -105,7 +105,7 @@ describe('AuthController', () => {
       };
       const res = createRes();
 
-      await AuthController.login(req, res);
+      await AuthController.login(req, res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
@@ -128,7 +128,7 @@ describe('AuthController', () => {
       };
       const res = createRes();
 
-      await AuthController.login(req, res);
+      await AuthController.login(req, res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({ error: 'Account inactive or suspended' });

@@ -9,17 +9,16 @@ import logger from '../config/logger';
 
 export { AuthRequest };
 
-if (!process.env.JWT_SECRET) {
-  logger.error('[FATAL] JWT_SECRET environment variable is not set. Refusing to start.');
-  process.exit(1);
-}
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
 export const authenticate = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    logger.error('[FATAL] JWT_SECRET environment variable is not set. Refusing to start.');
+    process.exit(1);
+  }
   try {
     const authHeader = req.headers.authorization;
     let token: string | undefined;
@@ -162,6 +161,7 @@ export const optionalAuth = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const JWT_SECRET = process.env.JWT_SECRET || '';
   try {
     const authHeader = req.headers.authorization;
 
