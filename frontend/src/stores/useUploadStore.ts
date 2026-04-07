@@ -24,7 +24,7 @@ interface UploadState {
 }
 
 export const useUploadStore = create<UploadState>((set, get) => {
-  let activeControllers = new Map<string, AbortController>();
+  const activeControllers = new Map<string, AbortController>();
   let isProcessing = false;
 
   const processQueue = async (folderId?: string | null) => {

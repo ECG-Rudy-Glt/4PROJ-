@@ -54,13 +54,13 @@ export class OnlyOfficeController {
         filePath = path.join(uploadDir, file.storagePath);
       }
 
-      logger.info('Serving file to OnlyOffice:', { fileId, filePath, storagePath: file.storagePath });
+      logger.info({ fileId, filePath, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
 
       // Vérifier que le fichier existe
       try {
         await fs.access(filePath);
       } catch (err) {
-        logger.error('File not found on disk:', filePath, err);
+        logger.error({ filePath, err }, 'File not found on disk:');
         res.status(404).json({ error: 'File not found on disk', path: filePath });
         return;
       }
@@ -164,7 +164,7 @@ export class OnlyOfficeController {
       const { fileId } = req.params;
       const callbackData = req.body;
 
-      logger.info('OnlyOffice callback received:', { fileId, status: callbackData.status });
+      logger.info({ fileId, status: callbackData.status }, 'OnlyOffice callback received:');
 
       const file = await prisma.file.findUnique({
         where: { id: fileId },
@@ -202,9 +202,9 @@ export class OnlyOfficeController {
             file.mimeType
           );
 
-          logger.info('File saved successfully:', filepath);
+          logger.info({ filepath }, 'File saved successfully:');
         } catch (saveError) {
-          logger.error('Error saving file:', saveError);
+          logger.error({ err: saveError }, 'Error saving file:');
           res.status(200).json({ error: 1 });
           return;
         }

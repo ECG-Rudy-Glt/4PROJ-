@@ -11,7 +11,7 @@ export class CommentController {
    * POST /api/files/:fileId/comments
    * Créer un nouveau commentaire
    */
-  static async createComment(req: AuthRequest, res: Response) {
+  static async createComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { fileId } = req.params;
       const { content, parentId } = req.body;
@@ -50,7 +50,7 @@ export class CommentController {
    * GET /api/files/:fileId/comments
    * Récupérer tous les commentaires d'un fichier
    */
-  static async getFileComments(req: AuthRequest, res: Response) {
+  static async getFileComments(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { fileId } = req.params;
       const userId = req.user!.id;
@@ -65,7 +65,7 @@ export class CommentController {
    * PUT /api/comments/:commentId
    * Mettre à jour un commentaire
    */
-  static async updateComment(req: AuthRequest, res: Response) {
+  static async updateComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { commentId } = req.params;
       const { content } = req.body;
@@ -89,7 +89,7 @@ export class CommentController {
    * DELETE /api/comments/:commentId
    * Supprimer un commentaire
    */
-  static async deleteComment(req: AuthRequest, res: Response) {
+  static async deleteComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { commentId } = req.params;
       const userId = req.user!.id;
@@ -104,7 +104,7 @@ export class CommentController {
    * GET /api/files/:fileId/comments/count
    * Compter les commentaires d'un fichier
    */
-  static async countFileComments(req: AuthRequest, res: Response) {
+  static async countFileComments(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { fileId } = req.params;
       const userId = req.user!.id;

@@ -13,7 +13,7 @@ export const deleteFile = async (filePath: string): Promise<void> => {
       await unlinkAsync(filePath);
     }
   } catch (error) {
-    logger.error('Error deleting file:', error);
+    logger.error({ err: error }, 'Error deleting file:');
     throw error;
   }
 };

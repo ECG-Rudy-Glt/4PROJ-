@@ -1,4 +1,3 @@
-import logger from 'logger';
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptions } from 'passport-jwt';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';

@@ -73,7 +73,7 @@ export class AuditService {
         },
       });
     } catch (error) {
-      logger.error('Erreur création log audit:', error);
+      logger.error({ err: error }, 'Erreur création log audit:');
       // Ne pas faire échouer l'opération principale si l'audit échoue
     }
   }

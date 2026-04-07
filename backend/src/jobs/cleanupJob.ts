@@ -17,7 +17,7 @@ export function startCleanupJob() {
       const result = await AuditService.cleanOldLogs(90);
       logger.info(` ${result.message}`);
     } catch (error) {
-      logger.error(' Erreur lors du nettoyage des logs d\'audit:', error);
+      logger.error({ err: error }, ' Erreur lors du nettoyage des logs d\'audit:');
     }
   });
 
@@ -35,7 +35,7 @@ export async function runCleanupNow(daysToKeep: number = 90) {
     logger.info(` ${result.message}`);
     return result;
   } catch (error) {
-    logger.error(' Erreur lors du nettoyage:', error);
+    logger.error({ err: error }, ' Erreur lors du nettoyage:');
     throw error;
   }
 }

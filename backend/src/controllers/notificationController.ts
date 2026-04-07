@@ -3,7 +3,7 @@ import { AuthRequest } from '../types';
 import { NotificationService } from '../services/notificationService';
 
 export class NotificationController {
-  static async getNotifications(req: AuthRequest, res: Response) {
+  static async getNotifications(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const page = parseInt(req.query.page as string) || 1;
@@ -16,7 +16,7 @@ export class NotificationController {
     } catch (error) { next(error); }
   }
 
-  static async markAsRead(req: AuthRequest, res: Response) {
+  static async markAsRead(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
@@ -26,7 +26,7 @@ export class NotificationController {
     } catch (error) { next(error); }
   }
 
-  static async markAllAsRead(req: AuthRequest, res: Response) {
+  static async markAllAsRead(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
 
@@ -35,7 +35,7 @@ export class NotificationController {
     } catch (error) { next(error); }
   }
 
-  static async deleteNotification(req: AuthRequest, res: Response) {
+  static async deleteNotification(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const { id } = req.params;

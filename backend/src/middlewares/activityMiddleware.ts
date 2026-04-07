@@ -27,12 +27,12 @@ export const activityMiddleware = async (req: AuthRequest, res: Response, next: 
             prisma.user.update({
                 where: { id: req.user.id },
                 data: { lastActiveAt: now },
-            }).catch(err => logger.error('Error updating lastActiveAt:', err));
+            }).catch(err => logger.error({ err }, 'Error updating lastActiveAt:'));
         }
 
         next();
     } catch (error) {
-        logger.error('Activity middleware error:', error);
+        logger.error({ err: error }, 'Activity middleware error:');
         next();
     }
 };

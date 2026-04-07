@@ -46,7 +46,7 @@ export class AuthService {
     try {
       await MailService.sendWelcomeNotification(user.email, user.firstName || 'Utilisateur');
     } catch (error) {
-      logger.error('Failed to send welcome email', error);
+      logger.error({ err: error }, 'Failed to send welcome email');
     }
 
     return {
@@ -196,7 +196,7 @@ export class AuthService {
     try {
       await MailService.sendPasswordChangeNotification(updatedUser.email, updatedUser.firstName || 'Utilisateur');
     } catch (error) {
-      logger.error('Failed to send password change notification', error);
+      logger.error({ err: error }, 'Failed to send password change notification');
     }
 
     return { message: 'Password changed successfully' };

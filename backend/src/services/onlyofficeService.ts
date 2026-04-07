@@ -201,7 +201,7 @@ export class OnlyOfficeService {
 
     if (status === 3 || status === 7) {
       // Error occurred
-      logger.error('OnlyOffice callback error:', callbackData);
+      logger.error({ callbackData }, 'OnlyOffice callback error:');
       return { error: 1 };
     }
 

@@ -42,7 +42,7 @@ export class AIController {
    * POST /api/ai/analyze-file
    * Body: { fileId: string, prompt?: string }
    */
-  static async analyzeFile(req: Request, res: Response) {
+  static async analyzeFile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -70,7 +70,7 @@ export class AIController {
    * POST /api/ai/search-files
    * Body: { query: string }
    */
-  static async searchFiles(req: Request, res: Response) {
+  static async searchFiles(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -97,7 +97,7 @@ export class AIController {
    * POST /api/ai/generate-file
    * Body: { prompt: string, fileName?: string, folderId?: string }
    */
-  static async generateFile(req: Request, res: Response) {
+  static async generateFile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {

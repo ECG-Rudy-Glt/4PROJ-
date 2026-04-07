@@ -230,7 +230,7 @@ export class FileController {
 
       const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
       decryptStream.on('error', (err) => {
-        logger.error('[streamFile] decrypt error:', err.message);
+        logger.error({ err }, '[streamFile] decrypt error:');
         if (!res.headersSent) {
           res.status(500).json({ error: 'Failed to stream file' });
         } else {

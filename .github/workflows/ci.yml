@@ -350,67 +350,67 @@ jobs:
   # images depuis GHCR. Nettoie les images âgées de plus de 7 jours.
   # Exécuté uniquement sur push vers main.
   # ===========================
-  deploy-preprod:
-    needs: [ docker-push ]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment:
-      name: preprod
-      url: https://${{ vars.PREPROD_DEPLOY_HOST }}
+  # deploy-preprod:
+  #   needs: [ docker-push ]
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   environment:
+  #     name: preprod
+  #     url: https://${{ vars.PREPROD_DEPLOY_HOST }}
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
 
-      - name: Set image name
-        run: |
-          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
+  #     - name: Set image name
+  #       run: |
+  #         echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+  #     - name: Setup SSH
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         printf '%s\n' "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+  #         chmod 600 ~/.ssh/id_rsa
+  #         ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Ensure deploy path exists on VPS
-        run: |
-          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
-            mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
+  #     - name: Ensure deploy path exists on VPS
+  #       run: |
+  #         ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
+  #           mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
 
-      - name: Copy compose and nginx config to VPS
-        run: |
-          scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
-          scp docker-compose.vps.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
-          scp frontend/nginx.vps.conf ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+  #     - name: Copy compose and nginx config to VPS
+  #       run: |
+  #         scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+  #         scp docker-compose.vps.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+  #         scp frontend/nginx.vps.conf ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
 
-      - name: Copy .env to VPS
-        run: |
-          if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
-            echo "${PREPROD_ENV_FILE_CONTENT}" > .env.tmp
-            scp .env.tmp ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/.env
-            rm .env.tmp
-          fi
-        env:
-          PREPROD_ENV_FILE_CONTENT: ${{ secrets.PREPROD_ENV_FILE_CONTENT }}
+  #     - name: Copy .env to VPS
+  #       run: |
+  #         if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
+  #           echo "${PREPROD_ENV_FILE_CONTENT}" > .env.tmp
+  #           scp .env.tmp ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/.env
+  #           rm .env.tmp
+  #         fi
+  #       env:
+  #         PREPROD_ENV_FILE_CONTENT: ${{ secrets.PREPROD_ENV_FILE_CONTENT }}
 
-      - name: Deploy on VPS
-        run: |
-          BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
-          FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
-          GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
-          ACTOR="${{ github.actor }}"
-          DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
+  #     - name: Deploy on VPS
+  #       run: |
+  #         BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
+  #         FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
+  #         GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
+  #         ACTOR="${{ github.actor }}"
+  #         DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
 
-          ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
-            export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
-            cd ${DEPLOY_PATH}
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+  #         ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
+  #           export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
+  #           cd ${DEPLOY_PATH}
+  #           echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
 
-            export BACKEND_IMAGE=${BACKEND_IMAGE}
-            export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+  #           export BACKEND_IMAGE=${BACKEND_IMAGE}
+  #           export FRONTEND_IMAGE=${FRONTEND_IMAGE}
 
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml pull
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --wait-timeout 120 --remove-orphans
-            docker image prune -a -f --filter "until=168h"
-          EOF
+  #           docker compose -f docker-compose.yml -f docker-compose.vps.yml pull
+  #           docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --wait-timeout 120 --remove-orphans
+  #           docker image prune -a -f --filter "until=168h"
+  #         EOF

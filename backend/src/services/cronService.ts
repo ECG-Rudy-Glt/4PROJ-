@@ -28,7 +28,7 @@ export class CronService {
             try {
                 await this.checkSharedLinkExpirations();
             } catch (error) {
-                logger.error(' Erreur lors de la vérification des expirations:', error);
+                logger.error({ err: error }, ' Erreur lors de la vérification des expirations:');
             }
         });
 

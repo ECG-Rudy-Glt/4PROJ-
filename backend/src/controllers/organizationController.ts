@@ -10,14 +10,14 @@ const VALID_ROLES = new Set<OrganizationMemberRole>([
 ]);
 
 export class OrganizationController {
-  static async listMine(req: AuthRequest, res: Response) {
+  static async listMine(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const organizations = await OrganizationService.listMyOrganizations(req.user!.id);
       res.status(200).json({ organizations });
     } catch (error) { next(error); }
   }
 
-  static async create(req: AuthRequest, res: Response) {
+  static async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { name } = req.body;
       const organization = await OrganizationService.createOrganization(req.user!.id, String(name || ''));
@@ -25,7 +25,7 @@ export class OrganizationController {
     } catch (error) { next(error); }
   }
 
-  static async getById(req: AuthRequest, res: Response) {
+  static async getById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { orgId } = req.params;
       const data = await OrganizationService.getOrganization(orgId, req.user!.id);
@@ -33,7 +33,7 @@ export class OrganizationController {
     } catch (error) { next(error); }
   }
 
-  static async addMember(req: AuthRequest, res: Response) {
+  static async addMember(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { orgId } = req.params;
       const { email, role } = req.body;
@@ -54,7 +54,7 @@ export class OrganizationController {
     } catch (error) { next(error); }
   }
 
-  static async updateMemberRole(req: AuthRequest, res: Response) {
+  static async updateMemberRole(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { orgId, memberId } = req.params;
       const role = typeof req.body.role === 'string' ? req.body.role.toUpperCase() as OrganizationMemberRole : null;
@@ -68,7 +68,7 @@ export class OrganizationController {
     } catch (error) { next(error); }
   }
 
-  static async removeMember(req: AuthRequest, res: Response) {
+  static async removeMember(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { orgId, memberId } = req.params;
       const result = await OrganizationService.removeMember(req.user!.id, orgId, memberId);
@@ -76,7 +76,7 @@ export class OrganizationController {
     } catch (error) { next(error); }
   }
 
-  static async switchCurrent(req: AuthRequest, res: Response) {
+  static async switchCurrent(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { orgId } = req.params;
       const result = await OrganizationService.switchCurrentOrganization(req.user!.id, orgId);

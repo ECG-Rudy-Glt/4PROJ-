@@ -39,7 +39,7 @@ export class FileIndexService {
 
       return { text: this.trimText(text), ocrUsed: true };
     } catch (error) {
-      logger.error('[FileIndexService] OCR failed:', error);
+      logger.error({ err: error }, '[FileIndexService] OCR failed:');
       return { text: '', ocrUsed: false };
     }
   }
@@ -89,7 +89,7 @@ export class FileIndexService {
         ocrUsed = ocrResult.ocrUsed;
       }
     } catch (error) {
-      logger.error('[FileIndexService] indexFile failed:', error);
+      logger.error({ err: error }, '[FileIndexService] indexFile failed:');
       return;
     }
 
@@ -116,7 +116,7 @@ export class FileIndexService {
 
   static indexFileAsync(fileId: string, userId?: string): void {
     this.indexFile(fileId, userId).catch((error) => {
-      logger.error('[FileIndexService] async index error:', error);
+      logger.error({ err: error }, '[FileIndexService] async index error:');
     });
   }
 

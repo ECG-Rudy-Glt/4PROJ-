@@ -51,7 +51,7 @@ export const checkQuotaBeforeUpload = async (
 
     next();
   } catch (error: any) {
-    logger.error('Erreur lors de la vérification du quota:', error);
+    logger.error({ err: error }, 'Erreur lors de la vérification du quota:');
     res.status(500).json({ error: 'Erreur lors de la vérification du quota' });
   }
 };
