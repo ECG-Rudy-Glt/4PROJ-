@@ -248,7 +248,7 @@ export class AIService {
   // ---------------------------------------------------------------------------
   // D. Chat général avec RAG automatique
   // ---------------------------------------------------------------------------
-  async chat(userId: string, message: string, _conversationHistory?: any[]): Promise<string> {
+  async chat(userId: string, message: string, conversationHistory?: any[]): Promise<string> {
     // File listing requests don't need RAG — just Prisma
     const isListRequest =
       /\b(liste|montre|affiche|trouve|cherche|combien)\b.*(fichier|image|vid[eé]o|document|pdf|audio)/i.test(
@@ -271,7 +271,15 @@ export class AIService {
 
     // Everything else → RAG chat via brain-api
     try {
-      return await BrainService.chat(userId, message);
+      const historyItems = conversationHistory
+        ? conversationHistory
+            .filter((msg: any) => msg.role === 'user' || msg.role === 'model')
+            .map((msg: any) => ({
+              role: msg.role === 'model' ? 'assistant' : 'user',
+              content: msg.parts?.[0]?.text || '',
+            }))
+        : [];
+      return await BrainService.chat(userId, message, historyItems);
     } catch (error: any) {
       if (error.name === 'AbortError') throw new Error('TIMEOUT');
       throw error;

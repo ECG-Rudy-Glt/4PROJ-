@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List, Dict
 
 from .rag import analyze_text, chat_with_rag, embed_and_store, generate_text, search_documents
 from .vector_store import vector_store
@@ -42,6 +43,7 @@ class SearchRequest(BaseModel):
 class ChatRequest(BaseModel):
     user_id: str
     query: str
+    history: Optional[List[Dict[str, str]]] = None
 
 
 class AnalyzeRequest(BaseModel):
@@ -78,7 +80,7 @@ def search(req: SearchRequest):
 @app.post("/chat")
 def chat(req: ChatRequest):
     try:
-        response = chat_with_rag(req.user_id, req.query)
+        response = chat_with_rag(req.user_id, req.query, req.history)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=502, detail=f"Ollama error: {exc.response.text}")
     except httpx.ConnectError:

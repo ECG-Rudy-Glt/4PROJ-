@@ -58,8 +58,8 @@ export class BrainService {
    * RAG chat — semantic search + LLM generation via Ollama.
    * Generous timeout: small model on CPU can take ~30s.
    */
-  static async chat(userId: string, query: string): Promise<string> {
-    const data = await post<{ response: string }>('/chat', { user_id: userId, query }, 120_000);
+  static async chat(userId: string, query: string, history: any[] = []): Promise<string> {
+    const data = await post<{ response: string }>('/chat', { user_id: userId, query, history }, 120_000);
     return data.response;
   }
 

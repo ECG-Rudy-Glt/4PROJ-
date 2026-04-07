@@ -67,7 +67,7 @@ def search_documents(user_id: str, query: str, limit: int = 3) -> List[Dict[str,
     return vector_store.search(user_id, query_embedding, limit)
 
 
-def chat_with_rag(user_id: str, query: str) -> str:
+def chat_with_rag(user_id: str, query: str, history: List[Dict[str, str]] = None) -> str:
     chunks = search_documents(user_id, query, limit=3)
 
     if chunks:
@@ -88,7 +88,7 @@ def chat_with_rag(user_id: str, query: str) -> str:
         )
         prompt = f"Question : {query}"
 
-    return generate(prompt, system=system)
+    return generate(prompt, system=system, history=history)
 
 
 def analyze_text(text: str, question: str) -> str:

@@ -12,10 +12,12 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b")
 
 
-def generate(prompt: str, system: str = "", max_tokens: int = 512) -> str:
+def generate(prompt: str, system: str = "", max_tokens: int = 512, history: list = None) -> str:
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
+    if history:
+        messages.extend(history)
     messages.append({"role": "user", "content": prompt})
 
     resp = httpx.post(
