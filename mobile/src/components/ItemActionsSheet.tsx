@@ -20,6 +20,7 @@ import { FileItem, Folder } from '../types';
 import { useFileStore } from '../stores/useFileStore';
 import { folderService } from '../services/folderService';
 import { fileService } from '../services/fileService';
+import ShareModal from './ShareModal';
 
 type Target =
   | { kind: 'file'; data: FileItem }
@@ -31,7 +32,7 @@ interface Props {
 }
 
 export default function ItemActionsSheet({ target, onClose }: Props) {
-  const [subSheet, setSubSheet] = useState<'none' | 'rename' | 'move'>('none');
+  const [subSheet, setSubSheet] = useState<'none' | 'rename' | 'move' | 'share'>('none');
   const [renameValue, setRenameValue] = useState('');
   const [allFolders, setAllFolders] = useState<Folder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
@@ -170,6 +171,16 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
     );
   }
 
+  // ── Sub sheet: Share ─────────────────────────────────
+  if (subSheet === 'share') {
+    return (
+      <ShareModal
+        target={target}
+        onClose={() => { setSubSheet('none'); onClose(); }}
+      />
+    );
+  }
+
   // ── Sub sheet: Move ──────────────────────────────────
   if (subSheet === 'move') {
     return (
@@ -234,6 +245,7 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
               loadFolders();
             }}
           />
+          <ActionRow icon="share-social-outline" label="Partager" onPress={() => setSubSheet('share')} />
           {isFile && (
             <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} />
           )}
