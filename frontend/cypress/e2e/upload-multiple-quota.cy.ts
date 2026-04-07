@@ -114,6 +114,7 @@ describe('Multi-upload and quota guard', () => {
       },
     });
 
+    cy.wait('@getProfile');
     cy.wait('@listFiles');
     cy.wait('@listFolders');
 
