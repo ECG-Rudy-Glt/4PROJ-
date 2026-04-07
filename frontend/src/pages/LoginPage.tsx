@@ -5,8 +5,10 @@ import toast from 'react-hot-toast';
 import { Github } from 'lucide-react';
 import MFASetupModal from '@/components/MFASetupModal';
 import BackupCodesModal from '@/components/BackupCodesModal';
+import { useTranslation } from 'react-i18next';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, loadUser, isLoading } = useAuthStore();
@@ -20,11 +22,11 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('expired') === 'true') {
-      toast.error('Votre session a expiré. Veuillez vous reconnecter.');
+      toast.error(t('login.session_expired'));
       // Clean URL
       window.history.replaceState({}, '', '/login');
     }
-  }, []);
+  }, [t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,11 +54,11 @@ export default function LoginPage() {
 
       // Cas 3 : Connexion directe (appareil trusté ou MFA désactivé - ne devrait pas arriver car MFA obligatoire)
       if (result) {
-        toast.success('Bon retour !');
+        toast.success(t('login.welcome_back'));
         navigate('/dashboard');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Connexion échouée');
+      toast.error(error.response?.data?.error || t('login.failed'));
     }
   };
 
@@ -77,7 +79,7 @@ export default function LoginPage() {
     } catch (error) {
       console.error('Failed to refresh user profile after MFA setup', error);
     }
-    toast.success('Authentification à deux facteurs activée !');
+    toast.success(t('login.mfa_setup_success'));
     navigate('/dashboard');
   };
 
@@ -94,10 +96,10 @@ export default function LoginPage() {
             <img src="/icon-full-light.svg" alt="SupFile Logo" className="w-48 h-auto hidden dark:block" />
           </div>
           <h2 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-            Bienvenue sur SUPFILE
+            {t('login.title')}
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Connectez-vous pour accéder à vos fichiers
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -108,7 +110,7 @@ export default function LoginPage() {
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Adresse e-mail
+                {t('login.email_label')}
               </label>
               <input
                 id="email"
@@ -126,7 +128,7 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Mot de passe
+                {t('login.password_label')}
               </label>
               <input
                 id="password"
@@ -146,7 +148,7 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            {isLoading ? 'Connexion...' : 'Se connecter'}
+            {isLoading ? t('login.button_loading') : t('login.button')}
           </button>
 
           <div className="relative">
@@ -155,7 +157,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                Ou continuer avec
+                {t('login.or_continue_with')}
               </span>
             </div>
           </div>
@@ -198,12 +200,12 @@ export default function LoginPage() {
 
           <div className="text-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Vous n'avez pas de compte ?{' '}
+              {t('login.no_account')}{' '}
               <Link
                 to="/register"
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
-                S'inscrire
+                {t('login.register_link')}
               </Link>
             </span>
           </div>

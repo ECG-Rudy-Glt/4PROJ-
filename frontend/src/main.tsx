@@ -4,10 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import App from './App'
 import './styles/index.css'
+import './i18n/i18n'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <App />
       <Toaster
         position="top-right"
@@ -17,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           right: 20,
         }}
         toastOptions={{
-          duration: 4000,
+          duration: 2000,
           style: {
             padding: '16px 20px',
             borderRadius: '12px',
@@ -28,7 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             backdropFilter: 'blur(8px)',
           },
           success: {
-            duration: 3000,
+            duration: 2000,
             style: {
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
               color: '#fff',
@@ -40,7 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             },
           },
           error: {
-            duration: 5000,
+            duration: 3000,
             style: {
               background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
               color: '#fff',

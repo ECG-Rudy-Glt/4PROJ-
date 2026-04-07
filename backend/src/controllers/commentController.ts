@@ -1,16 +1,17 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { CommentService } from '../services/commentService';
 import { SocketService } from '../services/socketService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
+import logger from '../config/logger';
 
 export class CommentController {
   /**
    * POST /api/files/:fileId/comments
    * Créer un nouveau commentaire
    */
-  static async createComment(req: AuthRequest, res: Response) {
+  static async createComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { fileId } = req.params;
       const { content, parentId } = req.body;
@@ -35,24 +36,21 @@ export class CommentController {
         NotificationService.create(
           file.userId,
           'COMMENT',
-          'Nouveau commentaire',
-          `${req.user!.firstName || req.user!.email} a commenté "${file.name}".`,
-          { fileId }
-        ).catch(console.error);
+          'notifications.comment.title',
+          'notifications.comment.message',
+          { fileId, userName: req.user!.firstName || req.user!.email, fileName: file.name }
+        ).catch((e) => logger.error(e));
       }
 
       res.status(201).json({ comment });
-    } catch (error: any) {
-      console.error('Erreur lors de la création du commentaire:', error);
-      res.status(500).json({ error: error.message || 'Échec de la création du commentaire' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * GET /api/files/:fileId/comments
    * Récupérer tous les commentaires d'un fichier
    */
-  static async getFileComments(req: AuthRequest, res: Response) {
+  static async getFileComments(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { fileId } = req.params;
       const userId = req.user!.id;
@@ -60,17 +58,14 @@ export class CommentController {
       const comments = await CommentService.getFileComments(fileId, userId);
 
       res.json({ comments });
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des commentaires:', error);
-      res.status(500).json({ error: error.message || 'Échec de la récupération des commentaires' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * PUT /api/comments/:commentId
    * Mettre à jour un commentaire
    */
-  static async updateComment(req: AuthRequest, res: Response) {
+  static async updateComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { commentId } = req.params;
       const { content } = req.body;
@@ -87,17 +82,14 @@ export class CommentController {
       const comment = await CommentService.updateComment(commentId, userId, content.trim());
 
       res.json({ comment });
-    } catch (error: any) {
-      console.error('Erreur lors de la mise à jour du commentaire:', error);
-      res.status(500).json({ error: error.message || 'Échec de la mise à jour du commentaire' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * DELETE /api/comments/:commentId
    * Supprimer un commentaire
    */
-  static async deleteComment(req: AuthRequest, res: Response) {
+  static async deleteComment(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { commentId } = req.params;
       const userId = req.user!.id;
@@ -105,17 +97,14 @@ export class CommentController {
       await CommentService.deleteComment(commentId, userId);
 
       res.json({ message: 'Commentaire supprimé' });
-    } catch (error: any) {
-      console.error('Erreur lors de la suppression du commentaire:', error);
-      res.status(500).json({ error: error.message || 'Échec de la suppression du commentaire' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * GET /api/files/:fileId/comments/count
    * Compter les commentaires d'un fichier
    */
-  static async countFileComments(req: AuthRequest, res: Response) {
+  static async countFileComments(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { fileId } = req.params;
       const userId = req.user!.id;
@@ -123,9 +112,6 @@ export class CommentController {
       const count = await CommentService.countFileComments(fileId, userId);
 
       res.json({ count });
-    } catch (error: any) {
-      console.error('Erreur lors du comptage des commentaires:', error);
-      res.status(500).json({ error: error.message || 'Échec du comptage des commentaires' });
-    }
+    } catch (error) { next(error); }
   }
 }

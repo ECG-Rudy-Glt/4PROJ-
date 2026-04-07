@@ -1,20 +1,18 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { VaultService } from '../services/vaultService';
 import { AuditService } from '../services/auditService';
 
 export class VaultController {
-  static async getStatus(req: AuthRequest, res: Response): Promise<void> {
+  static async getStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const status = await VaultService.getStatus(req.user!.id);
       const rootFolder = await VaultService.getVaultRootFolder(req.user!.id);
       res.status(200).json({ status, rootFolder });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async setup(req: AuthRequest, res: Response): Promise<void> {
+  static async setup(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { password, totpCode } = req.body;
@@ -27,12 +25,10 @@ export class VaultController {
       const status = await VaultService.setupVault(userId, String(password), String(totpCode));
       await AuditService.createLog(userId, 'VAULT_SETUP', { enabled: true });
       res.status(200).json({ status });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async unlock(req: AuthRequest, res: Response): Promise<void> {
+  static async unlock(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { password, totpCode } = req.body;
@@ -44,23 +40,19 @@ export class VaultController {
       const status = await VaultService.unlockVault(userId, String(password), String(totpCode));
       await AuditService.createLog(userId, 'VAULT_UNLOCK', { success: true });
       res.status(200).json({ status });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async lock(req: AuthRequest, res: Response): Promise<void> {
+  static async lock(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const status = await VaultService.lockVault(userId);
       await AuditService.createLog(userId, 'VAULT_LOCK', { success: true });
       res.status(200).json({ status });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async rotatePassword(req: AuthRequest, res: Response): Promise<void> {
+  static async rotatePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { oldPassword, newPassword, totpCode } = req.body;
@@ -77,8 +69,6 @@ export class VaultController {
       );
       await AuditService.createLog(userId, 'VAULT_PASSWORD_ROTATE', { success: true });
       res.status(200).json({ status });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 }

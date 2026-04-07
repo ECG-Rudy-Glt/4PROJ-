@@ -160,6 +160,9 @@ model Folder {
   files     File[]
   isVault   Boolean  @default(false)
 
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+
   // Relations pour les partages
   sharedLinks  SharedLink[]
   sharedWith   SharedFolder[]

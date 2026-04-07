@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Upload, User, Calendar, HardDrive } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
@@ -17,6 +18,7 @@ const DEFAULT_AVATARS = [
 ];
 
 export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
+  const { t, i18n } = useTranslation();
   const { user, updateProfile } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,11 +43,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   if (!isOpen || !user) return null;
 
   const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'Date inconnue';
+    if (!dateString) return t('common.unknown_date');
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Date invalide';
+    if (isNaN(date.getTime())) return t('common.invalid_date');
 
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -65,13 +67,13 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner un fichier image');
+      toast.error(t('profile.image_only'));
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('La taille de l\'image doit être inférieure à 5 Mo');
+      toast.error(t('profile.file_too_large'));
       return;
     }
 
@@ -92,10 +94,10 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
       const data = await response.json();
       setSelectedAvatar(data.avatarUrl);
-      toast.success('Avatar téléversé avec succès');
+      toast.success(t('profile.upload_success'));
     } catch (error) {
       console.error('Avatar upload error:', error);
-      toast.error('Échec du téléversement de l\'avatar');
+      toast.error(t('profile.upload_error'));
     } finally {
       setIsUploading(false);
     }
@@ -108,11 +110,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         lastName: profile.lastName,
         avatar: selectedAvatar,
       });
-      toast.success('Profil mis à jour avec succès');
+      toast.success(t('profile.update_success'));
       onClose();
     } catch (error) {
       console.error('Profile update error:', error);
-      toast.error('Échec de la mise à jour du profil');
+      toast.error(t('profile.update_error'));
     }
   };
 
@@ -121,7 +123,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Profil</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('common.profile')}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -135,21 +137,21 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <User className="w-5 h-5" />
-              Avatar
+              {t('profile.avatar')}
             </h3>
 
             {/* Current Avatar */}
             <div className="flex justify-center">
               <img
                 src={selectedAvatar}
-                alt="Avatar actuel"
-                className="w-32 h-32 rounded-full border-4 border-primary-500 dark:border-primary-300"
+                alt={t('profile.avatar')}
+                className="w-32 h-32 rounded-full border-4 border-primary-500 dark:border-primary-300 object-cover shadow-inner flex-shrink-0 aspect-square"
               />
             </div>
 
             {/* Default Avatars */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Choisissez un avatar par défaut :</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('profile.choose_default')}</p>
               <div className="grid grid-cols-4 gap-3">
                 {DEFAULT_AVATARS.map((avatar, index) => (
                   <button
@@ -160,7 +162,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       : 'border-gray-300 dark:border-gray-600'
                       }`}
                   >
-                    <img src={avatar} alt={`Avatar ${index + 1}`} className="w-full h-full rounded-full" />
+                    <img src={avatar} alt={`Avatar ${index + 1}`} className="w-full h-full rounded-full object-cover aspect-square flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -168,7 +170,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
             {/* Upload Custom Avatar */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Ou téléversez le vôtre :</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('profile.upload_custom')}</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -182,20 +184,20 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 className="w-full px-4 py-3 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-300 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Upload className="w-5 h-5" />
-                {isUploading ? 'Téléversement...' : 'Téléverser un avatar personnalisé'}
+                {isUploading ? t('profile.uploading') : t('profile.upload_button')}
               </button>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">Max 5 Mo, JPG, PNG ou GIF</p>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{t('profile.upload_constraints')}</p>
             </div>
           </div>
 
           {/* Personal Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informations personnelles</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.personal_info')}</h3>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Prénom
+                  {t('settings.first_name')}
                 </label>
                 <input
                   type="text"
@@ -206,7 +208,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Nom
+                  {t('settings.last_name')}
                 </label>
                 <input
                   type="text"
@@ -232,13 +234,13 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
           {/* Account Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informations du compte</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('profile.account_info')}</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                 <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400 mb-2">
                   <Calendar className="w-5 h-5" />
-                  <span className="text-sm font-medium">Membre depuis</span>
+                  <span className="text-sm font-medium">{t('profile.member_since')}</span>
                 </div>
                 <p className="text-gray-900 dark:text-white font-semibold">
                   {formatDate(user.createdAt)}
@@ -248,7 +250,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                 <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400 mb-2">
                   <HardDrive className="w-5 h-5" />
-                  <span className="text-sm font-medium">Stockage utilisé</span>
+                  <span className="text-sm font-medium">{t('common.storage_used')}</span>
                 </div>
                 <p className="text-gray-900 dark:text-white font-semibold">
                   {formatBytes(quotaUsed)} / {formatBytes(quotaLimit)}
@@ -269,13 +271,13 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               onClick={onClose}
               className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
-              Annuler
+              {t('settings.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors"
             >
-              Enregistrer les modifications
+              {t('settings.save')}
             </button>
           </div>
         </div>

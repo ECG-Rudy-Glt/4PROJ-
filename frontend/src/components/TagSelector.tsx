@@ -4,6 +4,7 @@ import { Tag, File } from '@/types';
 import { tagService } from '@/services/tagService';
 import { X, Plus, Tag as TagIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface TagSelectorProps {
   file: File;
@@ -11,6 +12,7 @@ interface TagSelectorProps {
 }
 
 export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
+  const { t } = useTranslation();
   const { tags, loadTags } = useTagStore();
   const [isOpen, setIsOpen] = useState(false);
   const [fileTags, setFileTags] = useState<Tag[]>([]);
@@ -26,15 +28,15 @@ export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
     try {
       await tagService.addTagToFile(file.id, tag.id);
       setFileTags([...fileTags, tag]);
-      toast.success(`Tag "${tag.name}" ajouté`);
+      toast.success(t('tag_selector.toast_add_success', { name: tag.name }));
       onTagsChanged();
       setIsOpen(false);
     } catch (error: any) {
       if (error.response?.status === 200) {
         // Tag déjà ajouté
-        toast('Tag déjà ajouté à ce fichier');
+        toast(t('tag_selector.toast_add_exists'));
       } else {
-        toast.error(error.response?.data?.error || 'Échec de l\'ajout du tag');
+        toast.error(error.response?.data?.error || t('tag_selector.toast_add_error'));
       }
     }
   };
@@ -43,10 +45,10 @@ export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
     try {
       await tagService.removeTagFromFile(file.id, tag.id);
       setFileTags(fileTags.filter((t) => t.id !== tag.id));
-      toast.success(`Tag "${tag.name}" retiré`);
+      toast.success(t('tag_selector.toast_remove_success', { name: tag.name }));
       onTagsChanged();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec du retrait du tag');
+      toast.error(error.response?.data?.error || t('tag_selector.toast_remove_error'));
     }
   };
 
@@ -62,7 +64,7 @@ export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
             onClick={() => handleRemoveTag(tag)}
             className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-white hover:opacity-80 transition-opacity group"
             style={{ backgroundColor: tag.color }}
-            title={`Cliquer pour retirer "${tag.name}"`}
+            title={t('tag_selector.click_to_remove', { name: tag.name })}
           >
             <span>{tag.name}</span>
             <X className="w-3 h-3 opacity-70 group-hover:opacity-100" />
@@ -73,10 +75,10 @@ export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-gray-600 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 hover:border-primary-600 dark:hover:border-primary-300 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-          title="Ajouter un tag"
+          title={t('tag_selector.add_tag')}
         >
           <Plus className="w-3 h-3" />
-          <span>Tag</span>
+          <span>{t('tag_selector.tag_button')}</span>
         </button>
       </div>
 
@@ -91,8 +93,8 @@ export default function TagSelector({ file, onTagsChanged }: TagSelectorProps) {
             {availableTags.length === 0 ? (
               <div className="text-center py-4 text-sm text-gray-500 dark:text-gray-400">
                 <TagIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>Aucun tag disponible</p>
-                <p className="text-xs mt-1">Tous les tags sont déjà ajoutés</p>
+                <p>{t('tag_selector.no_tags')}</p>
+                <p className="text-xs mt-1">{t('tag_selector.all_added')}</p>
               </div>
             ) : (
               <div className="space-y-1 max-h-64 overflow-y-auto">

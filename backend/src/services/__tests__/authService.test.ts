@@ -112,6 +112,22 @@ describe('AuthService', () => {
       await expect(AuthService.login('test@example.com', 'password')).rejects.toThrow('Invalid credentials');
     });
 
+    it('should throw an error if account is inactive', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: '1',
+        email: 'test@example.com',
+        password: 'hashedpassword',
+        accountStatus: 'SUSPENDED',
+        tokenVersion: 1,
+        quotaUsed: BigInt(0),
+        quotaLimit: BigInt(104857600),
+      });
+
+      await expect(AuthService.login('test@example.com', 'password')).rejects.toThrow('Account inactive or suspended');
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
     it('should login successfully with valid credentials', async () => {
       const mockUser = {
         id: '1',

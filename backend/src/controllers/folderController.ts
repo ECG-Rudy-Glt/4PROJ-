@@ -1,9 +1,9 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { FolderService } from '../services/folderService';
 import { AuthRequest } from '../types';
 
 export class FolderController {
-  static async createFolder(req: AuthRequest, res: Response): Promise<void> {
+  static async createFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { name, parentId } = req.body;
@@ -11,12 +11,10 @@ export class FolderController {
       const folder = await FolderService.createFolder(userId, name, parentId);
 
       res.status(201).json({ folder });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getFolder(req: AuthRequest, res: Response): Promise<void> {
+  static async getFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
@@ -24,12 +22,10 @@ export class FolderController {
       const folder = await FolderService.getFolder(folderId, userId);
 
       res.status(200).json({ folder });
-    } catch (error: any) {
-      res.status(404).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async listFolders(req: AuthRequest, res: Response): Promise<void> {
+  static async listFolders(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { parentId } = req.query;
@@ -40,12 +36,10 @@ export class FolderController {
       );
 
       res.status(200).json({ folders });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async updateFolder(req: AuthRequest, res: Response): Promise<void> {
+  static async updateFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
@@ -54,12 +48,10 @@ export class FolderController {
       const folder = await FolderService.updateFolder(folderId, userId, name);
 
       res.status(200).json({ folder });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async moveFolder(req: AuthRequest, res: Response): Promise<void> {
+  static async moveFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
@@ -68,25 +60,43 @@ export class FolderController {
       const folder = await FolderService.moveFolder(folderId, userId, parentId);
 
       res.status(200).json({ folder });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async deleteFolder(req: AuthRequest, res: Response): Promise<void> {
+  static async deleteFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+      const { permanent } = req.query;
+
+      const result = await FolderService.deleteFolder(folderId, userId, permanent === 'true');
+
+      res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+
+  static async restoreFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
 
-      const result = await FolderService.deleteFolder(folderId, userId);
+      const folder = await FolderService.restoreFolder(folderId, userId);
 
-      res.status(200).json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+      res.status(200).json({ folder });
+    } catch (error) { next(error); }
   }
 
-  static async getBreadcrumbs(req: AuthRequest, res: Response): Promise<void> {
+  static async getDeletedFolders(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+
+      const folders = await FolderService.getDeletedFolders(userId);
+
+      res.status(200).json({ folders });
+    } catch (error) { next(error); }
+  }
+
+  static async getBreadcrumbs(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
@@ -94,8 +104,17 @@ export class FolderController {
       const breadcrumbs = await FolderService.getFolderBreadcrumbs(folderId, userId);
 
       res.status(200).json({ breadcrumbs });
-    } catch (error: any) {
-      res.status(404).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
+  }
+
+  static async getFolderTrashContents(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+
+      const contents = await FolderService.getFolderTrashContents(folderId, userId);
+
+      res.status(200).json(contents);
+    } catch (error) { next(error); }
   }
 }

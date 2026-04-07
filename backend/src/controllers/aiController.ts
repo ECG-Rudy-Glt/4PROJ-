@@ -1,11 +1,11 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import aiService from '../services/aiService';
 
 export class AIController {
   /**
    * Chat général avec Bobby le robot
    */
-  static async chat(req: Request, res: Response) {
+  static async chat(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -24,18 +24,16 @@ export class AIController {
         response,
         timestamp: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('Error in chat:', error);
-
-      // Gérer les erreurs de rate limit spécifiquement
-      if (error.message === 'RATE_LIMIT_EXCEEDED') {
-        return res.status(429).json({
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      if (msg === 'RATE_LIMIT_EXCEEDED') {
+        res.status(429).json({
           error: 'RATE_LIMIT_EXCEEDED',
           message: 'Le quota quotidien de Bobby a été atteint. Réessayez demain ou ajoutez des crédits OpenRouter.',
         });
+        return;
       }
-
-      res.status(500).json({ error: error.message || 'Failed to process chat' });
+      next(error);
     }
   }
 
@@ -44,7 +42,7 @@ export class AIController {
    * POST /api/ai/analyze-file
    * Body: { fileId: string, prompt?: string }
    */
-  static async analyzeFile(req: Request, res: Response) {
+  static async analyzeFile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -64,10 +62,7 @@ export class AIController {
         analysis,
         timestamp: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('Error analyzing file:', error);
-      res.status(500).json({ error: error.message || 'Failed to analyze file' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
@@ -75,7 +70,7 @@ export class AIController {
    * POST /api/ai/search-files
    * Body: { query: string }
    */
-  static async searchFiles(req: Request, res: Response) {
+  static async searchFiles(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -94,10 +89,7 @@ export class AIController {
         ...result,
         timestamp: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('Error searching files:', error);
-      res.status(500).json({ error: error.message || 'Failed to search files' });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
@@ -105,7 +97,7 @@ export class AIController {
    * POST /api/ai/generate-file
    * Body: { prompt: string, fileName?: string, folderId?: string }
    */
-  static async generateFile(req: Request, res: Response) {
+  static async generateFile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -124,9 +116,6 @@ export class AIController {
         ...result,
         timestamp: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('Error generating file:', error);
-      res.status(500).json({ error: error.message || 'Failed to generate file' });
-    }
+    } catch (error) { next(error); }
   }
 }

@@ -198,15 +198,16 @@ export class BillingService {
       nextPlan = 'FREE';
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        plan: nextPlan,
-        subscriptionStatus: nextStatus,
-      },
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: user.id },
+        data: { plan: nextPlan, subscriptionStatus: nextStatus },
+      });
+      const limit = PlanService.getStorageLimit(updated.plan);
+      if (limit !== updated.quotaLimit) {
+        await tx.user.update({ where: { id: user.id }, data: { quotaLimit: limit } });
+      }
     });
-
-    await PlanService.syncUserQuotaLimit(user.id);
   }
 
   private static async handleCheckoutCompleted(event: Stripe.Event) {
@@ -245,23 +246,24 @@ export class BillingService {
       updateData.plan = resolvedPlan;
     }
 
-    if (userId) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: updateData,
+    const applyUpdate = async (targetId: string) => {
+      await prisma.$transaction(async (tx) => {
+        const updated = await tx.user.update({ where: { id: targetId }, data: updateData });
+        const limit = PlanService.getStorageLimit(updated.plan);
+        if (limit !== updated.quotaLimit) {
+          await tx.user.update({ where: { id: targetId }, data: { quotaLimit: limit } });
+        }
       });
-      await PlanService.syncUserQuotaLimit(userId);
+    };
+
+    if (userId) {
+      await applyUpdate(userId);
       return;
     }
 
     const user = await this.findUserByCustomerId(customerId);
     if (!user) return;
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: updateData,
-    });
-    await PlanService.syncUserQuotaLimit(user.id);
+    await applyUpdate(user.id);
   }
 
   private static async handleSubscriptionEvent(event: Stripe.Event) {

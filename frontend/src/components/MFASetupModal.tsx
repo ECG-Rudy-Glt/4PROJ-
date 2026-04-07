@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, Smartphone, Copy, Check } from 'lucide-react';
 import { mfaService } from '@/services/mfaService';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface MFASetupModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface MFASetupModalProps {
 }
 
 export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetupModalProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [secret, setSecret] = useState('');
@@ -32,7 +34,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
       setSecret(data.secret);
       setBackupCodes(data.backupCodes);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erreur lors de la génération du QR code');
+      toast.error(error.response?.data?.error || t('mfa_setup.error_generate'));
     } finally {
       setLoading(false);
     }
@@ -40,7 +42,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
 
   const handleVerify = async () => {
     if (verificationCode.length !== 6) {
-      toast.error('Le code doit contenir 6 chiffres');
+      toast.error(t('mfa_setup.error_length'));
       return;
     }
 
@@ -53,10 +55,10 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
         rememberDevice
       );
 
-      toast.success('Authentification à deux facteurs activée !');
+      toast.success(t('mfa_setup.success'));
       onComplete(backupCodes, result.token);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Code invalide');
+      toast.error(error.response?.data?.error || t('mfa_setup.error_invalid'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +67,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secret);
     setSecretCopied(true);
-    toast.success('Code secret copié !');
+    toast.success(t('mfa_setup.secret_copied'));
     setTimeout(() => setSecretCopied(false), 2000);
   };
 
@@ -84,10 +86,10 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Configuration de l'authentification à deux facteurs
+              {t('mfa_setup.title')}
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Sécurisez votre compte avec un code de vérification
+              {t('mfa_setup.subtitle')}
             </p>
           </div>
           {onCancel && (
@@ -105,7 +107,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
           {loading && !qrCode ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Génération en cours...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">{t('mfa_setup.loading')}</span>
             </div>
           ) : (
             <div className="space-y-6">
@@ -116,11 +118,11 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                     1
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Scanner le QR code
+                    {t('mfa_setup.step1_title')}
                   </h3>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 ml-10">
-                  Utilisez une application d'authentification comme Google Authenticator, Authy, ou Microsoft Authenticator
+                  {t('mfa_setup.step1_desc')}
                 </p>
 
                 <div className="flex items-center justify-center bg-white p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700">
@@ -137,7 +139,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
               {/* Code secret manuel */}
               <div className="ml-10">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Vous ne pouvez pas scanner le QR code ?
+                  {t('mfa_setup.manual_code_query')}
                 </p>
                 <div className="flex items-center space-x-2">
                   <code className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg text-sm font-mono">
@@ -146,7 +148,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                   <button
                     onClick={handleCopySecret}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    title="Copier"
+                    title={t('mfa_setup.copy')}
                   >
                     {secretCopied ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5" />}
                   </button>
@@ -160,11 +162,11 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                     2
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Entrez le code de vérification
+                    {t('mfa_setup.step2_title')}
                   </h3>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 ml-10">
-                  Saisissez le code à 6 chiffres affiché dans votre application
+                  {t('mfa_setup.step2_desc')}
                 </p>
 
                 <div className="ml-10">
@@ -193,10 +195,10 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Se souvenir de cet appareil pendant 30 jours
+                      {t('mfa_setup.remember_device')}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Vous ne devrez pas saisir de code lors de vos prochaines connexions sur cet appareil
+                      {t('mfa_setup.remember_device_desc')}
                     </p>
                   </div>
                 </label>
@@ -209,7 +211,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                     onClick={onCancel}
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                   >
-                    Annuler
+                    {t('mfa_setup.cancel')}
                   </button>
                 )}
                 <button
@@ -220,12 +222,12 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Vérification...
+                      {t('mfa_setup.verifying')}
                     </>
                   ) : (
                     <>
                       <Smartphone className="w-4 h-4 mr-2" />
-                      Vérifier et activer
+                      {t('mfa_setup.verify_and_enable')}
                     </>
                   )}
                 </button>

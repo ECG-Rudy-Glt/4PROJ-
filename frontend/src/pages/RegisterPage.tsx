@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import toast from 'react-hot-toast';
 import { HardDrive } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,12 +21,12 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
+      toast.error(t('common.password_mismatch'));
       return;
     }
 
     if (formData.password.length < 6) {
-      toast.error('Le mot de passe doit contenir au moins 6 caractères');
+      toast.error(t('common.password_too_short'));
       return;
     }
 
@@ -35,10 +37,10 @@ export default function RegisterPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
       });
-      toast.success('Compte créé avec succès !');
+      toast.success(t('register.success'));
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Inscription échouée');
+      toast.error(error.response?.data?.error || t('common.error_loading'));
     }
   };
 
@@ -50,10 +52,10 @@ export default function RegisterPage() {
             <HardDrive className="w-16 h-16 text-primary-600" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
-            Créez votre compte
+            {t('register.title')}
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Obtenez 30 Go de stockage gratuit
+            {t('register.subtitle')}
           </p>
         </div>
 
@@ -62,7 +64,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Prénom
+                  {t('register.first_name_label')}
                 </label>
                 <input
                   type="text"
@@ -75,7 +77,7 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Nom
+                  {t('register.last_name_label')}
                 </label>
                 <input
                   type="text"
@@ -90,7 +92,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Adresse e-mail
+                {t('register.email_label')}
               </label>
               <input
                 type="email"
@@ -105,7 +107,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Mot de passe
+                {t('register.password_label')}
               </label>
               <input
                 type="password"
@@ -120,7 +122,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Confirmer le mot de passe
+                {t('common.confirm_password')}
               </label>
               <input
                 type="password"
@@ -139,17 +141,17 @@ export default function RegisterPage() {
             disabled={isLoading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            {isLoading ? 'Création du compte...' : 'S\'inscrire'}
+            {isLoading ? t('register.button_loading') : t('register.button')}
           </button>
 
           <div className="text-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Vous avez déjà un compte ?{' '}
+              {t('register.already_have_account')}{' '}
               <Link
                 to="/login"
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
-                Se connecter
+                {t('register.login_link')}
               </Link>
             </span>
           </div>
