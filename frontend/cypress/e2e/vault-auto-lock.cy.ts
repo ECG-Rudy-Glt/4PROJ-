@@ -52,17 +52,17 @@ describe('Vault auto-lock on page leave', () => {
       });
     }).as('getVaultStatus');
 
-    cy.intercept('POST', '**/api/vault/lock', () => {
+    cy.intercept('POST', '**/api/vault/lock', (req) => {
       currentVaultStatus = {
         ...currentVaultStatus,
         unlocked: false,
         locked: true,
       };
 
-      return {
+      req.reply({
         statusCode: 200,
         body: { status: currentVaultStatus },
-      };
+      });
     }).as('lockVault');
 
     cy.intercept('GET', '**/api/files*', {
@@ -94,12 +94,14 @@ describe('Vault auto-lock on page leave', () => {
       },
     });
 
+    cy.wait('@getProfile');
+    cy.wait('@getVaultStatus');
     cy.wait('@listFiles');
     cy.wait('@listFolders');
     cy.wait('@getBreadcrumbs');
 
     cy.contains('a', 'Dashboard').click();
-    cy.wait('@lockVault');
+    cy.wait('@lockVault', { timeout: 10000 });
     cy.url().should('include', '/dashboard');
   });
 });
