@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { shareService } from '@/services/shareService';
 import { Download, Lock, FileText, Image, Video, Music, Archive, File, User, Calendar, HardDrive, AlertCircle, FileSpreadsheet, Presentation } from 'lucide-react';
+import { formatBytes } from '@/utils/bytes';
 import toast from 'react-hot-toast';
 
 const getFileIcon = (mimeType: string) => {
@@ -32,13 +33,6 @@ const getFileColor = (mimeType: string) => {
   return 'from-gray-500 to-gray-600';
 };
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 o';
-  const k = 1024;
-  const sizes = ['o', 'Ko', 'Mo', 'Go'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('fr-FR', {

@@ -1,5 +1,6 @@
 import { X, Copy } from 'lucide-react';
 import { File } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface NewFolderModalProps {
   isOpen: boolean;
@@ -10,19 +11,20 @@ interface NewFolderModalProps {
 }
 
 export function NewFolderModal({ isOpen, folderName, onClose, onChange, onCreate }: NewFolderModalProps) {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 !mt-0" style={{ marginTop: 0 }}>
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full !mt-0" style={{ marginTop: 0 }}>
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Créer un nouveau dossier
+          {t('file_modals.new_folder.title')}
         </h3>
         <input
           type="text"
           value={folderName}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Nom du dossier"
+          placeholder={t('file_modals.new_folder.placeholder')}
           className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
           onKeyPress={(e) => e.key === 'Enter' && onCreate()}
           autoFocus
@@ -32,14 +34,14 @@ export function NewFolderModal({ isOpen, folderName, onClose, onChange, onCreate
             onClick={onClose}
             className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            Annuler
+            {t('common.cancel')}
           </button>
           <button
             onClick={onCreate}
             disabled={!folderName.trim()}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Créer
+            {t('file_modals.new_folder.create')}
           </button>
         </div>
       </div>
@@ -76,6 +78,7 @@ export function ShareModal({
   onCreateLink,
   onCopyLink,
 }: ShareModalProps) {
+  const { t } = useTranslation();
   if (!isOpen || !file) return null;
 
   return (
@@ -83,7 +86,7 @@ export function ShareModal({
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 max-w-lg w-full !mt-0" style={{ marginTop: 0 }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Partager : {file.name}
+            {t('file_modals.share_link.title', { name: file.name })}
           </h3>
           <button
             onClick={onClose}
@@ -97,20 +100,20 @@ export function ShareModal({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Mot de passe (optionnel)
+                {t('file_modals.share_link.password_label')}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
-                placeholder="Laisser vide pour aucun mot de passe"
+                placeholder={t('file_modals.share_link.password_placeholder')}
                 className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Date d'expiration (optionnel)
+                {t('file_modals.share_link.expiry_label')}
               </label>
               <input
                 type="datetime-local"
@@ -122,13 +125,13 @@ export function ShareModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nombre maximum de téléchargements (optionnel)
+                {t('file_modals.share_link.max_downloads_label')}
               </label>
               <input
                 type="number"
                 value={maxDownloads}
                 onChange={(e) => onMaxDownloadsChange(e.target.value)}
-                placeholder="Illimité"
+                placeholder={t('file_modals.share_link.max_downloads_placeholder')}
                 min="1"
                 className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
               />
@@ -139,13 +142,13 @@ export function ShareModal({
                 onClick={onClose}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                Annuler
+                {t('common.cancel')}
               </button>
               <button
                 onClick={onCreateLink}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
-                Créer le lien
+                {t('file_modals.share_link.create_link')}
               </button>
             </div>
           </div>
@@ -153,7 +156,7 @@ export function ShareModal({
           <div className="space-y-4">
             <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <p className="text-sm text-green-800 dark:text-green-200 mb-3 font-medium">
-                Lien de partage créé avec succès !
+                {t('file_modals.share_link.success')}
               </p>
               <div className="flex items-center space-x-2">
                 <input
@@ -167,7 +170,7 @@ export function ShareModal({
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center transition-colors"
                 >
                   <Copy className="w-4 h-4 mr-2" />
-                  Copier
+                  {t('file_modals.share_link.copy')}
                 </button>
               </div>
             </div>
@@ -177,7 +180,7 @@ export function ShareModal({
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               >
-                Fermer
+                {t('common.close')}
               </button>
             </div>
           </div>

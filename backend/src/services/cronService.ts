@@ -2,10 +2,11 @@ import cron from 'node-cron';
 import prisma from '../config/database';
 import { MailService } from './mailService';
 import { startTrashCleanupJob } from '../jobs/trashCleanup';
+import logger from '../config/logger';
 
 export class CronService {
     static init() {
-        console.log('⏰ Initialisation du service Cron...');
+        logger.info(' Initialisation du service Cron...');
 
         // Démarrer le job de nettoyage de la corbeille existant
         startTrashCleanupJob();
@@ -13,7 +14,7 @@ export class CronService {
         // Démarrer le job de vérification des expirations
         this.startExpirationCheckJob();
 
-        console.log('✅ Service Cron démarré');
+        logger.info(' Service Cron démarré');
     }
 
     /**
@@ -22,12 +23,12 @@ export class CronService {
     static startExpirationCheckJob() {
         // Run at 9:00 AM every day
         cron.schedule('0 9 * * *', async () => {
-            console.log('⏰ Démarrage de la vérification des expirations...');
+            logger.info(' Démarrage de la vérification des expirations...');
 
             try {
                 await this.checkSharedLinkExpirations();
             } catch (error) {
-                console.error('❌ Erreur lors de la vérification des expirations:', error);
+                logger.error({ err: error }, ' Erreur lors de la vérification des expirations:');
             }
         });
 
@@ -104,6 +105,6 @@ export class CronService {
             );
         }
 
-        console.log(`✅ Vérification expirations terminée. J-1: ${linksExpiringTomorrow.length}, J-7: ${linksExpiringNextWeek.length}`);
+        logger.info(` Vérification expirations terminée. J-1: ${linksExpiringTomorrow.length}, J-7: ${linksExpiringNextWeek.length}`);
     }
 }

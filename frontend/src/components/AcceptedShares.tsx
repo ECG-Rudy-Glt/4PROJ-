@@ -3,6 +3,7 @@ import { File as FileIcon, Folder, Share2, MoreVertical } from 'lucide-react';
 import { shareService } from '@/services/shareService';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatBytes } from '@/utils/bytes';
 
 interface AcceptedShare {
   id: string;
@@ -79,13 +80,6 @@ export default function AcceptedShares({ onFileSelect, onFolderSelect }: Accepte
     return null;
   }
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 o';
-    const k = 1024;
-    const sizes = ['o', 'Ko', 'Mo', 'Go'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
 
   return (
     <div className="space-y-4">

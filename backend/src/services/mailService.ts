@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import logger from '../config/logger';
 
 interface MailOptions {
     to: string;
@@ -42,7 +43,7 @@ export class MailService {
     static async sendMail(options: MailOptions): Promise<boolean> {
         const smtpMock = process.env.SMTP_MOCK === 'true';
         if (smtpMock) {
-            console.log('[MailService] SMTP not configured. Mocking email send:', options);
+            logger.info({ options }, '[MailService] SMTP not configured. Mocking email send:');
             return true;
         }
 
@@ -53,10 +54,10 @@ export class MailService {
                 ...options,
             });
 
-            console.log('[MailService] Message sent: %s', info.messageId);
+            logger.info('[MailService] Message sent: %s', info.messageId);
             return true;
         } catch (error) {
-            console.error('[MailService] Error sending email:', error);
+            logger.error({ err: error }, '[MailService] Error sending email:');
             return false;
         }
     }

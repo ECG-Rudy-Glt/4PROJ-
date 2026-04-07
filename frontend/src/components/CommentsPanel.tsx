@@ -4,6 +4,7 @@ import { commentService, Comment } from '@/services/commentService';
 import { MessageCircle, Send, Edit2, Trash2, Reply } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useTranslation } from 'react-i18next';
 
 interface CommentsPanelProps {
   fileId: string;
@@ -14,6 +15,7 @@ interface CommentsPanelProps {
 
 export default function CommentsPanel({ fileId, onCommentCountChange, isShared = false, canWrite = true }: CommentsPanelProps) {
   const { user } = useAuthStore();
+  const { t } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -78,7 +80,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
       setHasError(true);
       // Don't show toast for shared files, just silently fail
       if (!isShared) {
-        toast.error('Échec du chargement des commentaires');
+        toast.error(t('comments.load_error'));
       }
     } finally {
       setIsLoading(false);
@@ -87,23 +89,23 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
 
   const handleCreateComment = async () => {
     if (!newComment.trim()) {
-      toast.error('Le commentaire ne peut pas être vide');
+      toast.error(t('comments.empty'));
       return;
     }
 
     try {
       await commentService.createComment(fileId, newComment.trim());
       setNewComment('');
-      toast.success('Commentaire ajouté');
+      toast.success(t('comments.add_success'));
       loadComments();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de l\'ajout du commentaire');
+      toast.error(error.response?.data?.error || t('comments.add_error'));
     }
   };
 
   const handleReply = async (parentId: string) => {
     if (!replyContent.trim()) {
-      toast.error('La réponse ne peut pas être vide');
+      toast.error(t('comments.reply_empty'));
       return;
     }
 
@@ -111,16 +113,16 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
       await commentService.createComment(fileId, replyContent.trim(), parentId);
       setReplyContent('');
       setReplyingTo(null);
-      toast.success('Réponse ajoutée');
+      toast.success(t('comments.reply_success'));
       loadComments();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de l\'ajout de la réponse');
+      toast.error(error.response?.data?.error || t('comments.reply_error'));
     }
   };
 
   const handleUpdate = async (commentId: string) => {
     if (!editContent.trim()) {
-      toast.error('Le commentaire ne peut pas être vide');
+      toast.error(t('comments.empty'));
       return;
     }
 
@@ -128,22 +130,22 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
       await commentService.updateComment(commentId, editContent.trim());
       setEditingId(null);
       setEditContent('');
-      toast.success('Commentaire modifié');
+      toast.success(t('comments.update_success'));
       loadComments();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la modification');
+      toast.error(error.response?.data?.error || t('comments.update_error'));
     }
   };
 
   const handleDelete = async (commentId: string) => {
-    if (!confirm('Supprimer ce commentaire ?')) return;
+    if (!confirm(t('comments.delete_confirm'))) return;
 
     try {
       await commentService.deleteComment(commentId);
-      toast.success('Commentaire supprimé');
+      toast.success(t('comments.delete_success'));
       loadComments();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la suppression');
+      toast.error(error.response?.data?.error || t('comments.delete_error'));
     }
   };
 
@@ -210,14 +212,14 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                           setEditContent(comment.content);
                         }}
                         className="p-1 text-gray-500 hover:text-primary-600 dark:hover:text-primary-300"
-                        title="Modifier"
+                        title={t('comments.edit_title')}
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => handleDelete(comment.id)}
                         className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400"
-                        title="Supprimer"
+                        title={t('comments.delete_title')}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -240,7 +242,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                       onClick={() => handleUpdate(comment.id)}
                       className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors"
                     >
-                      Sauver
+                      {t('comments.save_button')}
                     </button>
                     <button
                       onClick={() => {
@@ -249,7 +251,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                       }}
                       className="px-3 py-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-900 dark:text-white text-sm rounded-lg transition-colors"
                     >
-                      Annuler
+                      {t('comments.cancel_button')}
                     </button>
                   </div>
                 </div>
@@ -267,7 +269,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                 className="mt-1 text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 flex items-center gap-1"
               >
                 <Reply className="w-3 h-3" />
-                Répondre
+                {t('comments.reply_button')}
               </button>
             )}
 
@@ -278,7 +280,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                   <textarea
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
-                    placeholder="Écrire une réponse..."
+                    placeholder={t('comments.reply_placeholder')}
                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none"
                     rows={2}
                     maxLength={2000}
@@ -290,7 +292,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                     className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1"
                   >
                     <Send className="w-3 h-3" />
-                    Répondre
+                    {t('comments.reply_button')}
                   </button>
                   <button
                     onClick={() => {
@@ -299,7 +301,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
                     }}
                     className="px-3 py-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-900 dark:text-white text-sm rounded-lg transition-colors"
                   >
-                    Annuler
+                    {t('comments.cancel_button')}
                   </button>
                 </div>
               </div>
@@ -323,7 +325,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <MessageCircle className="w-5 h-5 text-gray-500 dark:text-gray-400" />
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Commentaires
+          {t('comments.title')}
         </h3>
         <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
           {comments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0)}
@@ -339,19 +341,19 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
         ) : hasError ? (
           <div className="text-center py-8">
             <MessageCircle className="w-12 h-12 mx-auto text-red-300 dark:text-red-600 mb-2" />
-            <p className="text-red-600 dark:text-red-400">Impossible de charger les commentaires</p>
+            <p className="text-red-600 dark:text-red-400">{t('comments.load_error')}</p>
             {isShared && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Les commentaires ne sont pas disponibles pour ce fichier partagé
+                {t('comments.unavailable_shared')}
               </p>
             )}
           </div>
         ) : comments.length === 0 ? (
           <div className="text-center py-8">
             <MessageCircle className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">Aucun commentaire</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('comments.no_comments')}</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-              Soyez le premier à commenter
+              {t('comments.be_first')}
             </p>
           </div>
         ) : (
@@ -367,7 +369,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
           {isShared && !canWrite && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-3">
               <p className="text-sm text-yellow-800 dark:text-yellow-300">
-                Vous avez accès à ce fichier en lecture seule
+                {t('comments.read_only')}
               </p>
             </div>
           )}
@@ -375,7 +377,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
             <textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Écrire un commentaire..."
+              placeholder={t('comments.placeholder')}
               disabled={isShared && !canWrite}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:ring-2 focus:ring-primary-600 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               rows={3}
@@ -396,7 +398,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
             </button>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Cmd/Ctrl + Enter pour envoyer
+            {t('comments.cmd_enter')}
           </p>
         </div>
       )}

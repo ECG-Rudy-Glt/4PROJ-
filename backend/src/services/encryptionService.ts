@@ -3,13 +3,9 @@ import fs from 'fs';
 import path from 'path';
 
 const ALGORITHM = 'aes-256-gcm';
-// Using a fixed key for now (from ENV). In production, this should be a managed key or per-user key.
-// Ensure MFA_ENCRYPTION_KEY or a new FILE_ENCRYPTION_KEY is used.
-// For simplicity, we'll use a derived key from a secret.
 
 export class EncryptionService {
     private static getKey(): Buffer {
-        // Use a separate key for files. Default matches the legacy key to keep old files readable.
         const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
         return crypto.createHash('sha256').update(secret).digest();
     }

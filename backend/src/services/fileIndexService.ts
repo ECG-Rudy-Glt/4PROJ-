@@ -2,7 +2,11 @@ import axios from 'axios';
 import pdfParse from 'pdf-parse';
 import prisma from '../config/database';
 import { EncryptionService } from './encryptionService';
+<<<<<<< HEAD
 import { BrainService } from './brainService';
+=======
+import logger from '../config/logger';
+>>>>>>> a40bea0793ca4500004a678e2a82b07c66818d05
 
 const MAX_INDEX_TEXT_LENGTH = 200_000;
 
@@ -39,7 +43,7 @@ export class FileIndexService {
 
       return { text: this.trimText(text), ocrUsed: true };
     } catch (error) {
-      console.error('[FileIndexService] OCR failed:', error);
+      logger.error({ err: error }, '[FileIndexService] OCR failed:');
       return { text: '', ocrUsed: false };
     }
   }
@@ -91,7 +95,7 @@ export class FileIndexService {
         ocrUsed = ocrResult.ocrUsed;
       }
     } catch (error) {
-      console.error('[FileIndexService] indexFile failed:', error);
+      logger.error({ err: error }, '[FileIndexService] indexFile failed:');
       return;
     }
 
@@ -124,7 +128,7 @@ export class FileIndexService {
 
   static indexFileAsync(fileId: string, userId?: string): void {
     this.indexFile(fileId, userId).catch((error) => {
-      console.error('[FileIndexService] async index error:', error);
+      logger.error({ err: error }, '[FileIndexService] async index error:');
     });
   }
 

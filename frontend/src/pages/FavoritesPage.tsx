@@ -20,7 +20,9 @@ import toast from 'react-hot-toast';
 import FilePreviewModal from '@/components/FilePreviewModal';
 import TagSelector from '@/components/TagSelector';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
+import { formatBytes } from '@/utils/bytes';
+import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -50,15 +52,10 @@ const getMimeTypeColor = (mimeType: string) => {
   return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
 };
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 o';
-  const k = 1024;
-  const sizes = ['o', 'Ko', 'Mo', 'Go'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
 
 export default function FavoritesPage() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'fr' ? fr : enUS;
   const [favoriteFiles, setFavoriteFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -94,7 +91,7 @@ export default function FavoritesPage() {
 
       setFavoriteFiles(sortedFiles);
     } catch {
-      toast.error('Échec du chargement des favoris');
+      toast.error(t('favorites.error_loading_favorites'));
     } finally {
       setIsLoading(false);
     }
@@ -103,22 +100,22 @@ export default function FavoritesPage() {
   const handleToggleFavorite = async (fileId: string) => {
     try {
       await fileService.toggleFavorite(fileId);
-      toast.success('Retiré des favoris');
+      toast.success(t('favorites.remove_success'));
       loadFavoriteFiles();
     } catch {
-      toast.error('Échec de la modification');
+      toast.error(t('common.error_loading'));
     }
   };
 
   const handleDelete = async (fileId: string) => {
-    if (!confirm('Déplacer ce fichier vers la corbeille ?')) return;
+    if (!confirm(t('trash.confirm_delete', { type: t('common.file') }))) return;
 
     try {
       await fileService.deleteFile(fileId, false);
-      toast.success('Fichier déplacé vers la corbeille');
+      toast.success(t('trash.delete_success', { type: t('common.file') }));
       loadFavoriteFiles();
     } catch {
-      toast.error('Échec de la suppression du fichier');
+      toast.error(t('common.error_loading'));
     }
   };
 
@@ -142,11 +139,10 @@ export default function FavoritesPage() {
 
   return (
     <div className="space-y-6 relative">
-      {/* Header simple comme FilesPage */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Favoris</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('favorites.title')}</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          {favoriteFiles.length} fichier{favoriteFiles.length !== 1 ? 's' : ''}
+          {favoriteFiles.length} {favoriteFiles.length > 1 ? t('common.file_plural') : t('common.file')}
         </p>
       </div>
 
@@ -155,7 +151,7 @@ export default function FavoritesPage() {
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
           <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par :
+            {t('common.sort_by')} :
           </label>
           <select
             id="sort-select"
@@ -163,26 +159,26 @@ export default function FavoritesPage() {
             onChange={handleSortChange}
             className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
           >
-            <option value="name-asc">Nom (A-Z)</option>
-            <option value="name-desc">Nom (Z-A)</option>
-            <option value="date-desc">Plus récents</option>
-            <option value="date-asc">Plus anciens</option>
-            <option value="size-desc">Plus volumineux</option>
-            <option value="size-asc">Plus petits</option>
+            <option value="name-asc">{t('favorites.sort.name_asc')}</option>
+            <option value="name-desc">{t('favorites.sort.name_desc')}</option>
+            <option value="date-desc">{t('favorites.sort.date_desc')}</option>
+            <option value="date-asc">{t('favorites.sort.date_asc')}</option>
+            <option value="size-desc">{t('favorites.sort.size_desc')}</option>
+            <option value="size-asc">{t('favorites.sort.size_asc')}</option>
           </select>
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
         {favoriteFiles.length > 0 ? (
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 [&>tr>th:first-child]:rounded-tl-xl [&>tr>th:last-child]:rounded-tr-xl">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nom</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Tags</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Taille</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Modifié</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.size')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.modified')}</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -212,35 +208,35 @@ export default function FavoritesPage() {
                       {formatBytes(Number(file.size))}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {format(new Date(file.updatedAt), 'dd MMM yyyy', { locale: fr })}
+                      {format(new Date(file.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => handleToggleFavorite(file.id)}
                           className="p-2 rounded-lg transition-all text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
-                          title="Retirer des favoris"
+                          title={t('favorites.remove')}
                         >
                           <Star className="w-4 h-4" fill="currentColor" />
                         </button>
                         <button
                           onClick={() => handlePreview(file)}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                          title="Aperçu"
+                          title={t('common.preview')}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <a
                           href={fileService.getDownloadUrl(file.id)}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                          title="Télécharger"
+                          title={t('common.download')}
                         >
                           <Download className="w-4 h-4" />
                         </a>
                         <button
                           onClick={() => handleDelete(file.id)}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-                          title="Supprimer"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -255,10 +251,10 @@ export default function FavoritesPage() {
           <div className="text-center py-12">
             <Star className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
             <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">
-              Aucun fichier favori
+              {t('favorites.no_favorites')}
             </p>
             <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-              Marquez vos fichiers importants comme favoris pour y accéder rapidement
+              {t('favorites.no_favorites_desc')}
             </p>
           </div>
         )}

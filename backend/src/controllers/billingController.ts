@@ -1,16 +1,17 @@
-import { Request, Response } from 'express';
-import { Plan } from '@prisma/client';
+import { Request, Response, NextFunction } from 'express';
+import { Plan, Role } from '@prisma/client';
 import { AuthRequest } from '../types';
 import { BillingService } from '../services/billingService';
 import { PlanService } from '../services/planService';
 import prisma from '../config/database';
+import logger from '../config/logger';
 
 type PaidPlan = 'PRO' | 'BUSINESS' | 'ENTERPRISE';
 const PAID_PLANS = new Set<PaidPlan>(['PRO', 'BUSINESS', 'ENTERPRISE']);
 const ALL_PLANS = new Set(['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE']);
 
 export class BillingController {
-  static async createCheckoutSession(req: AuthRequest, res: Response): Promise<void> {
+  static async createCheckoutSession(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const plan = typeof req.body.plan === 'string' ? req.body.plan.toUpperCase() as PaidPlan : undefined;
@@ -20,8 +21,15 @@ export class BillingController {
         return;
       }
 
-      // Mode développement sans Stripe : changement de plan direct
+      // Simulation si Stripe n'est pas configuré (admins uniquement)
       if (!process.env.STRIPE_SECRET_KEY) {
+        if (req.user!.role !== Role.ADMIN) {
+          res.status(503).json({ error: 'Stripe non configuré' });
+          return;
+        }
+
+        logger.info(`Simulated Stripe Checkout for user ${userId} and plan ${plan}`);
+
         const newLimit = PlanService.getStorageLimit(plan as Plan);
         await prisma.user.update({
           where: { id: userId },
@@ -34,12 +42,10 @@ export class BillingController {
 
       const session = await BillingService.createCheckoutSession(userId, plan);
       res.status(200).json(session);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async changePlanFree(req: AuthRequest, res: Response): Promise<void> {
+  static async changePlanFree(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const newLimit = PlanService.getStorageLimit(Plan.FREE);
@@ -48,22 +54,18 @@ export class BillingController {
         data: { plan: Plan.FREE, quotaLimit: newLimit },
       });
       res.status(200).json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async createPortalSession(req: AuthRequest, res: Response): Promise<void> {
+  static async createPortalSession(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const session = await BillingService.createBillingPortalSession(userId);
       res.status(200).json(session);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async handleWebhook(req: Request, res: Response): Promise<void> {
+  static async handleWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const signature = req.headers['stripe-signature'];
       const normalizedSignature = Array.isArray(signature) ? signature[0] : signature;
@@ -73,9 +75,10 @@ export class BillingController {
 
       await BillingService.handleWebhookEvent(event);
       res.status(200).json({ received: true });
-    } catch (error: any) {
-      console.error('Stripe webhook error:', error.message);
-      res.status(400).json({ error: `Webhook Error: ${error.message}` });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error({ err: error }, 'Stripe webhook error');
+      res.status(400).json({ error: `Webhook Error: ${msg}` });
     }
   }
 }

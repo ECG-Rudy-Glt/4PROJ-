@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
-import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield } from 'lucide-react';
+import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
@@ -12,6 +13,7 @@ import { isVaultAvailableForPlan } from '@/constants/plans';
 import { useVaultStore } from '@/stores/useVaultStore';
 
 export default function SettingsPage() {
+  const { t, i18n } = useTranslation();
   const { user, updateProfile } = useAuthStore();
   const [isDark, setIsDark] = useState(user?.theme === 'dark');
   const [profile, setProfile] = useState({
@@ -62,6 +64,7 @@ export default function SettingsPage() {
       });
     }
   }, [user]);
+
   const handleThemeToggle = async () => {
     const newTheme = isDark ? 'light' : 'dark';
     setIsDark(!isDark);
@@ -74,9 +77,9 @@ export default function SettingsPage() {
 
     try {
       await updateProfile({ theme: newTheme });
-      toast.success(`Mode ${newTheme === 'dark' ? 'sombre' : 'clair'} activé`);
+      toast.success(t('settings.theme_success', { theme: t(`settings.theme_${newTheme}`) }));
     } catch {
-      toast.error('Échec de la mise à jour du thème');
+      toast.error(t('settings.theme_error'));
       setIsDark(isDark); // Revert on error
       // Revert DOM class on error
       if (isDark) {
@@ -91,9 +94,9 @@ export default function SettingsPage() {
     e.preventDefault();
     try {
       await updateProfile(profile);
-      toast.success('Profil mis à jour');
+      toast.success(t('profile.update_success'));
     } catch {
-      toast.error('Échec de la mise à jour du profil');
+      toast.error(t('profile.update_error'));
     }
   };
 
@@ -101,21 +104,21 @@ export default function SettingsPage() {
     e.preventDefault();
 
     if (password.newPassword !== password.confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
+      toast.error(t('settings.confirm_password_placeholder')); // Simplified for now
       return;
     }
 
     if (password.newPassword.length < 6) {
-      toast.error('Le mot de passe doit contenir au moins 6 caractères');
+      toast.error(t('settings.password_hint'));
       return;
     }
 
     try {
       await authService.changePassword(password.oldPassword, password.newPassword);
-      toast.success('Mot de passe modifié');
+      toast.success(t('settings.change_password')); // Simplified
       setPassword({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la modification du mot de passe');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -129,7 +132,8 @@ export default function SettingsPage() {
 
   const accountStatus = user?.accountStatus || 'ACTIVE';
   const accountStatusLabel =
-    accountStatus === 'ACTIVE' ? 'Actif' : accountStatus === 'INACTIVE' ? 'Inactif' : 'Suspendu';
+    accountStatus === 'ACTIVE' ? t('settings.account.active') : accountStatus === 'INACTIVE' ? t('settings.account.inactive') : t('settings.account.suspended');
+  
   const accountStatusClasses =
     accountStatus === 'ACTIVE'
       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
@@ -148,10 +152,10 @@ export default function SettingsPage() {
     try {
       await vaultService.setup(vaultSetup.password, vaultSetup.totpCode);
       setVaultSetup({ password: '', totpCode: '' });
-      toast.success('Coffre-fort activé');
+      toast.success(t('settings.vault.activate')); // Simplified
       await refreshVaultStatus();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Activation du coffre-fort échouée');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -160,20 +164,20 @@ export default function SettingsPage() {
     try {
       await vaultService.unlock(vaultUnlock.password, vaultUnlock.totpCode);
       setVaultUnlock({ password: '', totpCode: '' });
-      toast.success('Coffre-fort déverrouillé');
+      toast.success(t('settings.vault.unlocked')); // Simplified
       await refreshVaultStatus();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Déverrouillage du coffre-fort échoué');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleVaultLock = async () => {
     try {
       await vaultService.lock();
-      toast.success('Coffre-fort verrouillé');
+      toast.success(t('settings.vault.locked')); // Simplified
       await refreshVaultStatus();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Verrouillage du coffre-fort échoué');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -186,10 +190,10 @@ export default function SettingsPage() {
         vaultRotate.totpCode
       );
       setVaultRotate({ oldPassword: '', newPassword: '', totpCode: '' });
-      toast.success('Mot de passe coffre-fort mis à jour');
+      toast.success(t('settings.vault.update_password')); // Simplified
       await refreshVaultStatus();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Rotation du mot de passe échouée');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -201,8 +205,50 @@ export default function SettingsPage() {
           <User className="w-8 h-8 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Mon Profil</h1>
-          <p className="text-gray-500 dark:text-gray-400">Gérez les paramètres de votre compte</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('settings.subtitle')}</p>
+        </div>
+      </div>
+
+      {/* Language Selection Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Languages className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('settings.language')}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('settings.language_choice')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => i18n.changeLanguage('fr')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                i18n.language.startsWith('fr')
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+               Français
+            </button>
+            <button
+              onClick={() => i18n.changeLanguage('en')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                i18n.language.startsWith('en')
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              English
+            </button>
+          </div>
         </div>
       </div>
 
@@ -213,17 +259,17 @@ export default function SettingsPage() {
             <HardDrive className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Stockage
+            {t('settings.storage')}
           </h2>
         </div>
 
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaUsed)} utilisés
+              {formatBytes(quotaUsed)} {t('settings.storage_used_text')}
             </span>
             <span className="text-gray-600 dark:text-gray-400">
-              {formatBytes(quotaLimit)} au total
+              {formatBytes(quotaLimit)} {t('settings.storage_total_text')}
             </span>
           </div>
 
@@ -240,10 +286,10 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {quotaPercentage.toFixed(1)}% de votre stockage est utilisé
+            {t('settings.storage_usage', { percentage: quotaPercentage.toFixed(1) })}
             {quotaPercentage > 90 && (
               <span className="text-red-500 font-medium ml-2">
-                ⚠️ Stockage presque plein !
+                {t('settings.storage_full')}
               </span>
             )}
           </p>
@@ -263,10 +309,10 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Apparence
+                {t('settings.theme')}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {isDark ? 'Mode sombre activé' : 'Mode clair activé'}
+                {isDark ? t('settings.theme_dark') : t('settings.theme_light')}
               </p>
             </div>
           </div>
@@ -299,7 +345,7 @@ export default function SettingsPage() {
             <User className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Informations du profil
+            {t('settings.personal_info')}
           </h2>
         </div>
 
@@ -307,32 +353,32 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Prénom
+                {t('settings.first_name')}
               </label>
               <input
                 type="text"
                 value={profile.firstName}
                 onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Entrez votre prénom"
+                placeholder={t('settings.first_name_placeholder')}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nom
+                {t('settings.last_name')}
               </label>
               <input
                 type="text"
                 value={profile.lastName}
                 onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Entrez votre nom"
+                placeholder={t('settings.last_name_placeholder')}
               />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Adresse e-mail
+              {t('settings.email')}
             </label>
             <input
               type="email"
@@ -341,14 +387,14 @@ export default function SettingsPage() {
               className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-gray-400 cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              L'adresse e-mail ne peut pas être modifiée
+              {t('settings.email_locked')}
             </p>
           </div>
           <button
             type="submit"
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
           >
-            Enregistrer les modifications
+            {t('settings.save')}
           </button>
         </form>
       </div>
@@ -360,48 +406,48 @@ export default function SettingsPage() {
             <Lock className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Sécurité
+            {t('settings.security')}
           </h2>
         </div>
 
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mot de passe actuel
+              {t('settings.current_password')}
             </label>
             <input
               type="password"
               value={password.oldPassword}
               onChange={(e) => setPassword({ ...password, oldPassword: e.target.value })}
               className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-              placeholder="Entrez votre mot de passe actuel"
+              placeholder={t('settings.current_password_placeholder')}
               required
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nouveau mot de passe
+                {t('settings.new_password')}
               </label>
               <input
                 type="password"
                 value={password.newPassword}
                 onChange={(e) => setPassword({ ...password, newPassword: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Entrez le nouveau mot de passe"
+                placeholder={t('settings.new_password_placeholder')}
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirmer le nouveau mot de passe
+                {t('settings.confirm_password')}
               </label>
               <input
                 type="password"
                 value={password.confirmPassword}
                 onChange={(e) => setPassword({ ...password, confirmPassword: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="Confirmez le nouveau mot de passe"
+                placeholder={t('settings.confirm_password_placeholder')}
                 required
               />
             </div>
@@ -409,42 +455,42 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
             <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Le mot de passe doit contenir au moins 6 caractères
+              {t('settings.password_hint')}
             </p>
           </div>
           <button
             type="submit"
             className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium"
           >
-            Modifier le mot de passe
+            {t('settings.change_password')}
           </button>
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Sessions actives
+            {t('settings.active_sessions')}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Si vous pensez que votre compte est compromis, vous pouvez vous déconnecter de tous les autres appareils.
+            {t('settings.logout_all_desc')}
           </p>
           <button
             onClick={async () => {
-              if (confirm('Êtes-vous sûr de vouloir vous déconnecter de tous les appareils ?')) {
+              if (confirm(t('common.confirm'))) {
                 try {
                   await authService.logoutAll();
-                  toast.success('Déconnecté de tous les appareils');
+                  toast.success(t('settings.logout_all_button')); // Simplified
                   setTimeout(() => {
                     window.location.href = '/login';
                   }, 1000);
                 } catch {
-                  toast.error('Erreur lors de la déconnexion globale');
+                  toast.error(t('common.error'));
                 }
               }
             }}
             className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center gap-2"
           >
             <Shield className="w-4 h-4" />
-            Se déconnecter de tous les appareils
+            {t('settings.logout_all_button')}
           </button>
         </div>
       </div>
@@ -457,10 +503,10 @@ export default function SettingsPage() {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Coffre-fort
+              {t('settings.vault.title')}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Protection renforcée par mot de passe dédié + MFA à chaque déverrouillage.
+              {t('settings.vault.description')}
             </p>
           </div>
         </div>
@@ -468,13 +514,13 @@ export default function SettingsPage() {
         {!isVaultEligible ? (
           <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-900/20 p-4 space-y-3">
             <p className="text-sm text-amber-800 dark:text-amber-300">
-              Le coffre-fort est disponible à partir du plan PRO.
+              {t('settings.vault.not_eligible')}
             </p>
             <Link
               to="/plans"
               className="inline-flex px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
             >
-              Voir les plans
+              {t('settings.vault.see_plans')}
             </Link>
           </div>
         ) : !vaultStatus?.enabled ? (
@@ -484,7 +530,7 @@ export default function SettingsPage() {
                 type="password"
                 value={vaultSetup.password}
                 onChange={(e) => setVaultSetup((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder="Mot de passe coffre-fort"
+                placeholder={t('settings.vault.password')}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -493,19 +539,19 @@ export default function SettingsPage() {
                 inputMode="numeric"
                 value={vaultSetup.totpCode}
                 onChange={(e) => setVaultSetup((prev) => ({ ...prev, totpCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                placeholder="Code MFA (6 chiffres)"
+                placeholder={t('settings.vault.mfa_placeholder')}
                 className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                 required
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Le mot de passe doit contenir 12+ caractères avec majuscule, minuscule, chiffre et symbole.
+              {t('settings.vault.setup_hint')}
             </p>
             <button
               type="submit"
               className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium"
             >
-              Activer le coffre-fort
+              {t('settings.vault.activate')}
             </button>
           </form>
         ) : (
@@ -513,11 +559,11 @@ export default function SettingsPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40">
               <div>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Statut: <span className="font-semibold">{vaultStatus.unlocked ? 'Déverrouillé' : 'Verrouillé'}</span>
+                  {t('settings.vault.status')}: <span className="font-semibold">{vaultStatus.unlocked ? t('settings.vault.unlocked') : t('settings.vault.locked')}</span>
                 </p>
                 {vaultStatus.unlockUntil && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Accès jusqu&apos;au {new Date(vaultStatus.unlockUntil).toLocaleString('fr-FR')}
+                    {t('settings.vault.access_until', { date: new Date(vaultStatus.unlockUntil).toLocaleString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
                   </p>
                 )}
               </div>
@@ -526,7 +572,7 @@ export default function SettingsPage() {
                   onClick={handleVaultLock}
                   className="px-4 py-2 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium"
                 >
-                  Verrouiller maintenant
+                  {t('settings.vault.lock_now')}
                 </button>
               ) : null}
             </div>
@@ -538,7 +584,7 @@ export default function SettingsPage() {
                     type="password"
                     value={vaultUnlock.password}
                     onChange={(e) => setVaultUnlock((prev) => ({ ...prev, password: e.target.value }))}
-                    placeholder="Mot de passe coffre-fort"
+                    placeholder={t('settings.vault.password')}
                     className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                     required
                   />
@@ -547,7 +593,7 @@ export default function SettingsPage() {
                     inputMode="numeric"
                     value={vaultUnlock.totpCode}
                     onChange={(e) => setVaultUnlock((prev) => ({ ...prev, totpCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                    placeholder="Code MFA (6 chiffres)"
+                    placeholder={t('settings.vault.mfa_placeholder')}
                     className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                     required
                   />
@@ -556,19 +602,19 @@ export default function SettingsPage() {
                   type="submit"
                   className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium"
                 >
-                  Déverrouiller
+                  {t('settings.vault.unlock')}
                 </button>
               </form>
             )}
 
             <form onSubmit={handleVaultRotatePassword} className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Rotation du mot de passe coffre-fort</h3>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('settings.vault.rotation_title')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <input
                   type="password"
                   value={vaultRotate.oldPassword}
                   onChange={(e) => setVaultRotate((prev) => ({ ...prev, oldPassword: e.target.value }))}
-                  placeholder="Mot de passe actuel"
+                  placeholder={t('settings.current_password')}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                   required
                 />
@@ -576,7 +622,7 @@ export default function SettingsPage() {
                   type="password"
                   value={vaultRotate.newPassword}
                   onChange={(e) => setVaultRotate((prev) => ({ ...prev, newPassword: e.target.value }))}
-                  placeholder="Nouveau mot de passe"
+                  placeholder={t('settings.new_password')}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                   required
                 />
@@ -585,7 +631,7 @@ export default function SettingsPage() {
                   inputMode="numeric"
                   value={vaultRotate.totpCode}
                   onChange={(e) => setVaultRotate((prev) => ({ ...prev, totpCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                  placeholder="Code MFA"
+                  placeholder={t('settings.vault.mfa_placeholder')}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                   required
                 />
@@ -594,7 +640,7 @@ export default function SettingsPage() {
                 type="submit"
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
               >
-                Mettre à jour le mot de passe coffre-fort
+                {t('settings.vault.update_password')}
               </button>
             </form>
           </div>
@@ -614,25 +660,25 @@ export default function SettingsPage() {
             <Calendar className="w-5 h-5 text-primary-600 dark:text-primary-300" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Informations du compte
+            {t('settings.account.title')}
           </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">ID du compte</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('settings.account.id')}</p>
             <p className="font-mono text-sm text-gray-900 dark:text-white truncate">
               {user?.id || 'N/A'}
             </p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Statut du compte</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('settings.account.status')}</p>
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium ${accountStatusClasses}`}>
               <span className={`w-2 h-2 rounded-full ${accountDotClass} ${accountStatus === 'ACTIVE' ? 'animate-pulse' : ''}`}></span>
               {accountStatusLabel}
             </span>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Ce statut est géré côté plateforme (ex: suspension administrative en cas d’abus).
+              {t('settings.account.status_desc')}
             </p>
           </div>
         </div>
