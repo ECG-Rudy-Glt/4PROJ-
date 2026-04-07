@@ -23,7 +23,7 @@ describe('Register Flow', () => {
     cy.get('input[type="text"]').should('have.length', 2)
     cy.get('input[type="email"]').should('exist')
     cy.get('input[type="password"]').should('have.length', 2)
-    cy.get('button[type="submit"]').should('exist').and('contain', "S'inscrire")
+    cy.get('button[type="submit"]').should('exist').and('contain', "Create account")
   })
 
   it('should show an error when passwords do not match', () => {
@@ -31,7 +31,7 @@ describe('Register Flow', () => {
     cy.get('input[type="password"]').first().type('password123')
     cy.get('input[type="password"]').last().type('different123')
     cy.get('button[type="submit"]').click()
-    cy.contains('Les mots de passe ne correspondent pas').should('be.visible')
+    cy.contains('Passwords do not match').should('be.visible')
   })
 
   it('should show an error when password is too short', () => {
@@ -39,11 +39,11 @@ describe('Register Flow', () => {
     cy.get('input[type="password"]').first().type('abc')
     cy.get('input[type="password"]').last().type('abc')
     cy.get('button[type="submit"]').click()
-    cy.contains('au moins 6 caractères').should('be.visible')
+    cy.contains('at least 6 characters').should('be.visible')
   })
 
   it('should navigate to login page via the link', () => {
-    cy.contains('Se connecter').click()
+    cy.contains('Sign in').click()
     cy.url().should('include', '/login')
   })
 

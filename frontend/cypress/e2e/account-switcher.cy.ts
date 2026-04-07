@@ -77,11 +77,11 @@ describe('Account Switcher Modal', () => {
     cy.wait('@listSwitchLinks');
     cy.wait('@listDelegations');
 
-    cy.get('input[placeholder="Email du compte à lier"]').type('linked@example.com');
-    cy.get('input[placeholder="Mot de passe"]').type('password123');
-    cy.get('input[placeholder="Code MFA (optionnel)"]').type('123456');
-    cy.get('input[placeholder="Libellé (optionnel)"]').type('Compte secondaire');
-    cy.contains('button', 'Lier le compte').click();
+    cy.get('input[placeholder="Email"]').type('linked@example.com');
+    cy.get('input[placeholder="Password"]').type('password123');
+    cy.get('input[placeholder="MFA Code (optional)"]').type('123456');
+    cy.get('input[placeholder="Label (e.g., Work account)"]').type('Compte secondaire');
+    cy.contains('button', 'Link an account').click();
 
     cy.wait('@addSwitchLink');
     cy.wait('@listSwitchLinks');
@@ -194,7 +194,7 @@ describe('Account Switcher Modal', () => {
       body: { given: [], received: [] },
     }).as('listDelegations');
 
-    cy.intercept('POST', '**/api/account-access/switch-links/link-1/switch', () => {
+    cy.intercept('POST', '**/api/account-access/switch-links/link-1/switch', (req) => {
       currentProfile = {
         user: switchedUser,
         session: {
@@ -205,28 +205,28 @@ describe('Account Switcher Modal', () => {
         },
       };
 
-      return {
+      req.reply({
         statusCode: 200,
         body: {
           token: 'switched-token-2',
           user: switchedUser,
         },
-      };
+      });
     }).as('switchAccount');
 
-    cy.intercept('POST', '**/api/account-access/switch/back', () => {
+    cy.intercept('POST', '**/api/account-access/switch/back', (req) => {
       currentProfile = {
         user: rootUser,
         session: directSession,
       };
 
-      return {
+      req.reply({
         statusCode: 200,
         body: {
           token: 'root-token',
           user: rootUser,
         },
-      };
+      });
     }).as('switchBack');
 
     cy.visit('/organization-admin', {
@@ -248,7 +248,7 @@ describe('Account Switcher Modal', () => {
     });
 
     cy.get('button[title="Switch de comptes"]').click();
-    cy.contains('button', 'Revenir au compte principal').click();
+    cy.contains('button', 'Return').click();
     cy.wait('@switchBack');
 
     cy.window().then((win) => {

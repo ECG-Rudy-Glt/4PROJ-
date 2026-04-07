@@ -51,7 +51,7 @@ describe('Onboarding FREE plan', () => {
     cy.wait('@registerRequest');
     cy.url().should('include', '/dashboard');
 
-    cy.contains('sur 30.00 GB').should('be.visible');
+    cy.contains('of 30.00 GB').should('be.visible');
     cy.contains('a', 'Plans & Tarifs').click();
 
     cy.contains('h3', 'Gratuit')

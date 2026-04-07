@@ -1,12 +1,12 @@
 import { createBaseUser, interceptAppShell } from './helpers/appMocks';
 
 const setupFilesPageMocks = () => {
-  cy.intercept('GET', '**/api/files', {
+  cy.intercept('GET', '**/api/files*', {
     statusCode: 200,
     body: { files: [] },
   }).as('listFiles');
 
-  cy.intercept('GET', '**/api/folders', {
+  cy.intercept('GET', '**/api/folders*', {
     statusCode: 200,
     body: { folders: [] },
   }).as('listFolders');

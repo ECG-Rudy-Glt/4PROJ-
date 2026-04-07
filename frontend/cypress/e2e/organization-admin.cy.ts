@@ -149,7 +149,7 @@ const mountOrganizationPage = (membershipRole: 'OWNER' | 'ADMIN' | 'MEMBER') => 
   cy.wait('@getProfile');
   cy.wait('@getOrganizations');
   cy.wait('@getOrganizationDetails');
-  cy.contains('h1', 'Admin Organisation').should('be.visible');
+  cy.contains('h1', 'Organization Admin').should('be.visible');
 };
 
 describe('Organization Admin Guardrails', () => {
