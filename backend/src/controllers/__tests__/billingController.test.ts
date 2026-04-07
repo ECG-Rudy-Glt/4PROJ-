@@ -58,7 +58,7 @@ describe('BillingController', () => {
       };
       const res = createRes();
 
-      await BillingController.createCheckoutSession(req, res);
+      await BillingController.createCheckoutSession(req, res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
@@ -78,7 +78,7 @@ describe('BillingController', () => {
       };
       const res = createRes();
 
-      await BillingController.createCheckoutSession(req, res);
+      await BillingController.createCheckoutSession(req, res, jest.fn());
 
       expect(PlanService.getStorageLimit).toHaveBeenCalledWith('PRO');
       expect(prisma.user.update).toHaveBeenCalledWith({
@@ -103,7 +103,7 @@ describe('BillingController', () => {
       };
       const res = createRes();
 
-      await BillingController.createCheckoutSession(req, res);
+      await BillingController.createCheckoutSession(req, res, jest.fn());
 
       expect(BillingService.createCheckoutSession).toHaveBeenCalledWith('user-2', 'BUSINESS');
       expect(prisma.user.update).not.toHaveBeenCalled();

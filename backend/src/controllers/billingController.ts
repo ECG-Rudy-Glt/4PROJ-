@@ -21,8 +21,13 @@ export class BillingController {
         return;
       }
 
-      // Simulation si Stripe n'est pas configuré
+      // Simulation si Stripe n'est pas configuré (admins uniquement)
       if (!process.env.STRIPE_SECRET_KEY) {
+        if (req.user!.role !== Role.ADMIN) {
+          res.status(503).json({ error: 'Stripe non configuré' });
+          return;
+        }
+
         logger.info(`Simulated Stripe Checkout for user ${userId} and plan ${plan}`);
 
         const newLimit = PlanService.getStorageLimit(plan as Plan);

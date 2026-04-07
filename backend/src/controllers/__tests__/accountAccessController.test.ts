@@ -45,7 +45,7 @@ describe('AccountAccessController', () => {
       };
       const res = createRes();
 
-      await AccountAccessController.switchToLinkedAccount(req, res);
+      await AccountAccessController.switchToLinkedAccount(req, res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({
@@ -70,7 +70,7 @@ describe('AccountAccessController', () => {
       };
       const res = createRes();
 
-      await AccountAccessController.switchToLinkedAccount(req, res);
+      await AccountAccessController.switchToLinkedAccount(req, res, jest.fn());
 
       expect(AccountAccessService.createSwitchToken).toHaveBeenCalledWith(
         'root-user',
@@ -108,7 +108,7 @@ describe('AccountAccessController', () => {
       };
       const res = createRes();
 
-      await AccountAccessController.assumeDelegation(req, res);
+      await AccountAccessController.assumeDelegation(req, res, jest.fn());
 
       expect(AccountAccessService.assumeDelegation).toHaveBeenCalledWith(
         'delegate-user',
