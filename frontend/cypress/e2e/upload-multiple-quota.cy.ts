@@ -118,6 +118,9 @@ describe('Multi-upload and quota guard', () => {
     cy.wait('@listFiles');
     cy.wait('@listFolders');
 
+    // Wait until the auth store has applied the user so the quota check in enqueueUpload uses quotaLimit: 10
+    cy.contains('of 10 o', { timeout: 5000 });
+
     cy.get('input[type="file"][multiple]').first().selectFile(
       [
         {
