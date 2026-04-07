@@ -23,7 +23,13 @@ import FileRow from '../../components/FileRow';
 import FolderRow from '../../components/FolderRow';
 import EmptyState from '../../components/EmptyState';
 import FilePreviewModal from '../../components/FilePreviewModal';
-import { FileItem } from '../../types';
+import ItemActionsSheet from '../../components/ItemActionsSheet';
+import { FileItem, Folder } from '../../types';
+
+type ActionTarget =
+  | { kind: 'file'; data: FileItem }
+  | { kind: 'folder'; data: Folder }
+  | null;
 
 export default function FilesScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +42,7 @@ export default function FilesScreen() {
   const [newFolderName, setNewFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [actionTarget, setActionTarget] = useState<ActionTarget>(null);
 
   const handleUpload = async () => {
     setUploading(true);
@@ -152,6 +159,7 @@ export default function FilesScreen() {
               <FolderRow
                 folder={item.data}
                 onPress={() => navigateToFolder(item.data.id)}
+                onLongPress={() => setActionTarget({ kind: 'folder', data: item.data })}
               />
             );
           }
@@ -160,6 +168,7 @@ export default function FilesScreen() {
               file={item.data}
               showFavorite
               onPress={() => setPreviewFile(item.data)}
+              onLongPress={() => setActionTarget({ kind: 'file', data: item.data })}
               onToggleFavorite={() => toggleFavorite(item.data.id)}
             />
           );
@@ -175,6 +184,12 @@ export default function FilesScreen() {
       >
         <Ionicons name={uploading ? 'hourglass-outline' : 'cloud-upload-outline'} size={26} color={colors.white} />
       </TouchableOpacity>
+
+      {/* Actions sheet (long-press) */}
+      <ItemActionsSheet
+        target={actionTarget}
+        onClose={() => setActionTarget(null)}
+      />
 
       {/* Preview modal */}
       <FilePreviewModal

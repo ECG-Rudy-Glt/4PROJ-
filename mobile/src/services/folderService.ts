@@ -22,6 +22,16 @@ export const folderService = {
     return res.data;
   },
 
+  async moveFolder(folderId: string, parentId?: string): Promise<{ folder: Folder }> {
+    const res = await api.put(`/folders/${folderId}/move`, { parentId });
+    return res.data;
+  },
+
+  async listAllFolders(): Promise<{ folders: Folder[] }> {
+    const res = await api.get('/folders', { params: { all: true } });
+    return res.data;
+  },
+
   async getBreadcrumbs(folderId: string): Promise<Breadcrumb[]> {
     const res = await api.get(`/folders/${folderId}/breadcrumbs`);
     return res.data;
