@@ -4,12 +4,16 @@ services:
     container_name: supfile-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
       POSTGRES_DB: ${POSTGRES_DB:-supfile}
+      # Utilisateur applicatif dédié (pas superuser) — utilisé par le backend
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-supfile_app}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD est requis}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    # Pas de ports exposés : le backend se connecte via le réseau Docker interne (postgres:5432)
+    # Ne jamais exposer PostgreSQL directement sur le host en production
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -25,7 +29,7 @@ services:
     image: ${BACKEND_IMAGE:-supfile-backend:local}
     container_name: supfile-backend
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/${POSTGRES_DB:-supfile}
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:-supfile_app}:${POSTGRES_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-supfile}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       API_URL: ${API_URL:-http://localhost:5001}
@@ -112,7 +116,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 2048M
     restart: unless-stopped
     networks:
       - supfile-network
@@ -123,7 +127,7 @@ services:
     container_name: supfile-brain
     environment:
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       CHROMA_PATH: /app/chromadb
     volumes:
       - brain_chromadb:/app/chromadb
