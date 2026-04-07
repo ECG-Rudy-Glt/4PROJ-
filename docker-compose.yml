@@ -43,9 +43,8 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      # AI - Bobby le robot (Cohere)
-      COHERE_API_KEY: ${COHERE_API_KEY:-}
-      COHERE_MODEL: ${COHERE_MODEL:-command-r-plus}
+      # AI - Bobby le robot (local RAG)
+      BRAIN_API_URL: http://brain-api:8001
       # MFA (Multi-Factor Authentication)
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
       # Stripe Billing
@@ -104,6 +103,40 @@ services:
     networks:
       - supfile-network
 
+  # ── LLM inference engine ──────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: supfile-ollama
+    volumes:
+      - ollama_data:/root/.ollama   # model weights persist here
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  # ── RAG microservice (embeddings + ChromaDB + Ollama client) ─────────────
+  brain-api:
+    build: ./brain-api
+    container_name: supfile-brain
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      CHROMA_PATH: /app/chromadb
+    volumes:
+      - brain_chromadb:/app/chromadb
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
 networks:
   supfile-network:
     driver: bridge
@@ -116,4 +149,8 @@ volumes:
   onlyoffice_data:
     driver: local
   onlyoffice_log:
+    driver: local
+  ollama_data:
+    driver: local
+  brain_chromadb:
     driver: local

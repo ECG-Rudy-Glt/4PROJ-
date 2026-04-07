@@ -2,6 +2,7 @@ import axios from 'axios';
 import pdfParse from 'pdf-parse';
 import prisma from '../config/database';
 import { EncryptionService } from './encryptionService';
+import { BrainService } from './brainService';
 
 const MAX_INDEX_TEXT_LENGTH = 200_000;
 
@@ -59,6 +60,8 @@ export class FileIndexService {
       },
       select: {
         id: true,
+        name: true,
+        userId: true,
         mimeType: true,
         storagePath: true,
       },
@@ -111,6 +114,12 @@ export class FileIndexService {
         ocrUsed,
       },
     });
+
+    // Trigger semantic embedding — fire-and-forget, non-blocking
+    if (extractedText && process.env.BRAIN_API_URL) {
+      BrainService.embedFile(file.id, file.userId, file.name, extractedText)
+        .catch((err) => console.warn('[brain] Embedding failed (non-critical):', err.message));
+    }
   }
 
   static indexFileAsync(fileId: string, userId?: string): void {
