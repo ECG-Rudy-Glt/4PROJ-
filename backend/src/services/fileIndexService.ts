@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { EncryptionService } from './encryptionService';
 import { BrainService } from './brainService';
 import logger from '../config/logger';
+// StorageService importé via EncryptionService.decryptToBufferAuto — pas besoin ici
 
 const MAX_INDEX_TEXT_LENGTH = 200_000;
 
@@ -76,7 +77,7 @@ export class FileIndexService {
     let ocrUsed = false;
 
     try {
-      const decryptedBuffer = await EncryptionService.decryptFileToBuffer(file.storagePath);
+      const decryptedBuffer = await EncryptionService.decryptToBufferAuto(file.storagePath);
       if (file.mimeType === 'application/pdf') {
         const parsed = await (pdfParse as any)(decryptedBuffer);
         extractedText = this.trimText(parsed?.text || '');

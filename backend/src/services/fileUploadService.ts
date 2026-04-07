@@ -1,5 +1,7 @@
+import path from 'path';
 import prisma from '../config/database';
 import { deleteFile } from '../utils/fileUtils';
+import { StorageService } from './storageService';
 import { VersionService } from './versionService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
@@ -65,6 +67,7 @@ export class FileUploadService {
         );
         createdFiles.push(createdFile);
       } catch (error: any) {
+        // Nettoyer le fichier temporaire local si l'upload S3 a échoué avant
         await deleteFile(uploadedFile.path).catch(() => undefined);
         errors.push({ fileName: originalName, error: error?.message || 'Upload failed' });
       }
@@ -98,11 +101,14 @@ export class FileUploadService {
     }
 
     const uniqueName = await getUniqueFileName(name, folderId, userId);
-    await EncryptionService.encryptFile(storagePath);
     const category = getCategoryFromMimeType(mimeType);
 
+    // Chiffrer et uploader vers S3 — storagePath devient la clé S3
+    const s3Key = `files/${userId}/${path.basename(storagePath)}`;
+    await EncryptionService.encryptFileToS3(storagePath, s3Key);
+
     const file = await prisma.file.create({
-      data: { name: uniqueName, originalName, mimeType, size: BigInt(size), storagePath, userId, folderId, category, isVault },
+      data: { name: uniqueName, originalName, mimeType, size: BigInt(size), storagePath: s3Key, userId, folderId, category, isVault },
       include: { folder: true },
     });
 

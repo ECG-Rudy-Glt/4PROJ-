@@ -51,6 +51,7 @@ services:
           memory: 256M
 
   postgres:
+    ports: []  # Aucun port exposé en production VPS — accès via réseau Docker uniquement
     deploy:
       resources:
         limits:

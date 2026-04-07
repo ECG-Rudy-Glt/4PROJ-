@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { deleteFile } from '../utils/fileUtils';
+import { StorageService } from './storageService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { PlanService } from './planService';
@@ -49,7 +49,7 @@ export class FileActionService {
     if (!file) throw new Error('File not found');
 
     if (permanent || file.isDeleted) {
-      await deleteFile(file.storagePath);
+      await StorageService.deleteStorageFile(file.storagePath);
       await prisma.file.delete({ where: { id: fileId } });
       await PlanService.updateQuotaUsed(userId, -Number(file.size));
     } else {

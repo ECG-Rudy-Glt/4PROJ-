@@ -4,6 +4,7 @@ import { AuthRequest, FileUploadRequest } from '../types';
 import fs from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
+import { StorageService } from '../services/storageService';
 import { AuditService } from '../services/auditService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
@@ -178,7 +179,8 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
-      if (!fs.existsSync(file.storagePath)) {
+      // Vérifier l'existence selon la source (S3 ou local)
+      if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
@@ -192,11 +194,10 @@ export class FileController {
         fileId: file.id,
       }).catch((e) => logger.error(e));
 
-      // Decrypt and stream
-      res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
       res.setHeader('Content-Type', file.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
       decryptStream.pipe(res);
     } catch (error) { next(error); }
   }
@@ -208,7 +209,7 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
-      if (!fs.existsSync(file.storagePath)) {
+      if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
@@ -216,19 +217,22 @@ export class FileController {
       // Increment view count for streams/previews
       FileService.incrementViewCount(fileId).catch((e) => logger.error(e));
 
-      const stat = fs.statSync(file.storagePath);
-      // Decrypted size is roughly original size (minus IV/AuthTag if stored in file).
-      // We stored IV (16) + Tag (16) = 32 bytes overhead.
-      const fileSize = stat.size - 32;
+      // Taille déchiffrée = taille stockée - 32 octets (IV 16 + AuthTag 16)
+      let decryptedSize: number;
+      if (StorageService.isS3Key(file.storagePath)) {
+        const objectSize = await StorageService.getObjectSize(file.storagePath);
+        decryptedSize = objectSize - 32;
+      } else {
+        const stat = fs.statSync(file.storagePath);
+        decryptedSize = stat.size - 32;
+      }
 
-      // Support simple streaming (no range for encrypted files in MVP)
-      const head = {
-        'Content-Length': fileSize,
+      res.writeHead(200, {
+        'Content-Length': decryptedSize,
         'Content-Type': file.mimeType,
-      };
-      res.writeHead(200, head);
+      });
 
-      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
       decryptStream.on('error', (err) => {
         logger.error({ err }, '[streamFile] decrypt error:');
         if (!res.headersSent) {
