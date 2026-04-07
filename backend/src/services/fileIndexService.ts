@@ -2,11 +2,8 @@ import axios from 'axios';
 import pdfParse from 'pdf-parse';
 import prisma from '../config/database';
 import { EncryptionService } from './encryptionService';
-<<<<<<< HEAD
 import { BrainService } from './brainService';
-=======
 import logger from '../config/logger';
->>>>>>> a40bea0793ca4500004a678e2a82b07c66818d05
 
 const MAX_INDEX_TEXT_LENGTH = 200_000;
 
