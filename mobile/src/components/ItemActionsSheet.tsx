@@ -22,6 +22,8 @@ import { folderService } from '../services/folderService';
 import { fileService } from '../services/fileService';
 import ShareModal from './ShareModal';
 import TagsPicker from './TagsPicker';
+import VersionsPanel from './VersionsPanel';
+import CommentsPanel from './CommentsPanel';
 
 type Target =
   | { kind: 'file'; data: FileItem }
@@ -33,7 +35,9 @@ interface Props {
 }
 
 export default function ItemActionsSheet({ target, onClose }: Props) {
-  const [subSheet, setSubSheet] = useState<'none' | 'rename' | 'move' | 'share' | 'tags'>('none');
+  const [subSheet, setSubSheet] = useState<
+    'none' | 'rename' | 'move' | 'share' | 'tags' | 'versions' | 'comments'
+  >('none');
   const [renameValue, setRenameValue] = useState('');
   const [allFolders, setAllFolders] = useState<Folder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
@@ -192,6 +196,27 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
     );
   }
 
+  // ── Sub sheet: Versions (files only) ─────────────────
+  if (subSheet === 'versions' && isFile) {
+    return (
+      <VersionsPanel
+        file={target.data as FileItem}
+        onClose={() => { setSubSheet('none'); onClose(); }}
+        onRestored={() => store.refresh()}
+      />
+    );
+  }
+
+  // ── Sub sheet: Comments (files only) ─────────────────
+  if (subSheet === 'comments' && isFile) {
+    return (
+      <CommentsPanel
+        file={target.data as FileItem}
+        onClose={() => { setSubSheet('none'); onClose(); }}
+      />
+    );
+  }
+
   // ── Sub sheet: Move ──────────────────────────────────
   if (subSheet === 'move') {
     return (
@@ -260,6 +285,8 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
           {isFile && (
             <>
               <ActionRow icon="pricetags-outline" label="Tags" onPress={() => setSubSheet('tags')} />
+              <ActionRow icon="chatbubble-outline" label="Commentaires" onPress={() => setSubSheet('comments')} />
+              <ActionRow icon="time-outline" label="Historique des versions" onPress={() => setSubSheet('versions')} />
               <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} />
             </>
           )}
