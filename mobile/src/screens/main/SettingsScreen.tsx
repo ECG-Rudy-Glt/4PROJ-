@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +53,19 @@ export default function SettingsScreen() {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [changingPwd, setChangingPwd] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const fileUri = await authService.exportUserData();
+      await Share.share({ url: fileUri, message: 'Export RGPD de vos données SupFile' });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err?.response?.data?.error || 'Erreur lors de l\'export' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -276,6 +290,20 @@ export default function SettingsScreen() {
             ]}
           />
         </View>
+      </View>
+
+      {/* RGPD */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Confidentialité (RGPD)</Text>
+        <TouchableOpacity style={styles.menuRow} onPress={handleExportData} disabled={exporting}>
+          <Ionicons name="download-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Exporter mes données</Text>
+          {exporting ? (
+            <ActivityIndicator size="small" color={colors.primary[600]} />
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Déconnexion */}

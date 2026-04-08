@@ -42,4 +42,17 @@ export const authService = {
   async logoutAll(): Promise<void> {
     await api.post('/auth/logout-all');
   },
+
+  /**
+   * RGPD: downloads the user's data export (CSV) using the bearer token,
+   * writes it to the cache directory and returns the local file URI.
+   */
+  async exportUserData(): Promise<string> {
+    const FileSystem = await import('expo-file-system/legacy').catch(() => import('expo-file-system'));
+    const res = await api.get('/auth/export-data', { responseType: 'text' });
+    const date = new Date().toISOString().slice(0, 10);
+    const fileUri = `${(FileSystem as any).cacheDirectory}supfile-export-${date}.csv`;
+    await (FileSystem as any).writeAsStringAsync(fileUri, typeof res.data === 'string' ? res.data : String(res.data));
+    return fileUri;
+  },
 };
