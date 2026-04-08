@@ -182,7 +182,7 @@ services:
     container_name: supfile-brain
     environment:
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       CHROMA_PATH: /app/chromadb
     volumes:
       - brain_chromadb:/app/chromadb
