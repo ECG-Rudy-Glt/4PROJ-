@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import pdfParse from 'pdf-parse';
+
 
 import prisma from '../config/database';
 import { BrainService } from './brainService';
@@ -81,7 +81,9 @@ export class AIService {
       let text = '';
 
       if (file.mimeType === 'application/pdf') {
-        const parsed = await (pdfParse as any)(buffer);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { PDFParse } = require('pdf-parse');
+        const parsed = await new PDFParse({ data: buffer }).getText();
         text = parsed?.text || '';
       } else if (
         file.mimeType.startsWith('text/') ||

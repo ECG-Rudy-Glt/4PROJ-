@@ -2,6 +2,9 @@ import { Response, NextFunction } from 'express';
 import { Plan } from '@prisma/client';
 import { AuthRequest } from '../types';
 import { AdminService } from '../services/adminService';
+import prisma from '../config/database';
+import { FileIndexService } from '../services/fileIndexService';
+import logger from '../config/logger';
 
 const VALID_PLANS = new Set<Plan>([Plan.FREE, Plan.PRO, Plan.BUSINESS, Plan.ENTERPRISE]);
 
@@ -73,6 +76,31 @@ export class AdminController {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.status(200).send(csv);
+    } catch (error) { next(error); }
+  }
+
+  static async reindexAllFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const files = await prisma.file.findMany({
+        where: { isDeleted: false },
+        select: { id: true, userId: true, name: true },
+      });
+
+      res.status(202).json({ message: `Ré-indexation lancée pour ${files.length} fichiers.`, total: files.length });
+
+      // Fire-and-forget after response
+      (async () => {
+        let indexed = 0;
+        for (const file of files) {
+          try {
+            await FileIndexService.indexFile(file.id, file.userId);
+            indexed++;
+          } catch (err) {
+            logger.warn({ fileId: file.id, err }, '[reindex] skipped file');
+          }
+        }
+        logger.info(`[reindex] Done: ${indexed}/${files.length} files indexed`);
+      })();
     } catch (error) { next(error); }
   }
 }

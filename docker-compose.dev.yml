@@ -60,6 +60,8 @@ services:
       STRIPE_PRICE_ENTERPRISE_MONTHLY: ${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      BRAIN_API_URL: ${BRAIN_API_URL:-http://brain-api:8001}
+      OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY:-}
     volumes:
       - ./backend/src:/app/src
       - ./backend/prisma:/app/prisma
