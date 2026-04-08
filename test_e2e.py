@@ -363,7 +363,6 @@ def test_ai_chat(token):
 
         r = api("post", "/ai/chat", token=token, json={
             "message": question,
-            "history": [],
         })
 
         check(
@@ -391,6 +390,102 @@ def test_ai_chat(token):
         else:
             fail(f"Erreur LLM : {r.text[:300]}")
             warn("(Le modèle Ollama doit être téléchargé — voir pull_model.sh)")
+
+
+def test_input_validation(token):
+    """Vérifie que les inputs trop grands sont rejetés (DOS protection)."""
+    print(f"\n{c('bold', '── 7. Validation des inputs (sécurité DOS) ──────────')}")
+
+    # Query > 10 000 chars → doit retourner 400 (rejeté par le backend avant d'appeler brain-api)
+    oversized_query = "A" * 10_001
+    r = api("post", "/ai/chat", token=token, json={"message": oversized_query})
+    check(
+        "Query > 10 000 chars rejetée (400)",
+        r.status_code == 400,
+        f"(HTTP {r.status_code} — attendu 400)"
+    )
+
+    # brain-api expose uniquement sur le réseau Docker interne (port 8001 non exposé sur l'hôte)
+    # On valide la protection via le backend qui fait office de proxy sécurisé
+    brain_url = "http://127.0.0.1:8001/chat"
+    try:
+        big_history = [{"role": "user", "content": "msg"}] * 51
+        r_brain = requests.post(brain_url, json={"user_id": "test", "query": "test", "history": big_history}, timeout=3)
+        check("History > 50 msgs rejetée par brain-api (422)", r_brain.status_code == 422, f"(HTTP {r_brain.status_code})")
+
+        bad_history = [{"role": "hacker", "content": "injected"}]
+        r_brain2 = requests.post(brain_url, json={"user_id": "test", "query": "test", "history": bad_history}, timeout=3)
+        check("Rôle invalide dans history rejeté (422)", r_brain2.status_code == 422, f"(HTTP {r_brain2.status_code})")
+    except Exception:
+        warn("brain-api non exposé sur l'hôte (normal) — validation interne Docker uniquement")
+
+
+def test_conversation_persistence(token):
+    """Vérifie que les conversations sont persistées et rechargées."""
+    print(f"\n{c('bold', '── 8. Persistance des conversations ─────────────────')}")
+
+    # Premier message → crée une conversation
+    r = api("post", "/ai/chat", token=token, json={
+        "message": "Quel est le budget du projet Alpha ?",
+    })
+    check("Premier message reçu (200)", r.status_code == 200, f"(HTTP {r.status_code})")
+    if r.status_code != 200:
+        fail(f"Réponse : {r.text[:200]}")
+        return
+
+    data = r.json()
+    conv_id = data.get("conversationId")
+    check("conversationId retourné", bool(conv_id), f"(reçu: {conv_id})")
+    if not conv_id:
+        return
+
+    # Deuxième message dans la même conversation
+    r2 = api("post", "/ai/chat", token=token, json={
+        "message": "Et combien a été consommé de ce budget ?",
+        "conversationId": conv_id,
+    })
+    check("Deuxième message avec conversationId (200)", r2.status_code == 200, f"(HTTP {r2.status_code})")
+
+    # Lister les conversations
+    r3 = api("get", "/ai/conversations", token=token)
+    check("GET /ai/conversations (200)", r3.status_code == 200, f"(HTTP {r3.status_code})")
+    if r3.status_code == 200:
+        convs = r3.json().get("conversations", [])
+        found = any(c_item["id"] == conv_id for c_item in convs)
+        check("Conversation présente dans la liste", found, f"(trouvé dans {len(convs)} conversations)")
+
+    # Récupérer les messages de la conversation
+    r4 = api("get", f"/ai/conversations/{conv_id}", token=token)
+    check("GET /ai/conversations/:id (200)", r4.status_code == 200, f"(HTTP {r4.status_code})")
+    if r4.status_code == 200:
+        msgs = r4.json().get("conversation", {}).get("messages", [])
+        check("Historique contient 4 messages (2 user + 2 assistant)", len(msgs) == 4, f"(trouvé {len(msgs)})")
+
+    # Supprimer la conversation
+    r5 = api("delete", f"/ai/conversations/{conv_id}", token=token)
+    check("DELETE /ai/conversations/:id (200)", r5.status_code == 200, f"(HTTP {r5.status_code})")
+
+    # Vérifier qu'elle est bien supprimée
+    r6 = api("get", f"/ai/conversations/{conv_id}", token=token)
+    check("Conversation supprimée (404)", r6.status_code == 404, f"(HTTP {r6.status_code})")
+
+
+def test_unauthorized_access():
+    """Vérifie que les routes protégées rejettent les requêtes sans token."""
+    print(f"\n{c('bold', '── 9. Sécurité — accès non autorisé ────────────────')}")
+
+    endpoints = [
+        ("get",  "/files"),
+        ("post", "/ai/chat"),
+        ("get",  "/ai/conversations"),
+    ]
+    for method, path in endpoints:
+        r = api(method, path)  # Sans token
+        check(
+            f"{method.upper()} {path} sans token → 401",
+            r.status_code == 401,
+            f"(HTTP {r.status_code})"
+        )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -426,6 +521,15 @@ def main():
 
     # 6. LLM
     test_ai_chat(token)
+
+    # 7. Sécurité : validation des inputs (DOS protection)
+    test_input_validation(token)
+
+    # 8. Persistance des conversations
+    test_conversation_persistence(token)
+
+    # 9. Accès non autorisé
+    test_unauthorized_access()
 
     # ── Rapport final ─────────────────────────────────────────────────────────
     print(f"\n{c('bold', '═══════════════════════════════════════════════════')}")

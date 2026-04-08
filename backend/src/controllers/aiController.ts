@@ -21,6 +21,9 @@ export class AIController {
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required' });
       }
+      if (message.length > 10_000) {
+        return res.status(400).json({ error: 'Message too long (max 10 000 chars)' });
+      }
 
       // --- Charger ou créer la conversation ---
       let conversation;
