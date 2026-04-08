@@ -255,6 +255,14 @@ export default function SettingsScreen() {
           <Text style={styles.menuLabel}>Comptes liés & délégations</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
+
+        {user?.role === 'ADMIN' && (
+          <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Admin')}>
+            <Ionicons name="shield-outline" size={20} color={colors.primary[600]} />
+            <Text style={styles.menuLabel}>Panel administrateur</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Sécurité */}
