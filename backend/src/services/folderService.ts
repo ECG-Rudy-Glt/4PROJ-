@@ -1,9 +1,12 @@
 import prisma from '../config/database';
 import fs from 'fs/promises';
+import archiver from 'archiver';
+import { Response } from 'express';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { VaultService } from './vaultService';
 import { PlanService } from './planService';
+import { EncryptionService } from './encryptionService';
 import logger from '../config/logger';
 
 export class FolderService {
@@ -373,6 +376,65 @@ export class FolderService {
       where: { userId, isDeleted: true },
       orderBy: { deletedAt: 'desc' },
     });
+  }
+
+  static async streamFolderAsZip(folderId: string, userId: string, res: Response): Promise<void> {
+    const folder = await prisma.folder.findFirst({
+      where: { id: folderId, userId },
+      select: { id: true, name: true, isVault: true },
+    });
+
+    if (!folder) throw new Error('Folder not found');
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
+    type FileEntry = { storagePath: string; entryPath: string };
+
+    const collectFiles = async (currentFolderId: string, relativePath: string): Promise<FileEntry[]> => {
+      const [files, subfolders] = await Promise.all([
+        prisma.file.findMany({
+          where: { folderId: currentFolderId, userId },
+          select: { name: true, storagePath: true },
+        }),
+        prisma.folder.findMany({
+          where: { parentId: currentFolderId, userId, isDeleted: false },
+          select: { id: true, name: true },
+        }),
+      ]);
+
+      const entries: FileEntry[] = files.map((f) => ({
+        storagePath: f.storagePath,
+        entryPath: `${relativePath}/${f.name}`,
+      }));
+
+      for (const sub of subfolders) {
+        const subEntries = await collectFiles(sub.id, `${relativePath}/${sub.name}`);
+        entries.push(...subEntries);
+      }
+
+      return entries;
+    };
+
+    const allFiles = await collectFiles(folderId, folder.name);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+
+    archive.on('error', (err) => {
+      logger.error({ err }, '[streamFolderAsZip] archiver error');
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to create archive' });
+      } else {
+        res.destroy();
+      }
+    });
+
+    archive.pipe(res);
+
+    for (const { storagePath, entryPath } of allFiles) {
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath);
+      archive.append(decryptStream, { name: entryPath });
+    }
+
+    await archive.finalize();
   }
 
   static async getFolderTrashContents(folderId: string, userId: string) {

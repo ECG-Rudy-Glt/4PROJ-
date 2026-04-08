@@ -66,9 +66,13 @@ export default function Layout() {
   }, [location.pathname, refreshVaultStatus, vaultRootFolder?.id, vaultStatus?.enabled, vaultStatus?.unlocked]);
 
   useEffect(() => {
+    const isInAppDrag = (e: DragEvent) =>
+      e.dataTransfer?.types.includes('application/supfile-item') ?? false;
+
     const handleDragEnter = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isInAppDrag(e)) return;
       dragCounter.current++;
       if (dragCounter.current === 1) {
         setIsDraggingGlobal(true);
@@ -78,6 +82,7 @@ export default function Layout() {
     const handleDragLeave = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isInAppDrag(e)) return;
       dragCounter.current--;
       if (dragCounter.current === 0) {
         setIsDraggingGlobal(false);
@@ -92,6 +97,7 @@ export default function Layout() {
     const handleDrop = async (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isInAppDrag(e)) return;
       dragCounter.current = 0;
       setIsDraggingGlobal(false);
 

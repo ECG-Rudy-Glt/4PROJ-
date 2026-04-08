@@ -9,6 +9,7 @@ const router = Router();
 router.post('/', authenticate, requireDelegationPermission('write'), FolderController.createFolder);
 router.get('/', authenticate, requireDelegationPermission('read'), FolderController.listFolders);
 router.get('/deleted', authenticate, FolderController.getDeletedFolders);
+router.get('/:folderId/download', authenticate, requireDelegationPermission('read'), requireFolderPermission('read'), FolderController.downloadAsZip);
 router.get('/:folderId', authenticate, requireDelegationPermission('read'), requireFolderPermission('read'), FolderController.getFolder);
 router.get('/:folderId/breadcrumbs', authenticate, requireDelegationPermission('read'), requireFolderPermission('read'), FolderController.getBreadcrumbs);
 router.get('/:folderId/trash-contents', authenticate, requireDelegationPermission('read'), requireFolderPermission('read'), FolderController.getFolderTrashContents);

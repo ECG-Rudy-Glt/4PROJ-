@@ -280,6 +280,16 @@ export class AIService {
       return await BrainService.chat(userId, message, historyItems);
     } catch (error: any) {
       if (error.name === 'AbortError') throw new Error('TIMEOUT');
+      // brain-api unreachable (ECONNREFUSED, fetch failed, etc.)
+      const msg = error?.message ?? '';
+      if (
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('fetch failed') ||
+        msg.includes('brain-api unreachable') ||
+        msg.includes('ENOTFOUND')
+      ) {
+        throw new Error('AI_UNAVAILABLE');
+      }
       throw error;
     }
 

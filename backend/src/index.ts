@@ -4,8 +4,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
+import swaggerUi from 'swagger-ui-express';
 
 import passport from './config/passport';
+import { swaggerSpec } from './config/swagger';
 import logger from './config/logger';
 import { SocketService } from './services/socketService';
 import { buildAllowedOrigins, isOriginAllowed } from './utils/cors';
@@ -130,6 +132,9 @@ app.use('/uploads', express.static(uploadDir));
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/auth', authRoutes);

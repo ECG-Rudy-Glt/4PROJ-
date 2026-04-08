@@ -78,6 +78,20 @@ export class AIController {
         });
         return;
       }
+      if (msg === 'AI_UNAVAILABLE') {
+        res.status(503).json({
+          error: 'AI_UNAVAILABLE',
+          message: "Le service IA (Bobby) est actuellement indisponible. Assurez-vous que le service brain-api est démarré.",
+        });
+        return;
+      }
+      if (msg === 'TIMEOUT') {
+        res.status(504).json({
+          error: 'TIMEOUT',
+          message: "Le service IA a mis trop de temps à répondre. Réessayez dans un moment.",
+        });
+        return;
+      }
       next(error);
     }
   }

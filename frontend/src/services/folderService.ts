@@ -55,4 +55,18 @@ export const folderService = {
     const response = await api.get(`/folders/${folderId}/breadcrumbs`);
     return response.data;
   },
+
+  async downloadFolderAsZip(folderId: string, folderName: string): Promise<void> {
+    const response = await api.get(`/folders/${folderId}/download`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${folderName}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 };

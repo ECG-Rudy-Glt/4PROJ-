@@ -117,4 +117,23 @@ export class FolderController {
       res.status(200).json(contents);
     } catch (error) { next(error); }
   }
+
+  static async downloadAsZip(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+
+      const folder = await FolderService.getFolder(folderId, userId);
+
+      const safeName = folder.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}.zip`);
+
+      await FolderService.streamFolderAsZip(folderId, userId, res);
+    } catch (error) {
+      if (!res.headersSent) {
+        next(error);
+      }
+    }
+  }
 }
