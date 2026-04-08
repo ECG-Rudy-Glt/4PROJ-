@@ -72,6 +72,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   hsts: ENFORCE_HTTPS ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
   contentSecurityPolicy: false,
+  xFrameOptions: false,
 }));
 
 // CORS

@@ -38,3 +38,5 @@ backend/prisma/migrations/
 # Testing
 coverage/
 .nyc_output/
+
+.claude/

@@ -4,12 +4,16 @@ services:
     container_name: supfile-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
       POSTGRES_DB: ${POSTGRES_DB:-supfile}
+      # Utilisateur applicatif dédié (pas superuser) — utilisé par le backend
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-supfile_app}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD est requis}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    # Pas de ports exposés : le backend se connecte via le réseau Docker interne (postgres:5432)
+    # Ne jamais exposer PostgreSQL directement sur le host en production
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -25,7 +29,7 @@ services:
     image: ${BACKEND_IMAGE:-supfile-backend:local}
     container_name: supfile-backend
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/${POSTGRES_DB:-supfile}
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:-supfile_app}:${POSTGRES_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-supfile}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       API_URL: ${API_URL:-http://localhost:5001}
@@ -43,9 +47,15 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      # AI - Bobby le robot (Cohere)
-      COHERE_API_KEY: ${COHERE_API_KEY:-}
-      COHERE_MODEL: ${COHERE_MODEL:-command-r-plus}
+      # Object Storage — MinIO S3
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-supfile-uploads}
+      # Utiliser un compte MinIO dédié à l'application, limité au bucket applicatif
+      S3_ACCESS_KEY_ID: ${MINIO_APP_ACCESS_KEY:?MINIO_APP_ACCESS_KEY est requis}
+      S3_SECRET_ACCESS_KEY: ${MINIO_APP_SECRET_KEY:?MINIO_APP_SECRET_KEY est requis}
+      # AI - Bobby le robot (local RAG)
+      BRAIN_API_URL: http://brain-api:8001
       # MFA (Multi-Factor Authentication)
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
       # Stripe Billing
@@ -65,6 +75,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - supfile-network
@@ -104,6 +116,90 @@ services:
     networks:
       - supfile-network
 
+  # ── Object storage S3-compatible (MinIO) ────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: supfile-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER est requis}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD est requis}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    # Port 9000 (S3 API) et 9001 (console) accessibles uniquement via le réseau Docker
+    # Ne jamais exposer sur le host en production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  # Init container : crée le bucket automatiquement au premier démarrage
+  minio-init:
+    image: minio/mc:latest
+    container_name: supfile-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      BUCKET='${S3_BUCKET:-supfile-uploads}' &&
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb local/$$BUCKET --ignore-existing &&
+      mc admin user add local $$MINIO_APP_ACCESS_KEY $$MINIO_APP_SECRET_KEY || true &&
+      printf '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::'$$BUCKET'\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:AbortMultipartUpload\",\"s3:ListMultipartUploadParts\"],\"Resource\":[\"arn:aws:s3:::'$$BUCKET'/*\"]}]}' > /tmp/app-policy.json &&
+      mc admin policy remove local app-bucket-policy >/dev/null 2>&1 || true &&
+      mc admin policy create local app-bucket-policy /tmp/app-policy.json &&
+      mc admin policy attach local app-bucket-policy --user $$MINIO_APP_ACCESS_KEY &&
+      echo 'Bucket MinIO pret.' &&
+      exit 0
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY}
+    restart: "no"
+    networks:
+      - supfile-network
+
+  # ── LLM inference engine ──────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: supfile-ollama
+    volumes:
+      - ollama_data:/root/.ollama   # model weights persist here
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  # ── RAG microservice (embeddings + ChromaDB + Ollama client) ─────────────
+  brain-api:
+    build: ./brain-api
+    container_name: supfile-brain
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      CHROMA_PATH: /app/chromadb
+    volumes:
+      - brain_chromadb:/app/chromadb
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
 networks:
   supfile-network:
     driver: bridge
@@ -111,9 +207,17 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  uploads_data:
+  uploads_data:   # Répertoire temporaire Multer — peut être tmpfs après migration complète
+    driver: local
+  minio_data:
     driver: local
   onlyoffice_data:
     driver: local
   onlyoffice_log:
     driver: local
+  ollama_data:
+    driver: local
+  brain_chromadb:
+    driver: local
+
+

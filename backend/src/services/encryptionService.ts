@@ -1,105 +1,222 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import path from 'path';
+import { Readable } from 'stream';
+import { StorageService } from './storageService';
+import { deleteFile } from '../utils/fileUtils';
 
 const ALGORITHM = 'aes-256-gcm';
 
 export class EncryptionService {
-    private static getKey(): Buffer {
-        const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
-        return crypto.createHash('sha256').update(secret).digest();
+  private static getKey(): Buffer {
+    const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
+    return crypto.createHash('sha256').update(secret).digest();
+  }
+
+  // ── Méthodes locales (conservées pour la migration) ──────────────────────
+
+  /**
+   * Chiffre un fichier local en place.
+   * Format : IV (16 bytes) + contenu chiffré + AuthTag (16 bytes)
+   */
+  static async encryptFile(filePath: string): Promise<void> {
+    const key = this.getKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+
+    const tempPath = `${filePath}.enc`;
+    const input = fs.createReadStream(filePath);
+    const output = fs.createWriteStream(tempPath);
+
+    output.write(iv);
+
+    return new Promise((resolve, reject) => {
+      input.pipe(cipher).pipe(output);
+
+      output.on('finish', () => {
+        const authTag = cipher.getAuthTag();
+        fs.appendFileSync(tempPath, authTag);
+        fs.unlinkSync(filePath);
+        fs.renameSync(tempPath, filePath);
+        resolve();
+      });
+
+      output.on('error', reject);
+    });
+  }
+
+  /**
+   * Retourne un stream de déchiffrement depuis un fichier local.
+   */
+  static getDecryptStream(filePath: string): Readable {
+    const key = this.getKey();
+    const stats = fs.statSync(filePath);
+    const fileSize = stats.size;
+
+    const fd = fs.openSync(filePath, 'r');
+    const iv = Buffer.alloc(16);
+    fs.readSync(fd, iv, 0, 16, 0);
+
+    const tag = Buffer.alloc(16);
+    fs.readSync(fd, tag, 0, 16, fileSize - 16);
+
+    fs.closeSync(fd);
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    decipher.setAuthTag(tag);
+
+    const input = fs.createReadStream(filePath, { start: 16, end: fileSize - 17 });
+    return input.pipe(decipher);
+  }
+
+  /**
+   * Déchiffre un fichier local en Buffer.
+   */
+  static async decryptFileToBuffer(filePath: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const stream = this.getDecryptStream(filePath);
+      stream.on('data', (chunk: Buffer | string) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+  }
+
+  // ── Méthodes S3 ──────────────────────────────────────────────────────────
+
+  /**
+   * Chiffre un fichier local et l'uploade sur S3.
+   * - Chiffre dans un fichier .enc temporaire (même format IV+content+AuthTag)
+   * - Upload le fichier chiffré vers S3
+   * - Supprime les deux fichiers temporaires locaux
+   */
+  static async encryptFileToS3(localPath: string, s3Key: string): Promise<void> {
+    const key = this.getKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+
+    const tempEncPath = `${localPath}.enc`;
+    const input = fs.createReadStream(localPath);
+    const output = fs.createWriteStream(tempEncPath);
+
+    output.write(iv);
+
+    await new Promise<void>((resolve, reject) => {
+      input.pipe(cipher).pipe(output);
+      output.on('finish', () => {
+        const authTag = cipher.getAuthTag();
+        fs.appendFileSync(tempEncPath, authTag);
+        resolve();
+      });
+      output.on('error', reject);
+      input.on('error', reject);
+      cipher.on('error', reject);
+    });
+
+    try {
+      await StorageService.uploadFromFile(s3Key, tempEncPath);
+    } finally {
+      // Toujours nettoyer les fichiers temporaires, même en cas d'erreur S3
+      await deleteFile(localPath).catch(() => undefined);
+      await deleteFile(tempEncPath).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Retourne un stream de déchiffrement depuis une clé S3.
+   * Utilise des ranged GETs pour éviter de bufferiser le fichier entier :
+   *   - Range 0-15       → IV
+   *   - Range N-16 à N-1 → AuthTag
+   *   - Range 16 à N-17  → contenu chiffré (streamé)
+   */
+  static async getDecryptStreamFromS3(s3Key: string): Promise<Readable> {
+    const key = this.getKey();
+    const objectSize = await StorageService.getObjectSize(s3Key);
+
+    if (objectSize < 32) {
+      throw new Error('Objet S3 invalide : trop petit pour être un fichier chiffré.');
     }
 
-    static async encryptFile(filePath: string): Promise<void> {
-        const key = this.getKey();
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const ivBuffer = await StorageService.getBuffer(s3Key, { start: 0, end: 15 });
+    const tagBuffer = await StorageService.getBuffer(s3Key, { start: objectSize - 16, end: objectSize - 1 });
 
-        const tempPath = `${filePath}.enc`;
-        const input = fs.createReadStream(filePath);
-        const output = fs.createWriteStream(tempPath);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivBuffer)); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    decipher.setAuthTag(Buffer.from(tagBuffer));
 
-        // Write IV at the beginning of the file
-        output.write(iv);
+    if (objectSize === 32) {
+      return Readable.from([]).pipe(decipher);
+    }
 
-        return new Promise((resolve, reject) => {
-            input.pipe(cipher).pipe(output);
+    const contentStream = await StorageService.getStream(s3Key, { start: 16, end: objectSize - 17 });
+    return contentStream.pipe(decipher);
+  }
 
-            output.on('finish', () => {
-                const authTag = cipher.getAuthTag();
-                // Append auth tag at the end (or we could have updated the file structure to store it separately)
-                // To keep it simple in one file: IV (16) + Content + AuthTag (16)
-                // But appending to a stream that just finished is tricky.
-                // Let's write AuthTag to a separate step or stick to IV+Content+Tag format if we handle streams manually.
-
-                // Actually, let's append the auth tag.
-                fs.appendFileSync(tempPath, authTag);
-
-                // Replace original file
-                fs.unlinkSync(filePath);
-                fs.renameSync(tempPath, filePath);
-                resolve();
-            });
-
-            output.on('error', reject);
+  /**
+   * Déchiffre un objet S3 en Buffer (pour l'extraction de texte, OCR, etc.).
+   */
+  static async decryptBufferFromS3(s3Key: string): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const stream = await this.getDecryptStreamFromS3(s3Key);
+        const chunks: Buffer[] = [];
+        stream.on('data', (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Helper unifié : déchiffre vers un stream depuis une clé S3 OU un chemin local.
+   */
+  static async getDecryptStreamAuto(storagePathOrKey: string): Promise<Readable> {
+    if (StorageService.isS3Key(storagePathOrKey)) {
+      return this.getDecryptStreamFromS3(storagePathOrKey);
     }
+    return this.getDecryptStream(storagePathOrKey);
+  }
 
-    static getDecryptStream(filePath: string): fs.ReadStream | crypto.Decipher { // Returns stream
-        const key = this.getKey();
-
-        // Read IV
-        // We need to read the first 16 bytes synchronously or assume the stream handles it?
-        // Handling start/end with streams for IV and Tag is complex.
-        // Simpler approach: Read file stats to get length.
-
-        const stats = fs.statSync(filePath);
-        const fileSize = stats.size;
-
-        // IV is first 16 bytes
-        // Tag is last 16 bytes
-        // Content is in between
-
-        const ivParams = { start: 0, end: 15 };
-        const tagParams = { start: fileSize - 16, end: fileSize - 1 };
-        const contentParams = { start: 16, end: fileSize - 17 };
-
-        // This approach is hard to pipe directly as a single stream without buffering or composite streams.
-        // Alternative: Use a Transform stream that reads header/footer?
-
-        // Better approach for Node:
-        // 1. Read IV.
-        // 2. Create Decipher.
-        // 3. Create ReadStream for content (excluding tag).
-        // 4. Set Auth Tag (read from end).
-
-        const fd = fs.openSync(filePath, 'r');
-        const iv = Buffer.alloc(16);
-        fs.readSync(fd, iv, 0, 16, 0);
-
-        const tag = Buffer.alloc(16);
-        fs.readSync(fd, tag, 0, 16, fileSize - 16);
-
-        fs.closeSync(fd);
-
-        // Tag length enforced: we write exactly 16 bytes and read exactly 16 bytes (see tagParams above).
-        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
-        decipher.setAuthTag(tag);
-
-        const input = fs.createReadStream(filePath, { start: 16, end: fileSize - 17 });
-        return input.pipe(decipher);
+  /**
+   * Helper unifié : déchiffre vers un Buffer depuis une clé S3 OU un chemin local.
+   */
+  static async decryptToBufferAuto(storagePathOrKey: string): Promise<Buffer> {
+    if (StorageService.isS3Key(storagePathOrKey)) {
+      return this.decryptBufferFromS3(storagePathOrKey);
     }
+    return this.decryptFileToBuffer(storagePathOrKey);
+  }
 
-    static async decryptFileToBuffer(filePath: string): Promise<Buffer> {
-        return await new Promise((resolve, reject) => {
-            const chunks: Buffer[] = [];
-            const stream = this.getDecryptStream(filePath);
+  // ── Chiffrement de chaînes de caractères (texte extrait, index) ──────────
 
-            stream.on('data', (chunk: Buffer | string) => {
-                chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-            });
-            stream.on('end', () => resolve(Buffer.concat(chunks)));
-            stream.on('error', reject);
-        });
-    }
+  /**
+   * Chiffre un texte en mémoire.
+   * Format retourné (base64) : IV (16 bytes) + contenu chiffré + AuthTag (16 bytes)
+   */
+  static encryptText(text: string): string {
+    const key = this.getKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return Buffer.concat([iv, encrypted, authTag]).toString('base64');
+  }
+
+  /**
+   * Déchiffre un texte précédemment chiffré avec encryptText.
+   */
+  static decryptText(encryptedBase64: string): string {
+    const key = this.getKey();
+    const data = Buffer.from(encryptedBase64, 'base64');
+    const iv = data.subarray(0, 16);
+    const authTag = data.subarray(data.length - 16);
+    const content = data.subarray(16, data.length - 16);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(content), decipher.final()]).toString('utf8');
+  }
 }

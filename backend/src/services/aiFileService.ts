@@ -2,7 +2,7 @@ import { CohereClientV2 } from 'cohere-ai';
 import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
-import pdfParse from 'pdf-parse';
+
 import { EncryptionService } from './encryptionService';
 import { FileUploadService } from './fileUploadService';
 import { VaultService } from './vaultService';
@@ -26,7 +26,9 @@ export class AIFileService {
     let fileText: string;
 
     if (file.mimeType === 'application/pdf') {
-      const pdfData = await (pdfParse as any)(decryptedBuffer);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { PDFParse } = require('pdf-parse');
+      const pdfData = await new PDFParse({ data: decryptedBuffer }).getText();
       fileText = `Voici le contenu d'un fichier PDF :\n\n${pdfData.text}`;
     } else if (file.mimeType.startsWith('text/') || file.mimeType.includes('json') || file.mimeType.includes('javascript')) {
       fileText = `Voici le contenu d'un fichier texte :\n\n${decryptedBuffer.toString('utf-8')}`;

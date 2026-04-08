@@ -1,5 +1,6 @@
 import prisma from '../config/database';
-import { deleteFile } from '../utils/fileUtils';
+import { StorageService } from './storageService';
+import { BrainService } from './brainService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { PlanService } from './planService';
@@ -49,7 +50,9 @@ export class FileActionService {
     if (!file) throw new Error('File not found');
 
     if (permanent || file.isDeleted) {
-      await deleteFile(file.storagePath);
+      await StorageService.deleteStorageFile(file.storagePath);
+      // Supprimer les embeddings ChromaDB (best-effort — non bloquant)
+      BrainService.deleteFile(fileId).catch(() => undefined);
       await prisma.file.delete({ where: { id: fileId } });
       await PlanService.updateQuotaUsed(userId, -Number(file.size));
     } else {

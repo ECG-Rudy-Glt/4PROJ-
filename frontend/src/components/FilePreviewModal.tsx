@@ -171,6 +171,41 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
   );
 }
 
+function PdfPreview({ streamUrl, fileName }: { streamUrl: string; fileName: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string;
+    fetch(streamUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => setError('Impossible de charger le PDF'));
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [streamUrl]);
+
+  if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
+  if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement du PDF...</p>;
+
+  return (
+    <div className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
+      <iframe
+        src={`${blobUrl}#toolbar=1`}
+        className="w-full h-[70vh]"
+        title={fileName}
+      />
+    </div>
+  );
+}
+
 export default function FilePreviewModal({ file, onClose, isShared = false }: FilePreviewModalProps) {
   const { t } = useTranslation();
   const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments'); // Onglet actif
@@ -267,15 +302,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
         );
 
       case 'pdf':
-        return (
-          <div className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-            <iframe
-              src={`${streamUrl}#toolbar=1`}
-              className="w-full h-[70vh]"
-              title={file.name}
-            />
-          </div>
-        );
+        return <PdfPreview streamUrl={streamUrl} fileName={file.name} />;
 
       case 'markdown':
         return <MarkdownPreview file={file} isShared={isShared} />;

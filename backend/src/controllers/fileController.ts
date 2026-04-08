@@ -4,6 +4,7 @@ import { AuthRequest, FileUploadRequest } from '../types';
 import fs from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
+import { StorageService } from '../services/storageService';
 import { AuditService } from '../services/auditService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
@@ -178,7 +179,8 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
-      if (!fs.existsSync(file.storagePath)) {
+      // Vérifier l'existence selon la source (S3 ou local)
+      if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
@@ -192,13 +194,24 @@ export class FileController {
         fileId: file.id,
       }).catch((e) => logger.error(e));
 
-      // Decrypt and stream
-      res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
       res.setHeader('Content-Type', file.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[downloadFile] decrypt error:');
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to download file' });
+        } else {
+          res.destroy();
+        }
+      });
       decryptStream.pipe(res);
-    } catch (error) { next(error); }
+    } catch (error) {
+      if (!res.headersSent) {
+        next(error);
+      }
+    }
   }
 
   static async streamFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -208,7 +221,7 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
-      if (!fs.existsSync(file.storagePath)) {
+      if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
@@ -216,19 +229,29 @@ export class FileController {
       // Increment view count for streams/previews
       FileService.incrementViewCount(fileId).catch((e) => logger.error(e));
 
-      const stat = fs.statSync(file.storagePath);
-      // Decrypted size is roughly original size (minus IV/AuthTag if stored in file).
-      // We stored IV (16) + Tag (16) = 32 bytes overhead.
-      const fileSize = stat.size - 32;
+      const ENCRYPTION_OVERHEAD_BYTES = 32;
+      let encryptedSize: number;
+      if (StorageService.isS3Key(file.storagePath)) {
+        encryptedSize = await StorageService.getObjectSize(file.storagePath);
+      } else {
+        const stat = fs.statSync(file.storagePath);
+        encryptedSize = stat.size;
+      }
 
-      // Support simple streaming (no range for encrypted files in MVP)
-      const head = {
-        'Content-Length': fileSize,
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        logger.error({ fileId: file.id, storagePath: file.storagePath, encryptedSize }, '[streamFile] invalid encrypted file size');
+        res.status(500).json({ error: 'Stored file is invalid or corrupted' });
+        return;
+      }
+
+      const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
+
+      res.writeHead(200, {
+        'Content-Length': decryptedSize,
         'Content-Type': file.mimeType,
-      };
-      res.writeHead(200, head);
+      });
 
-      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
       decryptStream.on('error', (err) => {
         logger.error({ err }, '[streamFile] decrypt error:');
         if (!res.headersSent) {
