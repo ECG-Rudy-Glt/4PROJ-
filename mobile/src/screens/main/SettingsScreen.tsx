@@ -27,6 +27,7 @@ import { authService } from '../../services/authService';
 import { RootStackParamList } from '../../types';
 import NotificationCenter from '../../components/NotificationCenter';
 import MfaSetupModal from '../../components/MfaSetupModal';
+import AccountSwitcherModal from '../../components/AccountSwitcherModal';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [showMfa, setShowMfa] = useState(false);
+  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -247,6 +249,12 @@ export default function SettingsScreen() {
           <Text style={styles.menuLabel}>Corbeille</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuRow} onPress={() => setShowAccountSwitcher(true)}>
+          <Ionicons name="swap-horizontal-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Comptes liés & délégations</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
       </View>
 
       {/* Sécurité */}
@@ -353,6 +361,7 @@ export default function SettingsScreen() {
 
       <NotificationCenter visible={showNotifs} onClose={() => setShowNotifs(false)} />
       <MfaSetupModal visible={showMfa} onClose={() => setShowMfa(false)} />
+      <AccountSwitcherModal visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
     </ScrollView>
   );
 }
