@@ -9,7 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Share,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +21,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import api from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { authService } from '../../services/authService';
 import { RootStackParamList } from '../../types';
@@ -54,6 +57,33 @@ export default function SettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [changingPwd, setChangingPwd] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handlePickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Toast.show({ type: 'error', text1: 'Permission refusée pour la galerie' });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    setUploadingAvatar(true);
+    try {
+      const { user: updated } = await authService.uploadAvatar(uri);
+      setUser(updated);
+      Toast.show({ type: 'success', text1: 'Avatar mis à jour' });
+    } catch {
+      Toast.show({ type: 'error', text1: 'Erreur lors de l\'upload' });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleExportData = async () => {
     setExporting(true);
@@ -126,9 +156,18 @@ export default function SettingsScreen() {
 
       {/* Avatar + nom */}
       <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+        <TouchableOpacity style={styles.avatar} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+          {user?.avatar ? (
+            <Image source={{ uri: user.avatar.startsWith('http') ? user.avatar : `${api.defaults.baseURL?.replace('/api', '')}${user.avatar}` }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{initials}</Text>
+          )}
+          {uploadingAvatar && (
+            <View style={styles.avatarOverlay}>
+              <ActivityIndicator color={colors.white} />
+            </View>
+          )}
+        </TouchableOpacity>
         <Text style={styles.userName}>
           {user?.firstName} {user?.lastName}
         </Text>
@@ -505,5 +544,18 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.primary[500],
     borderRadius: borderRadius.full,
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: borderRadius.full,
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

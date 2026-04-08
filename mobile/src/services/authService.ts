@@ -43,6 +43,17 @@ export const authService = {
     await api.post('/auth/logout-all');
   },
 
+  async uploadAvatar(localUri: string): Promise<{ avatarUrl: string; user: User }> {
+    const formData = new FormData();
+    const filename = localUri.split('/').pop() ?? 'avatar.jpg';
+    const ext = filename.split('.').pop() ?? 'jpg';
+    (formData as any).append('avatar', { uri: localUri, name: filename, type: `image/${ext}` });
+    const res = await api.post('/auth/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
   /**
    * RGPD: downloads the user's data export (CSV) using the bearer token,
    * writes it to the cache directory and returns the local file URI.
