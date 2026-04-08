@@ -37,6 +37,12 @@ router.post('/search-files', requireDelegationPermission('read'), AIController.s
 router.post('/generate-file', requireDelegationPermission('write'), AIController.generateFile);
 
 /**
+ * Re-indexer les fichiers dans ChromaDB (vecteur store)
+ * POST /api/ai/reindex
+ */
+router.post('/reindex', requireDelegationPermission('write'), AIController.reindexFiles);
+
+/**
  * Conversations Bobby
  */
 router.get('/conversations', requireDelegationPermission('read'), AIController.getConversations);

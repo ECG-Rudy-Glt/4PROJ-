@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
 import aiService from '../services/aiService';
+import { FileIndexService } from '../services/fileIndexService';
 
 export class AIController {
   /**
@@ -213,6 +214,29 @@ export class AIController {
         ...result,
         timestamp: new Date().toISOString(),
       });
+    } catch (error) { next(error); }
+  }
+
+  /**
+   * Re-indexer tous les fichiers de l'utilisateur dans ChromaDB
+   * POST /api/ai/reindex
+   */
+  static async reindexFiles(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const files = await prisma.file.findMany({
+        where: { userId, isDeleted: false },
+        select: { id: true },
+      });
+
+      // Fire-and-forget — non-blocking
+      for (const file of files) {
+        FileIndexService.indexFileAsync(file.id, userId);
+      }
+
+      res.json({ message: `Re-indexation de ${files.length} fichiers lancée en arrière-plan.`, count: files.length });
     } catch (error) { next(error); }
   }
 
