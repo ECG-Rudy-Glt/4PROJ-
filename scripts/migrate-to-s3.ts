@@ -9,7 +9,7 @@
  *   --batch=50  Nombre de fichiers traités par lot (défaut: 50)
  *
  * Comportement :
- *   - Traite uniquement les fichiers dont storagePath commence par "/" (chemin local)
+ *   - Traite les fichiers dont storagePath commence par "/", "./" ou "uploads/" (chemins locaux)
  *   - Uploade l'objet déjà chiffré vers S3 (pas de re-chiffrement)
  *   - Met à jour storagePath en base avec la clé S3
  *   - Passe les fichiers déjà en S3 (storagePath = "files/…")

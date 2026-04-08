@@ -42,11 +42,11 @@ export class AIController {
         });
       }
 
-      // Construire l'historique au format Ollama
-      const history = conversation.messages.map((m: any) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      // Construire l'historique au format Ollama — borné à 50 messages (limite brain-api)
+      const MAX_HISTORY = 50;
+      const history = conversation.messages
+        .slice(-MAX_HISTORY)
+        .map((m: any) => ({ role: m.role, content: m.content }));
 
       const response = await aiService.chat(userId, message, history);
 

@@ -39,8 +39,8 @@ router.post('/generate-file', requireDelegationPermission('write'), AIController
 /**
  * Conversations Bobby
  */
-router.get('/conversations', AIController.getConversations);
-router.get('/conversations/:id', AIController.getConversation);
-router.delete('/conversations/:id', AIController.deleteConversation);
+router.get('/conversations', requireDelegationPermission('read'), AIController.getConversations);
+router.get('/conversations/:id', requireDelegationPermission('read'), AIController.getConversation);
+router.delete('/conversations/:id', requireDelegationPermission('delete'), AIController.deleteConversation);
 
 export default router;

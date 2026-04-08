@@ -146,11 +146,15 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
+      BUCKET='${S3_BUCKET:-supfile-uploads}' &&
       mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
-      mc mb local/${S3_BUCKET:-supfile-uploads} --ignore-existing &&
+      mc mb local/$$BUCKET --ignore-existing &&
       mc admin user add local $$MINIO_APP_ACCESS_KEY $$MINIO_APP_SECRET_KEY || true &&
-      mc admin policy attach local readwrite --user $$MINIO_APP_ACCESS_KEY &&
-      echo 'Bucket MinIO prêt.' &&
+      printf '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::'$$BUCKET'\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:AbortMultipartUpload\",\"s3:ListMultipartUploadParts\"],\"Resource\":[\"arn:aws:s3:::'\$$BUCKET'/*\"]}]}' > /tmp/app-policy.json &&
+      mc admin policy remove local app-bucket-policy >/dev/null 2>&1 || true &&
+      mc admin policy create local app-bucket-policy /tmp/app-policy.json &&
+      mc admin policy attach local app-bucket-policy --user $$MINIO_APP_ACCESS_KEY &&
+      echo 'Bucket MinIO pret.' &&
       exit 0
       "
     environment:

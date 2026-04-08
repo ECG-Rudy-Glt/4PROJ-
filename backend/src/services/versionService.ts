@@ -191,9 +191,10 @@ export class VersionService {
       // Copie locale (fichiers pré-migration)
       currentBackupPath = path.join(uploadDir, `${Date.now()}-backup-${path.basename(file.storagePath)}`);
       const currentFilePath = file.storagePath.startsWith('/') ? file.storagePath : path.join(uploadDir, file.storagePath);
-      if (fs.existsSync(currentFilePath)) {
-        fs.copyFileSync(currentFilePath, currentBackupPath);
+      if (!fs.existsSync(currentFilePath)) {
+        throw new Error(`Impossible de créer une version : fichier courant introuvable (${currentFilePath})`);
       }
+      fs.copyFileSync(currentFilePath, currentBackupPath);
     }
 
     await prisma.fileVersion.create({
