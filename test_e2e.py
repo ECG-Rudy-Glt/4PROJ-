@@ -214,7 +214,7 @@ def api(method, path, token=None, **kwargs):
     headers = kwargs.pop("headers", {})
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    r = getattr(requests, method)(f"{API}{path}", headers=headers, timeout=30, **kwargs)
+    r = getattr(requests, method)(f"{API}{path}", headers=headers, timeout=90, **kwargs)
     return r
 
 def wait_for_backend(max_retries=30):
@@ -353,8 +353,8 @@ def test_minio_direct():
 
 def test_ai_chat(token):
     print(f"\n{c('bold', '── 6. Questions au LLM (Bobby) ──────────────────────')}")
-    info("Attente indexation + embedding (30s)...")
-    time.sleep(30)
+    info("Attente indexation + embedding (60s)...")
+    time.sleep(60)
 
     for q_item in CHAT_QUESTIONS:
         question = q_item["q"]

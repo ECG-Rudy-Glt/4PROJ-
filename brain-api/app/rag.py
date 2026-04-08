@@ -10,7 +10,7 @@ from .vector_store import vector_store
 # with OVERLAP_SENTENCES sentences of context from the previous chunk.
 MAX_CHUNK_CHARS = 600
 OVERLAP_SENTENCES = 2
-MAX_CONTEXT_CHARS = 1_400  # stays well inside 2048-token context window
+MAX_CONTEXT_CHARS = 3_000  # gemma2:2b has 8192-token context; 3000 chars ≈ 750 tokens
 
 # Sentence boundary: ends with . ! ? followed by whitespace or end-of-string
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
@@ -86,19 +86,24 @@ def chat_with_rag(user_id: str, query: str, history: List[Dict[str, str]] = None
         except Exception as e:
             logger.error(f"Failed to reformulate query: {e}")
 
-    chunks = search_documents(user_id, search_query, limit=3)
+    chunks = search_documents(user_id, search_query, limit=10)
+    logger.info(f"RAG retrieved {len(chunks)} chunks, distances: {[round(c.get('distance',0),3) for c in chunks]}")
+    for i, c in enumerate(chunks[:3]):
+        logger.info(f"  chunk[{i}] file={c.get('file_name','?')} dist={round(c.get('distance',0),3)} text={c.get('text','')[:80]!r}")
+    # No distance filtering — pass all retrieved chunks to the LLM
+    chunks = chunks
 
     if chunks:
         context = "\n\n".join(
             f"[{c['file_name']}]\n{c['text']}" for c in chunks
         )[:MAX_CONTEXT_CHARS]
         system = (
-            "Tu es Bobby, un assistant de gestion de fichiers RIGOUREUX et STRICT.\n"
-            "RÈGLE 1 : Tu ne peux répondre qu'aux questions portant SEULEMENT sur les extraits de documents fournis ci-dessous.\n"
-            "RÈGLE 2 : Tu as INTERDICTION FORMELLE d'utiliser tes connaissances générales ou de répondre à des sujets extérieurs aux documents.\n"
-            "RÈGLE 3 : Si la réponse n'est pas EXPLICITEMENT dans les extraits, affirme clairement 'Je ne trouve pas cette information dans vos documents.' sans rien inventer."
+            "Tu es Bobby, un assistant de gestion de fichiers.\n"
+            "Réponds UNIQUEMENT en te basant sur les extraits de documents fournis ci-dessous.\n"
+            "Si les extraits contiennent l'information, fournis une réponse précise en citant les données.\n"
+            "N'utilise jamais tes connaissances générales. Si l'information est vraiment absente des extraits, dis-le brièvement."
         )
-        prompt = f"Extraits de documents :\n{context}\n\nQuestion de l'utilisateur : {query}"
+        prompt = f"Extraits de documents :\n{context}\n\nQuestion : {query}"
     else:
         system = (
             "Tu es Bobby, un assistant de gestion de fichiers STRICT.\n"

@@ -19,7 +19,10 @@
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
+// Run from backend/: cd backend && npx tsx ../scripts/migrate-to-s3.ts
+// Path below resolves when tsx runs from backend/ dir (node_modules lookup)
+// @ts-ignore — resolved at runtime from backend/node_modules
+import { PrismaClient } from '../backend/node_modules/@prisma/client';
 import { StorageService } from '../backend/src/services/storageService';
 
 const prisma = new PrismaClient();
