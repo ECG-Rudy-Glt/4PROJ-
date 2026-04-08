@@ -134,18 +134,21 @@ export class EncryptionService {
     const key = this.getKey();
     const objectSize = await StorageService.getObjectSize(s3Key);
 
-    if (objectSize < 33) {
+    if (objectSize < 32) {
       throw new Error('Objet S3 invalide : trop petit pour être un fichier chiffré.');
     }
 
     const ivBuffer = await StorageService.getBuffer(s3Key, { start: 0, end: 15 });
     const tagBuffer = await StorageService.getBuffer(s3Key, { start: objectSize - 16, end: objectSize - 1 });
 
-    const contentStream = await StorageService.getStream(s3Key, { start: 16, end: objectSize - 17 });
-
     const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivBuffer)); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
     decipher.setAuthTag(Buffer.from(tagBuffer));
 
+    if (objectSize === 32) {
+      return Readable.from([]).pipe(decipher);
+    }
+
+    const contentStream = await StorageService.getStream(s3Key, { start: 16, end: objectSize - 17 });
     return contentStream.pipe(decipher);
   }
 

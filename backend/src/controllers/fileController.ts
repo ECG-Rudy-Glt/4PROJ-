@@ -198,8 +198,20 @@ export class FileController {
       res.setHeader('Content-Type', file.mimeType);
 
       const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[downloadFile] decrypt error:');
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to download file' });
+        } else {
+          res.destroy();
+        }
+      });
       decryptStream.pipe(res);
-    } catch (error) { next(error); }
+    } catch (error) {
+      if (!res.headersSent) {
+        next(error);
+      }
+    }
   }
 
   static async streamFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

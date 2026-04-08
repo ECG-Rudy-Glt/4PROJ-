@@ -30,11 +30,13 @@ export class AIController {
       if (conversationId) {
         conversation = await prisma.conversation.findFirst({
           where: { id: conversationId, userId },
-          include: { messages: { orderBy: { createdAt: 'asc' } } },
+          include: { messages: { orderBy: { createdAt: 'desc' }, take: 50 } },
         });
         if (!conversation) {
           return res.status(404).json({ error: 'Conversation not found' });
         }
+        // Restaurer l'ordre chronologique (ascendant)
+        conversation.messages.reverse();
       } else {
         conversation = await prisma.conversation.create({
           data: { userId, title: message.slice(0, 60) },
@@ -42,10 +44,8 @@ export class AIController {
         });
       }
 
-      // Construire l'historique au format Ollama — borné à 50 messages (limite brain-api)
-      const MAX_HISTORY = 50;
+      // Construire l'historique au format Ollama — déjà limité à 50 messages par Prisma
       const history = conversation.messages
-        .slice(-MAX_HISTORY)
         .map((m: any) => ({ role: m.role, content: m.content }));
 
       const response = await aiService.chat(userId, message, history);

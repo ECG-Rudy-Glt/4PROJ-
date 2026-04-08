@@ -19,7 +19,7 @@
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient } from '../backend/node_modules/@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { StorageService } from '../backend/src/services/storageService';
 
 const prisma = new PrismaClient();
