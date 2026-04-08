@@ -22,6 +22,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { authService } from '../../services/authService';
 import { RootStackParamList } from '../../types';
 import NotificationCenter from '../../components/NotificationCenter';
+import MfaSetupModal from '../../components/MfaSetupModal';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -46,6 +47,7 @@ export default function SettingsScreen() {
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [saving, setSaving] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -198,11 +200,14 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Sécurité</Text>
 
-        <SettingsRow
-          icon="shield-checkmark-outline"
-          label="MFA"
-          value={user?.mfaEnabled ? 'Activé' : 'Désactivé'}
-        />
+        <TouchableOpacity style={styles.menuRow} onPress={() => setShowMfa(true)}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Authentification à deux facteurs</Text>
+          <Text style={[styles.infoValue, { marginRight: spacing.sm }]}>
+            {user?.mfaEnabled ? 'Activé' : 'Désactivé'}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.menuRow}
@@ -280,6 +285,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       <NotificationCenter visible={showNotifs} onClose={() => setShowNotifs(false)} />
+      <MfaSetupModal visible={showMfa} onClose={() => setShowMfa(false)} />
     </ScrollView>
   );
 }
