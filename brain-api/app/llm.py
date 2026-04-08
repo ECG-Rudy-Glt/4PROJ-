@@ -9,7 +9,9 @@ import os
 import httpx
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b")
+# `OLLAMA_MODEL` can be overridden by the environment; keep this fallback
+# aligned with the model pulled/configured by the deployment stack.
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:2b")
 
 
 def generate(prompt: str, system: str = "", max_tokens: int = 512, history: list = None) -> str:

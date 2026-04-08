@@ -68,7 +68,25 @@ def search_documents(user_id: str, query: str, limit: int = 3) -> List[Dict[str,
 
 
 def chat_with_rag(user_id: str, query: str, history: List[Dict[str, str]] = None) -> str:
-    chunks = search_documents(user_id, query, limit=3)
+    import logging
+    logger = logging.getLogger("brain-api")
+
+    search_query = query
+    if history and len(history) > 0:
+        reformulation_system = (
+            "Tu es un assistant IA spécialisé dans l'optimisation de recherche. "
+            "Ton rôle est de lire l'historique de conversation et la nouvelle question de l'utilisateur, "
+            "et de réécrire cette question de manière totalement autonome et explicite en remplaçant les pronoms "
+            "(il, ce, ça, ce fichier, cette facture...) par le sujet exact dont vous parliez. "
+            "IMPORTANT: Ne réponds QUE par la question reformulée. N'ajoute aucune autre phrase."
+        )
+        try:
+            search_query = generate(f"Réécris cette question de façon autonome : {query}", system=reformulation_system, history=history, max_tokens=100)
+            logger.info(f"RAG Reformulation | Original: '{query}' -> Réécrite: '{search_query}'")
+        except Exception as e:
+            logger.error(f"Failed to reformulate query: {e}")
+
+    chunks = search_documents(user_id, search_query, limit=3)
 
     if chunks:
         context = "\n\n".join(

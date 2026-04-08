@@ -71,12 +71,13 @@ export class AIService {
 
     // Prefer already-indexed text to avoid double decryption
     if (file.searchIndex?.extractedText) {
-      return BrainService.analyze(file.searchIndex.extractedText, question);
+      const plainText = EncryptionService.decryptText(file.searchIndex.extractedText);
+      return BrainService.analyze(plainText, question);
     }
 
     // Fallback: decrypt and extract on the fly
     try {
-      const buffer = await EncryptionService.decryptFileToBuffer(file.storagePath);
+      const buffer = await EncryptionService.decryptToBufferAuto(file.storagePath);
       let text = '';
 
       if (file.mimeType === 'application/pdf') {
@@ -184,7 +185,7 @@ export class AIService {
         OR: [
           { name: { contains: keyword, mode: 'insensitive' } },
           { originalName: { contains: keyword, mode: 'insensitive' } },
-          { searchIndex: { is: { extractedText: { contains: keyword, mode: 'insensitive' } } } },
+          { searchIndex: { is: { aiSummary: { contains: keyword, mode: 'insensitive' } } } },
         ],
       },
       include,
@@ -271,14 +272,9 @@ export class AIService {
 
     // Everything else → RAG chat via brain-api
     try {
-      const historyItems = conversationHistory
-        ? conversationHistory
-            .filter((msg: any) => msg.role === 'user' || msg.role === 'model')
-            .map((msg: any) => ({
-              role: msg.role === 'model' ? 'assistant' : 'user',
-              content: msg.parts?.[0]?.text || '',
-            }))
-        : [];
+      const historyItems = (conversationHistory ?? [])
+        .filter((msg: any) => msg.role === 'user' || msg.role === 'assistant')
+        .map((msg: any) => ({ role: msg.role as string, content: msg.content as string }));
       return await BrainService.chat(userId, message, historyItems);
     } catch (error: any) {
       if (error.name === 'AbortError') throw new Error('TIMEOUT');

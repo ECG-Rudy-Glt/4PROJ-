@@ -110,6 +110,8 @@ export class EncryptionService {
         resolve();
       });
       output.on('error', reject);
+      input.on('error', reject);
+      cipher.on('error', reject);
     });
 
     try {
@@ -184,5 +186,34 @@ export class EncryptionService {
       return this.decryptBufferFromS3(storagePathOrKey);
     }
     return this.decryptFileToBuffer(storagePathOrKey);
+  }
+
+  // ── Chiffrement de chaînes de caractères (texte extrait, index) ──────────
+
+  /**
+   * Chiffre un texte en mémoire.
+   * Format retourné (base64) : IV (16 bytes) + contenu chiffré + AuthTag (16 bytes)
+   */
+  static encryptText(text: string): string {
+    const key = this.getKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return Buffer.concat([iv, encrypted, authTag]).toString('base64');
+  }
+
+  /**
+   * Déchiffre un texte précédemment chiffré avec encryptText.
+   */
+  static decryptText(encryptedBase64: string): string {
+    const key = this.getKey();
+    const data = Buffer.from(encryptedBase64, 'base64');
+    const iv = data.subarray(0, 16);
+    const authTag = data.subarray(data.length - 16);
+    const content = data.subarray(16, data.length - 16);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(content), decipher.final()]).toString('utf8');
   }
 }

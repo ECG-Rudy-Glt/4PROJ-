@@ -1,8 +1,0 @@
-﻿src/jobs/trashCleanup.ts(83,11): error TS2353: Object literal may only specify known properties, and 'isDeleted' does not exist in type 'FolderWhereInput'.
-src/services/folderService.ts(107,9): error TS2353: Object literal may only specify known properties, and 'isDeleted' does not exist in type 'FolderWhereInput'.
-src/services/folderService.ts(264,29): error TS2339: Property 'isDeleted' does not exist on type '{ name: string; id: string; createdAt: Date; updatedAt: Date; path: string; userId: string; isVault: boolean; parentId: string; }'.
-src/services/folderService.ts(303,17): error TS2353: Object literal may only specify known properties, and 'isDeleted' does not exist in type '(Without<FolderUpdateInput, FolderUncheckedUpdateInput> & FolderUncheckedUpdateInput) | (Without<...> & FolderUpdateInput)'.
-src/services/folderService.ts(357,38): error TS2353: Object literal may only specify known properties, and 'isDeleted' does not exist in type 'FolderWhereInput'.
-src/services/folderService.ts(364,15): error TS2353: Object literal may only specify known properties, and 'isDeleted' does not exist in type '(Without<FolderUpdateInput, FolderUncheckedUpdateInput> & FolderUncheckedUpdateInput) | (Without<...> & FolderUpdateInput)'.
-src/services/folderService.ts(373,24): error TS2353: Object literal may only specify known properties, and 'isDeleted' does not exist in type 'FolderWhereInput'.
-src/services/folderService.ts(374,18): error TS2353: Object literal may only specify known properties, and 'deletedAt' does not exist in type 'FolderOrderByWithRelationInput | FolderOrderByWithRelationInput[]'.

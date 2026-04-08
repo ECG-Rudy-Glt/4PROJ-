@@ -107,13 +107,22 @@ export class StorageService {
   }
 
   /**
+   * Encode une clé S3 pour l'utiliser dans CopySource, en conservant les
+   * séparateurs de chemin `/`.
+   */
+  private static encodeCopySourceKey(key: string): string {
+    return key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  }
+
+  /**
    * Copie d'un objet S3 (utilisé pour les versions de fichiers).
    */
   static async copy(sourceKey: string, destKey: string): Promise<void> {
+    const encodedSourceKey = this.encodeCopySourceKey(sourceKey);
     await s3Client.send(
       new CopyObjectCommand({
         Bucket: BUCKET,
-        CopySource: `${BUCKET}/${sourceKey}`,
+        CopySource: `${BUCKET}/${encodedSourceKey}`,
         Key: destKey,
       })
     );

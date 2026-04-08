@@ -5,6 +5,9 @@
 
 const BRAIN_URL = process.env.BRAIN_API_URL || 'http://brain-api:8001';
 
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 1_000;
+
 interface SearchResult {
   text: string;
   file_name: string;
@@ -12,24 +15,45 @@ interface SearchResult {
   distance: number | null;
 }
 
+function isRetryable(status: number): boolean {
+  return status === 502 || status === 503 || status === 504;
+}
+
 async function post<T = any>(path: string, body: object, timeoutMs = 30_000): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${BRAIN_URL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(`brain-api ${res.status}: ${msg}`);
+  let lastError: Error = new Error('brain-api unreachable');
+
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${BRAIN_URL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        lastError = new Error(`brain-api ${res.status}: ${msg}`);
+        if (!isRetryable(res.status)) throw lastError;
+      } else {
+        return res.json() as Promise<T>;
+      }
+    } catch (err: any) {
+      // AbortError = timeout — do not retry
+      if (err.name === 'AbortError') throw err;
+      lastError = err instanceof Error ? err : new Error(String(err));
+    } finally {
+      clearTimeout(timer);
     }
-    return res.json() as Promise<T>;
-  } finally {
-    clearTimeout(timer);
+
+    if (attempt < RETRY_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
+    }
   }
+
+  throw lastError;
 }
 
 export class BrainService {

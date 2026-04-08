@@ -1,5 +1,5 @@
 /**
- * Script de migration : déplace les fichiers locaux existants vers Garage S3.
+ * Script de migration : déplace les fichiers locaux existants vers MinIO.
  *
  * Usage (depuis le conteneur backend ou en local avec les bonnes env vars) :
  *   npx tsx scripts/migrate-to-s3.ts
@@ -35,7 +35,7 @@ function isLocalPath(p: string): boolean {
 
 async function migrateFiles() {
   console.log('═══════════════════════════════════════════════════════');
-  console.log(' Migration fichiers locaux → Garage S3');
+  console.log(' Migration fichiers locaux → MinIO');
   console.log(`  Mode : ${DRY_RUN ? 'DRY-RUN (aucune modification)' : 'PRODUCTION'}`);
   console.log(`  Lot  : ${BATCH_SIZE} fichiers`);
   console.log('═══════════════════════════════════════════════════════\n');
@@ -76,7 +76,7 @@ async function migrateFiles() {
         continue;
       }
 
-      const s3Key = `files/${file.userId}/${path.basename(localPath)}`;
+      const s3Key = `files/${file.userId}/${file.id}-${path.basename(localPath)}`;
 
       console.log(`  [→] ${file.name} (${file.id})`);
       console.log(`      ${localPath} → ${s3Key}`);
@@ -128,7 +128,7 @@ async function migrateFiles() {
       continue;
     }
 
-    const s3Key = `versions/${version.fileId}/${path.basename(localPath)}`;
+    const s3Key = `versions/${version.fileId}/${version.id}-${path.basename(localPath)}`;
     console.log(`  [→] version ${version.name} → ${s3Key}`);
 
     if (!DRY_RUN) {

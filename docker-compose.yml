@@ -51,8 +51,9 @@ services:
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-supfile-uploads}
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      # Utiliser un compte MinIO dédié à l'application, limité au bucket applicatif
+      S3_ACCESS_KEY_ID: ${MINIO_APP_ACCESS_KEY:?MINIO_APP_ACCESS_KEY est requis}
+      S3_SECRET_ACCESS_KEY: ${MINIO_APP_SECRET_KEY:?MINIO_APP_SECRET_KEY est requis}
       # AI - Bobby le robot (local RAG)
       BRAIN_API_URL: http://brain-api:8001
       # MFA (Multi-Factor Authentication)
@@ -147,12 +148,16 @@ services:
       /bin/sh -c "
       mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
       mc mb local/${S3_BUCKET:-supfile-uploads} --ignore-existing &&
+      mc admin user add local $$MINIO_APP_ACCESS_KEY $$MINIO_APP_SECRET_KEY || true &&
+      mc admin policy attach local readwrite --user $$MINIO_APP_ACCESS_KEY &&
       echo 'Bucket MinIO prêt.' &&
       exit 0
       "
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY}
     restart: "no"
     networks:
       - supfile-network
@@ -177,7 +182,7 @@ services:
     container_name: supfile-brain
     environment:
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
       CHROMA_PATH: /app/chromadb
     volumes:
       - brain_chromadb:/app/chromadb
@@ -210,3 +215,5 @@ volumes:
     driver: local
   brain_chromadb:
     driver: local
+
+

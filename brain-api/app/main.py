@@ -1,10 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import Dict, List, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Optional, List, Dict
+from pydantic import BaseModel, Field, field_validator
 
 from .rag import analyze_text, chat_with_rag, embed_and_store, generate_text, search_documents
 from .vector_store import vector_store
@@ -27,32 +27,53 @@ app = FastAPI(title="brain-api", lifespan=lifespan)
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+MAX_QUERY_CHARS    = 10_000
+MAX_HISTORY_MSGS   = 50
+MAX_MSG_CHARS      = 5_000
+MAX_TEXT_CHARS     = 200_000
+MAX_PROMPT_CHARS   = 10_000
+
+
 class EmbedRequest(BaseModel):
     file_id: str
     user_id: str
     file_name: str
-    text: str
+    text: str = Field(max_length=MAX_TEXT_CHARS)
 
 
 class SearchRequest(BaseModel):
     user_id: str
-    query: str
-    limit: int = 3
+    query: str = Field(max_length=MAX_QUERY_CHARS)
+    limit: int = Field(default=3, ge=1, le=20)
 
 
 class ChatRequest(BaseModel):
     user_id: str
-    query: str
+    query: str = Field(max_length=MAX_QUERY_CHARS)
     history: Optional[List[Dict[str, str]]] = None
+
+    @field_validator("history")
+    @classmethod
+    def validate_history(cls, v: Optional[List[Dict[str, str]]]) -> Optional[List[Dict[str, str]]]:
+        if v is None:
+            return v
+        if len(v) > MAX_HISTORY_MSGS:
+            raise ValueError(f"history must not exceed {MAX_HISTORY_MSGS} messages")
+        for msg in v:
+            if msg.get("role") not in ("user", "assistant", "system"):
+                raise ValueError("history[].role must be 'user', 'assistant' or 'system'")
+            if len(msg.get("content", "")) > MAX_MSG_CHARS:
+                raise ValueError(f"each history message must not exceed {MAX_MSG_CHARS} chars")
+        return v
 
 
 class AnalyzeRequest(BaseModel):
-    text: str
-    question: str
+    text: str = Field(max_length=MAX_TEXT_CHARS)
+    question: str = Field(max_length=MAX_QUERY_CHARS)
 
 
 class GenerateRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(max_length=MAX_PROMPT_CHARS)
 
 
 # ---------------------------------------------------------------------------

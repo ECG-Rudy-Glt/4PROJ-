@@ -98,20 +98,23 @@ export class FileIndexService {
     }
 
     const aiSummary = this.summarizeText(extractedText);
+    // Le texte complet est chiffré au repos — seul aiSummary (court extrait affiché)
+    // reste en clair pour permettre la recherche SQL de secours.
+    const encryptedText = extractedText ? EncryptionService.encryptText(extractedText) : '';
 
     await prisma.fileSearchIndex.upsert({
       where: {
         fileId: file.id,
       },
       update: {
-        extractedText,
+        extractedText: encryptedText,
         aiSummary,
         ocrUsed,
         indexedAt: new Date(),
       },
       create: {
         fileId: file.id,
-        extractedText,
+        extractedText: encryptedText,
         aiSummary,
         ocrUsed,
       },
@@ -135,7 +138,8 @@ export class FileIndexService {
 
     const indexes = await prisma.fileSearchIndex.findMany({
       where: {
-        extractedText: {
+        // extractedText est chiffré — on cherche sur aiSummary (extrait court en clair)
+        aiSummary: {
           contains: query.trim(),
           mode: 'insensitive',
         },

@@ -194,7 +194,7 @@ export class FileController {
         fileId: file.id,
       }).catch((e) => logger.error(e));
 
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
       res.setHeader('Content-Type', file.mimeType);
 
       const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
@@ -217,15 +217,22 @@ export class FileController {
       // Increment view count for streams/previews
       FileService.incrementViewCount(fileId).catch((e) => logger.error(e));
 
-      // Taille déchiffrée = taille stockée - 32 octets (IV 16 + AuthTag 16)
-      let decryptedSize: number;
+      const ENCRYPTION_OVERHEAD_BYTES = 32;
+      let encryptedSize: number;
       if (StorageService.isS3Key(file.storagePath)) {
-        const objectSize = await StorageService.getObjectSize(file.storagePath);
-        decryptedSize = objectSize - 32;
+        encryptedSize = await StorageService.getObjectSize(file.storagePath);
       } else {
         const stat = fs.statSync(file.storagePath);
-        decryptedSize = stat.size - 32;
+        encryptedSize = stat.size;
       }
+
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        logger.error({ fileId: file.id, storagePath: file.storagePath, encryptedSize }, '[streamFile] invalid encrypted file size');
+        res.status(500).json({ error: 'Stored file is invalid or corrupted' });
+        return;
+      }
+
+      const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
 
       res.writeHead(200, {
         'Content-Length': decryptedSize,
