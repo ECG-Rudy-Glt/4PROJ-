@@ -18,6 +18,10 @@ import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useFileStore } from '../stores/useFileStore';
+import { useDashboardStore } from '../stores/useDashboardStore';
+import { useNotificationStore } from '../stores/useNotificationStore';
+import api from '../services/api';
 import {
   accountAccessService,
   AccountSwitchLink,
@@ -55,6 +59,13 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
   const [grantShare, setGrantShare] = useState(false);
   const [savingGrant, setSavingGrant] = useState(false);
 
+  const resetAllStores = (token: string) => {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    useFileStore.getState().reset();
+    useDashboardStore.getState().reset();
+    useNotificationStore.getState().reset();
+  };
+
   const load = async () => {
     setLoading(true);
     try {
@@ -79,6 +90,7 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
   const handleSwitch = async (linkId: string) => {
     try {
       const { token, user: next } = await accountAccessService.switchToLinkedAccount(linkId);
+      resetAllStores(token);
       await setAuth(token, next);
       Toast.show({ type: 'success', text1: `Session: ${next.email}` });
       onClose();
@@ -90,6 +102,7 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
   const handleSwitchBack = async () => {
     try {
       const { token, user: next } = await accountAccessService.switchBack();
+      resetAllStores(token);
       await setAuth(token, next);
       Toast.show({ type: 'success', text1: `Retour sur ${next.email}` });
       onClose();
@@ -163,6 +176,7 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
   const handleAssume = async (delegId: string) => {
     try {
       const { token, user: next } = await accountAccessService.assumeDelegation(delegId);
+      resetAllStores(token);
       await setAuth(token, next);
       Toast.show({ type: 'success', text1: `Agissant pour ${next.email}` });
       onClose();

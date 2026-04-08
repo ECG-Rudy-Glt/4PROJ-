@@ -7,12 +7,17 @@ interface DashboardState {
   loading: boolean;
   error: string | null;
   fetch: () => Promise<void>;
+  reset: () => void;
 }
 
-export const useDashboardStore = create<DashboardState>((set) => ({
-  data: null,
+const initialState = {
+  data: null as DashboardData | null,
   loading: false,
-  error: null,
+  error: null as string | null,
+};
+
+export const useDashboardStore = create<DashboardState>((set) => ({
+  ...initialState,
 
   fetch: async () => {
     set({ loading: true, error: null });
@@ -23,4 +28,6 @@ export const useDashboardStore = create<DashboardState>((set) => ({
       set({ error: 'Impossible de charger le tableau de bord', loading: false });
     }
   },
+
+  reset: () => set(initialState),
 }));
