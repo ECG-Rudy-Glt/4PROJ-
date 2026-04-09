@@ -1,13 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
 
 const API_URL =
-  Constants.expoConfig?.extra?.apiUrl ??
-  // Dev : adresse du Mac sur le réseau local (modifier selon votre IP)
-  __DEV__
-    ? 'http://localhost:3000/api' // Remplacer par l'IP locale du Mac (ex: 192.168.X.X) pour tester sur device
-    : 'https://supfile.fr/api';
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://supfile.fr/api';
 
 const api = axios.create({
   baseURL: API_URL,
