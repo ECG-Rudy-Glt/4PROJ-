@@ -1,13 +1,11 @@
-import { OpenAPIV3 } from 'openapi-types';
-
 // ─── Reusable schemas ────────────────────────────────────────────────────────
 
-const ErrorSchema: OpenAPIV3.SchemaObject = {
+const ErrorSchema: Record<string, any> = {
   type: 'object',
   properties: { error: { type: 'string' } },
 };
 
-const UserSchema: OpenAPIV3.SchemaObject = {
+const UserSchema: Record<string, any> = {
   type: 'object',
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -22,7 +20,7 @@ const UserSchema: OpenAPIV3.SchemaObject = {
   },
 };
 
-const FileSchema: OpenAPIV3.SchemaObject = {
+const FileSchema: Record<string, any> = {
   type: 'object',
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -37,7 +35,7 @@ const FileSchema: OpenAPIV3.SchemaObject = {
   },
 };
 
-const FolderSchema: OpenAPIV3.SchemaObject = {
+const FolderSchema: Record<string, any> = {
   type: 'object',
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -51,7 +49,7 @@ const FolderSchema: OpenAPIV3.SchemaObject = {
   },
 };
 
-const TagSchema: OpenAPIV3.SchemaObject = {
+const TagSchema: Record<string, any> = {
   type: 'object',
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -60,7 +58,7 @@ const TagSchema: OpenAPIV3.SchemaObject = {
   },
 };
 
-const VaultStatusSchema: OpenAPIV3.SchemaObject = {
+const VaultStatusSchema: Record<string, any> = {
   type: 'object',
   properties: {
     available: { type: 'boolean' },
@@ -75,7 +73,7 @@ const VaultStatusSchema: OpenAPIV3.SchemaObject = {
   },
 };
 
-const BearerAuth: OpenAPIV3.SecuritySchemeObject = {
+const BearerAuth: Record<string, any> = {
   type: 'http',
   scheme: 'bearer',
   bearerFormat: 'JWT',
@@ -84,7 +82,7 @@ const BearerAuth: OpenAPIV3.SecuritySchemeObject = {
 
 // ─── Full spec ────────────────────────────────────────────────────────────────
 
-export const swaggerSpec: OpenAPIV3.Document = {
+export const swaggerSpec: Record<string, any> = {
   openapi: '3.0.3',
   info: {
     title: 'SUPFile API',
