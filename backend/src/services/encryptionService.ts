@@ -66,7 +66,7 @@ export class EncryptionService {
 
     fs.closeSync(fd);
 
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: 16 });
     decipher.setAuthTag(tag);
 
     const input = fs.createReadStream(filePath, { start: 16, end: fileSize - 17 });
@@ -146,7 +146,7 @@ export class EncryptionService {
     const ivBuffer = await StorageService.getBuffer(s3Key, { start: 0, end: 15 });
     const tagBuffer = await StorageService.getBuffer(s3Key, { start: objectSize - 16, end: objectSize - 1 });
 
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivBuffer)); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivBuffer), { authTagLength: 16 });
     decipher.setAuthTag(Buffer.from(tagBuffer));
 
     if (objectSize === 32) {
@@ -220,7 +220,7 @@ export class EncryptionService {
     const iv = data.subarray(0, 16);
     const authTag = data.subarray(data.length - 16);
     const content = data.subarray(16, data.length - 16);
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv); // nosemgrep: javascript.node-crypto.security.gcm-no-tag-length.gcm-no-tag-length
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: 16 });
     decipher.setAuthTag(authTag);
     return Buffer.concat([decipher.update(content), decipher.final()]).toString('utf8');
   }

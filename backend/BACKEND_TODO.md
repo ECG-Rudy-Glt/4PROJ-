@@ -1,6 +1,6 @@
 # Backend TODO — Audit de qualité
 
-## 🔴 CRITIQUE — Avant mise en prod
+## CRITIQUE — Avant mise en prod
 
 - [x] **[Sécurité]** Supprimer la valeur par défaut de `JWT_SECRET` — crasher au démarrage si non défini (`passport.ts:10`, `auth.ts:11`)
 - [x] **[Sécurité]** Ajouter un rate limit strict sur `/api/auth/login` (ex: 10 req/15min par IP) — `index.ts`
@@ -10,7 +10,7 @@
 
 ---
 
-## 🟠 HAUTE PRIORITÉ — Court terme
+## HAUTE PRIORITE — Court terme
 
 ### Sécurité
 - [x] Retirer l'acceptation du token JWT en query param (apparaît dans les logs serveur) — `auth.ts:27-29`
@@ -30,7 +30,7 @@
 
 ---
 
-## 🟡 MOYEN TERME
+## MOYEN TERME
 
 ### Doublons à éliminer
 - [x] Pattern export CSV répété 5x → créer `utils/csvExporter.ts` (`authController`, `fileController`, `auditController`, `adminController`)
@@ -57,7 +57,7 @@
 
 ---
 
-## 🟢 LONG TERME
+## LONG TERME
 
 - [ ] Ajouter versioning d'API (`/api/v1/`) sur toutes les routes
 - [ ] Découpler les services via événements ou injection de dépendances (FolderService importe actuellement 3 autres services)

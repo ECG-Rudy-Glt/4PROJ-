@@ -61,7 +61,7 @@ export class KekService {
     const iv = data.subarray(0, 16);
     const authTag = data.subarray(data.length - 16);
     const ciphertext = data.subarray(16, data.length - 16);
-    const decipher = crypto.createDecipheriv(ALGORITHM, kek, iv);
+    const decipher = crypto.createDecipheriv(ALGORITHM, kek, iv, { authTagLength: 16 });
     decipher.setAuthTag(authTag);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   }
@@ -95,7 +95,7 @@ export class KekService {
       const iv = data.subarray(0, 16);
       const authTag = data.subarray(data.length - 16);
       const ciphertext = data.subarray(16, data.length - 16);
-      const decipher = crypto.createDecipheriv(ALGORITHM, wrapKey, iv);
+      const decipher = crypto.createDecipheriv(ALGORITHM, wrapKey, iv, { authTagLength: 16 });
       decipher.setAuthTag(authTag);
       return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     } catch {
