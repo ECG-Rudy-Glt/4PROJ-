@@ -30,7 +30,8 @@ export class FileController {
       const { files: createdFiles, errors } = await FileService.createFiles(
         userId,
         files,
-        folderId
+        folderId,
+        req.dekBuffer
       );
 
       if (createdFiles.length === 0) {
@@ -198,7 +199,7 @@ export class FileController {
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
       res.setHeader('Content-Type', file.mimeType);
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath, req.dekBuffer);
       decryptStream.on('error', (err) => {
         logger.error({ err }, '[downloadFile] decrypt error:');
         if (!res.headersSent) {
@@ -252,7 +253,7 @@ export class FileController {
         'Content-Type': file.mimeType,
       });
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath, req.dekBuffer);
       decryptStream.on('error', (err) => {
         logger.error({ err }, '[streamFile] decrypt error:');
         if (!res.headersSent) {

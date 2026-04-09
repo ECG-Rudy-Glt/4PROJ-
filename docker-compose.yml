@@ -58,6 +58,8 @@ services:
       BRAIN_API_URL: http://brain-api:8001
       # MFA (Multi-Factor Authentication)
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+      # Chiffrement par utilisateur (KEK/DEK)
+      DEK_WRAP_SECRET: ${DEK_WRAP_SECRET:-}
       # Stripe Billing
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}

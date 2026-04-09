@@ -378,7 +378,7 @@ export class FolderService {
     });
   }
 
-  static async streamFolderAsZip(folderId: string, userId: string, res: Response): Promise<void> {
+  static async streamFolderAsZip(folderId: string, userId: string, res: Response, dek?: Buffer): Promise<void> {
     const folder = await prisma.folder.findFirst({
       where: { id: folderId, userId },
       select: { id: true, name: true, isVault: true },
@@ -430,7 +430,7 @@ export class FolderService {
     archive.pipe(res);
 
     for (const { storagePath, entryPath } of allFiles) {
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, dek);
       archive.append(decryptStream, { name: entryPath });
     }
 

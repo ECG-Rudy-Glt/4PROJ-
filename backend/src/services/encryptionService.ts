@@ -12,6 +12,11 @@ export class EncryptionService {
     return crypto.createHash('sha256').update(secret).digest();
   }
 
+  /** Retourne le DEK fourni ou la clé globale en fallback. */
+  private static resolveKey(dek?: Buffer): Buffer {
+    return dek ?? this.getKey();
+  }
+
   // ── Méthodes locales (conservées pour la migration) ──────────────────────
 
   /**
@@ -91,8 +96,8 @@ export class EncryptionService {
    * - Upload le fichier chiffré vers S3
    * - Supprime les deux fichiers temporaires locaux
    */
-  static async encryptFileToS3(localPath: string, s3Key: string): Promise<void> {
-    const key = this.getKey();
+  static async encryptFileToS3(localPath: string, s3Key: string, dek?: Buffer): Promise<void> {
+    const key = this.resolveKey(dek);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
@@ -130,8 +135,8 @@ export class EncryptionService {
    *   - Range N-16 à N-1 → AuthTag
    *   - Range 16 à N-17  → contenu chiffré (streamé)
    */
-  static async getDecryptStreamFromS3(s3Key: string): Promise<Readable> {
-    const key = this.getKey();
+  static async getDecryptStreamFromS3(s3Key: string, dek?: Buffer): Promise<Readable> {
+    const key = this.resolveKey(dek);
     const objectSize = await StorageService.getObjectSize(s3Key);
 
     if (objectSize < 32) {
@@ -155,10 +160,10 @@ export class EncryptionService {
   /**
    * Déchiffre un objet S3 en Buffer (pour l'extraction de texte, OCR, etc.).
    */
-  static async decryptBufferFromS3(s3Key: string): Promise<Buffer> {
+  static async decryptBufferFromS3(s3Key: string, dek?: Buffer): Promise<Buffer> {
     return new Promise(async (resolve, reject) => {
       try {
-        const stream = await this.getDecryptStreamFromS3(s3Key);
+        const stream = await this.getDecryptStreamFromS3(s3Key, dek);
         const chunks: Buffer[] = [];
         stream.on('data', (chunk: Buffer | string) => {
           chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -174,9 +179,9 @@ export class EncryptionService {
   /**
    * Helper unifié : déchiffre vers un stream depuis une clé S3 OU un chemin local.
    */
-  static async getDecryptStreamAuto(storagePathOrKey: string): Promise<Readable> {
+  static async getDecryptStreamAuto(storagePathOrKey: string, dek?: Buffer): Promise<Readable> {
     if (StorageService.isS3Key(storagePathOrKey)) {
-      return this.getDecryptStreamFromS3(storagePathOrKey);
+      return this.getDecryptStreamFromS3(storagePathOrKey, dek);
     }
     return this.getDecryptStream(storagePathOrKey);
   }
@@ -184,9 +189,9 @@ export class EncryptionService {
   /**
    * Helper unifié : déchiffre vers un Buffer depuis une clé S3 OU un chemin local.
    */
-  static async decryptToBufferAuto(storagePathOrKey: string): Promise<Buffer> {
+  static async decryptToBufferAuto(storagePathOrKey: string, dek?: Buffer): Promise<Buffer> {
     if (StorageService.isS3Key(storagePathOrKey)) {
-      return this.decryptBufferFromS3(storagePathOrKey);
+      return this.decryptBufferFromS3(storagePathOrKey, dek);
     }
     return this.decryptFileToBuffer(storagePathOrKey);
   }

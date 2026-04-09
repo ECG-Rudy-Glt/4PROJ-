@@ -86,6 +86,10 @@ model User {
   mfaBackupCodes String[] // Array de codes de récupération hashés
   mfaSetupAt    DateTime? // Date de configuration du MFA
   
+  // Chiffrement par utilisateur (KEK/DEK)
+  kekSalt       String?   // Sel PBKDF2 (hex, 16 bytes) pour dériver la KEK depuis le mot de passe
+  encryptedDek  String?   // DEK chiffrée avec KEK (hex : IV+ciphertext+AuthTag)
+
   // Sécurité & Sessions
   tokenVersion  Int       @default(1) // Pour l'invalidation globale des tokens
   lastActiveAt  DateTime  @default(now()) // Pour le timeout d'inactivité

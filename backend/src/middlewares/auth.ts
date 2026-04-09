@@ -4,6 +4,7 @@ import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
 import { activityMiddleware } from './activityMiddleware';
 import { PlanService } from '../services/planService';
+import { KekService } from '../services/kekService';
 import { getCookieValue, SWITCH_SESSION_COOKIE } from '../utils/cookies';
 import logger from '../config/logger';
 
@@ -148,6 +149,12 @@ export const authenticate = async (
       req.user = user;
     }
     req.authContext = authContext;
+
+    // Extraire et déchiffrer le DEK depuis le JWT (si présent)
+    if (decoded.wrappedDek) {
+      const dek = KekService.unwrapDek(decoded.wrappedDek);
+      if (dek) req.dekBuffer = dek;
+    }
 
     // Check activity / session timeout
     activityMiddleware(req, res, next);

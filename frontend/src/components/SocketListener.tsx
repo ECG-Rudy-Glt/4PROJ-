@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
 import { MessageSquare, Share2, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { initPushNotifications } from '@/utils/pushNotification';
@@ -28,6 +29,7 @@ interface ShareAcceptedData {
 }
 
 export default function SocketListener() {
+    const { t } = useTranslation();
     const socket = useSocket();
     const { user, refreshProfile } = useAuthStore();
     const { addNotification, fetchNotifications } = useNotificationStore((s) => ({
