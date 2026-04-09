@@ -15,10 +15,9 @@ Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
 | Auth | JWT (Bearer) + Passport.js (OAuth2 Google/GitHub) |
 | Upload | Multer (multipart) |
 | WebSockets | Socket.io |
-| Chiffrement | AES-256 (EncryptionService) |
-| Logger | Pino (`config/logger.ts`) |
-| Tâches planifiées | node-cron (CronService + cleanupJob) |
-| Emails | Nodemailer (MailService) |
+| Chiffrement | AES-256-GCM (KekService & EncryptionService) |
+| Architecture | KEK / DEK (Key Encryption Key / Data Encryption Key) |
+| Dérivation | PBKDF2-SHA512 (100 000 itérations) |
 | Docs | Swagger / OpenAPI (`/api-docs`) |
 
 ---
@@ -316,7 +315,8 @@ backend/src/
 | `fileIndexService` | Extraction de texte (PDF, TXT, MD, JSON…) + envoi brain-api pour indexation |
 | `fileQueryService` | Requêtes Prisma pour lister / rechercher les fichiers |
 | `fileActionService` | Soft delete, restore, toggle favori, déplacement |
-| `encryptionService` | AES-256, chiffrement/déchiffrement à la volée, clé dérivée via SHA-256 |
+| `encryptionService` | AES-256-GCM, chiffrement/déchiffrement à la volée, support multi-clés |
+| `kekService` | Gestion du cycle de vie KEK/DEK (PBKDF2, wrapping JWT) |
 | `storageService` | Abstraction stockage : local ou S3/MinIO |
 | `folderService` | CRUD dossiers, arborescence récursive, ZIP streaming |
 | `shareService` | Façade partage (délègue à sharedFileService / sharedFolderService / sharedLinkService) |
@@ -418,3 +418,20 @@ Le `SocketService` émet des événements temps réel aux clients connectés :
 | `share:received` | Nouveau partage reçu |
 | `notification:new` | Nouvelle notification |
 | `vault:locked` | Vault verrouillé |
+
+---
+
+## Architecture de Chiffrement (Zéro Connaissance)
+
+SUPFile utilise un système de chiffrement à deux niveaux pour garantir la confidentialité totale des fichiers.
+
+### Flux de clés (KEK/DEK)
+1. **KEK (Key Encryption Key)** : Dérivée du mot de passe utilisateur via PBKDF2-SHA512. Elle n'est jamais stockée.
+2. **DEK (Data Encryption Key)** : Clé aléatoire unique générée pour chaque utilisateur, stockée en base de données chiffrée par la KEK.
+3. **Wrapping JWT** : Pour éviter de stocker la DEK en clair en mémoire serveur, elle est "enveloppée" par une clé secrète serveur (`DEK_WRAP_SECRET`) et transmise dans le payload JWT.
+
+### Audit de Sécurité (Avril 2026)
+Un audit par simulation d'intrusion a été mené avec succès :
+- **Storage (MinIO)** : Les fichiers stockés sont des blobs binaires indéchiffrables.
+- **Base de données (Postgres)** : Les textes extraits pour l'IA (RAG) sont chiffrés via AES-GCM avant insertion.
+- **Résultat** : Un accès total aux serveurs de stockage ou à la DB ne permet pas de lire les documents des utilisateurs.

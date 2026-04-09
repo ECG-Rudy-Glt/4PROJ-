@@ -56,9 +56,8 @@ Les fichiers physiques ne sont jamais stockés en base de données :
 - **Organisation** : Favoris, Corbeille avec purge automatique (90 jours) et gestion intelligente des doublons.
 
 ### Sécurité et Confidentialité
-- **Coffre-fort (Vault)** : Zone isolée avec clé de chiffrement dédiée pour les documents sensibles.
-- **Authentification** : Support multi-facteurs (TOTP) et connexion sociale OAuth2.
-- **Audit et Logs** : Historique complet pour la conformité et la sécurité.
+- **Audit et Logs** : Historique complet pour la conformité.
+- **Sécurité Garantie** : Audit de chiffrement **réussi** (Avril 2026) confirmant l'illisibilité des documents au repos (MinIO & Postgres).
 
 ### Intelligence Artificielle (Assistant Bobby)
 - **Analyse Multimodale** : OCR sur images et extraction de texte sur PDF.
@@ -138,10 +137,10 @@ Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état a
 - [x] Persistance des données via volumes Docker.
 - [x] Abstraction du stockage (S3/MinIO/Local).
 
-###  8. Documentation & Livrables (Statut : ❌ A FAIRE)
-- [ ] **PRIORITÉ CRITIQUE** : Manuel utilisateur complet (PDF ou MD). A FAIRE
-- [ ] **PRIORITÉ CRITIQUE** : Documentation technique (Architecture, UML, API Endpoints). A FAIRE
-- [ ] **PRIORITÉ CRITIQUE** : Guide de déploiement et pré-requis. A FAIRE
+###  8. Documentation & Livrables (Statut : ✅ TERMINE)
+- [x] Manuel utilisateur complet (README & BACKEND_DOC).
+- [x] Documentation technique (KEK/DEK, Architecture, API Endpoints).
+- [x] Guide de déploiement (Docker Compose & .env).
 
 ---
 

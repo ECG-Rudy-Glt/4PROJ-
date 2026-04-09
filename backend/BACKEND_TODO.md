@@ -4,7 +4,7 @@
 
 - [x] **[Sécurité]** Supprimer la valeur par défaut de `JWT_SECRET` — crasher au démarrage si non défini (`passport.ts:10`, `auth.ts:11`)
 - [x] **[Sécurité]** Ajouter un rate limit strict sur `/api/auth/login` (ex: 10 req/15min par IP) — `index.ts`
-- [~] **[Sécurité]** Clé de chiffrement dérivée avec SHA256 — PBKDF2 annulé (casserait les fichiers existants, clé déjà aléatoire donc SHA256 suffisant) (`encryptionService.ts`)
+- [x] **[Sécurité]** Clé de chiffrement dérivée avec PBKDF2 (100k iter) — implémenté via KekService (Architecture KEK/DEK) (`encryptionService.ts`)
 - [x] **[Architecture]** Ajouter `prisma.$transaction()` sur les opérations billing multi-entités (`billingService.ts`)
 - [~] **[Sécurité]** Whitelist MIME — non applicable : service de stockage, tous les types de fichiers doivent être acceptés
 
