@@ -1,7 +1,8 @@
 import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
-import { deleteFile } from '../utils/fileUtils';
+
+import { StorageService } from './storageService';
 import { PlanService } from './planService';
 import { EncryptionService } from './encryptionService';
 import { FileIndexService } from './fileIndexService';
@@ -45,10 +46,11 @@ export class VersionService {
       throw new Error('Nouveau fichier introuvable sur le disque');
     }
 
-    // Chiffrer systématiquement la nouvelle version du fichier principal.
-    await EncryptionService.encryptFile(newFilePath);
+    // Chiffrer et uploader la nouvelle version vers S3
+    const s3Key = `versions/${fileId}/${newVersionNumber}-${path.basename(newFilePath)}`;
+    await EncryptionService.encryptFileToS3(newFilePath, s3Key);
 
-    // Créer la nouvelle version en sauvegardant l'ancien fichier
+    // Créer la nouvelle version en sauvegardant l'ancien storagePath (S3 ou local)
     const version = await prisma.fileVersion.create({
       data: {
         fileId,
@@ -71,13 +73,13 @@ export class VersionService {
       },
     });
 
-    // Mettre à jour le fichier principal avec les nouvelles données
+    // Mettre à jour le fichier principal avec la nouvelle clé S3
     await prisma.file.update({
       where: { id: fileId },
       data: {
         name: newFileName,
         size: BigInt(newFileSize),
-        storagePath: newFilePath,
+        storagePath: s3Key,
         mimeType: newMimeType,
       },
     });
@@ -178,16 +180,23 @@ export class VersionService {
 
     // Copier le fichier actuel vers un nouvel emplacement pour la version
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    const currentBackupFileName = `${Date.now()}-backup-${path.basename(file.storagePath)}`;
-    const currentBackupPath = path.join(uploadDir, currentBackupFileName);
 
-    // Copier le fichier actuel vers le backup
-    const currentFilePath = file.storagePath.startsWith('/') ? file.storagePath : path.join(uploadDir, file.storagePath);
-    if (fs.existsSync(currentFilePath)) {
+    // Sauvegarder l'état actuel comme nouvelle version
+    let currentBackupPath: string;
+    if (StorageService.isS3Key(file.storagePath)) {
+      // Copie S3 vers S3
+      currentBackupPath = `versions/${fileId}/${newVersionNumber}-backup-${path.basename(file.storagePath)}`;
+      await StorageService.copy(file.storagePath, currentBackupPath);
+    } else {
+      // Copie locale (fichiers pré-migration)
+      currentBackupPath = path.join(uploadDir, `${Date.now()}-backup-${path.basename(file.storagePath)}`);
+      const currentFilePath = file.storagePath.startsWith('/') ? file.storagePath : path.join(uploadDir, file.storagePath);
+      if (!fs.existsSync(currentFilePath)) {
+        throw new Error(`Impossible de créer une version : fichier courant introuvable (${currentFilePath})`);
+      }
       fs.copyFileSync(currentFilePath, currentBackupPath);
     }
 
-    // Créer la version avec le nouveau chemin de backup
     await prisma.fileVersion.create({
       data: {
         fileId,
@@ -200,16 +209,18 @@ export class VersionService {
       },
     });
 
-    // Copier le fichier de la version vers un nouvel emplacement
-    const newFileName = `${Date.now()}-restored-${version.name}`;
-    const newFilePath = path.join(uploadDir, newFileName);
-
-    // Copier le fichier de la version
-    const versionFilePath = version.storagePath.startsWith('/') ? version.storagePath : path.join(uploadDir, version.storagePath);
-    if (fs.existsSync(versionFilePath)) {
-      fs.copyFileSync(versionFilePath, newFilePath);
+    // Restaurer la version cible
+    let restoredPath: string;
+    if (StorageService.isS3Key(version.storagePath)) {
+      restoredPath = `versions/${fileId}/restored-${Date.now()}-${path.basename(version.storagePath)}`;
+      await StorageService.copy(version.storagePath, restoredPath);
     } else {
-      throw new Error('Fichier de version introuvable sur le disque');
+      const versionFilePath = version.storagePath.startsWith('/') ? version.storagePath : path.join(uploadDir, version.storagePath);
+      if (!fs.existsSync(versionFilePath)) {
+        throw new Error('Fichier de version introuvable sur le disque');
+      }
+      restoredPath = path.join(uploadDir, `${Date.now()}-restored-${version.name}`);
+      fs.copyFileSync(versionFilePath, restoredPath);
     }
 
     // Mettre à jour le fichier principal
@@ -218,7 +229,7 @@ export class VersionService {
       data: {
         name: version.name,
         size: version.size,
-        storagePath: newFilePath,
+        storagePath: restoredPath,
         mimeType: version.mimeType,
       },
     });
@@ -268,8 +279,8 @@ export class VersionService {
       throw new Error('Version introuvable');
     }
 
-    // Supprimer le fichier physique
-    await deleteFile(version.storagePath);
+    // Supprimer l'objet (S3 ou local)
+    await StorageService.deleteStorageFile(version.storagePath);
 
     // Supprimer l'entrée en base
     await prisma.fileVersion.delete({
@@ -307,7 +318,7 @@ export class VersionService {
       const versionsToDelete = versions.slice(maxVersions);
 
       for (const version of versionsToDelete) {
-        await deleteFile(version.storagePath);
+        await StorageService.deleteStorageFile(version.storagePath);
 
         await prisma.fileVersion.delete({
           where: { id: version.id },

@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
 import { MailService } from './mailService';
 import { PlanService } from './planService';
+import logger from '../config/logger';
 
 export class AuthService {
   static async register(
@@ -45,7 +46,7 @@ export class AuthService {
     try {
       await MailService.sendWelcomeNotification(user.email, user.firstName || 'Utilisateur');
     } catch (error) {
-      console.error('Failed to send welcome email', error);
+      logger.error({ err: error }, 'Failed to send welcome email');
     }
 
     return {
@@ -195,7 +196,7 @@ export class AuthService {
     try {
       await MailService.sendPasswordChangeNotification(updatedUser.email, updatedUser.firstName || 'Utilisateur');
     } catch (error) {
-      console.error('Failed to send password change notification', error);
+      logger.error({ err: error }, 'Failed to send password change notification');
     }
 
     return { message: 'Password changed successfully' };

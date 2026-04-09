@@ -4,10 +4,8 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
-import { billingService } from '@/services/billingService';
+import { useTranslation } from 'react-i18next';
 import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
-
-type PaidPlanId = Exclude<PlanId, 'FREE'>;
 
 const plans: Array<{
   id: PlanId;
@@ -24,18 +22,18 @@ const plans: Array<{
 }> = [
   {
     id: 'FREE',
-    name: 'Gratuit',
+    name: 'plans_page.free_name',
     price: '0€',
-    period: '/mois',
-    description: 'Pour demarrer',
+    period: 'plans_page.period_month',
+    description: 'plans_page.free_desc',
     storage: PLAN_STORAGE_LABELS.FREE,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage de fichiers', included: true },
-      { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: false },
-      { name: 'Coffre-fort securise', included: false },
-      { name: 'Support prioritaire', included: false },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.file_sharing', included: true },
+      { name: 'plans_page.features.standard_support', included: true },
+      { name: 'plans_page.features.audit_history', included: false },
+      { name: 'plans_page.features.vault', included: false },
+      { name: 'plans_page.features.priority_support', included: false },
     ],
     icon: Database,
     color: 'bg-blue-100 text-blue-600',
@@ -43,18 +41,18 @@ const plans: Array<{
   },
   {
     id: 'PRO',
-    name: 'Pro',
+    name: 'plans_page.pro_name',
     price: '9.99€',
-    period: '/mois',
-    description: 'Pour les professionnels',
+    period: 'plans_page.period_month',
+    description: 'plans_page.pro_desc',
     storage: PLAN_STORAGE_LABELS.PRO,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage de fichiers', included: true },
-      { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: true },
-      { name: 'Coffre-fort securise', included: true },
-      { name: 'Support prioritaire', included: true },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.file_sharing', included: true },
+      { name: 'plans_page.features.standard_support', included: true },
+      { name: 'plans_page.features.audit_history', included: true },
+      { name: 'plans_page.features.vault', included: true },
+      { name: 'plans_page.features.priority_support', included: true },
     ],
     icon: Zap,
     color: 'bg-purple-100 text-purple-600',
@@ -63,18 +61,18 @@ const plans: Array<{
   },
   {
     id: 'BUSINESS',
-    name: 'Business',
+    name: 'plans_page.business_name',
     price: '29.99€',
-    period: '/mois',
-    description: 'Pour les equipes',
+    period: 'plans_page.period_month',
+    description: 'plans_page.business_desc',
     storage: PLAN_STORAGE_LABELS.BUSINESS,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage de fichiers', included: true },
-      { name: 'Support standard', included: true },
-      { name: "Historique d'audit", included: true },
-      { name: 'Coffre-fort securise', included: true },
-      { name: 'Support prioritaire 24/7', included: true },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.file_sharing', included: true },
+      { name: 'plans_page.features.standard_support', included: true },
+      { name: 'plans_page.features.audit_history', included: true },
+      { name: 'plans_page.features.vault', included: true },
+      { name: 'plans_page.features.priority_support_247', included: true },
     ],
     icon: Server,
     color: 'bg-orange-100 text-orange-600',
@@ -82,18 +80,18 @@ const plans: Array<{
   },
   {
     id: 'ENTERPRISE',
-    name: 'Enterprise',
+    name: 'plans_page.enterprise_name',
     price: '99.99€',
-    period: '/mois',
-    description: 'Pour les organisations exigeantes',
+    period: 'plans_page.period_month',
+    description: 'plans_page.enterprise_desc',
     storage: PLAN_STORAGE_LABELS.ENTERPRISE,
     features: [
-      { name: 'Stockage Cloud securise', included: true },
-      { name: 'Partage avance et gouvernance', included: true },
-      { name: 'Support dedie', included: true },
-      { name: "Historique d'audit complet", included: true },
-      { name: 'Coffre-fort securise', included: true },
-      { name: 'SLA entreprise', included: true },
+      { name: 'plans_page.features.secure_cloud', included: true },
+      { name: 'plans_page.features.adv_sharing', included: true },
+      { name: 'plans_page.features.dedicated_support', included: true },
+      { name: 'plans_page.features.full_audit', included: true },
+      { name: 'plans_page.features.vault', included: true },
+      { name: 'plans_page.features.sla', included: true },
     ],
     icon: Server,
     color: 'bg-gray-200 text-gray-700',
@@ -102,20 +100,21 @@ const plans: Array<{
 ];
 
 export default function PlansPage() {
+  const { t } = useTranslation();
   const { user, refreshProfile } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
     const checkoutState = searchParams.get('checkout');
     if (!checkoutState) return;
 
     if (checkoutState === 'success') {
-      toast.success('Paiement confirme. Votre abonnement est en cours de synchronisation.');
+      toast.success(t('plans_page.payment_success'));
       refreshProfile().catch(() => undefined);
     } else if (checkoutState === 'cancel') {
-      toast('Paiement annule');
+      toast(t('plans_page.payment_cancelled'));
     }
 
     const nextParams = new URLSearchParams(searchParams);
@@ -128,148 +127,133 @@ export default function PlansPage() {
 
     setLoading(planId);
     try {
-      if (user?.role === 'ADMIN') {
-        await api.put('/users/plan', { plan: planId });
-        await refreshProfile();
-        toast.success(`Plan ${planId} applique (bypass admin)`);
-        return;
-      }
-
       if (planId === 'FREE') {
-        await api.put('/users/plan', { plan: 'FREE' });
+        await api.post('/billing/downgrade-free');
         await refreshProfile();
-        toast.success('Passage au plan FREE effectue');
+        toast.success(t('plans_page.downgrade_success'));
         return;
       }
 
-      const { url } = await billingService.createCheckoutSession(planId as PaidPlanId);
-      if (!url) {
-        throw new Error('Stripe checkout URL not returned');
+      // Simulation Stripe Checkout
+      setIsRedirecting(true);
+      
+      const response = await api.post('/billing/checkout-session', { plan: planId });
+      
+      // Simuler le délai de paiement "en cours"
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      if (response.data.url && !response.data.url.includes('/plans?checkout=success')) {
+        window.location.href = response.data.url;
+      } else {
+        // En mode simulation, le plan est déjà activé sur le backend
+        await refreshProfile();
+        setIsRedirecting(false);
+        toast.success(t('plans_page.payment_success'));
       }
-
-      window.location.href = url;
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Echec de la mise a jour du plan');
+      setIsRedirecting(false);
+      toast.error(error.response?.data?.error || t('plans_page.payment_failed'));
     } finally {
       setLoading(null);
     }
   };
 
-  const handleOpenBillingPortal = async () => {
-    setPortalLoading(true);
-    try {
-      const { url } = await billingService.createPortalSession();
-      window.location.href = url;
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible d ouvrir le portail Stripe');
-    } finally {
-      setPortalLoading(false);
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-12 py-8">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-          Plans et Tarifs
+        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          {t('plans_page.title')}
         </h1>
-        <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-          Choisissez le plan adapte a vos besoins de stockage et de securite.
+        <p className="text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
+          {t('plans_page.subtitle')}
         </p>
-        {user?.role === 'ADMIN' && (
-          <p className="text-sm text-amber-600 dark:text-amber-400">
-            Mode admin: les changements de plan contournent Stripe.
-          </p>
-        )}
-        {user?.role !== 'ADMIN' && user?.plan && user.plan !== 'FREE' && (
-          <button
-            onClick={handleOpenBillingPortal}
-            disabled={portalLoading}
-            className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
-          >
-            {portalLoading ? 'Ouverture...' : 'Gerer ma facturation'}
-          </button>
-        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mt-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
         {plans.map((plan) => {
-          const Icon = plan.icon;
           const isCurrentPlan = user?.plan === plan.id;
 
           return (
             <div
               key={plan.id}
-              className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 transition-transform hover:scale-105 ${isCurrentPlan ? 'border-primary-500 ring-4 ring-primary-500/10' : 'border-transparent'
-                }`}
+              className={`relative bg-white dark:bg-gray-800 rounded-3xl p-8 border-2 transition-all duration-300 hover:shadow-2xl ${isCurrentPlan 
+                ? 'border-primary-500 ring-4 ring-primary-500/5' 
+                : 'border-gray-100 dark:border-gray-700 hover:border-primary-200'
+              }`}
             >
               {plan.popular && (
-                <div className="absolute top-0 right-0 -mr-2 -mt-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                  POPULAIRE
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-xl uppercase tracking-widest">
+                  {t('plans_page.recommended')}
                 </div>
               )}
 
-              <div className="p-8 space-y-6">
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${plan.color}`}>
-                  <Icon className="w-8 h-8" />
-                </div>
-
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
-                  <div className="flex items-baseline mt-2">
-                    <span className="text-4xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
-                    <span className="text-gray-500 dark:text-gray-400 ml-2">{plan.period}</span>
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t(plan.name)}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t(plan.description)}</p>
                   </div>
-                  <p className="text-gray-500 dark:text-gray-400 mt-2">{plan.description}</p>
+                  <div className="text-right">
+                    <span className="text-3xl font-black text-gray-900 dark:text-white">{plan.price}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{t(plan.period)}</span>
+                  </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="py-6 border-t border-gray-100 dark:border-gray-700 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-1 rounded-full bg-green-100 dark:bg-green-900/30">
-                      <Database className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    </div>
-                    <span className="font-semibold text-gray-900 dark:text-white">{plan.storage}</span>
+                    <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                      {plan.storage}
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{t('plans_page.storage_secure')}</span>
                   </div>
 
-                  {plan.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      {feature.included ? (
-                        <div className="p-1 rounded-full bg-primary-100 dark:bg-primary-900/30">
-                          <Check className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                        </div>
-                      ) : (
-                        <div className="p-1 rounded-full bg-gray-100 dark:bg-gray-700">
-                          <X className="w-4 h-4 text-gray-400" />
-                        </div>
-                      )}
-                      <span className={`text-sm ${feature.included ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
-                        {feature.name}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="space-y-3">
+                    {plan.features.slice(0, 4).map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        {feature.included ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4 text-gray-300" />
+                        )}
+                        <span className={`text-sm ${feature.included ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
+                          {t(feature.name)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <button
                   onClick={() => handlePlanSelection(plan.id)}
                   disabled={isCurrentPlan || loading !== null}
-                  className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all shadow-lg hover:shadow-xl ${isCurrentPlan ? 'bg-gray-400 cursor-not-allowed' : plan.buttonColor
-                    } ${loading === plan.id ? 'opacity-75 cursor-wait' : ''}`}
+                  className={`w-full py-4 px-6 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                    isCurrentPlan 
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                      : 'bg-gray-900 dark:bg-white dark:text-gray-900 text-white hover:bg-gray-800 dark:hover:bg-gray-100 shadow-xl'
+                  } ${loading === plan.id ? 'opacity-50 animate-pulse' : ''}`}
                 >
-                  {isCurrentPlan
-                    ? 'Plan actuel'
-                    : loading === plan.id
-                      ? 'Redirection...'
-                      : user?.role === 'ADMIN'
-                        ? 'Activer (Admin)'
-                        : plan.id === 'FREE'
-                          ? 'Basculer vers FREE'
-                          : 'Choisir ce plan'}
+                  {isCurrentPlan ? t('plans_page.current') : loading === plan.id ? t('plans_page.activating') : t('plans_page.select')}
                 </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {isRedirecting && (
+        <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6 p-10 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-gray-100 dark:border-gray-700 rounded-full"></div>
+              <div className="absolute inset-0 w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('plans_page.processing')}</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">{t('plans_page.processing_desc')}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

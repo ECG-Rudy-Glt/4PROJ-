@@ -4,7 +4,7 @@ import prisma from '../config/database';
  * Script pour mettre à jour les catégories des fichiers existants
  */
 async function migrateCategories() {
-  console.log('🔄 Migration des catégories de fichiers...');
+  console.log(' Migration des catégories de fichiers...');
 
   try {
     // Récupérer tous les fichiers sans catégorie ou avec catégorie null
@@ -17,7 +17,7 @@ async function migrateCategories() {
       },
     });
 
-    console.log(`📁 ${files.length} fichiers à mettre à jour`);
+    console.log(` ${files.length} fichiers à mettre à jour`);
 
     let updated = 0;
     for (const file of files) {
@@ -48,12 +48,12 @@ async function migrateCategories() {
       });
 
       updated++;
-      console.log(`✅ ${file.name} → ${category}`);
+      console.log(` ${file.name} → ${category}`);
     }
 
-    console.log(`\n✨ Migration terminée : ${updated} fichiers mis à jour`);
+    console.log(`\n Migration terminée : ${updated} fichiers mis à jour`);
   } catch (error) {
-    console.error('❌ Erreur lors de la migration:', error);
+    console.error(' Erreur lors de la migration:', error);
     throw error;
   } finally {
     await prisma.$disconnect();

@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { Plan, Role } from '@prisma/client';
 import { UserService } from '../services/userService';
 import { AuthRequest } from '../types';
@@ -8,7 +8,7 @@ export class UserController {
   /**
    * Rechercher des utilisateurs par email (autocomplete)
    */
-  static async searchUsers(req: AuthRequest, res: Response): Promise<void> {
+  static async searchUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { query, limit } = req.query;
 
@@ -23,27 +23,23 @@ export class UserController {
       );
 
       res.status(200).json({ users });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
   /**
    * Obtenir les informations basiques d'un utilisateur
    */
-  static async getUserInfo(req: AuthRequest, res: Response): Promise<void> {
+  static async getUserInfo(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.params;
 
       const user = await UserService.getUserBasicInfo(userId);
 
       res.status(200).json({ user });
-    } catch (error: any) {
-      res.status(404).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async updatePlan(req: AuthRequest, res: Response): Promise<void> {
+  static async updatePlan(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const rawPlan = req.body.plan;
@@ -76,8 +72,6 @@ export class UserController {
 
       await BillingService.downgradeToFree(userId);
       res.status(200).json({ message: 'Plan downgraded to FREE', plan: 'FREE' });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 }

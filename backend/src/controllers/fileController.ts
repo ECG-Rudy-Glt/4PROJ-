@@ -1,15 +1,17 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { FileService } from '../services/fileService';
 import { AuthRequest, FileUploadRequest } from '../types';
 import fs from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
+import { StorageService } from '../services/storageService';
 import { AuditService } from '../services/auditService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
+import logger from '../config/logger';
 
 export class FileController {
-  static async uploadFile(req: FileUploadRequest, res: Response): Promise<void> {
+  static async uploadFile(req: FileUploadRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId } = req.body;
@@ -49,10 +51,10 @@ export class FileController {
           NotificationService.create(
             userId,
             'QUOTA',
-            'Quota presque atteint',
-            `Vous utilisez ${Math.round(usage * 100)}% de votre espace de stockage.`,
-            { quotaUsed: Number(user.quotaUsed), quotaLimit: Number(user.quotaLimit) }
-          ).catch(console.error);
+            'notifications.quota.title',
+            'notifications.quota.message',
+            { usage: Math.round(usage * 100), quotaUsed: Number(user.quotaUsed), quotaLimit: Number(user.quotaLimit) }
+          ).catch((e) => logger.error(e));
         }
       }
 
@@ -67,12 +69,10 @@ export class FileController {
           failed: errors.length,
         },
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getFile(req: AuthRequest, res: Response): Promise<void> {
+  static async getFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
@@ -80,15 +80,13 @@ export class FileController {
       const file = await FileService.getFile(fileId, userId);
 
       // Increment view count (async, don't wait)
-      FileService.incrementViewCount(fileId).catch(console.error);
+      FileService.incrementViewCount(fileId).catch((e) => logger.error(e));
 
       res.status(200).json({ file });
-    } catch (error: any) {
-      res.status(404).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async listFiles(req: AuthRequest, res: Response): Promise<void> {
+  static async listFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { folderId, sortBy, sortOrder, minSize, maxSize, mimeType, dateFrom, dateTo } = req.query;
@@ -110,12 +108,10 @@ export class FileController {
       );
 
       res.status(200).json({ files });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async updateFile(req: AuthRequest, res: Response): Promise<void> {
+  static async updateFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
@@ -124,12 +120,10 @@ export class FileController {
       const file = await FileService.updateFile(fileId, userId, { name });
 
       res.status(200).json({ file });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async moveFile(req: AuthRequest, res: Response): Promise<void> {
+  static async moveFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
@@ -138,12 +132,10 @@ export class FileController {
       const file = await FileService.moveFile(fileId, userId, folderId);
 
       res.status(200).json({ file });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async deleteFile(req: AuthRequest, res: Response): Promise<void> {
+  static async deleteFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
@@ -156,12 +148,10 @@ export class FileController {
       );
 
       res.status(200).json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async restoreFile(req: AuthRequest, res: Response): Promise<void> {
+  static async restoreFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
@@ -169,90 +159,116 @@ export class FileController {
       const file = await FileService.restoreFile(fileId, userId);
 
       res.status(200).json({ file });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getDeletedFiles(req: AuthRequest, res: Response): Promise<void> {
+  static async getDeletedFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
 
       const files = await FileService.getDeletedFiles(userId);
 
       res.status(200).json({ files });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async downloadFile(req: AuthRequest, res: Response): Promise<void> {
+  static async downloadFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
 
       const file = await FileService.getFile(fileId, userId);
 
-      if (!fs.existsSync(file.storagePath)) {
+      // Vérifier l'existence selon la source (S3 ou local)
+      if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
 
       // Increment download count
-      FileService.incrementDownloadCount(fileId).catch(console.error);
+      FileService.incrementDownloadCount(fileId).catch((e) => logger.error(e));
 
       // Audit log
       AuditService.createLog(userId, 'DOWNLOAD', {
         fileName: file.name,
         fileId: file.id,
-      }).catch(console.error);
+      }).catch((e) => logger.error(e));
 
-      // Decrypt and stream
-      res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
       res.setHeader('Content-Type', file.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[downloadFile] decrypt error:');
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to download file' });
+        } else {
+          res.destroy();
+        }
+      });
       decryptStream.pipe(res);
-    } catch (error: any) {
-      res.status(404).json({ error: error.message });
+    } catch (error) {
+      if (!res.headersSent) {
+        next(error);
+      }
     }
   }
 
-  static async streamFile(req: AuthRequest, res: Response): Promise<void> {
+  static async streamFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
 
       const file = await FileService.getFile(fileId, userId);
 
-      if (!fs.existsSync(file.storagePath)) {
+      if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         res.status(404).json({ error: 'File not found on disk' });
         return;
       }
 
       // Increment view count for streams/previews
-      FileService.incrementViewCount(fileId).catch(console.error);
+      FileService.incrementViewCount(fileId).catch((e) => logger.error(e));
 
-      const stat = fs.statSync(file.storagePath);
-      // Decrypted size is roughly original size (minus IV/AuthTag if stored in file).
-      // We stored IV (16) + Tag (16) = 32 bytes overhead.
-      const fileSize = stat.size - 32;
+      const ENCRYPTION_OVERHEAD_BYTES = 32;
+      let encryptedSize: number;
+      if (StorageService.isS3Key(file.storagePath)) {
+        encryptedSize = await StorageService.getObjectSize(file.storagePath);
+      } else {
+        const stat = fs.statSync(file.storagePath);
+        encryptedSize = stat.size;
+      }
 
-      // Support simple streaming (no range for encrypted files in MVP)
-      const head = {
-        'Content-Length': fileSize,
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        logger.error({ fileId: file.id, storagePath: file.storagePath, encryptedSize }, '[streamFile] invalid encrypted file size');
+        res.status(500).json({ error: 'Stored file is invalid or corrupted' });
+        return;
+      }
+
+      const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
+
+      res.writeHead(200, {
+        'Content-Length': decryptedSize,
         'Content-Type': file.mimeType,
-      };
-      res.writeHead(200, head);
+      });
 
-      const decryptStream = EncryptionService.getDecryptStream(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[streamFile] decrypt error:');
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to stream file' });
+        } else {
+          res.destroy();
+        }
+      });
       decryptStream.pipe(res);
-    } catch (error: any) {
-      res.status(404).json({ error: error.message });
+    } catch (error) {
+      if (!res.headersSent) {
+        next(error);
+      }
     }
   }
 
-  static async searchFiles(req: AuthRequest, res: Response): Promise<void> {
+  static async searchFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { q, mimeType, dateFrom, dateTo } = req.query;
@@ -269,12 +285,10 @@ export class FileController {
       });
 
       res.status(200).json({ files });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async toggleFavorite(req: AuthRequest, res: Response): Promise<void> {
+  static async toggleFavorite(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId } = req.params;
@@ -282,36 +296,30 @@ export class FileController {
       const file = await FileService.toggleFavorite(fileId, userId);
 
       res.status(200).json({ file });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getFavoriteFiles(req: AuthRequest, res: Response): Promise<void> {
+  static async getFavoriteFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
 
       const files = await FileService.getFavoriteFiles(userId);
 
       res.status(200).json({ files });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getAcceptedShares(req: AuthRequest, res: Response): Promise<void> {
+  static async getAcceptedShares(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
 
       const shares = await FileService.getAcceptedShares(userId);
 
       res.status(200).json(shares);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async exportFilesCsv(req: AuthRequest, res: Response): Promise<void> {
+  static async exportFilesCsv(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const files = await prisma.file.findMany({
@@ -364,8 +372,6 @@ export class FileController {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.status(200).send(csv);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 }

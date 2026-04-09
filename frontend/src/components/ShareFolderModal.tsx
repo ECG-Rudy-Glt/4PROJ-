@@ -5,6 +5,7 @@ import { shareService } from '@/services/shareService';
 import { SharedFolder } from '@/types';
 import PermissionsManager from './PermissionsManager';
 import api from '@/services/api';
+import { useTranslation } from 'react-i18next';
 
 interface ShareFolderModalProps {
   folderId: string;
@@ -29,6 +30,7 @@ export default function ShareFolderModal({
   isOpen,
   onClose,
 }: ShareFolderModalProps) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [suggestions, setSuggestions] = useState<UserSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -133,7 +135,7 @@ export default function ShareFolderModal({
 
   const handleShare = async () => {
     if (!email.trim()) {
-      toast.error('Veuillez entrer un email');
+      toast.error(t('share_modal.error_email'));
       return;
     }
 
@@ -141,30 +143,30 @@ export default function ShareFolderModal({
     try {
       const response = await shareService.shareFolder(folderId, email.trim(), customPermissions);
       if (response && response.isNewUser) {
-        toast.success(`Invitation envoyée à ${email}`);
+        toast.success(t('share_modal.invite_success', { email }));
       } else {
-        toast.success(`Dossier partagé avec ${email}`);
+        toast.success(t('share_modal.share_success', { email }));
       }
       setEmail('');
       setSuggestions([]);
       setShowSuggestions(false);
       loadSharedWith();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec du partage');
+      toast.error(error.response?.data?.error || t('share_modal.error_sharing'));
     } finally {
       setIsSharing(false);
     }
   };
 
   const handleRemoveShare = async (shareId: string, userEmail: string) => {
-    if (!confirm(`Retirer l'accès de ${userEmail} ?`)) return;
+    if (!confirm(t('share_modal.remove_access_confirm', { email: userEmail }))) return;
 
     try {
       await shareService.removeSharedFolder(shareId);
-      toast.success('Accès retiré');
+      toast.success(t('share_modal.remove_success'));
       loadSharedWith();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la suppression');
+      toast.error(error.response?.data?.error || t('share_modal.error_removing'));
     }
   };
 
@@ -177,7 +179,7 @@ export default function ShareFolderModal({
   const copyInviteLink = () => {
     navigator.clipboard.writeText(inviteLink);
     setLinkCopied(true);
-    toast.success('Lien copié !');
+    toast.success(t('share_modal.copied'));
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
@@ -201,10 +203,10 @@ export default function ShareFolderModal({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Partager "{folderName}"
+                {t('share_modal.title', { name: folderName })}
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Invitez des personnes à collaborer
+                {t('share_modal.subtitle')}
               </p>
             </div>
           </div>
@@ -220,7 +222,7 @@ export default function ShareFolderModal({
           {/* Section 1: Templates de permissions rapides */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Templates rapides
+              {t('share_modal.templates_title')}
             </h3>
             <div className="grid grid-cols-3 gap-3">
               <button
@@ -232,8 +234,8 @@ export default function ShareFolderModal({
                 }`}
               >
                 <Eye className="w-5 h-5 mx-auto mb-1 text-blue-600 dark:text-blue-400" />
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Lecteur</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Lecture seule</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{t('share_modal.viewer.title')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('share_modal.viewer.desc')}</p>
               </button>
 
               <button
@@ -245,8 +247,8 @@ export default function ShareFolderModal({
                 }`}
               >
                 <Edit3 className="w-5 h-5 mx-auto mb-1 text-green-600 dark:text-green-400" />
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Éditeur</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Modifier fichiers</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{t('share_modal.editor.title')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('share_modal.editor.desc')}</p>
               </button>
 
               <button
@@ -258,8 +260,8 @@ export default function ShareFolderModal({
                 }`}
               >
                 <Shield className="w-5 h-5 mx-auto mb-1 text-purple-600 dark:text-purple-400" />
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Admin</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Contrôle total</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{t('share_modal.admin.title')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('share_modal.admin.desc')}</p>
               </button>
             </div>
           </div>
@@ -277,7 +279,7 @@ export default function ShareFolderModal({
           {/* Section 3: Inviter par email avec autocomplete */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Inviter par email
+              {t('share_modal.invite_email')}
             </h3>
             <div className="relative">
               <div className="flex gap-2">
@@ -288,7 +290,7 @@ export default function ShareFolderModal({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleShare()}
-                    placeholder="nom@exemple.com"
+                    placeholder={t('share_modal.email_placeholder')}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-600 focus:border-transparent"
                   />
 
@@ -324,7 +326,7 @@ export default function ShareFolderModal({
                   disabled={isSharing || !email.trim()}
                   className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                 >
-                  {isSharing ? 'Envoi...' : 'Inviter'}
+                  {isSharing ? t('share_modal.inviting_button') : t('share_modal.invite_button')}
                 </button>
               </div>
             </div>
@@ -333,7 +335,7 @@ export default function ShareFolderModal({
           {/* Section 4: Lien d'invitation */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Ou partager via lien
+              {t('share_modal.share_via_link')}
             </h3>
             <div className="flex gap-2">
               <div className="flex-1 relative">
@@ -352,18 +354,18 @@ export default function ShareFolderModal({
                 {linkCopied ? (
                   <>
                     <Check className="w-5 h-5 text-green-600" />
-                    <span className="text-green-600">Copié</span>
+                    <span className="text-green-600">{t('share_modal.copied')}</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-5 h-5" />
-                    <span>Copier</span>
+                    <span>{t('file_modals.share_link.copy')}</span>
                   </>
                 )}
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Toute personne avec ce lien pourra accéder au dossier
+              {t('share_modal.link_hint_folder')}
             </p>
           </div>
 
@@ -371,7 +373,7 @@ export default function ShareFolderModal({
           {sharedWith.length > 0 && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                Personnes ayant accès ({sharedWith.length})
+                {t('share_modal.people_with_access', { count: sharedWith.length })}
               </h3>
               <div className="space-y-2">
                 {sharedWith.map((share) => (
@@ -403,7 +405,7 @@ export default function ShareFolderModal({
                       <button
                         onClick={() => handleRemoveShare(share.id, share.sharedWith?.email || '')}
                         className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Retirer l'accès"
+                        title={t('share_modal.remove_access_title')}
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -421,7 +423,7 @@ export default function ShareFolderModal({
             onClick={onClose}
             className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
           >
-            Fermer
+            {t('file_modals.share_link.close')}
           </button>
         </div>
       </div>

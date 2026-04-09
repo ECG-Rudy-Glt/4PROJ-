@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Download, Copy, Check, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface BackupCodesModalProps {
   isOpen: boolean;
@@ -9,24 +10,19 @@ interface BackupCodesModalProps {
 }
 
 export default function BackupCodesModal({ isOpen, codes, onComplete }: BackupCodesModalProps) {
+  const { t, i18n } = useTranslation();
   const [codesCopied, setCodesCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
   const handleDownload = () => {
-    const content = `Codes de récupération SupFile
-================================
+    const headerRow = t('backup_codes_modal.file_header').replace(/\\n/g, '\n');
+    const generatedOnStr = t('backup_codes_modal.file_generated_on', {
+      date: new Date().toLocaleString(i18n.language === 'fr' ? 'fr-FR' : 'en-US')
+    }).replace(/\\n/g, '\n');
 
-IMPORTANT : Conservez ces codes en lieu sûr !
-Ces codes ne seront affichés qu'une seule fois.
+    const content = `${headerRow}${codes.map((code, index) => `${index + 1}. ${code}`).join('\n')}
 
-Utilisez ces codes si vous perdez l'accès à votre application d'authentification.
-Chaque code ne peut être utilisé qu'une seule fois.
-
-Codes :
-${codes.map((code, index) => `${index + 1}. ${code}`).join('\n')}
-
-Généré le : ${new Date().toLocaleString('fr-FR')}
-`;
+${generatedOnStr}`;
 
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -38,20 +34,20 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    toast.success('Codes téléchargés !');
+    toast.success(t('backup_codes_modal.download_success'));
   };
 
   const handleCopy = () => {
     const content = codes.join('\n');
     navigator.clipboard.writeText(content);
     setCodesCopied(true);
-    toast.success('Codes copiés dans le presse-papiers !');
+    toast.success(t('backup_codes_modal.copy_success'));
     setTimeout(() => setCodesCopied(false), 2000);
   };
 
   const handleContinue = () => {
     if (!confirmed) {
-      toast.error('Veuillez confirmer que vous avez sauvegardé vos codes');
+      toast.error(t('backup_codes_modal.confirm_error'));
       return;
     }
     onComplete();
@@ -70,10 +66,10 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
             </div>
             <div>
               <h2 className="text-xl font-bold text-orange-900 dark:text-orange-100">
-                Codes de récupération - Conservez-les en lieu sûr
+                {t('backup_codes_modal.title')}
               </h2>
               <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-                Ces codes ne seront affichés qu'une seule fois ! Téléchargez-les ou copiez-les maintenant.
+                {t('backup_codes_modal.subtitle')}
               </p>
             </div>
           </div>
@@ -86,14 +82,14 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
             <div className="flex items-start space-x-3">
               <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-900 dark:text-blue-100">
-                <p className="font-semibold mb-1">À quoi servent ces codes ?</p>
+                <p className="font-semibold mb-1">{t('backup_codes_modal.what_are_these')}</p>
                 <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
-                  <li>Si vous perdez l'accès à votre application d'authentification</li>
-                  <li>Si vous changez de téléphone</li>
-                  <li>En cas d'urgence pour accéder à votre compte</li>
+                  <li>{t('backup_codes_modal.reason_1')}</li>
+                  <li>{t('backup_codes_modal.reason_2')}</li>
+                  <li>{t('backup_codes_modal.reason_3')}</li>
                 </ul>
                 <p className="mt-2 font-medium">
-                  ⚠️ Chaque code ne peut être utilisé qu'une seule fois.
+                  {t('backup_codes_modal.warning_once')}
                 </p>
               </div>
             </div>
@@ -102,7 +98,7 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
           {/* Liste des codes */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-              Vos codes de récupération ({codes.length})
+              {t('backup_codes_modal.your_codes', { count: codes.length })}
             </h3>
             <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
               {codes.map((code, index) => (
@@ -128,7 +124,7 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
               className="flex items-center px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             >
               <Download className="w-4 h-4 mr-2" />
-              Télécharger
+              {t('backup_codes_modal.download')}
             </button>
             <button
               onClick={handleCopy}
@@ -137,12 +133,12 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
               {codesCopied ? (
                 <>
                   <Check className="w-4 h-4 mr-2 text-green-600" />
-                  Copié !
+                  {t('backup_codes_modal.copied')}
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4 mr-2" />
-                  Copier
+                  {t('backup_codes_modal.copy')}
                 </>
               )}
             </button>
@@ -159,10 +155,10 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
               />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  J'ai sauvegardé mes codes de récupération
+                  {t('backup_codes_modal.checkbox_label')}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Je comprends que je ne pourrai plus les voir après avoir fermé cette fenêtre.
+                  {t('backup_codes_modal.checkbox_desc')}
                 </p>
               </div>
             </label>
@@ -175,7 +171,7 @@ Généré le : ${new Date().toLocaleString('fr-FR')}
               disabled={!confirmed}
               className="px-6 py-3 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Continuer
+              {t('backup_codes_modal.continue')}
             </button>
           </div>
         </div>

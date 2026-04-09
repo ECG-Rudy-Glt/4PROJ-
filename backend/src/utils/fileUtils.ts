@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import logger from '../config/logger';
 
 const unlinkAsync = promisify(fs.unlink);
 const statAsync = promisify(fs.stat);
@@ -12,7 +13,7 @@ export const deleteFile = async (filePath: string): Promise<void> => {
       await unlinkAsync(filePath);
     }
   } catch (error) {
-    console.error('Error deleting file:', error);
+    logger.error({ err: error }, 'Error deleting file:');
     throw error;
   }
 };

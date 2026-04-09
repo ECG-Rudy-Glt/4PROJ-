@@ -8,6 +8,7 @@ interface FileState {
   folders: Folder[];
   currentFolderId: string | null;
   isLoading: boolean;
+  isDragging: boolean;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   loadContent: (
@@ -19,8 +20,10 @@ interface FileState {
   uploadFile: (file: globalThis.File, folderId?: string) => Promise<void>;
   deleteFile: (fileId: string, permanent?: boolean) => Promise<void>;
   createFolder: (name: string, parentId?: string) => Promise<void>;
+  deleteFolder: (folderId: string, permanent?: boolean) => Promise<void>;
   setCurrentFolder: (folderId: string | null) => void;
   setSorting: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+  setIsDragging: (isDragging: boolean) => void;
 }
 
 export const useFileStore = create<FileState>((set, get) => ({
@@ -28,6 +31,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   folders: [],
   currentFolderId: null,
   isLoading: false,
+  isDragging: false,
   sortBy: 'createdAt',
   sortOrder: 'desc',
 
@@ -79,11 +83,24 @@ export const useFileStore = create<FileState>((set, get) => ({
     }
   },
 
+  deleteFolder: async (folderId, permanent = false) => {
+    try {
+      await folderService.deleteFolder(folderId, permanent);
+      await get().loadContent(get().currentFolderId || undefined);
+    } catch {
+      throw new Error('Failed to delete folder');
+    }
+  },
+
   setCurrentFolder: (folderId) => {
     set({ currentFolderId: folderId });
   },
 
   setSorting: (sortBy, sortOrder) => {
     set({ sortBy, sortOrder });
+  },
+
+  setIsDragging: (isDragging) => {
+    set({ isDragging });
   },
 }));

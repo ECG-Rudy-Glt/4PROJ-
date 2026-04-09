@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { AccountAccessService } from '../services/accountAccessService';
 import { AuditService } from '../services/auditService';
@@ -8,16 +8,14 @@ const getRootUserId = (req: AuthRequest) => req.authContext?.rootUserId || req.u
 const getActorUserId = (req: AuthRequest) => req.authContext?.actorUserId || req.user!.id;
 
 export class AccountAccessController {
-  static async listSwitchLinks(req: AuthRequest, res: Response): Promise<void> {
+  static async listSwitchLinks(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const links = await AccountAccessService.listSwitchLinks(getRootUserId(req));
       res.status(200).json({ links });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async addSwitchLink(req: AuthRequest, res: Response): Promise<void> {
+  static async addSwitchLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const rootUserId = getRootUserId(req);
       const { email, password, mfaCode, backupCode, label } = req.body;
@@ -44,12 +42,10 @@ export class AccountAccessController {
       });
 
       res.status(201).json({ link });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async revokeSwitchLink(req: AuthRequest, res: Response): Promise<void> {
+  static async revokeSwitchLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const rootUserId = getRootUserId(req);
       const { linkId } = req.params;
@@ -62,12 +58,10 @@ export class AccountAccessController {
       });
 
       res.status(200).json({ message: 'Lien de switch révoqué' });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async switchToLinkedAccount(req: AuthRequest, res: Response): Promise<void> {
+  static async switchToLinkedAccount(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const rootUserId = getRootUserId(req);
       const { linkId } = req.params;
@@ -106,12 +100,10 @@ export class AccountAccessController {
           actorUserId: rootUserId,
         },
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async switchBack(req: AuthRequest, res: Response): Promise<void> {
+  static async switchBack(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.authContext || req.authContext.authType === 'DIRECT') {
         res.status(400).json({ error: 'Aucune session déléguée/switch active' });
@@ -137,12 +129,10 @@ export class AccountAccessController {
           actorUserId: rootUserId,
         },
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async grantDelegation(req: AuthRequest, res: Response): Promise<void> {
+  static async grantDelegation(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const ownerUserId = req.user!.id;
       const { delegateEmail, permissions, expiresAt } = req.body;
@@ -172,21 +162,17 @@ export class AccountAccessController {
       });
 
       res.status(201).json({ delegation });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async listDelegations(req: AuthRequest, res: Response): Promise<void> {
+  static async listDelegations(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await AccountAccessService.listDelegations(req.user!.id);
       res.status(200).json(data);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async revokeDelegation(req: AuthRequest, res: Response): Promise<void> {
+  static async revokeDelegation(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const ownerUserId = req.user!.id;
       const { delegationId } = req.params;
@@ -198,12 +184,10 @@ export class AccountAccessController {
       });
 
       res.status(200).json({ message: 'Délégation révoquée' });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async assumeDelegation(req: AuthRequest, res: Response): Promise<void> {
+  static async assumeDelegation(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const delegateUserId = req.user!.id;
       const { delegationId } = req.params;
@@ -233,9 +217,7 @@ export class AccountAccessController {
           delegation: result.delegation,
         },
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 }
 

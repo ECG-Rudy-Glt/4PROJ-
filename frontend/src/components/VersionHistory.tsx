@@ -4,6 +4,7 @@ import { History, RotateCcw, Trash2, Clock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatBytes } from '@/utils/bytes';
 
 interface VersionHistoryProps {
   fileId: string;
@@ -11,14 +12,6 @@ interface VersionHistoryProps {
   isShared?: boolean;
   canWrite?: boolean;
 }
-
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 o';
-  const k = 1024;
-  const sizes = ['o', 'Ko', 'Mo', 'Go'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
 
 export default function VersionHistory({ fileId, onVersionRestored, isShared = false, canWrite = true }: VersionHistoryProps) {
   const [versions, setVersions] = useState<FileVersion[]>([]);

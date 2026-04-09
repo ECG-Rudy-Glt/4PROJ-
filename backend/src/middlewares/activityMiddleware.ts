@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import prisma from '../config/database';
+import logger from '../config/logger';
 
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in ms
 
@@ -26,12 +27,12 @@ export const activityMiddleware = async (req: AuthRequest, res: Response, next: 
             prisma.user.update({
                 where: { id: req.user.id },
                 data: { lastActiveAt: now },
-            }).catch(err => console.error('Error updating lastActiveAt:', err));
+            }).catch(err => logger.error({ err }, 'Error updating lastActiveAt:'));
         }
 
         next();
     } catch (error) {
-        console.error('Activity middleware error:', error);
+        logger.error({ err: error }, 'Activity middleware error:');
         next();
     }
 };

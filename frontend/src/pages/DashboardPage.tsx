@@ -11,17 +11,19 @@ import {
   FolderOpen,
   Image,
   Video,
-  FileText,
   Music,
+  FileText,
   Archive,
   FileSpreadsheet,
   Presentation
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { fr, enUS } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/useAuthStore';
 import ActivityLog from '@/components/ActivityLog';
 import { formatBytes } from '@/utils/bytes';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -54,6 +56,8 @@ const getMimeTypeColor = (mimeType: string) => {
 };
 
 export default function DashboardPage() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'fr' ? fr : enUS;
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuthStore();
@@ -68,7 +72,7 @@ export default function DashboardPage() {
       const dashboardData = await dashboardService.getDashboard();
       setData(dashboardData);
     } catch {
-      toast.error('Failed to load dashboard');
+      toast.error(t('common.error_loading'));
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +95,7 @@ export default function DashboardPage() {
   }
 
   if (!data) {
-    return <div>No data available</div>;
+    return <div className="p-8 text-center text-gray-500">{t('common.no_data')}</div>;
   }
 
   const chartData = Object.entries(data.fileStats.byMimeType).map(([key, value]) => ({
@@ -109,10 +113,10 @@ export default function DashboardPage() {
       {/* Welcome Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Bienvenue, {user?.firstName || 'Utilisateur'}
+          {t('dashboard.welcome')}, {user?.firstName || t('common.others')}
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Voici un aperçu de votre espace de stockage
+          {t('dashboard.overview')}
         </p>
       </div>
 
@@ -126,7 +130,7 @@ export default function DashboardPage() {
             </div>
             <TrendingUp className="w-4 h-4 text-gray-400" />
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total des fichiers</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('dashboard.total_files')}</p>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">{data.fileStats.totalFiles}</p>
         </div>
 
@@ -140,10 +144,10 @@ export default function DashboardPage() {
               {quotaPercentage.toFixed(0)}%
             </span>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Espace utilisé</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('dashboard.storage_used')}</p>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatBytes(quotaUsed)}</p>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-            sur {formatBytes(quotaLimit)}
+            {t('common.of')} {formatBytes(quotaLimit)}
           </p>
         </div>
 
@@ -154,7 +158,7 @@ export default function DashboardPage() {
               <Archive className="w-5 h-5 text-pink-600 dark:text-pink-400" />
             </div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Taille totale</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('dashboard.total_size')}</p>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatBytes(Number(data.fileStats.totalSize))}</p>
         </div>
 
@@ -165,7 +169,7 @@ export default function DashboardPage() {
               <File className="w-5 h-5 text-orange-600 dark:text-orange-400" />
             </div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Types de fichiers</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('dashboard.file_types')}</p>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">{Object.keys(data.fileStats.byMimeType).length}</p>
         </div>
       </div>
@@ -176,7 +180,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Répartition par type
+              {t('dashboard.repartition')}
             </h2>
             <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
               <HardDrive className="w-5 h-5 text-primary-600 dark:text-primary-400" />
@@ -206,7 +210,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [formatBytes(value), 'Taille']}
+                    formatter={(value: number) => [formatBytes(value), t('common.size')]}
                     labelFormatter={(label: string) => label}
                     contentStyle={{
                       backgroundColor: 'rgba(30, 30, 30, 0.95)',
@@ -241,7 +245,7 @@ export default function DashboardPage() {
                         {item.name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {item.count} fichier{item.count > 1 ? 's' : ''}
+                        {item.count} {item.count > 1 ? t('common.file_plural') : t('common.file')}
                       </p>
                     </div>
                   </div>
@@ -254,7 +258,7 @@ export default function DashboardPage() {
                 <File className="w-8 h-8 text-gray-400" />
               </div>
               <p className="text-gray-600 dark:text-gray-400 text-center">
-                Aucun fichier pour le moment
+                {t('dashboard.no_files')}
               </p>
             </div>
           )}
@@ -264,7 +268,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Fichiers récents
+              {t('dashboard.recent_files')}
             </h2>
             <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
               <Clock className="w-5 h-5 text-primary-600 dark:text-primary-400" />
@@ -291,14 +295,14 @@ export default function DashboardPage() {
                         {file.name}
                       </p>
                       <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
-                        <span>{file.folder?.name || 'Racine'}</span>
+                        <span>{file.folder?.name || t('dashboard.root')}</span>
                         <span>•</span>
                         <span>{formatBytes(Number(file.size))}</span>
                       </div>
                     </div>
                     <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-full">
                       <Clock className="w-3.5 h-3.5 mr-1" />
-                      {format(new Date(file.updatedAt), 'dd MMM')}
+                      {format(new Date(file.updatedAt), 'dd MMM', { locale: dateLocale })}
                     </div>
                   </div>
                 );
@@ -309,7 +313,7 @@ export default function DashboardPage() {
                   <Clock className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-gray-600 dark:text-gray-400 text-center">
-                  Aucun fichier récent
+                  {t('dashboard.no_recent')}
                 </p>
               </div>
             )}

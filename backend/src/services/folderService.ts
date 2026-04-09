@@ -1,7 +1,13 @@
 import prisma from '../config/database';
+import fs from 'fs/promises';
+import archiver from 'archiver';
+import { Response } from 'express';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { VaultService } from './vaultService';
+import { PlanService } from './planService';
+import { EncryptionService } from './encryptionService';
+import logger from '../config/logger';
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -61,7 +67,7 @@ export class FolderService {
     AuditService.createLog(userId, 'CREATE_FOLDER', {
       folderId: folder.id,
       folderName: name,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     // Socket event
     SocketService.emitToUser(userId, 'folder_created', folder);
@@ -101,6 +107,7 @@ export class FolderService {
       where: {
         userId,
         parentId: parentId || null,
+        isDeleted: false,
         ...(vaultUnlocked ? {} : { isVault: false }),
       },
       include: {
@@ -243,7 +250,7 @@ export class FolderService {
     });
   }
 
-  static async deleteFolder(folderId: string, userId: string) {
+  static async deleteFolder(folderId: string, userId: string, permanent = false) {
     const folder = await prisma.folder.findFirst({
       where: {
         id: folderId,
@@ -257,16 +264,54 @@ export class FolderService {
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
-    // This will cascade delete all children folders and files
-    await prisma.folder.delete({
-      where: { id: folderId },
-    });
+    if (permanent || folder.isDeleted) {
+      // 1. Trouver tous les fichiers dans ce dossier et ses sous-dossiers pour suppression physique
+      const filesInFolder = await prisma.file.findMany({
+        where: {
+          OR: [
+            { folderId: folder.id },
+            { folder: { path: { startsWith: `${folder.path}/` } } }
+          ]
+        },
+        select: {
+          id: true,
+          storagePath: true,
+          thumbnailPath: true,
+          size: true,
+          userId: true,
+        }
+      });
+
+      // 2. Supprimer physiquement chaque fichier et ajuster les quotas
+      for (const file of filesInFolder) {
+        try {
+          await fs.unlink(file.storagePath).catch(() => {});
+          if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
+          await PlanService.updateQuotaUsed(file.userId, -Number(file.size));
+          // File record suppression is handled by the manual delete loop below 
+          // to ensure consistency since File -> Folder is onDelete: SetNull
+          await prisma.file.delete({ where: { id: file.id } });
+        } catch (err) {
+          logger.error(`Error purging file ${file.id} during folder deletion: ${err}`);
+        }
+      }
+
+      // 3. Supprimer le dossier (cascades subfolders)
+      await prisma.folder.delete({
+        where: { id: folderId },
+      });
+    } else {
+      await prisma.folder.update({
+        where: { id: folderId },
+        data: { isDeleted: true, deletedAt: new Date() },
+      });
+    }
 
     // Audit log
     AuditService.createLog(userId, 'DELETE_FOLDER', {
       folderId: folder.id,
       folderName: folder.name,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
 
     // Socket event
     SocketService.emitToUser(userId, 'folder_deleted', { folderId });
@@ -308,5 +353,101 @@ export class FolderService {
     }
 
     return breadcrumbs;
+  }
+
+  static async restoreFolder(folderId: string, userId: string) {
+    const folder = await prisma.folder.findFirst({
+      where: { id: folderId, userId, isDeleted: true },
+    });
+    if (!folder) throw new Error('Folder not found in trash');
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
+    const restoredFolder = await prisma.folder.update({
+      where: { id: folderId },
+      data: { isDeleted: false, deletedAt: null },
+    });
+
+    await AuditService.createLog(userId, 'RESTORE', { folderName: folder.name, folderId: folder.id });
+    return restoredFolder;
+  }
+
+  static async getDeletedFolders(userId: string) {
+    return await prisma.folder.findMany({
+      where: { userId, isDeleted: true },
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
+  static async streamFolderAsZip(folderId: string, userId: string, res: Response): Promise<void> {
+    const folder = await prisma.folder.findFirst({
+      where: { id: folderId, userId },
+      select: { id: true, name: true, isVault: true },
+    });
+
+    if (!folder) throw new Error('Folder not found');
+    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
+    type FileEntry = { storagePath: string; entryPath: string };
+
+    const collectFiles = async (currentFolderId: string, relativePath: string): Promise<FileEntry[]> => {
+      const [files, subfolders] = await Promise.all([
+        prisma.file.findMany({
+          where: { folderId: currentFolderId, userId },
+          select: { name: true, storagePath: true },
+        }),
+        prisma.folder.findMany({
+          where: { parentId: currentFolderId, userId, isDeleted: false },
+          select: { id: true, name: true },
+        }),
+      ]);
+
+      const entries: FileEntry[] = files.map((f) => ({
+        storagePath: f.storagePath,
+        entryPath: `${relativePath}/${f.name}`,
+      }));
+
+      for (const sub of subfolders) {
+        const subEntries = await collectFiles(sub.id, `${relativePath}/${sub.name}`);
+        entries.push(...subEntries);
+      }
+
+      return entries;
+    };
+
+    const allFiles = await collectFiles(folderId, folder.name);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+
+    archive.on('error', (err) => {
+      logger.error({ err }, '[streamFolderAsZip] archiver error');
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to create archive' });
+      } else {
+        res.destroy();
+      }
+    });
+
+    archive.pipe(res);
+
+    for (const { storagePath, entryPath } of allFiles) {
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath);
+      archive.append(decryptStream, { name: entryPath });
+    }
+
+    await archive.finalize();
+  }
+
+  static async getFolderTrashContents(folderId: string, userId: string) {
+    const [files, folders] = await Promise.all([
+      prisma.file.findMany({
+        where: { folderId, userId },
+        include: { tags: { include: { tag: true } } },
+      }),
+      prisma.folder.findMany({
+        where: { parentId: folderId, userId },
+      }),
+    ]);
+
+    return { files, folders };
   }
 }

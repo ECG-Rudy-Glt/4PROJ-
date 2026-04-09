@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController';
+import { UserProfileController } from '../controllers/userProfileController';
+import { DataExportController } from '../controllers/dataExportController';
 import { authenticate } from '../middlewares/auth';
 import { body } from 'express-validator';
 import { validate } from '../middlewares/validation';
@@ -31,9 +33,9 @@ router.post(
 router.post('/logout-all', authenticate, AuthController.logoutAll);
 
 // Profile
-router.get('/profile', authenticate, AuthController.getProfile);
-router.put('/profile', authenticate, AuthController.updateProfile);
-router.post('/avatar', authenticate, avatarUpload.single('avatar'), AuthController.uploadAvatar);
+router.get('/profile', authenticate, UserProfileController.getProfile);
+router.put('/profile', authenticate, UserProfileController.updateProfile);
+router.post('/avatar', authenticate, avatarUpload.single('avatar'), UserProfileController.uploadAvatar);
 router.post(
   '/change-password',
   authenticate,
@@ -41,11 +43,11 @@ router.post(
     body('oldPassword').notEmpty().withMessage('Old password required'),
     body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
   ]),
-  AuthController.changePassword
+  UserProfileController.changePassword
 );
 
 // RGPD - Export des données
-router.get('/export-data', authenticate, AuthController.exportUserData);
+router.get('/export-data', authenticate, DataExportController.exportUserData);
 
 // OAuth2 routes
 router.get(

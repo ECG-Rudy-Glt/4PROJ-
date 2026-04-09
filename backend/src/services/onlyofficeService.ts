@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { File } from '@prisma/client';
 import prisma from '../config/database';
 import { VersionService } from './versionService';
+import logger from '../config/logger';
 
 // URL interne Docker pour la communication backend -> OnlyOffice
 const ONLYOFFICE_INTERNAL_URL = process.env.ONLYOFFICE_URL || 'http://onlyoffice:80';
@@ -200,7 +201,7 @@ export class OnlyOfficeService {
 
     if (status === 3 || status === 7) {
       // Error occurred
-      console.error('OnlyOffice callback error:', callbackData);
+      logger.error({ callbackData }, 'OnlyOffice callback error:');
       return { error: 1 };
     }
 

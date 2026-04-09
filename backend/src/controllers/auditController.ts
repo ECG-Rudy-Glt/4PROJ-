@@ -1,9 +1,9 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { AuditService, AuditAction } from '../services/auditService';
 import { AuthRequest } from '../types';
 
 export class AuditController {
-  static async getUserLogs(req: AuthRequest, res: Response): Promise<void> {
+  static async getUserLogs(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { limit, offset, action, dateFrom, dateTo } = req.query;
@@ -19,12 +19,10 @@ export class AuditController {
       const result = await AuditService.getUserLogs(userId, options);
 
       res.status(200).json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async getActivityStats(req: AuthRequest, res: Response): Promise<void> {
+  static async getActivityStats(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { days } = req.query;
@@ -35,12 +33,10 @@ export class AuditController {
       );
 
       res.status(200).json(stats);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 
-  static async exportUserLogsCsv(req: AuthRequest, res: Response): Promise<void> {
+  static async exportUserLogsCsv(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { logs } = await AuditService.getUserLogs(userId, {
@@ -62,8 +58,6 @@ export class AuditController {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.status(200).send(csv);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    } catch (error) { next(error); }
   }
 }

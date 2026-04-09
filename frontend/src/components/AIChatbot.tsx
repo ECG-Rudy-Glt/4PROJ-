@@ -4,6 +4,7 @@ import { aiService } from '@/services/aiService';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import { useTranslation } from 'react-i18next';
 
 interface Message {
   id: string;
@@ -13,21 +14,13 @@ interface Message {
 }
 
 export default function AIChatbot() {
+  const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: `Salut ! Je suis **Bobby**, ton assistant IA intégré à **SUPFILE** 🛠️
-
-Voici ce que je peux faire pour toi :
-
-• **Lister** tes fichiers ("Montre-moi mes documents")
-• **Rechercher** des fichiers ("Trouve mes PDF")
-• **Analyser** un fichier ("Qu'est-ce que rapport.pdf ?")
-• **Organiser** ("Trie mes photos par date")
-
-Dis-moi simplement ce que tu cherches ! 🚀`,
+      text: t('chatbot.welcome'),
       sender: 'ai',
       timestamp: new Date(),
     },
@@ -136,14 +129,14 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
     } catch (error: any) {
       console.error('Error sending message:', error);
 
-      let errorText = 'Désolé, j\'ai rencontré un problème. Veuillez réessayer.';
+      let errorText = t('chatbot.error_general');
 
       // Gérer les erreurs de rate limit spécifiquement
       if (error.response?.status === 429 || error.response?.data?.error === 'RATE_LIMIT_EXCEEDED') {
-        errorText = '🚫 **Quota journalier atteint**\n\nJ\'ai épuisé mon quota gratuit de 50 requêtes par jour. Tu peux :\n\n• **Réessayer demain** (réinitialisation automatique)\n• **Ajouter des crédits** sur [OpenRouter](https://openrouter.ai/) pour débloquer 1000 requêtes gratuites/jour\n\nDésolé pour la gêne ! 🙏';
-        toast.error('Quota quotidien de Bobby atteint');
+        errorText = t('chatbot.quota_exceeded');
+        toast.error(t('chatbot.quota_toast'));
       } else {
-        toast.error('Erreur lors de la communication avec Bobby');
+        toast.error(t('chatbot.error_chat'));
       }
 
       const errorMessage: Message = {
@@ -194,18 +187,18 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
         className={`fixed bottom-6 right-6 w-20 h-20 hover:scale-110 transition-all duration-300 z-50 bg-transparent border-none ${
           isOpen ? 'scale-0' : 'scale-100'
         }`}
-        title="Discuter avec Bobby le robot"
+        title={t('chatbot.tooltip')}
       >
         {hoveredAvatar ? (
           <img
             src={hoveredAvatar}
-            alt="Bobby le robot"
+            alt={t('chatbot.name')}
             className="w-full h-full object-contain"
           />
         ) : currentAvatar ? (
           <img
             src={currentAvatar}
-            alt="Bobby le robot"
+            alt={t('chatbot.name')}
             className="w-full h-full object-contain"
           />
         ) : (
@@ -228,13 +221,13 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
                 {isTyping && currentAvatar ? (
                   <img
                     src={getWorkingAvatar(currentAvatar) || currentAvatar}
-                    alt="Bobby le robot"
+                    alt={t('chatbot.name')}
                     className="w-full h-full object-contain drop-shadow-md"
                   />
                 ) : currentAvatar ? (
                   <img
                     src={currentAvatar}
-                    alt="Bobby le robot"
+                    alt={t('chatbot.name')}
                     className="w-full h-full object-contain drop-shadow-md"
                   />
                 ) : (
@@ -243,10 +236,10 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Bobby le robot
+                  {t('chatbot.name')}
                 </h3>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {isTyping ? 'En train d\'écrire...' : 'En ligne'}
+                  {isTyping ? t('chatbot.typing') : t('chatbot.online')}
                 </p>
               </div>
             </div>
@@ -254,14 +247,14 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title={isMinimized ? 'Agrandir' : 'Réduire'}
+                title={isMinimized ? t('chatbot.maximize') : t('chatbot.minimize')}
               >
                 <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                title="Fermer"
+                title={t('common.close')}
               >
                 <X className="w-4 h-4 text-gray-600 dark:text-gray-400 hover:text-red-600" />
               </button>
@@ -307,7 +300,7 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
                             : 'text-gray-500 dark:text-gray-400'
                         }`}
                       >
-                        {message.timestamp.toLocaleTimeString('fr-FR', {
+                        {message.timestamp.toLocaleTimeString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
@@ -330,13 +323,13 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
               </div>
 
               {/* Input */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
                 <div className="flex items-end space-x-2">
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Tapez votre message..."
+                    placeholder={t('chatbot.placeholder')}
                     rows={1}
                     className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   />
@@ -344,13 +337,13 @@ Dis-moi simplement ce que tu cherches ! 🚀`,
                     onClick={handleSendMessage}
                     disabled={!inputText.trim()}
                     className="p-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
-                    title="Envoyer"
+                    title={t('chatbot.send')}
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Appuyez sur Entrée pour envoyer
+                  {t('chatbot.hint')}
                 </p>
               </div>
             </>

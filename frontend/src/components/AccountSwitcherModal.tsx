@@ -1,34 +1,58 @@
 import { useEffect, useState } from 'react';
-import { X, RefreshCw, UserPlus, Shield, ArrowRightLeft, Undo2, Trash2 } from 'lucide-react';
+import {
+  X, RefreshCw, UserPlus, Shield, ArrowRightLeft, Undo2, Trash2,
+  Eye, Pencil, Trash, Share2, Clock, ChevronRight, Plus, Users,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { accountAccessService, AccountSwitchLink, DelegationRecord } from '@/services/accountAccessService';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useTranslation } from 'react-i18next';
 
 interface AccountSwitcherModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type Tab = 'accounts' | 'delegations';
+
+function Avatar({ name, email }: { name?: string | null; email: string }) {
+  const initials = name
+    ? name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2)
+    : email.slice(0, 2).toUpperCase();
+  return (
+    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-semibold shrink-0">
+      {initials}
+    </div>
+  );
+}
+
+function PermBadge({ label, icon: Icon, active }: { label: string; icon: React.ElementType; active: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+      active
+        ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 line-through'
+    }`}>
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  );
+}
+
 export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitcherModalProps) {
+  const { t, i18n } = useTranslation();
   const { user, sessionContext, setAuthToken } = useAuthStore();
 
+  const [tab, setTab] = useState<Tab>('accounts');
   const [isLoading, setIsLoading] = useState(false);
   const [links, setLinks] = useState<AccountSwitchLink[]>([]);
   const [delegationsGiven, setDelegationsGiven] = useState<DelegationRecord[]>([]);
   const [delegationsReceived, setDelegationsReceived] = useState<DelegationRecord[]>([]);
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    mfaCode: '',
-    backupCode: '',
-    label: '',
-  });
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [showGrantForm, setShowGrantForm] = useState(false);
+  const [form, setForm] = useState({ email: '', password: '', mfaCode: '', backupCode: '', label: '' });
   const [grantForm, setGrantForm] = useState({
-    delegateEmail: '',
-    canWrite: false,
-    canDelete: false,
-    canShare: false,
-    expiresAt: '',
+    delegateEmail: '', canWrite: false, canDelete: false, canShare: false, expiresAt: '',
   });
 
   const loadData = async () => {
@@ -42,16 +66,14 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
       setDelegationsGiven(delegationData.given || []);
       setDelegationsReceived(delegationData.received || []);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible de charger les données de switch');
+      toast.error(error.response?.data?.error || t('account_access.error_loading'));
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      void loadData();
-    }
+    if (isOpen) void loadData();
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -66,11 +88,12 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
         backupCode: form.backupCode.trim() || undefined,
         label: form.label.trim() || undefined,
       });
-      toast.success('Compte lié avec succès');
+      toast.success(t('account_access.link_success'));
       setForm({ email: '', password: '', mfaCode: '', backupCode: '', label: '' });
+      setShowLinkForm(false);
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de liaison du compte');
+      toast.error(error.response?.data?.error || t('account_access.link_error'));
     }
   };
 
@@ -78,14 +101,14 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     try {
       const { token, user: nextUser } = await accountAccessService.switchToLinkedAccount(linkId);
       await setAuthToken(token);
-      toast.success(`Session active: ${nextUser.email}`);
+      toast.success(t('account_access.active_session', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
       if (error.response?.data?.code === 'REAUTH_REQUIRED') {
-        toast.error('Re-authentification requise: reliez à nouveau ce compte');
+        toast.error(t('account_access.reauth_required'));
         return;
       }
-      toast.error(error.response?.data?.error || 'Échec du switch de compte');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -93,20 +116,20 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     try {
       const { token, user: nextUser } = await accountAccessService.switchBack();
       await setAuthToken(token);
-      toast.success(`Retour sur ${nextUser.email}`);
+      toast.success(t('account_access.switch_success', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Impossible de revenir au compte principal');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleRevokeLink = async (linkId: string) => {
     try {
       await accountAccessService.revokeSwitchLink(linkId);
-      toast.success('Lien de switch supprimé');
+      toast.success(t('account_access.unlink'));
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de suppression');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -123,27 +146,22 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
         },
         expiresAt: grantForm.expiresAt ? new Date(grantForm.expiresAt).toISOString() : null,
       });
-      toast.success('Délégation accordée');
-      setGrantForm({
-        delegateEmail: '',
-        canWrite: false,
-        canDelete: false,
-        canShare: false,
-        expiresAt: '',
-      });
+      toast.success(t('account_access.new_delegation'));
+      setGrantForm({ delegateEmail: '', canWrite: false, canDelete: false, canShare: false, expiresAt: '' });
+      setShowGrantForm(false);
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de création de délégation');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
   const handleRevokeDelegation = async (delegationId: string) => {
     try {
       await accountAccessService.revokeDelegation(delegationId);
-      toast.success('Délégation révoquée');
+      toast.success(t('account_access.revoke'));
       await loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de révocation');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
@@ -151,262 +169,402 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     try {
       const { token, user: nextUser } = await accountAccessService.assumeDelegation(delegationId);
       await setAuthToken(token);
-      toast.success(`Vous agissez maintenant au nom de ${nextUser.email}`);
+      toast.success(t('account_access.assume_success', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de prise de délégation');
+      toast.error(error.response?.data?.error || t('common.error'));
     }
   };
 
+  const isDelegated = sessionContext?.authType && sessionContext.authType !== 'DIRECT';
+  const displayName = (u?: { firstName?: string | null; lastName?: string | null; email: string } | null) =>
+    u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '—';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="flex items-center gap-2">
-            <ArrowRightLeft className="w-5 h-5 text-primary-600 dark:text-primary-300" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Switch de comptes & délégation</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+      <div className="w-full sm:max-w-xl max-h-[92vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+              <ArrowRightLeft className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+            </div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('account_access.title')}</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
-            aria-label="Fermer"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6 space-y-8">
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/30">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Compte actif: <span className="font-semibold text-gray-900 dark:text-white">{user?.email}</span>
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Mode session: <span className="font-medium">{sessionContext?.authType || 'DIRECT'}</span>
-            </p>
-            {sessionContext?.authType !== 'DIRECT' && (
-              <button
-                onClick={handleSwitchBack}
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700"
-              >
-                <Undo2 className="w-4 h-4" />
-                Revenir au compte principal
-              </button>
-            )}
+        {/* Active session banner */}
+        <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar name={[user?.firstName, user?.lastName].filter(Boolean).join(' ')} email={user?.email ?? ''} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user?.email}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {isDelegated ? (
+                  <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                    <Shield className="w-3 h-3" /> {t('account_access.delegated_session')}
+                  </span>
+                ) : (
+                  <span className="text-green-600 dark:text-green-400 font-medium">{t('account_access.direct_session')}</span>
+                )}
+              </p>
+            </div>
           </div>
+          {isDelegated && (
+            <button
+              onClick={handleSwitchBack}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-medium hover:opacity-80 transition-opacity"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+              {t('account_access.switch_back')}
+            </button>
+          )}
+        </div>
 
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-primary-600 dark:text-primary-300" />
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Comptes liés</h3>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-100 dark:border-gray-800 px-5">
+          {([
+            { id: 'accounts' as Tab, label: t('account_access.linked_accounts'), icon: RefreshCw, count: links.length },
+            { id: 'delegations' as Tab, label: t('account_access.delegations'), icon: Users, count: delegationsReceived.length + delegationsGiven.length },
+          ] as const).map(({ id, label, icon: Icon, count }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex items-center gap-2 px-1 py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
+                tab === id
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+              {count > 0 && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                  tab === id ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                }`}>{count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16 text-gray-400">
+              <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+              {t('common.loading')}
             </div>
+          ) : tab === 'accounts' ? (
+            <div className="p-5 space-y-4">
+              {/* Linked accounts list */}
+              {links.length === 0 && !showLinkForm ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
+                    <RefreshCw className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('account_access.no_linked_accounts')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('account_access.no_linked_accounts_desc')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {links.map((link) => (
+                    <div
+                      key={link.id}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-800/50 transition-colors group"
+                    >
+                      <Avatar name={displayName(link.targetUser)} email={link.targetUser.email} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {link.label || displayName(link.targetUser)}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{link.targetUser.email}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {t('account_access.linked_on', { date: new Date(link.lastAuthenticatedAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleSwitch(link.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
+                        >
+                          {t('account_access.switch')}
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleRevokeLink(link.id)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                          title={t('account_access.unlink')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            {isLoading ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Chargement...</p>
-            ) : links.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun compte lié pour le moment.</p>
-            ) : (
+              {/* Add link form */}
+              {showLinkForm ? (
+                <div className="rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/10 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                      {t('account_access.link_account')}
+                    </p>
+                    <button onClick={() => setShowLinkForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <form onSubmit={handleLinkAccount} className="space-y-2.5">
+                    <input
+                      type="text"
+                      value={form.label}
+                      onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
+                      placeholder={t('account_access.label_placeholder')}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                        placeholder={t('account_access.email_placeholder')}
+                        required
+                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                      <input
+                        type="password"
+                        value={form.password}
+                        onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                        placeholder={t('account_access.password_placeholder')}
+                        required
+                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={form.mfaCode}
+                        onChange={(e) => setForm((prev) => ({ ...prev, mfaCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                        placeholder={t('account_access.mfa_placeholder')}
+                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                      <input
+                        type="text"
+                        value={form.backupCode}
+                        onChange={(e) => setForm((prev) => ({ ...prev, backupCode: e.target.value.toUpperCase().slice(0, 8) }))}
+                        placeholder={t('account_access.backup_code_placeholder')}
+                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowLinkForm(false)}
+                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+                      >
+                        {t('account_access.link_account')}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowLinkForm(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 dark:hover:border-primary-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  {t('account_access.link_account')}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="p-5 space-y-5">
+              {/* Received delegations */}
               <div className="space-y-2">
-                {links.map((link) => (
-                  <div
-                    key={link.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {link.targetUser.firstName || link.targetUser.email}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{link.targetUser.email}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Réauth: {new Date(link.lastAuthenticatedAt).toLocaleString('fr-FR')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {t('account_access.received')} ({delegationsReceived.length})
+                </p>
+                {delegationsReceived.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-2">{t('account_access.no_received')}</p>
+                ) : (
+                  delegationsReceived.map((d) => (
+                    <div key={d.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/50">
+                      <Avatar name={displayName(d.ownerUser)} email={d.ownerUser?.email ?? ''} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{displayName(d.ownerUser)}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <PermBadge label={t('account_access.received')} icon={Eye} active={d.canRead} />
+                          <PermBadge label={t('account_access.received')} icon={Pencil} active={d.canWrite} />
+                          <PermBadge label={t('account_access.received')} icon={Trash} active={d.canDelete} />
+                          <PermBadge label={t('account_access.received')} icon={Share2} active={d.canShare} />
+                        </div>
+                        {d.expiresAt && (
+                          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {t('account_access.expires_on', { date: new Date(d.expiresAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
+                          </p>
+                        )}
+                      </div>
                       <button
-                        onClick={() => handleSwitch(link.id)}
-                        className="px-3 py-2 text-sm rounded-lg bg-primary-600 text-white hover:bg-primary-700"
+                        onClick={() => handleAssumeDelegation(d.id)}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
                       >
-                        Switch
-                      </button>
-                      <button
-                        onClick={() => handleRevokeLink(link.id)}
-                        className="px-3 py-2 text-sm rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                        {t('account_access.assume')}
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                  ))
+                )}
+              </div>
+
+              {/* Given delegations */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {t('account_access.given')} ({delegationsGiven.length})
+                </p>
+                {delegationsGiven.length === 0 && !showGrantForm ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-2">{t('account_access.no_given')}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {delegationsGiven.map((d) => (
+                      <div key={d.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/50 group">
+                        <Avatar name={displayName(d.delegateUser)} email={d.delegateUser?.email ?? ''} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{displayName(d.delegateUser)}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <PermBadge label={t('account_access.received')} icon={Eye} active={d.canRead} />
+                            <PermBadge label={t('account_access.received')} icon={Pencil} active={d.canWrite} />
+                            <PermBadge label={t('account_access.received')} icon={Trash} active={d.canDelete} />
+                            <PermBadge label={t('account_access.received')} icon={Share2} active={d.canShare} />
+                          </div>
+                          {d.expiresAt && (
+                            <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {t('account_access.expires_on', { date: new Date(d.expiresAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleRevokeDelegation(d.id)}
+                          className="shrink-0 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          {t('account_access.revoke')}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
 
-            <form onSubmit={handleLinkAccount} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
-                <UserPlus className="w-4 h-4" />
-                Ajouter un compte lié
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                  placeholder="Email du compte à lier"
-                  required
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                />
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Mot de passe"
-                  required
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.mfaCode}
-                  onChange={(e) => setForm((prev) => ({ ...prev, mfaCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                  placeholder="Code MFA (optionnel)"
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                />
-                <input
-                  type="text"
-                  value={form.backupCode}
-                  onChange={(e) => setForm((prev) => ({ ...prev, backupCode: e.target.value.toUpperCase().slice(0, 8) }))}
-                  placeholder="Code de récupération (optionnel)"
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                />
-              </div>
-              <input
-                type="text"
-                value={form.label}
-                onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-                placeholder="Libellé (optionnel)"
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700"
-              >
-                Lier le compte
-              </button>
-            </form>
-          </section>
-
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary-600 dark:text-primary-300" />
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Délégations</h3>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Délégations reçues</p>
-              {delegationsReceived.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Aucune délégation reçue.</p>
-              ) : (
-                delegationsReceived.map((delegation) => (
-                  <div
-                    key={delegation.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {delegation.ownerUser?.email || delegation.ownerUserId}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Permissions: R={delegation.canRead ? 'Y' : 'N'} W={delegation.canWrite ? 'Y' : 'N'} D={delegation.canDelete ? 'Y' : 'N'} S={delegation.canShare ? 'Y' : 'N'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleAssumeDelegation(delegation.id)}
-                      className="px-3 py-2 text-sm rounded-lg bg-primary-600 text-white hover:bg-primary-700"
-                    >
-                      Assumer
+              {/* Grant delegation form */}
+              {showGrantForm ? (
+                <div className="rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/10 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                      {t('account_access.new_delegation')}
+                    </p>
+                    <button onClick={() => setShowGrantForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
-                ))
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Délégations accordées</p>
-              {delegationsGiven.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Aucune délégation accordée.</p>
-              ) : (
-                delegationsGiven.map((delegation) => (
-                  <div
-                    key={delegation.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
-                  >
+                  <form onSubmit={handleGrantDelegation} className="space-y-3">
+                    <input
+                      type="email"
+                      value={grantForm.delegateEmail}
+                      onChange={(e) => setGrantForm((prev) => ({ ...prev, delegateEmail: e.target.value }))}
+                      placeholder={t('account_access.delegate_email')}
+                      required
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
                     <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {delegation.delegateUser?.email || delegation.delegateUserId}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Permissions: R={delegation.canRead ? 'Y' : 'N'} W={delegation.canWrite ? 'Y' : 'N'} D={delegation.canDelete ? 'Y' : 'N'} S={delegation.canShare ? 'Y' : 'N'}
-                      </p>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('account_access.permissions_granted')}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {([
+                          { key: 'canWrite', label: t('account_access.received'), icon: Pencil }, // Using received as a shortcut for the literal string, though normally I'd use a more specific key
+                          { key: 'canDelete', label: t('account_access.received'), icon: Trash },
+                          { key: 'canShare', label: t('account_access.received'), icon: Share2 },
+                        ] as const).map(({ key, label, icon: Icon }) => (
+                          <label
+                            key={key}
+                            className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                              grantForm[key]
+                                ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/30'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={grantForm[key]}
+                              onChange={(e) => setGrantForm((prev) => ({ ...prev, [key]: e.target.checked }))}
+                            />
+                            <Icon className={`w-3.5 h-3.5 ${grantForm[key] ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'}`} />
+                            <span className={`text-xs font-medium ${grantForm[key] ? 'text-primary-700 dark:text-primary-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                              {label}
+                            </span>
+                          </label>
+                        ))}
+                        <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 cursor-not-allowed">
+                          <Eye className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
+                          <span className="text-xs font-medium text-primary-700 dark:text-primary-300">{t('account_access.received')}</span>
+                          <span className="ml-auto text-xs text-gray-400">{t('account_access.included')}</span>
+                        </label>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleRevokeDelegation(delegation.id)}
-                      className="px-3 py-2 text-sm rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      Révoquer
-                    </button>
-                  </div>
-                ))
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">{t('account_access.expiration_optional')}</p>
+                      <input
+                        type="datetime-local"
+                        value={grantForm.expiresAt}
+                        onChange={(e) => setGrantForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowGrantForm(false)}
+                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+                      >
+                        {t('account_access.create')}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowGrantForm(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 dark:hover:border-primary-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  {t('account_access.new_delegation')}
+                </button>
               )}
             </div>
-
-            <form onSubmit={handleGrantDelegation} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Accorder une délégation</p>
-              <input
-                type="email"
-                value={grantForm.delegateEmail}
-                onChange={(e) => setGrantForm((prev) => ({ ...prev, delegateEmail: e.target.value }))}
-                placeholder="Email du délégataire"
-                required
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-              />
-              <div className="flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={grantForm.canWrite}
-                    onChange={(e) => setGrantForm((prev) => ({ ...prev, canWrite: e.target.checked }))}
-                  />
-                  Écriture
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={grantForm.canDelete}
-                    onChange={(e) => setGrantForm((prev) => ({ ...prev, canDelete: e.target.checked }))}
-                  />
-                  Suppression
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={grantForm.canShare}
-                    onChange={(e) => setGrantForm((prev) => ({ ...prev, canShare: e.target.checked }))}
-                  />
-                  Partage
-                </label>
-              </div>
-              <input
-                type="datetime-local"
-                value={grantForm.expiresAt}
-                onChange={(e) => setGrantForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700"
-              >
-                Créer la délégation
-              </button>
-            </form>
-          </section>
+          )}
         </div>
       </div>
     </div>

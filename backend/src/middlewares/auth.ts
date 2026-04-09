@@ -5,16 +5,20 @@ import prisma from '../config/database';
 import { activityMiddleware } from './activityMiddleware';
 import { PlanService } from '../services/planService';
 import { getCookieValue, SWITCH_SESSION_COOKIE } from '../utils/cookies';
+import logger from '../config/logger';
 
 export { AuthRequest };
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export const authenticate = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    logger.error('[FATAL] JWT_SECRET environment variable is not set. Refusing to start.');
+    process.exit(1);
+  }
   try {
     const authHeader = req.headers.authorization;
     let token: string | undefined;
@@ -52,7 +56,7 @@ export const authenticate = async (
     // If token has no version (old tokens), assume version 1
     const tokenVersion = decoded.tokenVersion || 1;
     if (user.tokenVersion !== tokenVersion) {
-      console.log(`[Auth] Token version mismatch for user ${user.email}. Expected: ${user.tokenVersion}, Got: ${tokenVersion}`);
+      logger.info(`[Auth] Token version mismatch for user ${user.email}. Expected: ${user.tokenVersion}, Got: ${tokenVersion}`);
       res.status(401).json({ error: 'Session expired (global logout)' });
       return;
     }
@@ -161,6 +165,7 @@ export const optionalAuth = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const JWT_SECRET = process.env.JWT_SECRET || '';
   try {
     const authHeader = req.headers.authorization;
 
