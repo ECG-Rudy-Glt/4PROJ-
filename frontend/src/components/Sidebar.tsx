@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Building2,
   Shield,
+  ActivitySquare,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { formatBytes } from '@/utils/bytes';
@@ -48,6 +49,7 @@ export default function Sidebar() {
     ...(vaultStatus?.enabled && vaultStatus?.unlocked && vaultRootFolder
       ? [{ to: `/files/${vaultRootFolder.id}`, icon: Shield, label: t('common.vault'), section: 'main' as const }]
       : []),
+    { to: '/audit', icon: ActivitySquare, label: t('audit.nav_label'), section: 'secondary' },
     { to: '/shared', icon: Share2, label: t('common.shared'), section: 'secondary' },
     { to: '/trash', icon: Trash2, label: t('common.trash'), section: 'secondary' },
     { to: '/organization-admin', icon: Building2, label: t('common.organization'), section: 'secondary' },

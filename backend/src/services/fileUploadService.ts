@@ -66,10 +66,11 @@ export class FileUploadService {
           folderId
         );
         createdFiles.push(createdFile);
-      } catch (error: any) {
+      } catch (error) {
         // Nettoyer le fichier temporaire local si l'upload S3 a échoué avant
         await deleteFile(uploadedFile.path).catch(() => undefined);
-        errors.push({ fileName: originalName, error: error?.message || 'Upload failed' });
+        const msg = error instanceof Error ? error.message : 'Upload failed';
+        errors.push({ fileName: originalName, error: msg });
       }
     }
 

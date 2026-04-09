@@ -23,13 +23,10 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
     let token: string | undefined;
 
-    // Try to get token from Authorization header
+    // Token must come from the Authorization header only.
+    // Query-param tokens are rejected: they leak into server logs and browser history.
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-    }
-    // If not in header, try query parameter (for media streaming)
-    else if (req.query.token && typeof req.query.token === 'string') {
-      token = req.query.token;
     }
 
     if (!token) {

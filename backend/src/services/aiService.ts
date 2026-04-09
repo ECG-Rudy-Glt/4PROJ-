@@ -96,8 +96,9 @@ export class AIService {
       }
 
       return BrainService.analyze(text, question);
-    } catch (error: any) {
-      throw new Error(`Failed to analyze file: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to analyze file: ${msg}`);
     }
   }
 
@@ -278,10 +279,10 @@ export class AIService {
         .filter((msg: any) => msg.role === 'user' || msg.role === 'assistant')
         .map((msg: any) => ({ role: msg.role as string, content: msg.content as string }));
       return await BrainService.chat(userId, message, historyItems);
-    } catch (error: any) {
-      if (error.name === 'AbortError') throw new Error('TIMEOUT');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw new Error('TIMEOUT');
       // brain-api unreachable (ECONNREFUSED, fetch failed, etc.)
-      const msg = error?.message ?? '';
+      const msg = error instanceof Error ? error.message : '';
       if (
         msg.includes('ECONNREFUSED') ||
         msg.includes('fetch failed') ||

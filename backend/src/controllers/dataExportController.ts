@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import prisma from '../config/database';
 import logger from '../config/logger';
+import { sendCsv, csvFilename } from '../utils/csvExporter';
 
 export class DataExportController {
   static async exportUserData(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -143,16 +144,10 @@ export class DataExportController {
         pushRow('Historique', 'Audit', log.id, 'Détails', parsedDetails, log.createdAt, null);
       }
 
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, {
-        header: true,
+      sendCsv(res, rows, csvFilename('supfile-export'), {
         columns: ['Section', 'Categorie', 'ItemId', 'Champ', 'Valeur', 'DateCreation', 'DateMiseAJour'],
+        bom: true,
       });
-
-      const filename = `supfile-export-${new Date().toISOString().split('T')[0]}.csv`;
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.status(200).send(`\uFEFF${csv}`);
 
     } catch (error) {
       logger.error({ err: error }, 'Error exporting user data');

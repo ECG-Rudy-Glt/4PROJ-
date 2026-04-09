@@ -8,6 +8,7 @@ import { StorageService } from '../services/storageService';
 import { AuditService } from '../services/auditService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
+import { sendCsv, csvFilename } from '../utils/csvExporter';
 import logger from '../config/logger';
 
 export class FileController {
@@ -365,13 +366,7 @@ export class FileController {
         modifieLe: file.updatedAt.toISOString(),
       }));
 
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, { header: true });
-      const fileName = `supfile-files-${new Date().toISOString().split('T')[0]}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.status(200).send(csv);
+      sendCsv(res, rows, csvFilename('supfile-files'));
     } catch (error) { next(error); }
   }
 }

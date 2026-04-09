@@ -6,6 +6,27 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { initPushNotifications } from '@/utils/pushNotification';
 
+interface CommentData {
+    userId: string;
+    user: {
+        firstName: string;
+    };
+}
+
+interface ShareData {
+    sharedBy: {
+        firstName: string;
+    };
+    type: 'file' | 'folder';
+}
+
+interface ShareAcceptedData {
+    acceptedBy: {
+        firstName: string;
+    };
+    type: 'file' | 'folder';
+}
+
 export default function SocketListener() {
     const socket = useSocket();
     const { user, refreshProfile } = useAuthStore();
@@ -28,12 +49,12 @@ export default function SocketListener() {
     useEffect(() => {
         if (!socket) return;
 
-        const handleComment = (data: any) => {
+        const handleComment = (data: CommentData) => {
             if (data.userId === user?.id) return;
 
-            toast.custom((t) => (
+            toast.custom((t_toast) => (
                 <div
-                    className={`${t.visible ? 'animate-enter' : 'animate-leave'
+                    className={`${t_toast.visible ? 'animate-enter' : 'animate-leave'
                         } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
                 >
                     <div className="flex-1 w-0 p-4">
@@ -43,10 +64,10 @@ export default function SocketListener() {
                             </div>
                             <div className="ml-3 flex-1">
                                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                    Nouveau commentaire
+                                    {t('socket.comment_added_title')}
                                 </p>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    {data.user?.firstName} a commenté un fichier.
+                                    {t('socket.comment_added_body', { firstName: data.user?.firstName })}
                                 </p>
                             </div>
                         </div>
@@ -55,10 +76,10 @@ export default function SocketListener() {
             ));
         };
 
-        const handleShare = (data: any) => {
-            toast.custom((t) => (
+        const handleShare = (data: ShareData) => {
+            toast.custom((t_toast) => (
                 <div
-                    className={`${t.visible ? 'animate-enter' : 'animate-leave'
+                    className={`${t_toast.visible ? 'animate-enter' : 'animate-leave'
                         } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
                 >
                     <div className="flex-1 w-0 p-4">
@@ -68,10 +89,13 @@ export default function SocketListener() {
                             </div>
                             <div className="ml-3 flex-1">
                                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                    Nouveau partage reçu
+                                    {t('socket.share_received_title')}
                                 </p>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    {data.sharedBy?.firstName} vous a partagé un {data.type === 'folder' ? 'dossier' : 'fichier'}.
+                                    {t('socket.share_received_body', { 
+                                        firstName: data.sharedBy?.firstName, 
+                                        type: data.type === 'folder' ? t('common.folder') : t('common.file') 
+                                    })}
                                 </p>
                             </div>
                         </div>
@@ -85,10 +109,10 @@ export default function SocketListener() {
             refreshProfile().catch(() => {});
         };
 
-        const handleShareAccepted = (data: any) => {
-            toast.custom((t) => (
+        const handleShareAccepted = (data: ShareAcceptedData) => {
+            toast.custom((t_toast) => (
                 <div
-                    className={`${t.visible ? 'animate-enter' : 'animate-leave'
+                    className={`${t_toast.visible ? 'animate-enter' : 'animate-leave'
                         } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
                 >
                     <div className="flex-1 w-0 p-4">
@@ -98,10 +122,13 @@ export default function SocketListener() {
                             </div>
                             <div className="ml-3 flex-1">
                                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                    Partage accepté
+                                    {t('socket.share_accepted_title')}
                                 </p>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    {data.acceptedBy?.firstName} a accepté votre partage de {data.type === 'folder' ? 'dossier' : 'fichier'}.
+                                    {t('socket.share_accepted_body', { 
+                                        firstName: data.acceptedBy?.firstName, 
+                                        type: data.type === 'folder' ? t('common.folder') : t('common.file') 
+                                    })}
                                 </p>
                             </div>
                         </div>
@@ -111,7 +138,7 @@ export default function SocketListener() {
         };
 
         // Listener pour les notifications persistantes (push géré côté backend via VAPID)
-        const handleNotification = (data: any) => {
+        const handleNotification = (data: import('../stores/useNotificationStore').Notification) => {
             addNotification(data);
         };
 

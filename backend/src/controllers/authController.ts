@@ -3,6 +3,7 @@ import { AuthService } from '../services/authService';
 import { AuthRequest } from '../types';
 import { generateToken } from '../utils/jwt';
 import { AuditService } from '../services/auditService';
+import { validateEmail } from '../utils/validators';
 import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
 import { generateTempToken } from './mfaController';
@@ -17,8 +18,7 @@ export class AuthController {
     try {
       const { email, password, firstName, lastName } = req.body;
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || !emailRegex.test(email)) {
+      if (!validateEmail(email)) {
         res.status(400).json({ error: 'Format d\'email invalide' });
         return;
       }
@@ -37,8 +37,7 @@ export class AuthController {
     try {
       const { email, password } = req.body;
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || !emailRegex.test(email)) {
+      if (!validateEmail(email)) {
         res.status(400).json({ error: 'Format d\'email invalide' });
         return;
       }
