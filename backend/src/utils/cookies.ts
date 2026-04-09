@@ -28,7 +28,11 @@ export const getCookieValue = (req: Request, name: string): string | null => {
 };
 
 export const ensureSwitchSessionId = (req: Request, res: Response): string => {
-  const existing = getCookieValue(req, SWITCH_SESSION_COOKIE);
+  // Check cookie (web) or header (mobile)
+  const existing =
+    getCookieValue(req, SWITCH_SESSION_COOKIE) ||
+    (req.headers['x-switch-session'] as string | undefined) ||
+    null;
   if (existing && existing.length >= 32) {
     return existing;
   }

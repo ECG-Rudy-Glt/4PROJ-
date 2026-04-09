@@ -18,6 +18,7 @@ export default function RootNavigator() {
   const { isAuthenticated, isLoading, hydrated } = useAuthStore();
   const hydrate = useAuthStore((s) => s.hydrate);
   const setUser = useAuthStore((s) => s.setUser);
+  const setSessionContext = useAuthStore((s) => s.setSessionContext);
   const logout = useAuthStore((s) => s.logout);
 
   // Hydrater le token au lancement
@@ -30,8 +31,17 @@ export default function RootNavigator() {
     if (!hydrated || !isAuthenticated) return;
     authService
       .getProfile()
-      .then(({ user }) => setUser(user))
-      .catch(() => logout());
+      .then(({ user, session }) => {
+        setUser(user);
+        if (session) setSessionContext(session);
+      })
+      .catch((err) => {
+        // Ne déconnecter que si le token est explicitement rejeté (401)
+        // Une erreur réseau ne doit pas déconnecter l'utilisateur
+        if (err?.response?.status === 401) {
+          logout();
+        }
+      });
   }, [hydrated, isAuthenticated]);
 
   if (!hydrated || isLoading) {

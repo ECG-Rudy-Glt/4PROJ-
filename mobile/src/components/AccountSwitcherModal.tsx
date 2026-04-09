@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as SecureStore from 'expo-secure-store';
 import Toast from 'react-native-toast-message';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -59,8 +60,15 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
   const [grantShare, setGrantShare] = useState(false);
   const [savingGrant, setSavingGrant] = useState(false);
 
-  const resetAllStores = (token: string) => {
+  const resetAllStores = async (token: string, switchSessionId?: string) => {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    if (switchSessionId) {
+      api.defaults.headers.common['X-Switch-Session'] = switchSessionId;
+      await SecureStore.setItemAsync('switchSessionId', switchSessionId);
+    } else {
+      delete api.defaults.headers.common['X-Switch-Session'];
+      await SecureStore.deleteItemAsync('switchSessionId');
+    }
     useFileStore.getState().reset();
     useDashboardStore.getState().reset();
     useNotificationStore.getState().reset();
@@ -89,9 +97,9 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
 
   const handleSwitch = async (linkId: string) => {
     try {
-      const { token, user: next } = await accountAccessService.switchToLinkedAccount(linkId);
-      resetAllStores(token);
-      await setAuth(token, next);
+      const { token, user: next, switchSessionId, authContext } = await accountAccessService.switchToLinkedAccount(linkId);
+      await resetAllStores(token, switchSessionId);
+      await setAuth(token, next, authContext);
       Toast.show({ type: 'success', text1: `Session: ${next.email}` });
       onClose();
     } catch (err: any) {
@@ -101,9 +109,9 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
 
   const handleSwitchBack = async () => {
     try {
-      const { token, user: next } = await accountAccessService.switchBack();
-      resetAllStores(token);
-      await setAuth(token, next);
+      const { token, user: next, authContext } = await accountAccessService.switchBack();
+      await resetAllStores(token); // No switchSessionId = clear header
+      await setAuth(token, next, authContext);
       Toast.show({ type: 'success', text1: `Retour sur ${next.email}` });
       onClose();
     } catch (err: any) {
@@ -175,9 +183,9 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
 
   const handleAssume = async (delegId: string) => {
     try {
-      const { token, user: next } = await accountAccessService.assumeDelegation(delegId);
-      resetAllStores(token);
-      await setAuth(token, next);
+      const { token, user: next, switchSessionId, authContext } = await accountAccessService.assumeDelegation(delegId);
+      await resetAllStores(token, switchSessionId);
+      await setAuth(token, next, authContext);
       Toast.show({ type: 'success', text1: `Agissant pour ${next.email}` });
       onClose();
     } catch (err: any) {
@@ -243,7 +251,7 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {tab === 'links' && (
               <>
-                {links.map((link) => (
+                {links.filter((link) => link.targetUser.id !== user?.id).map((link) => (
                   <View key={link.id} style={styles.card}>
                     <View style={styles.cardInfo}>
                       <Text style={styles.cardEmail}>{link.targetUser.email}</Text>

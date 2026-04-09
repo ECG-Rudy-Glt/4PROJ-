@@ -1,5 +1,5 @@
 import api from './api';
-import { User } from '../types';
+import { User, AuthSessionContext } from '../types';
 
 export interface AccountSwitchLink {
   id: string;
@@ -46,12 +46,12 @@ export const accountAccessService = {
     await api.delete(`/account-access/switch-links/${linkId}`);
   },
 
-  async switchToLinkedAccount(linkId: string): Promise<{ token: string; user: User }> {
+  async switchToLinkedAccount(linkId: string): Promise<{ token: string; user: User; switchSessionId?: string; authContext?: AuthSessionContext }> {
     const res = await api.post(`/account-access/switch-links/${linkId}/switch`);
     return res.data;
   },
 
-  async switchBack(): Promise<{ token: string; user: User }> {
+  async switchBack(): Promise<{ token: string; user: User; authContext?: AuthSessionContext }> {
     const res = await api.post('/account-access/switch/back');
     return res.data;
   },
@@ -74,7 +74,7 @@ export const accountAccessService = {
     await api.patch(`/account-access/delegations/${delegationId}/revoke`);
   },
 
-  async assumeDelegation(delegationId: string): Promise<{ token: string; user: User }> {
+  async assumeDelegation(delegationId: string): Promise<{ token: string; user: User; switchSessionId?: string; authContext?: AuthSessionContext }> {
     const res = await api.post(`/account-access/delegations/${delegationId}/assume`);
     return res.data;
   },
