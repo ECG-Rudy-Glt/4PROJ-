@@ -161,6 +161,88 @@ Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état a
 - **Drag & Drop Move** : déplacement de fichiers et dossiers par glisser-déposer (HTML5 natif), guard anti-conflit avec l'upload global existant.
 
 ---
+
+## Application Mobile (React Native / Expo Go)
+
+L'application mobile permet un accès complet à SUPFile depuis iOS et Android via Expo Go (SDK 54). Voici l'état d'avancement fonctionnalité par fonctionnalité.
+
+### Fonctionnalités implémentées
+
+#### Authentification & Sécurité
+- [x] Inscription (email, mot de passe, nom/prénom)
+- [x] Connexion email/mot de passe
+- [x] MFA : configuration TOTP (QR code + clé manuelle) au premier login
+- [x] MFA : vérification du code à chaque reconnexion
+- [x] Gestion de session JWT via SecureStore
+- [x] Logout global (toutes les sessions)
+
+#### Gestion des fichiers
+- [x] Navigation dossiers avec fil d'Ariane (breadcrumbs)
+- [x] Upload de fichiers via sélecteur de documents natif
+- [x] Création, renommage, déplacement et suppression de dossiers
+- [x] Renommage, déplacement et suppression de fichiers
+- [x] Recherche globale par nom de fichier
+- [x] Favoris (ajout/retrait, écran dédié)
+- [x] Prévisualisation image avec métadonnées
+- [x] Téléchargement de fichiers
+- [x] Corbeille : fichiers supprimés, restauration, suppression définitive
+
+#### Partage & Collaboration
+- [x] Partage de fichier avec un utilisateur (permissions granulaires)
+- [x] Liens de partage publics (mot de passe, limite de téléchargements)
+- [x] Partages en attente : accepter / refuser avec badge de compteur
+- [x] Onglets « Partagés avec moi » et « Partagés par moi »
+
+#### Tags, Commentaires & Versions
+- [x] Tags : création, édition, suppression, assignation aux fichiers
+- [x] Commentaires : ajout, réponse, édition, suppression
+- [x] Historique de versions : consultation, restauration, suppression
+
+#### Dashboard & Notifications
+- [x] Dashboard : quota de stockage, statistiques fichiers, fichiers récents
+- [x] Centre de notifications : lecture, marquer lu, suppression
+- [x] Temps réel via WebSocket (Socket.io)
+
+#### Profil & Paramètres
+- [x] Modification du profil (nom, prénom)
+- [x] Upload d'avatar depuis la galerie
+- [x] Changement de mot de passe
+- [x] Export de données personnelles (RGPD)
+
+#### Administration
+- [x] Panel admin : KPIs système, répartition des plans, top stockage
+- [x] Liste des utilisateurs avec recherche et filtre par plan
+- [x] Modification du plan d'un utilisateur
+
+#### Comptes multiples & Délégations
+- [x] Lier un compte secondaire (email + mot de passe + MFA)
+- [x] Switch de compte avec gestion du token de session
+- [x] Retour au compte principal
+- [x] Délégations : accorder, assumer, révoquer (permissions R/W/D/S)
+
+### Fonctionnalités restantes à implémenter
+
+| Priorité | Fonctionnalité | Complexité |
+| :--- | :--- | :--- |
+| Haute | Filtres avancés (type MIME, date, taille) | Moyenne |
+| Haute | Prévisualisation vidéo, audio, PDF, markdown | Moyenne |
+| Haute | Upload avec barre de progression et file d'attente | Faible |
+| Haute | MFA complet dans Settings (désactiver, regénérer codes, trusted devices) | Moyenne |
+| Moyenne | Coffre-fort chiffré (Vault) | Élevée |
+| Moyenne | Journal d'activité / Audit | Moyenne |
+| Moyenne | Thème sombre (dark mode) | Faible |
+| Moyenne | Restauration de dossiers depuis la corbeille | Faible |
+| Moyenne | Partage de dossiers dans l'interface | Faible |
+| Moyenne | Admin : export CSV utilisateurs et stockage | Faible |
+| Moyenne | Téléchargement dossier en ZIP | Faible |
+| Basse | Organisations (création, membres, rôles, switch) | Élevée |
+| Basse | Plans & Billing (Stripe) | Moyenne |
+| Basse | Assistant IA Bobby (chat, analyse, recherche sémantique) | Élevée |
+| Basse | Internationalisation FR/EN (i18next) | Moyenne |
+| Basse | OAuth (Google / GitHub) | Moyenne |
+| Basse | Deep link pour liens de partage publics | Moyenne |
+
+---
 *Documentation mise à jour - Avril 2026*
 
 
