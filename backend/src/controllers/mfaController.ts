@@ -38,7 +38,7 @@ export class MFAController {
       }
 
       // Générer le secret et le QR code
-      const { secret, qrCodeDataUrl, backupCodes } = await mfaService.generateMFASecret(
+      const { secret, otpauthUrl, qrCodeDataUrl, backupCodes } = await mfaService.generateMFASecret(
         userId,
         user.email
       );
@@ -47,6 +47,7 @@ export class MFAController {
       // (ne pas les activer tout de suite, attendre la vérification)
       res.json({
         secret,
+        otpauthUrl,
         qrCodeDataUrl,
         backupCodes,
       });

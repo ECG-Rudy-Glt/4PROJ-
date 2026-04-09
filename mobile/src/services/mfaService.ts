@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 export interface MFASetupResponse {
   secret: string;
+  otpauthUrl: string;
   qrCodeDataUrl: string;
   backupCodes: string[];
 }

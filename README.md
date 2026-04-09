@@ -237,7 +237,7 @@ L'application mobile permet un accès complet à SUPFile depuis iOS et Android v
 | Moyenne | Téléchargement dossier en ZIP | Faible |
 | Basse | Organisations (création, membres, rôles, switch) | Élevée |
 | Basse | Plans & Billing (Stripe) | Moyenne |
-| Basse | Assistant IA Bobby (chat, analyse, recherche sémantique) | Élevée |
+| Basse | Assistant IA Bobby (chat, analyse, recherche sémantique GEMMA 4RAG) | Élevée |
 | Basse | Internationalisation FR/EN (i18next) | Moyenne |
 | Basse | OAuth (Google / GitHub) | Moyenne |
 | Basse | Deep link pour liens de partage publics | Moyenne |

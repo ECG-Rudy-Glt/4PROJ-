@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Image,
+  Linking,
+  Clipboard,
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
@@ -153,7 +154,7 @@ export default function MfaVerifyScreen() {
           </Text>
           <Text style={styles.subtitle}>
             {mfaSetupRequired
-              ? "Scannez le QR code avec votre application d'authentification (Google Authenticator, Authy…)"
+              ? "Ajoutez SupFile à votre application d'authentification"
               : "Entrez le code à 6 chiffres de votre application d'authentification"}
           </Text>
         </View>
@@ -168,19 +169,43 @@ export default function MfaVerifyScreen() {
               </View>
             ) : setupData ? (
               <View style={styles.qrSection}>
-                <Image
-                  source={{ uri: setupData.qrCodeDataUrl }}
-                  style={styles.qrImage}
-                  resizeMode="contain"
-                />
+                <TouchableOpacity
+                  style={styles.addAuthButton}
+                  onPress={() => {
+                    if (setupData.otpauthUrl) {
+                      Linking.openURL(setupData.otpauthUrl).catch(() => {
+                        Toast.show({
+                          type: 'error',
+                          text1: 'Impossible d\'ouvrir l\'app',
+                          text2: 'Copiez la clé secrète ci-dessous et ajoutez-la manuellement.',
+                        });
+                      });
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.addAuthButtonText}>Ajouter à mon app d'authentification</Text>
+                </TouchableOpacity>
+
                 <View style={styles.secretBox}>
-                  <Text style={styles.secretLabel}>Clé secrète (saisie manuelle) :</Text>
+                  <Text style={styles.secretLabel}>Ou copiez la clé secrète :</Text>
                   <Text style={styles.secretCode} selectable>{setupData.secret}</Text>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={() => {
+                      Clipboard.setString(setupData.secret);
+                      Toast.show({ type: 'success', text1: 'Clé copiée !' });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.copyButtonText}>Copier la clé</Text>
+                  </TouchableOpacity>
                 </View>
+
                 <View style={styles.warningBox}>
                   <Text style={styles.warningText}>
-                    ⚠️ Scannez ce QR code avec votre app d'authentification (Google Authenticator, Authy, Apple Mots de passe…).{'\n'}
-                    Si vous avez déjà une entrée "SupFile", supprimez-la et re-scannez ce nouveau QR.
+                    ⚠️ Appuyez sur le bouton ci-dessus pour ajouter SupFile à votre app d'authentification (Google Authenticator, Authy, Apple Mots de passe…).{'\n'}
+                    Si vous avez déjà une entrée "SupFile", supprimez-la avant d'ajouter celle-ci.
                   </Text>
                 </View>
               </View>
@@ -245,10 +270,21 @@ const styles = StyleSheet.create({
   qrSection: { alignItems: 'center', marginBottom: spacing.xl },
   qrLoading: { alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl },
   qrLoadingText: { ...typography.bodySmall, color: colors.neutral[500] },
-  qrImage: { width: 200, height: 200, borderRadius: borderRadius.lg, marginBottom: spacing.lg },
+  addAuthButton: {
+    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    paddingVertical: spacing.lg, paddingHorizontal: spacing.xl,
+    alignItems: 'center', width: '100%', marginBottom: spacing.lg, ...shadows.md,
+  },
+  addAuthButtonText: { ...typography.button, color: colors.white },
   secretBox: { backgroundColor: colors.neutral[50], borderRadius: borderRadius.md, padding: spacing.md, width: '100%' },
   secretLabel: { ...typography.caption, color: colors.neutral[500], marginBottom: spacing.xs },
   secretCode: { ...typography.body, fontWeight: '600', color: colors.primary[600], textAlign: 'center', letterSpacing: 2 },
+  copyButton: {
+    marginTop: spacing.sm, backgroundColor: colors.neutral[200],
+    borderRadius: borderRadius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    alignSelf: 'center',
+  },
+  copyButtonText: { ...typography.caption, color: colors.neutral[700], fontWeight: '600' },
   hint: { ...typography.caption, color: colors.neutral[400], textAlign: 'center', marginTop: spacing.md },
   warningBox: {
     backgroundColor: '#FEF3C7', borderRadius: borderRadius.md,
