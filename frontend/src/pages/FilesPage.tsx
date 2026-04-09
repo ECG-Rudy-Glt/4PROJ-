@@ -19,7 +19,8 @@ import {
   ArrowUpDown,
   Tag as TagIconLucide,
   Pencil,
-  AlertTriangle
+  AlertTriangle,
+  FolderDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fileService } from '@/services/fileService';
@@ -410,6 +411,51 @@ export default function FilesPage() {
     }
   };
 
+  // --- Drag & Drop move ---
+  const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'file' | 'folder' } | null>(null);
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null);
+
+  const handleItemDragStart = (id: string, type: 'file' | 'folder', e: React.DragEvent) => {
+    e.dataTransfer.setData('application/supfile-item', JSON.stringify({ id, type }));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedItem({ id, type });
+  };
+
+  const handleFolderDragOver = (folderId: string, e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('application/supfile-item')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetFolderId(folderId);
+  };
+
+  const handleFolderDragLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDropTargetFolderId(null);
+    }
+  };
+
+  const handleFolderDrop = async (targetFolderId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    setDropTargetFolderId(null);
+    const raw = e.dataTransfer.getData('application/supfile-item');
+    if (!raw) return;
+    const item: { id: string; type: 'file' | 'folder' } = JSON.parse(raw);
+    if (item.id === targetFolderId) return;
+    try {
+      if (item.type === 'file') {
+        await fileService.moveFile(item.id, targetFolderId);
+      } else {
+        await folderService.moveFolder(item.id, targetFolderId);
+      }
+      toast.success(t('files.move_success'));
+      loadContent(folderId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || t('files.move_error'));
+    } finally {
+      setDraggedItem(null);
+    }
+  };
+
   return (
     <div className="relative pb-48">
       {!searchQuery && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
@@ -522,7 +568,16 @@ export default function FilesPage() {
             {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => (
               <div
                 key={folder.id}
-                className="group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all duration-200"
+                draggable={!folder._isShared && renamingFolderId !== folder.id}
+                onDragStart={(e) => handleItemDragStart(folder.id, 'folder', e)}
+                onDragOver={(e) => handleFolderDragOver(folder.id, e)}
+                onDragLeave={handleFolderDragLeave}
+                onDrop={(e) => void handleFolderDrop(folder.id, e)}
+                className={`group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border rounded-xl hover:shadow-md transition-all duration-200 ${
+                  dropTargetFolderId === folder.id
+                    ? 'border-primary-500 dark:border-primary-400 ring-2 ring-primary-300 dark:ring-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600'
+                } ${draggedItem?.id === folder.id ? 'opacity-50' : ''}`}
               >
                 {renamingFolderId === folder.id ? (
                   <div className="flex flex-col items-center w-full">
@@ -550,9 +605,10 @@ export default function FilesPage() {
                   </button>
                 )}
                 {!folder._isShared && (
-                  <div className="absolute top-2 right-2 flex space-x-1 transition-all">
+                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
                     <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch(() => toast.error(t('common.download_error'))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
                     <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 hover:border-red-300 dark:hover:border-red-800 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
                   </div>
                 )}
@@ -584,7 +640,12 @@ export default function FilesPage() {
                   const Icon = getMimeTypeIcon(file.mimeType);
                   const colorClass = getMimeTypeColor(file.mimeType);
                   return (
-                    <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <tr
+                      key={file.id}
+                      draggable={!(file as any)._isShared && renamingFileId !== file.id}
+                      onDragStart={(e) => handleItemDragStart(file.id, 'file', e)}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${draggedItem?.id === file.id ? 'opacity-50' : ''}`}
+                    >
                       <td className="px-6 py-4">
                         {renamingFileId === file.id ? (
                           <div className="flex items-center space-x-2">

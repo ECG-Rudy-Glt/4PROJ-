@@ -77,6 +77,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      brain-api:
+        condition: service_started
     restart: unless-stopped
     networks:
       - supfile-network
