@@ -81,6 +81,12 @@ describe('AccountAccessController', () => {
       expect(res.json).toHaveBeenCalledWith({
         token: 'switched-token',
         user: { id: 'target-user', email: 'target@example.com' },
+        switchSessionId: 'switch-session-1',
+        authContext: {
+          authType: 'SWITCH',
+          rootUserId: 'root-user',
+          actorUserId: 'root-user',
+        },
       });
       expect(AuditService.createLog).toHaveBeenCalledTimes(2);
     });
@@ -126,6 +132,20 @@ describe('AccountAccessController', () => {
           canDelete: false,
           canShare: false,
           expiresAt: null,
+        },
+        switchSessionId: 'switch-session-1',
+        authContext: {
+          authType: 'DELEGATION',
+          rootUserId: 'delegate-user',
+          actorUserId: 'delegate-user',
+          delegation: {
+            id: 'delegation-1',
+            canRead: true,
+            canWrite: false,
+            canDelete: false,
+            canShare: false,
+            expiresAt: null,
+          },
         },
       });
     });

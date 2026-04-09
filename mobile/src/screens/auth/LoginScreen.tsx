@@ -42,26 +42,29 @@ export default function LoginScreen() {
     try {
       const result = await authService.login({ email: email.trim(), password });
 
-      // MFA requis
-      if ('mfaRequired' in result && result.mfaRequired) {
+      // MFA requis (vérification du code) ou setup MFA obligatoire
+      if (
+        ('mfaRequired' in result && result.mfaRequired) ||
+        ('mfaSetupRequired' in result && (result as any).mfaSetupRequired)
+      ) {
         const mfa = result as MfaRequiredResponse;
         navigation.navigate('MfaVerify', {
           tempToken: mfa.tempToken,
-          mfaSetupRequired: mfa.mfaSetupRequired,
+          userId: mfa.userId,
+          mfaSetupRequired: (result as any).mfaSetupRequired ?? mfa.mfaSetupRequired,
           qrCode: mfa.qrCode,
           secret: mfa.secret,
         });
         return;
       }
 
-      // Connexion directe (appareil de confiance)
+      // Connexion directe
       if ('token' in result && 'user' in result) {
         await setAuth(result.token, result.user, result.authContext);
-        // Le RootNavigator redirigera automatiquement
       }
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Identifiants incorrects';
-      Toast.show({ type: 'error', text1: 'Erreur', text2: msg });
+      const msg = err?.response?.data?.error || err?.message || 'Identifiants incorrects';
+      Toast.show({ type: 'error', text1: 'Erreur de connexion', text2: msg });
     } finally {
       setLoading(false);
     }

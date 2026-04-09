@@ -6,6 +6,8 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,32 +15,69 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import Toast from 'react-native-toast-message';
 import { shareService } from '../../services/shareService';
 import { SharedFile, SharedFolder } from '../../types';
 import EmptyState from '../../components/EmptyState';
 
-type Tab = 'withMe' | 'byMe';
+type Tab = 'pending' | 'withMe' | 'byMe';
+
+interface PendingShare {
+  id: string;
+  type: 'file' | 'folder';
+  name: string;
+  sharedBy: { email: string; firstName?: string; lastName?: string };
+  fileSize?: number;
+  mimeType?: string;
+  createdAt: string;
+}
 
 export default function SharedScreen() {
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<Tab>('withMe');
+  const [tab, setTab] = useState<Tab>('pending');
+  const [pending, setPending] = useState<PendingShare[]>([]);
   const [filesWithMe, setFilesWithMe] = useState<SharedFile[]>([]);
   const [foldersWithMe, setFoldersWithMe] = useState<SharedFolder[]>([]);
   const [filesByMe, setFilesByMe] = useState<SharedFile[]>([]);
   const [foldersByMe, setFoldersByMe] = useState<SharedFolder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [withMe, byMe] = await Promise.all([
-        shareService.getSharedWithMe(),
-        shareService.getSharedByMe(),
+      const [pendingData, filesWith, filesBy, foldersWith, foldersBy] = await Promise.all([
+        shareService.getPendingShares(),
+        shareService.listFilesSharedWithMe(),
+        shareService.listFilesSharedByMe(),
+        shareService.listFoldersSharedWithMe(),
+        shareService.listFoldersSharedByMe(),
       ]);
-      setFilesWithMe(withMe.files);
-      setFoldersWithMe(withMe.folders);
-      setFilesByMe(byMe.files);
-      setFoldersByMe(byMe.folders);
+
+      const pendingList: PendingShare[] = [
+        ...(pendingData.files ?? []).map((f: any) => ({
+          id: f.id,
+          type: 'file' as const,
+          name: f.file?.name ?? 'Fichier',
+          sharedBy: f.sharedBy,
+          fileSize: f.file?.size ? Number(f.file.size) : undefined,
+          mimeType: f.file?.mimeType,
+          createdAt: f.createdAt,
+        })),
+        ...(pendingData.folders ?? []).map((f: any) => ({
+          id: f.id,
+          type: 'folder' as const,
+          name: f.folder?.name ?? 'Dossier',
+          sharedBy: f.sharedBy,
+          createdAt: f.createdAt,
+        })),
+      ];
+
+      setPending(pendingList);
+      setFilesWithMe(filesWith.sharedFiles ?? []);
+      setFilesByMe(filesBy.sharedFiles ?? []);
+      setFoldersWithMe(foldersWith.sharedFolders ?? []);
+      setFoldersByMe(foldersBy.sharedFolders ?? []);
     } catch {
       // silently fail
     } finally {
@@ -50,19 +89,151 @@ export default function SharedScreen() {
     fetchData();
   }, []);
 
+  const handlePendingAction = async (share: PendingShare, accepted: boolean) => {
+    setActionId(share.id);
+    try {
+      if (share.type === 'file') {
+        accepted
+          ? await shareService.acceptSharedFile(share.id)
+          : await shareService.rejectSharedFile(share.id);
+      } else {
+        accepted
+          ? await shareService.acceptSharedFolder(share.id)
+          : await shareService.rejectSharedFolder(share.id);
+      }
+      Toast.show({ type: 'success', text1: accepted ? 'Partage accepté' : 'Partage refusé' });
+      setPending((prev) => prev.filter((s) => s.id !== share.id));
+      if (accepted) fetchData();
+    } catch {
+      Toast.show({ type: 'error', text1: 'Erreur' });
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const confirmPendingAction = (share: PendingShare, accepted: boolean) => {
+    Alert.alert(
+      accepted ? 'Accepter ce partage ?' : 'Refuser ce partage ?',
+      share.name,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: accepted ? 'Accepter' : 'Refuser',
+          style: accepted ? 'default' : 'destructive',
+          onPress: () => handlePendingAction(share, accepted),
+        },
+      ],
+    );
+  };
+
+  const handleRevokeShare = (type: 'file' | 'folder', shareId: string, name: string) => {
+    Alert.alert('Révoquer le partage', `Révoquer le partage de "${name}" ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Révoquer', style: 'destructive', onPress: async () => {
+          try {
+            if (type === 'file') {
+              await shareService.deleteShareLink(shareId);
+            }
+            Toast.show({ type: 'success', text1: 'Partage révoqué' });
+            fetchData();
+          } catch {
+            Toast.show({ type: 'error', text1: 'Erreur' });
+          }
+        },
+      },
+    ]);
+  };
+
   const getUserName = (user?: { email: string; firstName?: string; lastName?: string }) => {
     if (!user) return 'Inconnu';
     if (user.firstName) return `${user.firstName} ${user.lastName || ''}`.trim();
     return user.email;
   };
 
-  const currentFiles = tab === 'withMe' ? filesWithMe : filesByMe;
-  const currentFolders = tab === 'withMe' ? foldersWithMe : foldersByMe;
-
-  const items = [
-    ...currentFolders.map((f) => ({ type: 'folder' as const, data: f })),
-    ...currentFiles.map((f) => ({ type: 'file' as const, data: f })),
+  const withMeItems = [
+    ...foldersWithMe.filter((f) => f.accepted).map((f) => ({ type: 'folder' as const, data: f })),
+    ...filesWithMe.filter((f) => f.accepted).map((f) => ({ type: 'file' as const, data: f })),
   ];
+  const byMeItems = [
+    ...foldersByMe.map((f) => ({ type: 'folder' as const, data: f })),
+    ...filesByMe.map((f) => ({ type: 'file' as const, data: f })),
+  ];
+
+  const renderPendingItem = ({ item }: { item: PendingShare }) => (
+    <View style={styles.shareRow}>
+      <View style={[styles.shareIconCircle, item.type === 'folder' && styles.folderIconBg]}>
+        <Ionicons
+          name={item.type === 'folder' ? 'folder' : 'document-outline'}
+          size={20}
+          color={item.type === 'folder' ? colors.accent.bright : colors.primary[500]}
+        />
+      </View>
+      <View style={styles.shareInfo}>
+        <Text style={styles.shareName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.shareMeta}>De {getUserName(item.sharedBy)}</Text>
+        {item.fileSize != null && (
+          <Text style={styles.shareMeta}>
+            {(item.fileSize / 1024 / 1024).toFixed(2)} MB
+            {item.mimeType ? ` • ${item.mimeType.split('/')[1]}` : ''}
+          </Text>
+        )}
+      </View>
+      {actionId === item.id ? (
+        <ActivityIndicator color={colors.primary[600]} />
+      ) : (
+        <View style={styles.actionBtns}>
+          <TouchableOpacity
+            style={styles.acceptBtn}
+            onPress={() => confirmPendingAction(item, true)}
+          >
+            <Ionicons name="checkmark" size={18} color={colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.rejectBtn}
+            onPress={() => confirmPendingAction(item, false)}
+          >
+            <Ionicons name="close" size={18} color={colors.white} />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderSharedItem = ({ item }: { item: { type: 'file' | 'folder'; data: SharedFile | SharedFolder } }) => {
+    const sf = item.data;
+    const isFolder = item.type === 'folder';
+    const name = isFolder ? (sf as SharedFolder).folder?.name : (sf as SharedFile).file?.name;
+    const partner = tab === 'withMe' ? sf.sharedBy : sf.sharedWith;
+
+    return (
+      <View style={styles.shareRow}>
+        <View style={[styles.shareIconCircle, isFolder && styles.folderIconBg]}>
+          <Ionicons
+            name={isFolder ? 'folder' : 'document-outline'}
+            size={20}
+            color={isFolder ? colors.accent.bright : colors.primary[500]}
+          />
+        </View>
+        <View style={styles.shareInfo}>
+          <Text style={styles.shareName} numberOfLines={1}>{name || '–'}</Text>
+          <Text style={styles.shareMeta}>
+            {tab === 'withMe' ? `Par ${getUserName(partner)}` : `Avec ${getUserName(partner)}`}
+          </Text>
+          <View style={styles.permRow}>
+            {sf.canWrite && <PermBadge label="Écriture" />}
+            {sf.canDelete && <PermBadge label="Suppression" />}
+            {sf.canShare && <PermBadge label="Partage" />}
+          </View>
+        </View>
+        {tab === 'byMe' && !isFolder && (
+          <TouchableOpacity onPress={() => handleRevokeShare('file', sf.id, name || '')}>
+            <Ionicons name="trash-outline" size={18} color={colors.neutral[400]} />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -71,11 +242,24 @@ export default function SharedScreen() {
       {/* Tabs */}
       <View style={styles.tabs}>
         <TouchableOpacity
+          style={[styles.tab, tab === 'pending' && styles.tabActive]}
+          onPress={() => setTab('pending')}
+        >
+          <Text style={[styles.tabText, tab === 'pending' && styles.tabTextActive]}>
+            En attente
+          </Text>
+          {pending.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{pending.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, tab === 'withMe' && styles.tabActive]}
           onPress={() => setTab('withMe')}
         >
           <Text style={[styles.tabText, tab === 'withMe' && styles.tabTextActive]}>
-            Partagés avec moi
+            Avec moi
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -83,83 +267,54 @@ export default function SharedScreen() {
           onPress={() => setTab('byMe')}
         >
           <Text style={[styles.tabText, tab === 'byMe' && styles.tabTextActive]}>
-            Partagés par moi
+            Par moi
           </Text>
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => `${item.type}-${item.data.id}`}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetchData} tintColor={colors.primary[600]} />
-        }
-        ListEmptyComponent={
-          !loading ? (
-            <EmptyState
-              icon="people-outline"
-              title="Aucun partage"
-              subtitle={tab === 'withMe'
-                ? "Aucun fichier n'a été partagé avec vous"
-                : "Vous n'avez partagé aucun fichier"}
-            />
-          ) : null
-        }
-        renderItem={({ item }) => {
-          if (item.type === 'folder') {
-            const sf = item.data;
-            return (
-              <View style={styles.shareRow}>
-                <View style={styles.shareIconCircle}>
-                  <Ionicons name="folder" size={22} color={colors.accent.bright} />
-                </View>
-                <View style={styles.shareInfo}>
-                  <Text style={styles.shareName} numberOfLines={1}>{sf.folder?.name || 'Dossier'}</Text>
-                  <Text style={styles.shareMeta}>
-                    {tab === 'withMe' ? `Par ${getUserName(sf.sharedBy)}` : `Avec ${getUserName(sf.sharedWith)}`}
-                  </Text>
-                  <View style={styles.permRow}>
-                    {sf.canWrite && <PermBadge label="Écriture" />}
-                    {sf.canDelete && <PermBadge label="Suppression" />}
-                    {sf.canShare && <PermBadge label="Partage" />}
-                  </View>
-                </View>
-                {!sf.accepted && tab === 'withMe' && (
-                  <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingText}>En attente</Text>
-                  </View>
-                )}
-              </View>
-            );
+      {tab === 'pending' && (
+        <FlatList
+          data={pending}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={fetchData} tintColor={colors.primary[600]} />
           }
+          ListEmptyComponent={
+            !loading ? (
+              <EmptyState
+                icon="checkmark-circle-outline"
+                title="Aucun partage en attente"
+                subtitle="Vous n'avez aucune invitation en attente"
+              />
+            ) : null
+          }
+          renderItem={renderPendingItem}
+        />
+      )}
 
-          const sf = item.data;
-          return (
-            <View style={styles.shareRow}>
-              <View style={[styles.shareIconCircle, { backgroundColor: `${colors.primary[500]}15` }]}>
-                <Ionicons name="document-outline" size={20} color={colors.primary[500]} />
-              </View>
-              <View style={styles.shareInfo}>
-                <Text style={styles.shareName} numberOfLines={1}>{sf.file?.name || 'Fichier'}</Text>
-                <Text style={styles.shareMeta}>
-                  {tab === 'withMe' ? `Par ${getUserName(sf.sharedBy)}` : `Avec ${getUserName(sf.sharedWith)}`}
-                </Text>
-                <View style={styles.permRow}>
-                  {sf.canWrite && <PermBadge label="Écriture" />}
-                  {sf.canDelete && <PermBadge label="Suppression" />}
-                  {sf.canShare && <PermBadge label="Partage" />}
-                </View>
-              </View>
-              {!sf.accepted && tab === 'withMe' && (
-                <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingText}>En attente</Text>
-                </View>
-              )}
-            </View>
-          );
-        }}
-      />
+      {(tab === 'withMe' || tab === 'byMe') && (
+        <FlatList
+          data={tab === 'withMe' ? withMeItems : byMeItems}
+          keyExtractor={(item) => `${item.type}-${item.data.id}`}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={fetchData} tintColor={colors.primary[600]} />
+          }
+          ListEmptyComponent={
+            !loading ? (
+              <EmptyState
+                icon="people-outline"
+                title="Aucun partage"
+                subtitle={tab === 'withMe'
+                  ? "Aucun fichier partagé avec vous"
+                  : "Vous n'avez partagé aucun fichier"}
+              />
+            ) : null
+          }
+          renderItem={renderSharedItem}
+        />
+      )}
     </View>
   );
 }
@@ -193,22 +348,39 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   tabActive: {
     backgroundColor: colors.white,
     ...shadows.sm,
   },
   tabText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.neutral[500],
     fontWeight: '500',
   },
   tabTextActive: {
     color: colors.primary[600],
     fontWeight: '600',
+  },
+  tabBadge: {
+    backgroundColor: colors.error,
+    minWidth: 16,
+    height: 16,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.white,
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -228,9 +400,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: borderRadius.full,
-    backgroundColor: `${colors.accent.bright}15`,
+    backgroundColor: `${colors.primary[500]}15`,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  folderIconBg: {
+    backgroundColor: `${colors.accent.bright}15`,
   },
   shareInfo: {
     flex: 1,
@@ -262,15 +437,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary[600],
   },
-  pendingBadge: {
-    backgroundColor: colors.warning + '20',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+  actionBtns: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  pendingText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.warning,
+  acceptBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

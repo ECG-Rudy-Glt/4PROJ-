@@ -93,6 +93,12 @@ export class AccountAccessController {
       res.status(200).json({
         token: result.token,
         user: result.user,
+        switchSessionId,
+        authContext: {
+          authType: 'SWITCH',
+          rootUserId,
+          actorUserId: rootUserId,
+        },
       });
     } catch (error) { next(error); }
   }
@@ -117,6 +123,11 @@ export class AccountAccessController {
       res.status(200).json({
         token: result.token,
         user: result.user,
+        authContext: {
+          authType: 'DIRECT',
+          rootUserId,
+          actorUserId: rootUserId,
+        },
       });
     } catch (error) { next(error); }
   }
@@ -196,7 +207,16 @@ export class AccountAccessController {
         ipAddress: req.ip,
       });
 
-      res.status(200).json(result);
+      res.status(200).json({
+        ...result,
+        switchSessionId,
+        authContext: {
+          authType: 'DELEGATION',
+          rootUserId: delegateUserId,
+          actorUserId: delegateUserId,
+          delegation: result.delegation,
+        },
+      });
     } catch (error) { next(error); }
   }
 }

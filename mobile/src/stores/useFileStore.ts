@@ -15,18 +15,27 @@ interface FileState {
   navigateToFolder: (folderId?: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   renameFile: (fileId: string, name: string) => Promise<void>;
+  renameFolder: (folderId: string, name: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
+  deleteFolder: (folderId: string) => Promise<void>;
+  moveFile: (fileId: string, folderId?: string) => Promise<void>;
+  moveFolder: (folderId: string, parentId?: string) => Promise<void>;
   toggleFavorite: (fileId: string) => Promise<void>;
   refresh: () => Promise<void>;
+  reset: () => void;
 }
 
-export const useFileStore = create<FileState>((set, get) => ({
-  files: [],
-  folders: [],
-  breadcrumbs: [],
-  currentFolderId: undefined,
+const initialState = {
+  files: [] as FileItem[],
+  folders: [] as Folder[],
+  breadcrumbs: [] as Breadcrumb[],
+  currentFolderId: undefined as string | undefined,
   loading: false,
-  error: null,
+  error: null as string | null,
+};
+
+export const useFileStore = create<FileState>((set, get) => ({
+  ...initialState,
 
   fetchContents: async (folderId) => {
     set({ loading: true, error: null });
@@ -68,8 +77,28 @@ export const useFileStore = create<FileState>((set, get) => ({
     await get().refresh();
   },
 
+  renameFolder: async (folderId, name) => {
+    await folderService.renameFolder(folderId, name);
+    await get().refresh();
+  },
+
   deleteFile: async (fileId) => {
     await fileService.deleteFile(fileId);
+    await get().refresh();
+  },
+
+  deleteFolder: async (folderId) => {
+    await folderService.deleteFolder(folderId);
+    await get().refresh();
+  },
+
+  moveFile: async (fileId, folderId) => {
+    await fileService.moveFile(fileId, folderId);
+    await get().refresh();
+  },
+
+  moveFolder: async (folderId, parentId) => {
+    await folderService.moveFolder(folderId, parentId);
     await get().refresh();
   },
 
@@ -84,4 +113,6 @@ export const useFileStore = create<FileState>((set, get) => ({
     const { currentFolderId } = get();
     await get().fetchContents(currentFolderId);
   },
+
+  reset: () => set(initialState),
 }));

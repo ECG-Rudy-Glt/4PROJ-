@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,17 @@ import {
   Image,
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
+import * as SecureStore from 'expo-secure-store';
 import Toast from 'react-native-toast-message';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { authService } from '../../services/authService';
+import { mfaService, MFASetupResponse } from '../../services/mfaService';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { RootStackParamList } from '../../types';
+import api from '../../services/api';
 
 type Route = RouteProp<RootStackParamList, 'MfaVerify'>;
 
@@ -27,12 +30,42 @@ const CODE_LENGTH = 6;
 
 export default function MfaVerifyScreen() {
   const route = useRoute<Route>();
-  const { tempToken, mfaSetupRequired, qrCode, secret } = route.params;
+  const { tempToken, userId, mfaSetupRequired } = route.params;
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
+  const [setupData, setSetupData] = useState<MFASetupResponse | null>(null);
+  const [loadingSetup, setLoadingSetup] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
+  // Guard : n'appeler setupMFA qu'une seule fois même si l'effet re-run (Fast Refresh)
+  const setupCalled = useRef(false);
+
+  useEffect(() => {
+    if (!mfaSetupRequired || setupCalled.current) return;
+    setupCalled.current = true;
+
+    const init = async () => {
+      setLoadingSetup(true);
+      try {
+        await SecureStore.setItemAsync('tempToken', tempToken);
+        const data = await mfaService.setupMFA();
+        setSetupData(data);
+      } catch (err: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erreur de configuration MFA',
+          text2: err?.response?.data?.error || err?.message,
+        });
+      } finally {
+        setLoadingSetup(false);
+      }
+    };
+    init();
+    return () => {
+      SecureStore.deleteItemAsync('tempToken');
+    };
+  }, []);
 
   const handleDigitChange = (text: string, index: number) => {
     const cleaned = text.replace(/\D/g, '');
@@ -42,19 +75,15 @@ export default function MfaVerifyScreen() {
       setDigits(next);
       return;
     }
-
-    // Support pasting full code
     if (cleaned.length === CODE_LENGTH) {
       const next = cleaned.split('');
       setDigits(next);
       inputs.current[CODE_LENGTH - 1]?.focus();
       return;
     }
-
     const next = [...digits];
     next[index] = cleaned[0];
     setDigits(next);
-
     if (index < CODE_LENGTH - 1) {
       inputs.current[index + 1]?.focus();
     }
@@ -78,11 +107,29 @@ export default function MfaVerifyScreen() {
 
     setLoading(true);
     try {
-      const result = await authService.verifyMfa({ tempToken, code });
-      await setAuth(result.token, result.user, result.authContext);
-      Toast.show({ type: 'success', text1: 'Authentification réussie' });
+      if (mfaSetupRequired && setupData) {
+        // Valider la configuration MFA avec le code saisi
+        const { token } = await mfaService.verifySetup(
+          code,
+          setupData.secret,
+          setupData.backupCodes,
+          false,
+        );
+        // Récupérer le profil avec le nouveau token
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        const { user } = await authService.getProfile();
+        await setAuth(token, user);
+        Toast.show({ type: 'success', text1: 'Double authentification configurée !' });
+      } else {
+        // MFA déjà configuré — vérification du code
+        const { token, user } = await mfaService.verifyMFA(userId, code, false);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        const profile = await authService.getProfile();
+        await setAuth(token, profile.user);
+        Toast.show({ type: 'success', text1: 'Authentification réussie' });
+      }
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Code invalide';
+      const msg = err?.response?.data?.error || 'Code invalide';
       Toast.show({ type: 'error', text1: 'Erreur', text2: msg });
       setDigits(Array(CODE_LENGTH).fill(''));
       inputs.current[0]?.focus();
@@ -96,10 +143,7 @@ export default function MfaVerifyScreen() {
       style={styles.wrapper}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Text style={styles.iconText}>🔐</Text>
@@ -109,30 +153,41 @@ export default function MfaVerifyScreen() {
           </Text>
           <Text style={styles.subtitle}>
             {mfaSetupRequired
-              ? "Scannez le QR code avec votre application d'authentification"
+              ? "Scannez le QR code avec votre application d'authentification (Google Authenticator, Authy…)"
               : "Entrez le code à 6 chiffres de votre application d'authentification"}
           </Text>
         </View>
 
         <View style={styles.card}>
-          {/* QR code pour le setup */}
-          {mfaSetupRequired && qrCode && (
-            <View style={styles.qrSection}>
-              <Image
-                source={{ uri: qrCode }}
-                style={styles.qrImage}
-                resizeMode="contain"
-              />
-              {secret && (
+          {/* Setup MFA : QR code */}
+          {mfaSetupRequired && (
+            loadingSetup ? (
+              <View style={styles.qrLoading}>
+                <ActivityIndicator color={colors.primary[600]} />
+                <Text style={styles.qrLoadingText}>Génération du QR code…</Text>
+              </View>
+            ) : setupData ? (
+              <View style={styles.qrSection}>
+                <Image
+                  source={{ uri: setupData.qrCodeDataUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
                 <View style={styles.secretBox}>
                   <Text style={styles.secretLabel}>Clé secrète (saisie manuelle) :</Text>
-                  <Text style={styles.secretCode} selectable>{secret}</Text>
+                  <Text style={styles.secretCode} selectable>{setupData.secret}</Text>
                 </View>
-              )}
-            </View>
+                <View style={styles.warningBox}>
+                  <Text style={styles.warningText}>
+                    ⚠️ Scannez ce QR code avec votre app d'authentification (Google Authenticator, Authy, Apple Mots de passe…).{'\n'}
+                    Si vous avez déjà une entrée "SupFile", supprimez-la et re-scannez ce nouveau QR.
+                  </Text>
+                </View>
+              </View>
+            ) : null
           )}
 
-          {/* Champs code OTP */}
+          {/* Champs OTP */}
           <Text style={styles.label}>Code de vérification</Text>
           <View style={styles.codeRow}>
             {digits.map((digit, i) => (
@@ -152,15 +207,17 @@ export default function MfaVerifyScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, (loading || loadingSetup) && styles.buttonDisabled]}
             onPress={handleVerify}
-            disabled={loading}
+            disabled={loading || loadingSetup || (mfaSetupRequired && !setupData)}
             activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.buttonText}>Vérifier</Text>
+              <Text style={styles.buttonText}>
+                {mfaSetupRequired ? 'Confirmer la configuration' : 'Vérifier'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -170,118 +227,46 @@ export default function MfaVerifyScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.primary[50],
-  },
+  wrapper: { flex: 1, backgroundColor: colors.primary[50] },
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing['3xl'],
+    flexGrow: 1, justifyContent: 'center',
+    paddingHorizontal: spacing.xl, paddingVertical: spacing['3xl'],
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: spacing['2xl'],
-  },
+  header: { alignItems: 'center', marginBottom: spacing['2xl'] },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    ...shadows.lg,
+    width: 64, height: 64, borderRadius: borderRadius.full,
+    backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center',
+    marginBottom: spacing.lg, ...shadows.lg,
   },
-  iconText: {
-    fontSize: 28,
+  iconText: { fontSize: 28 },
+  title: { ...typography.h3, color: colors.primary[600], marginBottom: spacing.xs, textAlign: 'center' },
+  subtitle: { ...typography.bodySmall, color: colors.neutral[500], textAlign: 'center', paddingHorizontal: spacing.lg },
+  card: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.xl },
+  qrSection: { alignItems: 'center', marginBottom: spacing.xl },
+  qrLoading: { alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl },
+  qrLoadingText: { ...typography.bodySmall, color: colors.neutral[500] },
+  qrImage: { width: 200, height: 200, borderRadius: borderRadius.lg, marginBottom: spacing.lg },
+  secretBox: { backgroundColor: colors.neutral[50], borderRadius: borderRadius.md, padding: spacing.md, width: '100%' },
+  secretLabel: { ...typography.caption, color: colors.neutral[500], marginBottom: spacing.xs },
+  secretCode: { ...typography.body, fontWeight: '600', color: colors.primary[600], textAlign: 'center', letterSpacing: 2 },
+  hint: { ...typography.caption, color: colors.neutral[400], textAlign: 'center', marginTop: spacing.md },
+  warningBox: {
+    backgroundColor: '#FEF3C7', borderRadius: borderRadius.md,
+    padding: spacing.md, marginTop: spacing.md, width: '100%',
   },
-  title: {
-    ...typography.h3,
-    color: colors.primary[600],
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...typography.bodySmall,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    ...shadows.xl,
-  },
-  qrSection: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  qrImage: {
-    width: 200,
-    height: 200,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  secretBox: {
-    backgroundColor: colors.neutral[50],
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    width: '100%',
-  },
-  secretLabel: {
-    ...typography.caption,
-    color: colors.neutral[500],
-    marginBottom: spacing.xs,
-  },
-  secretCode: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.primary[600],
-    textAlign: 'center',
-    letterSpacing: 2,
-  },
-  label: {
-    ...typography.label,
-    color: colors.neutral[700],
-    marginBottom: spacing.md,
-  },
-  codeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-  },
+  warningText: { ...typography.caption, color: '#92400E', lineHeight: 18 },
+  label: { ...typography.label, color: colors.neutral[700], marginBottom: spacing.md },
+  codeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.xl },
   codeInput: {
-    flex: 1,
-    height: 56,
-    backgroundColor: colors.neutral[50],
-    borderWidth: 2,
-    borderColor: colors.neutral[200],
-    borderRadius: borderRadius.lg,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.neutral[900],
+    flex: 1, height: 56, backgroundColor: colors.neutral[50],
+    borderWidth: 2, borderColor: colors.neutral[200], borderRadius: borderRadius.lg,
+    textAlign: 'center', fontSize: 22, fontWeight: '700', color: colors.neutral[900],
   },
-  codeInputFilled: {
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[50],
-  },
+  codeInputFilled: { borderColor: colors.primary[500], backgroundColor: colors.primary[50] },
   button: {
-    backgroundColor: colors.primary[600],
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-    ...shadows.md,
+    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    paddingVertical: spacing.lg, alignItems: 'center', ...shadows.md,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    ...typography.button,
-    color: colors.white,
-  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { ...typography.button, color: colors.white },
 });

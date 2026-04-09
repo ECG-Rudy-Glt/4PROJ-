@@ -66,7 +66,11 @@ export const authenticate = async (
       !!decoded.switchRootUserId || !!decoded.delegatedByUserId || !!decoded.switchSessionId;
 
     if (hasContextualSession) {
-      const switchSessionCookie = getCookieValue(req, SWITCH_SESSION_COOKIE);
+      // Accept switch session ID from cookie (web) or header (mobile)
+      const switchSessionCookie =
+        getCookieValue(req, SWITCH_SESSION_COOKIE) ||
+        (req.headers['x-switch-session'] as string | undefined) ||
+        null;
       if (!switchSessionCookie || !decoded.switchSessionId || switchSessionCookie !== decoded.switchSessionId) {
         res.status(401).json({ error: 'Invalid switch session cookie' });
         return;
