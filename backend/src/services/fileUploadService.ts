@@ -49,7 +49,7 @@ async function getUniqueFileName(name: string, folderId: string | undefined, use
 }
 
 export class FileUploadService {
-  static async createFiles(userId: string, files: Express.Multer.File[], folderId?: string) {
+  static async createFiles(userId: string, files: Express.Multer.File[], folderId?: string, dek?: Buffer) {
     const createdFiles: any[] = [];
     const errors: Array<{ fileName: string; error: string }> = [];
 
@@ -63,13 +63,15 @@ export class FileUploadService {
           uploadedFile.mimetype,
           uploadedFile.size,
           uploadedFile.path,
-          folderId
+          folderId,
+          dek
         );
         createdFiles.push(createdFile);
-      } catch (error: any) {
+      } catch (error) {
         // Nettoyer le fichier temporaire local si l'upload S3 a échoué avant
         await deleteFile(uploadedFile.path).catch(() => undefined);
-        errors.push({ fileName: originalName, error: error?.message || 'Upload failed' });
+        const msg = error instanceof Error ? error.message : 'Upload failed';
+        errors.push({ fileName: originalName, error: msg });
       }
     }
 
@@ -83,7 +85,8 @@ export class FileUploadService {
     mimeType: string,
     size: number,
     storagePath: string,
-    folderId?: string
+    folderId?: string,
+    dek?: Buffer
   ) {
     const isVault = await VaultService.isVaultFolder(userId, folderId || null);
     await VaultService.assertUnlockedIfVault(userId, isVault);
@@ -103,9 +106,9 @@ export class FileUploadService {
     const uniqueName = await getUniqueFileName(name, folderId, userId);
     const category = getCategoryFromMimeType(mimeType);
 
-    // Chiffrer et uploader vers S3 — storagePath devient la clé S3
+    // Chiffrer et uploader vers S3 avec le DEK utilisateur (ou clé globale en fallback)
     const s3Key = `files/${userId}/${path.basename(storagePath)}`;
-    await EncryptionService.encryptFileToS3(storagePath, s3Key);
+    await EncryptionService.encryptFileToS3(storagePath, s3Key, dek);
 
     const file = await prisma.file.create({
       data: { name: uniqueName, originalName, mimeType, size: BigInt(size), storagePath: s3Key, userId, folderId, category, isVault },

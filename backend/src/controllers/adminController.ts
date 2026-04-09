@@ -5,6 +5,7 @@ import { AdminService } from '../services/adminService';
 import prisma from '../config/database';
 import { FileIndexService } from '../services/fileIndexService';
 import logger from '../config/logger';
+import { sendCsv, csvFilename } from '../utils/csvExporter';
 
 const VALID_PLANS = new Set<Plan>([Plan.FREE, Plan.PRO, Plan.BUSINESS, Plan.ENTERPRISE]);
 
@@ -56,26 +57,14 @@ export class AdminController {
   static async exportUsersCsv(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const rows = await AdminService.getUsersExportRows();
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, { header: true });
-      const fileName = `supfile-admin-users-${new Date().toISOString().split('T')[0]}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.status(200).send(csv);
+      sendCsv(res, rows, csvFilename('supfile-admin-users'));
     } catch (error) { next(error); }
   }
 
   static async exportStorageCsv(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const rows = await AdminService.getStorageExportRows();
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, { header: true });
-      const fileName = `supfile-admin-storage-${new Date().toISOString().split('T')[0]}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.status(200).send(csv);
+      sendCsv(res, rows, csvFilename('supfile-admin-storage'));
     } catch (error) { next(error); }
   }
 

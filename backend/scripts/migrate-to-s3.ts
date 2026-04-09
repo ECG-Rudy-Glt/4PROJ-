@@ -1,8 +1,8 @@
 /**
  * Script de migration : déplace les fichiers locaux existants vers MinIO.
  *
- * Usage (depuis la racine du projet) :
- *   cd backend && npx tsx ../scripts/migrate-to-s3.ts
+ * Usage (depuis le dossier backend) :
+ *   npx tsx scripts/migrate-to-s3.ts
  *
  * Options :
  *   --dry-run   Affiche ce qui serait migré sans rien modifier
@@ -19,11 +19,10 @@
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
-// Run from backend/: cd backend && npx tsx ../scripts/migrate-to-s3.ts
-// Path below resolves when tsx runs from backend/ dir (node_modules lookup)
+// Run from backend/: cd backend && npx tsx scripts/migrate-to-s3.ts
 // @ts-ignore — resolved at runtime from backend/node_modules
-import { PrismaClient } from '../backend/node_modules/@prisma/client';
-import { StorageService } from '../backend/src/services/storageService';
+import { PrismaClient } from '../node_modules/@prisma/client';
+import { StorageService } from '../src/services/storageService';
 
 const prisma = new PrismaClient();
 

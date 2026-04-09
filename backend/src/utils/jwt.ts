@@ -9,6 +9,8 @@ export interface TokenContextOptions {
   switchSessionId?: string;
   delegatedByUserId?: string;
   delegationId?: string;
+  /** DEK enveloppée (base64) à inclure dans le payload JWT. */
+  wrappedDek?: string;
 }
 
 export const generateToken = (
@@ -25,6 +27,7 @@ export const generateToken = (
     ...(context?.switchSessionId ? { switchSessionId: context.switchSessionId } : {}),
     ...(context?.delegatedByUserId ? { delegatedByUserId: context.delegatedByUserId } : {}),
     ...(context?.delegationId ? { delegationId: context.delegationId } : {}),
+    ...(context?.wrappedDek ? { wrappedDek: context.wrappedDek } : {}),
   };
 
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);

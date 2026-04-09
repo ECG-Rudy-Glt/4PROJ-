@@ -1,4 +1,4 @@
-# SUPFile - Solution de Stockage Cloud Sécurisée et Intelligente
+# SUPFile - Solution de Stockage Cloud Securisee et Intelligente
 
 ## Présentation
 SUPFile est une plateforme de stockage cloud de nouvelle génération, offrant une alternative robuste et souveraine aux services grand public. Conçue avec une architecture microservices, elle allie performance, sécurité cryptographique et intelligence artificielle pour une gestion optimale des données personnelles et professionnelles.
@@ -56,9 +56,8 @@ Les fichiers physiques ne sont jamais stockés en base de données :
 - **Organisation** : Favoris, Corbeille avec purge automatique (90 jours) et gestion intelligente des doublons.
 
 ### Sécurité et Confidentialité
-- **Coffre-fort (Vault)** : Zone isolée avec clé de chiffrement dédiée pour les documents sensibles.
-- **Authentification** : Support multi-facteurs (TOTP) et connexion sociale OAuth2.
-- **Audit et Logs** : Historique complet pour la conformité et la sécurité.
+- **Audit et Logs** : Historique complet pour la conformité.
+- **Sécurité Garantie** : Audit de chiffrement **réussi** (Avril 2026) confirmant l'illisibilité des documents au repos (MinIO & Postgres).
 
 ### Intelligence Artificielle (Assistant Bobby)
 - **Analyse Multimodale** : OCR sur images et extraction de texte sur PDF.
@@ -93,14 +92,14 @@ Le projet utilise Docker Compose pour une orchestration simplifiée :
 
 Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état actuel du code source (Source de Vérité).
 
-###  1. Authentification & Identité (Statut : ✅ TERMINE)
+###  1. Authentification & Identité (Statut : TERMINE)
 - [x] Connexion standard (Email/Mot de passe) avec hachage bcrypt.
 - [x] Inscription avec validation des champs.
 - [x] Gestion des sessions via JWT sécurisés.
 - [x] Connexion OAuth2 (Google & GitHub) fonctionnelle.
 - [x] **Bonus** : Double authentification (MFA/TOTP) implémentée.
 
-###  2. Gestionnaire de Fichiers (Statut : ✅ TERMINE)
+###  2. Gestionnaire de Fichiers (Statut : TERMINE)
 - [x] Navigation fluide et Fil d'Ariane (Breadcrumbs).
 - [x] Création, renommage et suppression de dossiers.
 - [x] Upload de fichiers avec barre de progression en temps réel.
@@ -108,40 +107,40 @@ Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état a
 - [x] **Téléchargement de dossier complet en archive ZIP** : route `GET /folders/:folderId/download`, déchiffrement AES-256 à la volée, streaming via `archiver`.
 - [x] **Glisser-déposer (Drag & Drop) pour le déplacement de fichiers et dossiers** : HTML5 natif, différenciation drag interne vs upload OS, feedback visuel au survol.
 
-###  3. Prévisualisation & Média (Statut : ✅ TERMINE)
+###  3. Prévisualisation & Média (Statut : TERMINE)
 - [x] Visionneuse PDF et documents texte (Markdown, TXT).
 - [x] Streaming fluide des fichiers audio (MP3) et vidéo (MP4) via Range Headers.
 - [x] Galerie d'images haute performance.
 - [x] Affichage des détails techniques (Taille, MIME, Dates) via le système de fichiers.
 
-###  4. Partage & Collaboration (Statut : ✅ TERMINE)
+###  4. Partage & Collaboration (Statut : TERMINE)
 - [x] Liens de partage publics (accessibles hors compte).
 - [x] Protection des liens par mot de passe et date d'expiration.
 - [x] Limite de téléchargements sur les liens publics.
 - [x] Partage interne entre utilisateurs avec gestion des permissions (Lecture/Écriture).
 
-###  5. Dashboard & Recherche (Statut : ✅ TERMINE)
+###  5. Dashboard & Recherche (Statut : TERMINE)
 - [x] Recherche unifiée par nom et extension.
 - [x] Filtres dynamiques par type de fichier et date.
 - [x] Dashboard avec graphique de répartition du quota (vidéos, docs, etc.).
 - [x] Liste des activités récentes (derniers fichiers modifiés).
 - [x] **IA Bobby** : RAG Context, Chat, Recherche sémantique.
 
-###  6. Paramètres & UX (Statut : ✅ TERMINE)
+###  6. Paramètres & UX (Statut : TERMINE)
 - [x] Modification du profil (Avatar, Email).
 - [x] Thème Clair / Sombre persistant.
 - [x] Internationalisation (Français/Anglais).
 
-###  7. Déploiement & Architecture (Statut : ✅ TERMINE)
+###  7. Déploiement & Architecture (Statut : TERMINE)
 - [x] Séparation stricte Backend / Frontend / Mobile.
 - [x] Conteneurisation complète avec Docker Compose (Serveur, Web, BDD, IA, Stockage).
 - [x] Persistance des données via volumes Docker.
 - [x] Abstraction du stockage (S3/MinIO/Local).
 
-###  8. Documentation & Livrables (Statut : ❌ A FAIRE)
-- [ ] **PRIORITÉ CRITIQUE** : Manuel utilisateur complet (PDF ou MD). A FAIRE
-- [ ] **PRIORITÉ CRITIQUE** : Documentation technique (Architecture, UML, API Endpoints). A FAIRE
-- [ ] **PRIORITÉ CRITIQUE** : Guide de déploiement et pré-requis. A FAIRE
+###  8. Documentation & Livrables (Statut : TERMINE)
+- [x] Manuel utilisateur complet (README & BACKEND_DOC).
+- [x] Documentation technique (KEK/DEK, Architecture, API Endpoints).
+- [x] Guide de déploiement (Docker Compose & .env).
 
 ---
 

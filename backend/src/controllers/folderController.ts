@@ -129,7 +129,7 @@ export class FolderController {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}.zip`);
 
-      await FolderService.streamFolderAsZip(folderId, userId, res);
+      await FolderService.streamFolderAsZip(folderId, userId, res, req.dekBuffer);
     } catch (error) {
       if (!res.headersSent) {
         next(error);

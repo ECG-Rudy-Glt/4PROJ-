@@ -1,6 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { AuditService, AuditAction } from '../services/auditService';
 import { AuthRequest } from '../types';
+import { clampLimit } from '../utils/validators';
+import { sendCsv, csvFilename } from '../utils/csvExporter';
 
 export class AuditController {
   static async getUserLogs(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -9,8 +11,8 @@ export class AuditController {
       const { limit, offset, action, dateFrom, dateTo } = req.query;
 
       const options = {
-        limit: limit ? parseInt(String(limit)) : 50,
-        offset: offset ? parseInt(String(offset)) : 0,
+        limit: clampLimit(limit, 50),
+        offset: clampLimit(offset, 0),
         action: action as AuditAction | undefined,
         dateFrom: dateFrom ? new Date(String(dateFrom)) : undefined,
         dateTo: dateTo ? new Date(String(dateTo)) : undefined,
@@ -29,7 +31,7 @@ export class AuditController {
 
       const stats = await AuditService.getActivityStats(
         userId,
-        days ? parseInt(String(days)) : 7
+        clampLimit(days, 7, 1, 365)
       );
 
       res.status(200).json(stats);
@@ -51,13 +53,7 @@ export class AuditController {
         details: JSON.stringify(log.details || {}),
       }));
 
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, { header: true });
-      const fileName = `supfile-activity-${new Date().toISOString().split('T')[0]}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.status(200).send(csv);
+      sendCsv(res, rows, csvFilename('supfile-activity'));
     } catch (error) { next(error); }
   }
 }

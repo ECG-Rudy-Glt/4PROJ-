@@ -42,8 +42,11 @@ run_migrations() {
   return 1
 }
 
-echo "[entrypoint] Running Prisma migrations..."
-run_migrations || exit 1
+echo "[entrypoint] Syncing database schema..."
+# On tente un db push pour que les changements de schéma soient appliqués immédiatement 
+# sans avoir à gérer manuellement les fichiers de migration en développement.
+npx prisma db push --accept-data-loss || exit 1
+npx prisma generate
 
 echo "[entrypoint] Database ready, starting server..."
 exec su-exec node npm start

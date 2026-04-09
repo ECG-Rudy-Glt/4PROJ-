@@ -3,6 +3,7 @@ import { Plan, Role } from '@prisma/client';
 import { UserService } from '../services/userService';
 import { AuthRequest } from '../types';
 import { BillingService } from '../services/billingService';
+import { clampLimit, sanitizeQuery } from '../utils/validators';
 
 export class UserController {
   /**
@@ -18,8 +19,8 @@ export class UserController {
       }
 
       const users = await UserService.searchUsersByEmail(
-        query,
-        limit ? parseInt(String(limit)) : 10
+        sanitizeQuery(query),
+        clampLimit(limit, 10, 1, 50)
       );
 
       res.status(200).json({ users });
