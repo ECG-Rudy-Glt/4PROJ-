@@ -21,7 +21,11 @@ export const authService = {
   },
 
   async verifyMfa(data: MfaVerifyPayload): Promise<AuthResponse> {
-    const res = await api.post('/auth/mfa/verify', data);
+    const res = await api.post('/mfa/verify', {
+      userId: data.tempToken,
+      token: data.code,
+      rememberDevice: data.trustDevice ?? false,
+    });
     return res.data;
   },
 
