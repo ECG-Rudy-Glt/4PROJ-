@@ -43,9 +43,19 @@ run_migrations() {
 }
 
 echo "[entrypoint] Syncing database schema..."
-# On tente un db push pour que les changements de schéma soient appliqués immédiatement 
-# sans avoir à gérer manuellement les fichiers de migration en développement.
-npx prisma db push --accept-data-loss || exit 1
+# Retry loop: depends_on service_healthy guarantees postgres listens, but init scripts
+# (creating supfile_app user) may still be running. Retry until db push succeeds.
+MAX_RETRIES=30
+RETRY=0
+until npx prisma db push --accept-data-loss; do
+  RETRY=$((RETRY + 1))
+  if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+    echo "[entrypoint] Database still unreachable after ${MAX_RETRIES} attempts, exiting."
+    exit 1
+  fi
+  echo "[entrypoint] Database not ready yet, retrying in 3s... ($RETRY/$MAX_RETRIES)"
+  sleep 3
+done
 npx prisma generate
 
 echo "[entrypoint] Database ready, starting server..."

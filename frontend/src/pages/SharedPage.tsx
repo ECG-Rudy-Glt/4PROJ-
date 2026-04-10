@@ -186,14 +186,7 @@ export default function SharedPage() {
 
   const handleDownloadFile = async (file: File) => {
     try {
-      // Use shared file download URL for shared files
-      const url = fileService.getSharedFileDownloadUrl(file.id);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', file.name);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await fileService.triggerSharedFileDownload(file.id, file.name);
       toast.success(t('shared.download_started'));
     } catch {
       toast.error(t('shared.error_download'));

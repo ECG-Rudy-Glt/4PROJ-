@@ -68,6 +68,7 @@ jobs:
       JWT_EXPIRES_IN: '7d'
       DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
       FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
+      DEK_WRAP_SECRET: ${{ secrets.DEK_WRAP_SECRET || 'ci-test-dek-wrap-secret-32chars!!' }}
       MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
       PORT: '5001'
       FRONTEND_URL: 'http://localhost:3000'
