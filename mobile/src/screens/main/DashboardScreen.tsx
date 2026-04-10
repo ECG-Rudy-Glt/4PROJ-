@@ -17,6 +17,8 @@ import { shadows } from '../../theme/shadows';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useDashboardStore } from '../../stores/useDashboardStore';
 import SearchBar from '../../components/SearchBar';
+import FilePreviewModal from '../../components/FilePreviewModal';
+import { FileItem } from '../../types';
 
 const formatSize = (bytes: number): string => {
   if (bytes === 0) return '0 o';
@@ -44,6 +46,7 @@ export default function DashboardScreen() {
   const { data, loading, fetch } = useDashboardStore();
   const navigation = useNavigation<any>();
   const [showSearch, setShowSearch] = useState(false);
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   useEffect(() => {
     fetch();
@@ -136,7 +139,12 @@ export default function DashboardScreen() {
       )}
 
       {data?.recentFiles.map((file) => (
-        <View key={file.id} style={styles.fileRow}>
+        <TouchableOpacity
+          key={file.id}
+          style={styles.fileRow}
+          onPress={() => setPreviewFile(file as FileItem)}
+          activeOpacity={0.7}
+        >
           <View style={styles.fileIconCircle}>
             <Ionicons name={getCategoryIcon(file.mimeType)} size={20} color={colors.primary[600]} />
           </View>
@@ -146,10 +154,17 @@ export default function DashboardScreen() {
               {formatSize(file.size)} · {formatDate(file.updatedAt)}
             </Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.neutral[300]} />
+        </TouchableOpacity>
       ))}
 
       <SearchBar visible={showSearch} onClose={() => setShowSearch(false)} />
+
+      <FilePreviewModal
+        file={previewFile}
+        visible={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+      />
     </ScrollView>
   );
 }

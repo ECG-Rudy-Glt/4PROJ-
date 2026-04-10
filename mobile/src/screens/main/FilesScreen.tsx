@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,11 @@ import {
   Alert,
   TextInput,
   Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -42,28 +44,71 @@ export default function FilesScreen() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadLabel, setUploadLabel] = useState('');
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [actionTarget, setActionTarget] = useState<ActionTarget>(null);
   const [showSearch, setShowSearch] = useState(false);
 
-  const handleUpload = async () => {
-    setUploading(true);
-    try {
-      const { success, count } = await uploadService.pickAndUpload(currentFolderId);
-      if (success) {
-        Toast.show({ type: 'success', text1: `${count} fichier(s) envoyé(s)` });
-        fetchContents(currentFolderId);
-      }
-    } catch {
-      Toast.show({ type: 'error', text1: "Erreur lors de l'envoi" });
-    } finally {
-      setUploading(false);
-    }
+  // Rafraîchit la liste à chaque fois que l'onglet reçoit le focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchContents(currentFolderId);
+    }, [currentFolderId])
+  );
+
+  const startProgressAnimation = () => {
+    progressAnim.setValue(0);
+    // Monte progressivement jusqu'à 85% sur ~8 secondes, simule l'upload
+    Animated.timing(progressAnim, {
+      toValue: 85,
+      duration: 8000,
+      useNativeDriver: false,
+    }).start();
   };
 
-  useEffect(() => {
-    fetchContents();
-  }, []);
+  const completeProgress = () => {
+    Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleUpload = async () => {
+    try {
+      const { success, count } = await uploadService.pickAndUpload(
+        currentFolderId,
+        () => {
+          setUploading(true);
+          setUploadLabel('Envoi en cours…');
+          startProgressAnimation();
+        },
+      );
+      if (success) {
+        completeProgress();
+        setUploadLabel('Terminé !');
+        setTimeout(async () => {
+          setUploading(false);
+          progressAnim.setValue(0);
+          Toast.show({ type: 'success', text1: `${count} fichier(s) envoyé(s)` });
+          await fetchContents(currentFolderId);
+        }, 400);
+      } else {
+        setUploading(false);
+        progressAnim.setValue(0);
+      }
+    } catch (err: any) {
+      setUploading(false);
+      progressAnim.setValue(0);
+      const msg =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erreur lors de l'envoi";
+      Toast.show({ type: 'error', text1: "Erreur lors de l'envoi", text2: msg });
+    }
+  };
 
   const onRefresh = useCallback(() => {
     fetchContents(currentFolderId);
@@ -118,6 +163,24 @@ export default function FilesScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Barre de progression upload */}
+      {uploading && (
+        <View style={styles.uploadProgressContainer}>
+          <View style={styles.uploadProgressHeader}>
+            <Ionicons name="cloud-upload-outline" size={16} color={colors.primary[600]} />
+            <Text style={styles.uploadProgressLabel}>{uploadLabel}</Text>
+          </View>
+          <View style={styles.uploadProgressBarBg}>
+            <Animated.View
+              style={[
+                styles.uploadProgressBarFill,
+                { width: progressAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) },
+              ]}
+            />
+          </View>
+        </View>
+      )}
 
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
@@ -277,6 +340,36 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     padding: spacing.xs,
+  },
+  uploadProgressContainer: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    ...shadows.sm,
+  },
+  uploadProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  uploadProgressLabel: {
+    ...typography.caption,
+    color: colors.primary[600],
+    fontWeight: '600',
+  },
+  uploadProgressBarBg: {
+    height: 6,
+    backgroundColor: colors.neutral[100],
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  uploadProgressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary[500],
+    borderRadius: borderRadius.full,
   },
   breadcrumbs: {
     flexDirection: 'row',
