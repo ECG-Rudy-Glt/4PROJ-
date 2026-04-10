@@ -24,9 +24,18 @@
 - [x] Ajouter middleware `requireFolderPermission` sur les routes de dossier partagé — `folderRoutes.ts`
 
 ### Cohérence
-- [x] Normaliser le schéma de réponse API : `{ success, data?, error?, code? }` sur tous les endpoints — `utils/response.ts`, appliqué sur les 20 controllers
-- [x] Corriger les status HTTP incohérents (utiliser 401/403/404/409/422 correctement au lieu de 400 systématique) — MFA invalid code 400→401, switchBack sans session 400→401, file type non éditable 400→422
-- [x] Remplacer tous les `console.log` / `console.error` par un logger centralisé (pino) — `config/logger.ts`, appliqué sur tous les controllers, services et middlewares
+- [x] **Normalisation du schéma de réponse API** : Nouveau `utils/response.ts` utilisé dans les 21 controllers.
+  - `sendSuccess(res, data?, status=200)` → `{ success: true, data? }`
+  - `sendCreated(res, data?)` → `{ success: true, data? }` + 201
+  - `sendError(res, error, status, code?)` → `{ success: false, error, code? }`
+- [x] **Correction des status HTTP** : Utilisation de 401/422 au lieu de 400 pour les cas spécifiques.
+  | Endroit | Avant | Après | Raison |
+  |---|---|---|---|
+  | MFA : code TOTP invalide | 400 | 401 | Échec d'auth |
+  | MFA : backup code invalide | 400 | 401 | Échec d'auth |
+  | `switchBack` sans session active | 400 | 401 | État d'auth invalide |
+  | OnlyOffice : type non éditable | 400 | 422 | Entité non traitable |
+- [x] **Logger centralisé (pino)** : Remplacement de tous les `console.log/error`.
 
 ---
 
