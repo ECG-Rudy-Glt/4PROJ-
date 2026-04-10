@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { OrganizationMemberRole } from '@prisma/client';
 import { AuthRequest } from '../types';
 import { OrganizationService } from '../services/organizationService';
+import { sendSuccess, sendCreated, sendError } from '../utils/response';
 
 const VALID_ROLES = new Set<OrganizationMemberRole>([
   OrganizationMemberRole.OWNER,
@@ -13,7 +14,7 @@ export class OrganizationController {
   static async listMine(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const organizations = await OrganizationService.listMyOrganizations(req.user!.id);
-      res.status(200).json({ organizations });
+      sendSuccess(res, { organizations });
     } catch (error) { next(error); }
   }
 
@@ -21,7 +22,7 @@ export class OrganizationController {
     try {
       const { name } = req.body;
       const organization = await OrganizationService.createOrganization(req.user!.id, String(name || ''));
-      res.status(201).json({ organization });
+      sendCreated(res, { organization });
     } catch (error) { next(error); }
   }
 
@@ -29,7 +30,7 @@ export class OrganizationController {
     try {
       const { orgId } = req.params;
       const data = await OrganizationService.getOrganization(orgId, req.user!.id);
-      res.status(200).json(data);
+      sendSuccess(res, data);
     } catch (error) { next(error); }
   }
 
@@ -39,7 +40,7 @@ export class OrganizationController {
       const { email, role } = req.body;
       const normalizedRole = typeof role === 'string' ? role.toUpperCase() as OrganizationMemberRole : OrganizationMemberRole.MEMBER;
       if (!VALID_ROLES.has(normalizedRole)) {
-        res.status(400).json({ error: 'Rôle invalide' });
+        sendError(res, 'Rôle invalide', 400);
         return;
       }
 
@@ -50,7 +51,7 @@ export class OrganizationController {
         normalizedRole
       );
 
-      res.status(201).json({ member });
+      sendCreated(res, { member });
     } catch (error) { next(error); }
   }
 
@@ -59,12 +60,12 @@ export class OrganizationController {
       const { orgId, memberId } = req.params;
       const role = typeof req.body.role === 'string' ? req.body.role.toUpperCase() as OrganizationMemberRole : null;
       if (!role || !VALID_ROLES.has(role)) {
-        res.status(400).json({ error: 'Rôle invalide' });
+        sendError(res, 'Rôle invalide', 400);
         return;
       }
 
       const member = await OrganizationService.updateMemberRole(req.user!.id, orgId, memberId, role);
-      res.status(200).json({ member });
+      sendSuccess(res, { member });
     } catch (error) { next(error); }
   }
 
@@ -72,7 +73,7 @@ export class OrganizationController {
     try {
       const { orgId, memberId } = req.params;
       const result = await OrganizationService.removeMember(req.user!.id, orgId, memberId);
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
@@ -80,7 +81,7 @@ export class OrganizationController {
     try {
       const { orgId } = req.params;
       const result = await OrganizationService.switchCurrentOrganization(req.user!.id, orgId);
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 }

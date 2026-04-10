@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { NotificationService } from '../services/notificationService';
+import { sendSuccess } from '../utils/response';
 
 export class NotificationController {
   static async getNotifications(req: AuthRequest, res: Response, next: NextFunction) {
@@ -12,7 +13,7 @@ export class NotificationController {
       const result = await NotificationService.getByUser(userId, page, limit);
       const unreadCount = await NotificationService.getUnreadCount(userId);
 
-      res.json({ ...result, unreadCount });
+      sendSuccess(res, { ...result, unreadCount });
     } catch (error) { next(error); }
   }
 
@@ -22,7 +23,7 @@ export class NotificationController {
       const { id } = req.params;
 
       await NotificationService.markAsRead(id, userId);
-      res.json({ message: 'Notification marquée comme lue' });
+      sendSuccess(res, { message: 'Notification marquée comme lue' });
     } catch (error) { next(error); }
   }
 
@@ -31,7 +32,7 @@ export class NotificationController {
       const userId = req.user!.id;
 
       await NotificationService.markAllAsRead(userId);
-      res.json({ message: 'Toutes les notifications marquées comme lues' });
+      sendSuccess(res, { message: 'Toutes les notifications marquées comme lues' });
     } catch (error) { next(error); }
   }
 
@@ -41,7 +42,7 @@ export class NotificationController {
       const { id } = req.params;
 
       await NotificationService.delete(id, userId);
-      res.json({ message: 'Notification supprimée' });
+      sendSuccess(res, { message: 'Notification supprimée' });
     } catch (error) { next(error); }
   }
 }

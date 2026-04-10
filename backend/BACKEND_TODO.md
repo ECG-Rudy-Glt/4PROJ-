@@ -24,9 +24,18 @@
 - [x] Ajouter middleware `requireFolderPermission` sur les routes de dossier partagé — `folderRoutes.ts`
 
 ### Cohérence
-- [ ] Normaliser le schéma de réponse API : `{ success, data?, error?, code? }` sur tous les endpoints
-- [ ] Corriger les status HTTP incohérents (utiliser 401/403/404/409/422 correctement au lieu de 400 systématique)
-- [x] Remplacer tous les `console.log` / `console.error` par un logger centralisé (pino) — `config/logger.ts`, appliqué sur tous les controllers, services et middlewares
+- [x] **Normalisation du schéma de réponse API** : Nouveau `utils/response.ts` utilisé dans les 21 controllers.
+  - `sendSuccess(res, data?, status=200)` → `{ success: true, data? }`
+  - `sendCreated(res, data?)` → `{ success: true, data? }` + 201
+  - `sendError(res, error, status, code?)` → `{ success: false, error, code? }`
+- [x] **Correction des status HTTP** : Utilisation de 401/422 au lieu de 400 pour les cas spécifiques.
+  | Endroit | Avant | Après | Raison |
+  |---|---|---|---|
+  | MFA : code TOTP invalide | 400 | 401 | Échec d'auth |
+  | MFA : backup code invalide | 400 | 401 | Échec d'auth |
+  | `switchBack` sans session active | 400 | 401 | État d'auth invalide |
+  | OnlyOffice : type non éditable | 400 | 422 | Entité non traitable |
+- [x] **Logger centralisé (pino)** : Remplacement de tous les `console.log/error`.
 
 ---
 
@@ -39,10 +48,10 @@
 - [ ] Unifier la validation des entrées : tout passer à `express-validator` dans les routes (actuellement moitié manuelle)
 
 ### Découpage des fichiers trop longs
-- [ ] **`shareService.ts`** (~864 lignes) → découper en `SharedLinkService`, `SharedFolderService`, `SharedFileService`, `SharePermissionService`
-- [ ] **`fileService.ts`** (~732 lignes) → découper en `FileUploadService`, `FileDownloadService`, `FileSearchService`, `FileFavoriteService`
-- [ ] **`authController.ts`** (~504 lignes) → extraire `UserProfileController`, `DataExportController`
-- [ ] **`shareController.ts`** (~550 lignes) → aligner avec le découpage de shareService
+- [x] **`shareService.ts`** (~864 lignes) → découper en `SharedLinkService`, `SharedFolderService`, `SharedFileService`, `SharePermissionService`
+- [x] **`fileService.ts`** (~732 lignes) → découper en `FileUploadService`, `FileDownloadService`, `FileSearchService`, `FileFavoriteService`
+- [x] **`authController.ts`** (~504 lignes) → extraire `UserProfileController`, `DataExportController`
+- [x] **`shareController.ts`** (~550 lignes) → aligner avec le découpage de shareService
 
 ### Performance
 - [ ] Corriger export GDPR : 9 includes imbriqués chargent tout en mémoire → requêtes séparées paginées — `authController.ts:227`

@@ -24,22 +24,19 @@ Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
 
 ## Structure des dossiers
 
-```
-backend/src/
-├── config/           # Configuration transversale
-│   ├── database.ts   # Client Prisma singleton
-│   ├── logger.ts     # Logger Pino
-│   ├── multer.ts     # Config upload (fichiers + avatars)
-│   ├── passport.ts   # Stratégies OAuth2 Google & GitHub
-│   └── swagger.ts    # Spec OpenAPI générée
-├── controllers/      # Couche HTTP — gère req/res, délègue aux services
-├── middlewares/      # Middlewares Express
-├── routes/           # Définition des routes (montées dans index.ts)
-├── services/         # Logique métier
-├── jobs/             # Jobs ponctuels (cleanupJob)
-├── types/            # Types TypeScript partagés
-├── utils/            # Utilitaires (cors, helpers)
-└── index.ts          # Point d'entrée — mise en route du serveur
+backend/
+├── src/                  # Code source TypeScript
+│   ├── config/           # Configuration transversale
+│   ├── controllers/      # Couche HTTP — gère req/res, délègue aux services
+│   ├── middlewares/      # Middlewares Express
+│   ├── routes/           # Définition des routes
+│   ├── services/         # Logique métier
+│   ├── types/            # Types TypeScript partagés
+│   ├── utils/            # Utilitaires (cors, helpers)
+│   └── index.ts          # Point d'entrée App
+├── entrypoint.sh         # Script de démarrage Docker (migrations + app)
+├── Dockerfile            # Image de production
+└── prisma/               # Schéma et migrations database
 ```
 
 ---
@@ -69,6 +66,34 @@ backend/src/
 | `activityMiddleware.ts` | Met à jour `lastActivity` de la session à chaque requête |
 | `errorHandler.ts` | Handler d'erreurs centralisé — gère `AppError` et erreurs inattendues |
 | `validation.ts` | Wrapper `express-validator` — déclenche les erreurs de validation |
+
+---
+
+## Normalisation des Réponses (`utils/response.ts`)
+
+Toutes les réponses de l'API sont normalisées via des helpers pour garantir une structure cohérente et faciliter l'intégration côté frontend.
+
+### Structure standard
+- **Succès** : `{ success: true, data? }`
+- **Erreur** : `{ success: false, error: string, code?: string }`
+
+### Helpers disponibles
+| Fonction | Usage | Status par défaut |
+|---|---|---|
+| `sendSuccess(res, data?, status?)` | Retourne un succès avec données optionnelles | 200 |
+| `sendCreated(res, data?)` | Retourne un succès 201 (utile après POST) | 201 |
+| `sendError(res, error, status, code?)` | Retourne une erreur avec message et code optionnel | (requis) |
+
+Exemple d'usage :
+```typescript
+import { sendSuccess, sendError } from '../utils/response';
+
+// Succès
+return sendSuccess(res, { user });
+
+// Erreur avec code spécifique
+return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
+```
 
 ---
 

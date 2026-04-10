@@ -3,6 +3,7 @@ import { AuditService, AuditAction } from '../services/auditService';
 import { AuthRequest } from '../types';
 import { clampLimit } from '../utils/validators';
 import { sendCsv, csvFilename } from '../utils/csvExporter';
+import { sendSuccess } from '../utils/response';
 
 export class AuditController {
   static async getUserLogs(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -19,8 +20,7 @@ export class AuditController {
       };
 
       const result = await AuditService.getUserLogs(userId, options);
-
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
@@ -34,7 +34,7 @@ export class AuditController {
         clampLimit(days, 7, 1, 365)
       );
 
-      res.status(200).json(stats);
+      sendSuccess(res, stats);
     } catch (error) { next(error); }
   }
 

@@ -88,9 +88,12 @@ describe('AuthController', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        mfaRequired: true,
-        tempToken: 'temp-token-1',
-        userId: 'user-1',
+        success: true,
+        data: {
+          mfaRequired: true,
+          tempToken: 'temp-token-1',
+          userId: 'user-1',
+        },
       });
       expect(AuditService.createLog).not.toHaveBeenCalled();
     });
@@ -109,13 +112,16 @@ describe('AuthController', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        mfaSetupRequired: true,
-        tempToken: 'temp-token-2',
-        userId: 'user-1',
-        user: {
-          email: 'user@example.com',
-          firstName: 'User',
-          lastName: 'One',
+        success: true,
+        data: {
+          mfaSetupRequired: true,
+          tempToken: 'temp-token-2',
+          userId: 'user-1',
+          user: {
+            email: 'user@example.com',
+            firstName: 'User',
+            lastName: 'One',
+          },
         },
       });
     });
@@ -131,7 +137,10 @@ describe('AuthController', () => {
       await AuthController.login(req, res, jest.fn());
 
       expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Account inactive or suspended' });
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Account inactive or suspended',
+      });
     });
   });
 });

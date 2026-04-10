@@ -5,10 +5,10 @@ import { BillingService } from '../services/billingService';
 import { PlanService } from '../services/planService';
 import prisma from '../config/database';
 import logger from '../config/logger';
+import { sendSuccess, sendError } from '../utils/response';
 
 type PaidPlan = 'PRO' | 'BUSINESS' | 'ENTERPRISE';
 const PAID_PLANS = new Set<PaidPlan>(['PRO', 'BUSINESS', 'ENTERPRISE']);
-const ALL_PLANS = new Set(['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE']);
 
 export class BillingController {
   static async createCheckoutSession(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -17,14 +17,14 @@ export class BillingController {
       const plan = typeof req.body.plan === 'string' ? req.body.plan.toUpperCase() as PaidPlan : undefined;
 
       if (!plan || !PAID_PLANS.has(plan)) {
-        res.status(400).json({ error: 'Invalid paid plan' });
+        sendError(res, 'Invalid paid plan', 400);
         return;
       }
 
       // Simulation si Stripe n'est pas configuré (admins uniquement)
       if (!process.env.STRIPE_SECRET_KEY) {
         if (req.user!.role !== Role.ADMIN) {
-          res.status(503).json({ error: 'Stripe non configuré' });
+          sendError(res, 'Stripe non configuré', 503);
           return;
         }
 
@@ -36,12 +36,12 @@ export class BillingController {
           data: { plan: plan as Plan, quotaLimit: newLimit },
         });
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        res.status(200).json({ url: `${frontendUrl}/plans?checkout=success` });
+        sendSuccess(res, { url: `${frontendUrl}/plans?checkout=success` });
         return;
       }
 
       const session = await BillingService.createCheckoutSession(userId, plan);
-      res.status(200).json(session);
+      sendSuccess(res, session);
     } catch (error) { next(error); }
   }
 
@@ -53,7 +53,7 @@ export class BillingController {
         where: { id: userId },
         data: { plan: Plan.FREE, quotaLimit: newLimit },
       });
-      res.status(200).json({ success: true });
+      sendSuccess(res);
     } catch (error) { next(error); }
   }
 
@@ -61,11 +61,11 @@ export class BillingController {
     try {
       const userId = req.user!.id;
       const session = await BillingService.createBillingPortalSession(userId);
-      res.status(200).json(session);
+      sendSuccess(res, session);
     } catch (error) { next(error); }
   }
 
-  static async handleWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async handleWebhook(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
       const signature = req.headers['stripe-signature'];
       const normalizedSignature = Array.isArray(signature) ? signature[0] : signature;
@@ -74,11 +74,11 @@ export class BillingController {
       const event = BillingService.constructWebhookEvent(rawBody, normalizedSignature);
 
       await BillingService.handleWebhookEvent(event);
-      res.status(200).json({ received: true });
+      sendSuccess(res, { received: true });
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       logger.error({ err: error }, 'Stripe webhook error');
-      res.status(400).json({ error: `Webhook Error: ${msg}` });
+      sendError(res, `Webhook Error: ${msg}`, 400);
     }
   }
 }

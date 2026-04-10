@@ -15,7 +15,7 @@ function generateTempToken(userId: string): string {
 }
 
 import { generateToken } from '../utils/jwt';
-import logger from '../config/logger';
+import { sendSuccess, sendError } from '../utils/response';
 
 /**
  * Contrôleur MFA
@@ -30,26 +30,18 @@ export class MFAController {
       const user = (req as any).user;
       const userId = user.id;
 
-      // Vérifier si le MFA est déjà activé
       const isMFAEnabled = await mfaService.isMFAEnabled(userId);
       if (isMFAEnabled) {
-        res.status(400).json({ error: 'MFA est déjà activé' });
+        sendError(res, 'MFA est déjà activé', 400);
         return;
       }
 
-      // Générer le secret et le QR code
       const { secret, qrCodeDataUrl, backupCodes } = await mfaService.generateMFASecret(
         userId,
         user.email
       );
 
-      // Stocker temporairement le secret et les codes dans la session/response
-      // (ne pas les activer tout de suite, attendre la vérification)
-      res.json({
-        secret,
-        qrCodeDataUrl,
-        backupCodes,
-      });
+      sendSuccess(res, { secret, qrCodeDataUrl, backupCodes });
     } catch (error) { next(error); }
   }
 
@@ -64,33 +56,26 @@ export class MFAController {
       const { token, secret, backupCodes, rememberDevice } = req.body;
 
       if (!token || !secret || !backupCodes) {
-        res.status(400).json({ error: 'Token, secret et codes de récupération requis' });
+        sendError(res, 'Token, secret et codes de récupération requis', 400);
         return;
       }
 
-      // Vérifier le code TOTP
       const isValid = mfaService.verifyTOTPCode(secret, token);
       if (!isValid) {
-        res.status(400).json({ error: 'Code invalide' });
+        sendError(res, 'Code invalide', 401);
         return;
       }
 
-      // Activer le MFA
       await mfaService.enableMFA(userId, secret, backupCodes);
 
-      // Si "remember device", créer un appareil de confiance
       if (rememberDevice) {
         await trustedDeviceService.createTrustedDevice(userId, req);
       }
 
-      // Générer un token permanent
       // @ts-ignore
       const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
 
-      res.json({
-        message: 'MFA activé avec succès',
-        token: authToken,
-      });
+      sendSuccess(res, { message: 'MFA activé avec succès', token: authToken });
     } catch (error) { next(error); }
   }
 
@@ -103,23 +88,20 @@ export class MFAController {
       const { userId, token, rememberDevice } = req.body;
 
       if (!userId || !token) {
-        res.status(400).json({ error: 'userId et token requis' });
+        sendError(res, 'userId et token requis', 400);
         return;
       }
 
-      // Vérifier le code TOTP
       const isValid = await mfaService.verifyUserTOTPCode(userId, token);
       if (!isValid) {
-        res.status(400).json({ error: 'Code invalide' });
+        sendError(res, 'Code invalide', 401);
         return;
       }
 
-      // Si "remember device", créer un appareil de confiance
       if (rememberDevice) {
         await trustedDeviceService.createTrustedDevice(userId, req);
       }
 
-      // Récupérer les infos utilisateur
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -137,15 +119,10 @@ export class MFAController {
         },
       });
 
-      // Générer un token permanent
       // @ts-ignore
       const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
 
-      res.json({
-        message: 'Authentification réussie',
-        token: authToken,
-        user,
-      });
+      sendSuccess(res, { message: 'Authentification réussie', token: authToken, user });
     } catch (error) { next(error); }
   }
 
@@ -158,23 +135,20 @@ export class MFAController {
       const { userId, backupCode, rememberDevice } = req.body;
 
       if (!userId || !backupCode) {
-        res.status(400).json({ error: 'userId et backupCode requis' });
+        sendError(res, 'userId et backupCode requis', 400);
         return;
       }
 
-      // Vérifier le code de récupération
       const isValid = await mfaService.verifyBackupCode(userId, backupCode);
       if (!isValid) {
-        res.status(400).json({ error: 'Code de récupération invalide ou déjà utilisé' });
+        sendError(res, 'Code de récupération invalide ou déjà utilisé', 401);
         return;
       }
 
-      // Si "remember device", créer un appareil de confiance
       if (rememberDevice) {
         await trustedDeviceService.createTrustedDevice(userId, req);
       }
 
-      // Récupérer les infos utilisateur
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -192,14 +166,12 @@ export class MFAController {
         },
       });
 
-      // Générer un token permanent
       // @ts-ignore
       const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
 
-      // Vérifier le nombre de codes restants
       const remainingCodes = await mfaService.getRemainingBackupCodesCount(userId);
 
-      res.json({
+      sendSuccess(res, {
         message: 'Authentification réussie',
         token: authToken,
         user,
@@ -222,24 +194,19 @@ export class MFAController {
       const { token } = req.body;
 
       if (!token) {
-        res.status(400).json({ error: 'Code TOTP requis pour régénérer les codes' });
+        sendError(res, 'Code TOTP requis pour régénérer les codes', 400);
         return;
       }
 
-      // Vérifier le code TOTP pour sécuriser l'opération
       const isValid = await mfaService.verifyUserTOTPCode(userId, token);
       if (!isValid) {
-        res.status(400).json({ error: 'Code invalide' });
+        sendError(res, 'Code invalide', 401);
         return;
       }
 
-      // Régénérer les codes
       const backupCodes = await mfaService.regenerateBackupCodes(userId);
 
-      res.json({
-        message: 'Codes de récupération régénérés avec succès',
-        backupCodes,
-      });
+      sendSuccess(res, { message: 'Codes de récupération régénérés avec succès', backupCodes });
     } catch (error) { next(error); }
   }
 
@@ -250,10 +217,8 @@ export class MFAController {
   async getTrustedDevices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = (req as any).user.id;
-
       const devices = await trustedDeviceService.getUserTrustedDevices(userId);
-
-      res.json({ devices });
+      sendSuccess(res, { devices });
     } catch (error) { next(error); }
   }
 
@@ -267,13 +232,12 @@ export class MFAController {
       const { deviceId } = req.params;
 
       if (!deviceId) {
-        res.status(400).json({ error: 'deviceId requis' });
+        sendError(res, 'deviceId requis', 400);
         return;
       }
 
       await trustedDeviceService.revokeTrustedDevice(userId, deviceId);
-
-      res.json({ message: 'Appareil révoqué avec succès' });
+      sendSuccess(res, { message: 'Appareil révoqué avec succès' });
     } catch (error) { next(error); }
   }
 
@@ -287,21 +251,18 @@ export class MFAController {
       const { token } = req.body;
 
       if (!token) {
-        res.status(400).json({ error: 'Code TOTP requis pour désactiver le MFA' });
+        sendError(res, 'Code TOTP requis pour désactiver le MFA', 400);
         return;
       }
 
-      // Vérifier le code TOTP
       const isValid = await mfaService.verifyUserTOTPCode(userId, token);
       if (!isValid) {
-        res.status(400).json({ error: 'Code invalide' });
+        sendError(res, 'Code invalide', 401);
         return;
       }
 
-      // Désactiver le MFA
       await mfaService.disableMFA(userId);
-
-      res.json({ message: 'MFA désactivé avec succès' });
+      sendSuccess(res, { message: 'MFA désactivé avec succès' });
     } catch (error) { next(error); }
   }
 
@@ -323,13 +284,13 @@ export class MFAController {
       });
 
       if (!user) {
-        res.status(404).json({ error: 'Utilisateur non trouvé' });
+        sendError(res, 'Utilisateur non trouvé', 404);
         return;
       }
 
       const activeTrustedDevices = await trustedDeviceService.countActiveTrustedDevices(userId);
 
-      res.json({
+      sendSuccess(res, {
         mfaEnabled: user.mfaEnabled,
         mfaSetupAt: user.mfaSetupAt,
         remainingBackupCodes: user.mfaBackupCodes?.length || 0,

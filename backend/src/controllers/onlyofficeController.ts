@@ -4,16 +4,15 @@ import { OnlyOfficeService } from '../services/onlyofficeService';
 import prisma from '../config/database';
 import axios from 'axios';
 import fs from 'fs/promises';
-import fsSync from 'fs';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { VaultService } from '../services/vaultService';
 import logger from '../config/logger';
+import { sendSuccess, sendError } from '../utils/response';
 
 export class OnlyOfficeController {
   /**
    * Sert un fichier à OnlyOffice (avec token d'accès)
-   * Cette route n'utilise pas l'authentification standard - elle utilise un token d'accès spécial
    */
   static async serveFileToOnlyOffice(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -21,31 +20,25 @@ export class OnlyOfficeController {
       const accessToken = req.query.access_token as string;
 
       if (!accessToken) {
-        res.status(401).json({ error: 'Access token required' });
+        sendError(res, 'Access token required', 401);
         return;
       }
 
-      // Vérifier le token d'accès
       const tokenData = OnlyOfficeService.verifyFileAccessToken(accessToken);
       if (!tokenData || tokenData.fileId !== fileId) {
-        res.status(403).json({ error: 'Invalid access token' });
+        sendError(res, 'Invalid access token', 403);
         return;
       }
 
-      // Récupérer le fichier
-      const file = await prisma.file.findUnique({
-        where: { id: fileId },
-      });
+      const file = await prisma.file.findUnique({ where: { id: fileId } });
 
       if (!file) {
-        res.status(404).json({ error: 'File not found' });
+        sendError(res, 'File not found', 404);
         return;
       }
 
       await VaultService.assertUnlockedIfVault(tokenData.userId, file.isVault);
 
-      // file.storagePath contient soit un chemin absolu comme /app/uploads/xxx.docx
-      // soit juste le nom du fichier
       let filePath: string;
       if (file.storagePath.startsWith('/')) {
         filePath = file.storagePath;
@@ -56,16 +49,14 @@ export class OnlyOfficeController {
 
       logger.info({ fileId, filePath, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
 
-      // Vérifier que le fichier existe
       try {
         await fs.access(filePath);
       } catch (err) {
         logger.error({ filePath, err }, 'File not found on disk:');
-        res.status(404).json({ error: 'File not found on disk', path: filePath });
+        sendError(res, 'File not found on disk', 404);
         return;
       }
 
-      // Envoyer le fichier déchiffré vers OnlyOffice
       res.setHeader('Content-Type', file.mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
 
@@ -83,119 +74,86 @@ export class OnlyOfficeController {
       const { fileId } = req.params;
       const { mode = 'edit' } = req.query;
 
-      // Récupérer le fichier
       const file = await prisma.file.findFirst({
         where: {
           id: fileId,
           OR: [
-            { userId }, // Propriétaire
-            {
-              // Ou fichier partagé avec l'utilisateur
-              sharedWith: {
-                some: {
-                  sharedWithId: userId,
-                },
-              },
-            },
+            { userId },
+            { sharedWith: { some: { sharedWithId: userId } } },
           ],
           isDeleted: false,
         },
         include: {
-          sharedWith: {
-            where: {
-              sharedWithId: userId,
-            },
-          },
+          sharedWith: { where: { sharedWithId: userId } },
         },
       });
 
       if (!file) {
-        res.status(404).json({ error: 'Fichier non trouvé' });
+        sendError(res, 'Fichier non trouvé', 404);
         return;
       }
 
       await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
-      // Vérifier si le fichier peut être édité
+      // 422 : le fichier existe mais son type n'est pas éditable
       if (!OnlyOfficeService.canEdit(file.mimeType)) {
-        res.status(400).json({ error: 'Ce type de fichier ne peut pas être édité' });
+        sendError(res, 'Ce type de fichier ne peut pas être édité', 422);
         return;
       }
 
-      // Vérifier les permissions
       const isOwner = file.userId === userId;
       const share = file.sharedWith[0];
       const canEdit = isOwner || (share && share.canWrite);
-
       const editMode = mode === 'view' || !canEdit ? 'view' : 'edit';
 
-      // Récupérer les informations de l'utilisateur
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: {
-          email: true,
-          firstName: true,
-          lastName: true,
-        },
+        select: { email: true, firstName: true, lastName: true },
       });
 
       if (!user) {
-        res.status(404).json({ error: 'Utilisateur non trouvé' });
+        sendError(res, 'Utilisateur non trouvé', 404);
         return;
       }
 
-      // Générer la configuration OnlyOffice
-      const config = await OnlyOfficeService.generateConfig(
-        file,
-        userId,
-        user,
-        editMode
-      );
-
-      res.status(200).json(config);
+      const config = await OnlyOfficeService.generateConfig(file, userId, user, editMode);
+      sendSuccess(res, config);
     } catch (error) { next(error); }
   }
 
   /**
    * Callback OnlyOffice pour sauvegarder les modifications
+   * Note: OnlyOffice attend toujours un status 200 avec { error: 0|1 } — ce format est imposé par le protocole.
    */
-  static async handleCallback(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  static async handleCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { fileId } = req.params;
       const callbackData = req.body;
 
       logger.info({ fileId, status: callbackData.status }, 'OnlyOffice callback received:');
 
-      const file = await prisma.file.findUnique({
-        where: { id: fileId },
-      });
+      const file = await prisma.file.findUnique({ where: { id: fileId } });
 
       if (!file) {
-        res.status(404).json({ error: 0 }); // OnlyOffice expects error: 0 even for 404
+        res.status(200).json({ error: 0 }); // OnlyOffice protocol: always 200
         return;
       }
 
       const result = await OnlyOfficeService.processCallback(fileId, callbackData);
 
-      // Si le document doit être sauvegardé
       if (result.shouldSave && result.downloadUrl) {
         try {
-          // Télécharger le fichier modifié
-          const response = await axios.get(result.downloadUrl, {
-            responseType: 'arraybuffer',
-          });
+          const response = await axios.get(result.downloadUrl, { responseType: 'arraybuffer' });
 
           const uploadDir = process.env.UPLOAD_DIR || './uploads';
           const filename = `${Date.now()}-${file.name}`;
           const filepath = path.join(uploadDir, filename);
 
-          // Sauvegarder le fichier
           await fs.writeFile(filepath, response.data);
 
-          // Créer une nouvelle version (chiffrement + limites plan gérés côté service)
           await OnlyOfficeService.createFileVersion(
             fileId,
-            file.userId, // On utilise l'owner du fichier pour la version
+            file.userId,
             filepath,
             file.name,
             response.data.byteLength,
@@ -205,7 +163,7 @@ export class OnlyOfficeController {
           logger.info({ filepath }, 'File saved successfully:');
         } catch (saveError) {
           logger.error({ err: saveError }, 'Error saving file:');
-          res.status(200).json({ error: 1 });
+          res.status(200).json({ error: 1 }); // OnlyOffice protocol: error code
           return;
         }
       }
@@ -213,7 +171,7 @@ export class OnlyOfficeController {
       res.status(200).json({ error: result.error || 0 });
     } catch (error) {
       logger.error({ err: error }, 'Error in OnlyOffice callback');
-      res.status(200).json({ error: 1 }); // OnlyOffice expects error code
+      res.status(200).json({ error: 1 }); // OnlyOffice protocol: error code
     }
   }
 
@@ -230,27 +188,17 @@ export class OnlyOfficeController {
           id: fileId,
           OR: [
             { userId },
-            {
-              sharedWith: {
-                some: {
-                  sharedWithId: userId,
-                },
-              },
-            },
+            { sharedWith: { some: { sharedWithId: userId } } },
           ],
           isDeleted: false,
         },
         include: {
-          sharedWith: {
-            where: {
-              sharedWithId: userId,
-            },
-          },
+          sharedWith: { where: { sharedWithId: userId } },
         },
       });
 
       if (!file) {
-        res.status(404).json({ error: 'Fichier non trouvé' });
+        sendError(res, 'Fichier non trouvé', 404);
         return;
       }
 
@@ -259,7 +207,7 @@ export class OnlyOfficeController {
       const share = file.sharedWith[0];
       const hasEditPermission = isOwner || (share && share.canWrite);
 
-      res.status(200).json({
+      sendSuccess(res, {
         canEdit,
         hasPermission: hasEditPermission,
         mode: canEdit && hasEditPermission ? 'edit' : 'view',
