@@ -7,4 +7,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   clearMocks: true,
   coverageProvider: 'v8',
+  transform: {
+    '^.+\\.ts$': ['ts-jest', { tsconfig: './tsconfig.json' }],
+  },
 };

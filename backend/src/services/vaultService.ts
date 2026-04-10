@@ -258,9 +258,8 @@ export class VaultService {
       },
     });
 
-    if (!user || !user.vaultEnabled) {
-      return true;
-    }
+    if (!user) return false;
+    if (!user.vaultEnabled) return true;
 
     return !!user.vaultUnlockUntil && user.vaultUnlockUntil > new Date();
   }
