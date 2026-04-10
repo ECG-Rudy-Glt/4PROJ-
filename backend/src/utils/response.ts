@@ -19,10 +19,20 @@ export function sendCreated(res: Response, data?: object): void {
 }
 
 /**
- * Envoie une réponse d'erreur normalisée : { success: false, error, code? }
+ * Envoie une réponse Multi-Status (upload partiel) : { success: true, data? } avec status 207
  */
-export function sendError(res: Response, error: string, status: number, code?: string): void {
+export function sendMultiStatus(res: Response, data?: object): void {
+  sendSuccess(res, data, 207);
+}
+
+/**
+ * Envoie une réponse d'erreur normalisée : { success: false, error, code?, ...extra? }
+ */
+export function sendError(res: Response, error: string, status: number, code?: string, extra?: object): void {
   const body: Record<string, unknown> = { success: false, error };
   if (code) body.code = code;
+  if (extra) {
+    Object.assign(body, extra);
+  }
   res.status(status).json(body);
 }

@@ -49,6 +49,7 @@ describe('AccountAccessController', () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({
+        success: false,
         error: 'Re-authentification requise pour continuer le switch',
         code: 'REAUTH_REQUIRED',
       });
@@ -79,13 +80,16 @@ describe('AccountAccessController', () => {
       );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        token: 'switched-token',
-        user: { id: 'target-user', email: 'target@example.com' },
-        switchSessionId: 'switch-session-1',
-        authContext: {
-          authType: 'SWITCH',
-          rootUserId: 'root-user',
-          actorUserId: 'root-user',
+        success: true,
+        data: {
+          token: 'switched-token',
+          user: { id: 'target-user', email: 'target@example.com' },
+          switchSessionId: 'switch-session-1',
+          authContext: {
+            authType: 'SWITCH',
+            rootUserId: 'root-user',
+            actorUserId: 'root-user',
+          },
         },
       });
       expect(AuditService.createLog).toHaveBeenCalledTimes(2);
@@ -123,21 +127,10 @@ describe('AccountAccessController', () => {
       );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        token: 'delegated-token',
-        user: { id: 'owner-user', email: 'owner@example.com' },
-        delegation: {
-          id: 'delegation-1',
-          canRead: true,
-          canWrite: false,
-          canDelete: false,
-          canShare: false,
-          expiresAt: null,
-        },
-        switchSessionId: 'switch-session-1',
-        authContext: {
-          authType: 'DELEGATION',
-          rootUserId: 'delegate-user',
-          actorUserId: 'delegate-user',
+        success: true,
+        data: {
+          token: 'delegated-token',
+          user: { id: 'owner-user', email: 'owner@example.com' },
           delegation: {
             id: 'delegation-1',
             canRead: true,
@@ -145,6 +138,20 @@ describe('AccountAccessController', () => {
             canDelete: false,
             canShare: false,
             expiresAt: null,
+          },
+          switchSessionId: 'switch-session-1',
+          authContext: {
+            authType: 'DELEGATION',
+            rootUserId: 'delegate-user',
+            actorUserId: 'delegate-user',
+            delegation: {
+              id: 'delegation-1',
+              canRead: true,
+              canWrite: false,
+              canDelete: false,
+              canShare: false,
+              expiresAt: null,
+            },
           },
         },
       });

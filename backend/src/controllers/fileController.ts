@@ -9,7 +9,7 @@ import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
 import { sendCsv, csvFilename } from '../utils/csvExporter';
 import logger from '../config/logger';
-import { sendSuccess, sendError } from '../utils/response';
+import { sendSuccess, sendError, sendMultiStatus } from '../utils/response';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response, next: NextFunction): Promise<void> {
@@ -35,7 +35,7 @@ export class FileController {
       );
 
       if (createdFiles.length === 0) {
-        sendError(res, errors[0]?.error || 'Upload failed', 400);
+        sendError(res, errors[0]?.error || 'Upload failed', 400, undefined, { errors });
         return;
       }
 
@@ -58,20 +58,22 @@ export class FileController {
       }
 
       const hasPartialFailures = errors.length > 0;
-      const status = hasPartialFailures ? 207 : 201;
-      res.status(status).json({
-        success: true,
-        data: {
-          file: createdFiles[0],
-          files: createdFiles,
-          errors,
-          summary: {
-            total: files.length,
-            success: createdFiles.length,
-            failed: errors.length,
-          },
+      const responseData = {
+        file: createdFiles[0],
+        files: createdFiles,
+        errors,
+        summary: {
+          total: files.length,
+          success: createdFiles.length,
+          failed: errors.length,
         },
-      });
+      };
+
+      if (hasPartialFailures) {
+        sendMultiStatus(res, responseData);
+      } else {
+        sendSuccess(res, responseData, 201);
+      }
     } catch (error) { next(error); }
   }
 
