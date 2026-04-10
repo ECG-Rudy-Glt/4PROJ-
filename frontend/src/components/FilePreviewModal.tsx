@@ -2,7 +2,7 @@ import { X, Download, MessageCircle, History, Edit3, Save, Pencil, AlertTriangle
 import { File as FileType } from '@/types';
 import { fileService } from '@/services/fileService';
 import api from '@/services/api';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import CommentsPanel from './CommentsPanel';
@@ -38,12 +38,84 @@ const isExecutable = (fileName: string) => {
   return exts.some(ext => fileName.toLowerCase().endsWith(ext));
 };
 
+function authFetch(url: string): Promise<Response> {
+  const token = localStorage.getItem('token');
+  return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+}
+
+function ImagePreview({ src, alt }: { src: string; alt: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string;
+    authFetch(src)
+      .then((r) => r.blob())
+      .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src]);
+
+  if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
+  return <img src={blobUrl} alt={alt} className="max-w-full max-h-[70vh] object-contain rounded" />;
+}
+
+function VideoPreview({ src, mimeType }: { src: string; mimeType: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string;
+    authFetch(src)
+      .then((r) => r.blob())
+      .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src]);
+
+  if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
+  return (
+    <video controls className="w-full max-h-[70vh]" preload="metadata" src={blobUrl}>
+      <source src={blobUrl} type={mimeType} />
+      Votre navigateur ne supporte pas la balise vidéo.
+    </video>
+  );
+}
+
+function AudioPreview({ src, mimeType, fileName }: { src: string; mimeType: string; fileName: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string;
+    authFetch(src)
+      .then((r) => r.blob())
+      .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src]);
+
+  return (
+    <div className="mb-4 p-6 bg-white dark:bg-gray-800 rounded-lg text-center">
+      <svg className="w-20 h-20 mx-auto mb-3 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+      </svg>
+      <p className="text-lg font-medium text-gray-900 dark:text-white">{fileName}</p>
+      {blobUrl ? (
+        <audio controls className="w-full mt-4">
+          <source src={blobUrl} type={mimeType} />
+          Votre navigateur ne supporte pas la balise audio.
+        </audio>
+      ) : (
+        <p className="text-gray-400 text-sm mt-4">Chargement...</p>
+      )}
+    </div>
+  );
+}
+
 function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
   const [rows, setRows] = useState<string[][]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(downloadUrl)
+    authFetch(downloadUrl)
       .then((r) => r.text())
       .then((text) => {
         const parsed = text.trim().split('\n').map((line) =>
@@ -96,7 +168,7 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(downloadUrl)
+    authFetch(downloadUrl)
       .then((r) => r.text())
       .then((text) => { setContent(text); setEdited(text); })
       .catch(() => setError('Impossible de charger le fichier'));
@@ -177,7 +249,7 @@ function PdfPreview({ streamUrl, fileName }: { streamUrl: string; fileName: stri
 
   useEffect(() => {
     let objectUrl: string;
-    fetch(streamUrl)
+    authFetch(streamUrl)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.blob();
@@ -214,6 +286,18 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
   
   // Get actual write permissions from file object (set by parent component for shared files)
   const canWrite = isShared && (file as any).canWrite !== undefined ? (file as any).canWrite : !isShared;
+
+  const handleDownload = useCallback(async () => {
+    try {
+      if (isShared) {
+        await fileService.triggerSharedFileDownload(file.id, file.name);
+      } else {
+        await fileService.triggerDownload(file.id, file.name);
+      }
+    } catch {
+      toast.error('Échec du téléchargement');
+    }
+  }, [file.id, file.name, isShared]);
 
   useEffect(() => {
     loadCommentCount();
@@ -255,25 +339,14 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
       case 'image':
         return (
           <div className="flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900 rounded-lg">
-            <img
-              src={streamUrl}
-              alt={file.name}
-              className="max-w-full max-h-[70vh] object-contain rounded"
-            />
+            <ImagePreview src={streamUrl} alt={file.name} />
           </div>
         );
 
       case 'video':
         return (
           <div className="bg-black rounded-lg overflow-hidden">
-            <video
-              controls
-              className="w-full max-h-[70vh]"
-              preload="metadata"
-            >
-              <source src={streamUrl} type={file.mimeType} />
-              Votre navigateur ne supporte pas la balise vidéo.
-            </video>
+            <VideoPreview src={streamUrl} mimeType={file.mimeType} />
           </div>
         );
 
@@ -281,22 +354,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
         return (
           <div className="flex flex-col items-center justify-center p-8 bg-gray-100 dark:bg-gray-900 rounded-lg">
             <div className="w-full max-w-md">
-              <div className="mb-4 p-6 bg-white dark:bg-gray-800 rounded-lg text-center">
-                <svg
-                  className="w-20 h-20 mx-auto mb-3 text-primary-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                </svg>
-                <p className="text-lg font-medium text-gray-900 dark:text-white">
-                  {file.name}
-                </p>
-              </div>
-              <audio controls className="w-full">
-                <source src={streamUrl} type={file.mimeType} />
-                Votre navigateur ne supporte pas la balise audio.
-              </audio>
+              <AudioPreview src={streamUrl} mimeType={file.mimeType} fileName={file.name} />
             </div>
           </div>
         );
@@ -341,7 +399,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
               {file.mimeType}
             </p>
             <button
-              onClick={() => window.open(downloadUrl)}
+              onClick={handleDownload}
               className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -376,7 +434,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
               </button>
             )}
             <button
-              onClick={() => window.open(downloadUrl)}
+              onClick={handleDownload}
               className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               title={t('common.download')}
             >

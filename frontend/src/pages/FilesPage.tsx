@@ -273,6 +273,14 @@ export default function FilesPage() {
     }
   };
 
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      await fileService.triggerDownload(fileId, fileName);
+    } catch {
+      toast.error(t('common.error'));
+    }
+  };
+
   const handleDelete = async (fileId: string) => {
     if (!confirm(t('trash.confirm_delete', { type: t('common.file') }))) return;
     try {
@@ -682,7 +690,7 @@ export default function FilesPage() {
                           <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>
                           {!(file as any)._isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
                           <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.preview')}><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => window.open(fileService.getDownloadUrl(file.id))} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
+                          <button onClick={() => handleDownloadFile(file.id, file.name)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
                           {!(file as any)._isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
                         </div>
                       </td>

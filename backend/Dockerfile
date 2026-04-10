@@ -20,16 +20,14 @@ RUN apk add --no-cache openssl libc6-compat su-exec
 WORKDIR /app
 
 # Copy only necessary artifacts from the build stage
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist        ./dist
-COPY --from=builder /app/prisma      ./prisma
-COPY --from=builder /app/package*.json ./
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/dist        ./dist
+COPY --chown=node:node --from=builder /app/prisma      ./prisma
+COPY --chown=node:node --from=builder /app/package*.json ./
 
-COPY entrypoint.sh ./
+COPY --chown=node:node entrypoint.sh ./
 RUN chmod +x entrypoint.sh \
- && chown -R node:node /app \
- && mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails \
- && chown -R node:node /app/uploads
+ && mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails
 
 # Run as non-root (fixes CIS Docker Benchmark DI-0008 / Semgrep missing-user)
 # entrypoint.sh reçoit les droits root via docker-compose (user: root) pour
