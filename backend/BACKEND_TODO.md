@@ -48,10 +48,10 @@
 - [ ] Unifier la validation des entrées : tout passer à `express-validator` dans les routes (actuellement moitié manuelle)
 
 ### Découpage des fichiers trop longs
-- [ ] **`shareService.ts`** (~864 lignes) → découper en `SharedLinkService`, `SharedFolderService`, `SharedFileService`, `SharePermissionService`
-- [ ] **`fileService.ts`** (~732 lignes) → découper en `FileUploadService`, `FileDownloadService`, `FileSearchService`, `FileFavoriteService`
-- [ ] **`authController.ts`** (~504 lignes) → extraire `UserProfileController`, `DataExportController`
-- [ ] **`shareController.ts`** (~550 lignes) → aligner avec le découpage de shareService
+- [x] **`shareService.ts`** (~864 lignes) → découper en `SharedLinkService`, `SharedFolderService`, `SharedFileService`, `SharePermissionService`
+- [x] **`fileService.ts`** (~732 lignes) → découper en `FileUploadService`, `FileDownloadService`, `FileSearchService`, `FileFavoriteService`
+- [x] **`authController.ts`** (~504 lignes) → extraire `UserProfileController`, `DataExportController`
+- [x] **`shareController.ts`** (~550 lignes) → aligner avec le découpage de shareService
 
 ### Performance
 - [ ] Corriger export GDPR : 9 includes imbriqués chargent tout en mémoire → requêtes séparées paginées — `authController.ts:227`
