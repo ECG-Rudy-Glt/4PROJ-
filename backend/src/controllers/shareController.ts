@@ -1,6 +1,5 @@
 import { Response, NextFunction, Request } from 'express';
 import { ShareService } from '../services/shareService';
-import { FileService } from '../services/fileService';
 import { ShareInvitationService } from '../services/shareInvitationService';
 import { AuthRequest } from '../types';
 import { SocketService } from '../services/socketService';
@@ -8,6 +7,7 @@ import { NotificationService } from '../services/notificationService';
 import fs from 'fs';
 import { EncryptionService } from '../services/encryptionService';
 import logger from '../config/logger';
+import { sendSuccess, sendCreated, sendError } from '../utils/response';
 
 export class ShareController {
   static async createShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -21,7 +21,7 @@ export class ShareController {
         maxDownloads,
       });
 
-      res.status(201).json({
+      sendCreated(res, {
         shareLink: {
           id: shareLink.id,
           token: shareLink.token,
@@ -45,7 +45,7 @@ export class ShareController {
         password ? String(password) : undefined
       );
 
-      res.status(200).json({
+      sendSuccess(res, {
         file: {
           id: shareLink.file!.id,
           name: shareLink.file!.name,
@@ -69,7 +69,7 @@ export class ShareController {
       );
 
       if (!fs.existsSync(shareLink.file!.storagePath)) {
-        res.status(404).json({ error: 'File not found on disk' });
+        sendError(res, 'File not found on disk', 404);
         return;
       }
 
@@ -90,7 +90,7 @@ export class ShareController {
 
       const shareLinks = await ShareService.listUserShareLinks(userId);
 
-      res.status(200).json({
+      sendSuccess(res, {
         shareLinks: shareLinks.map((link) => ({
           id: link.id,
           token: link.token,
@@ -99,7 +99,7 @@ export class ShareController {
           expiresAt: link.expiresAt,
           maxDownloads: link.maxDownloads,
           downloads: link.downloads,
-          password: !!link.password, // true/false indicator
+          password: !!link.password,
           createdAt: link.createdAt,
           url: `${process.env.FRONTEND_URL}/share/${link.token}`,
         })),
@@ -113,8 +113,7 @@ export class ShareController {
       const { linkId } = req.params;
 
       const result = await ShareService.deleteShareLink(linkId, userId);
-
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
@@ -123,7 +122,6 @@ export class ShareController {
       const userId = req.user!.id;
       const { folderId, targetUserEmail, canRead, canWrite, canDelete, canShare } = req.body;
 
-      // Find target user by email
       const prisma = (await import('../config/database')).default;
       const targetUser = await prisma.user.findUnique({
         where: { email: targetUserEmail },
@@ -137,7 +135,7 @@ export class ShareController {
           targetEmail: targetUserEmail,
         });
 
-        res.status(200).json({
+        sendSuccess(res, {
           message: 'Invitation envoyée à créer un compte',
           isNewUser: true,
           sharedFolder: null,
@@ -149,22 +147,15 @@ export class ShareController {
         userId,
         folderId,
         targetUser.id,
-        {
-          canRead,
-          canWrite,
-          canDelete,
-          canShare,
-        }
+        { canRead, canWrite, canDelete, canShare }
       );
 
-      // Notification temps réel
       SocketService.emitToUser(targetUser.id, 'share_received', {
         type: 'folder',
         item: sharedFolder,
         sharedBy: req.user,
       });
 
-      // Notification persistante
       NotificationService.create(
         targetUser.id,
         'SHARE',
@@ -173,7 +164,7 @@ export class ShareController {
         { folderId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
-      res.status(201).json({ sharedFolder });
+      sendCreated(res, { sharedFolder });
     } catch (error) { next(error); }
   }
 
@@ -182,8 +173,7 @@ export class ShareController {
       const userId = req.user!.id;
 
       const sharedFolders = await ShareService.listSharedWithMe(userId);
-
-      res.status(200).json({ sharedFolders });
+      sendSuccess(res, { sharedFolders });
     } catch (error) { next(error); }
   }
 
@@ -192,8 +182,7 @@ export class ShareController {
       const userId = req.user!.id;
 
       const sharedFolders = await ShareService.listSharedByMe(userId);
-
-      res.status(200).json({ sharedFolders });
+      sendSuccess(res, { sharedFolders });
     } catch (error) { next(error); }
   }
 
@@ -206,15 +195,10 @@ export class ShareController {
       const sharedFolder = await ShareService.updateSharedFolderPermissions(
         shareId,
         userId,
-        {
-          canRead,
-          canWrite,
-          canDelete,
-          canShare,
-        }
+        { canRead, canWrite, canDelete, canShare }
       );
 
-      res.status(200).json({ sharedFolder });
+      sendSuccess(res, { sharedFolder });
     } catch (error) { next(error); }
   }
 
@@ -224,18 +208,15 @@ export class ShareController {
       const { shareId } = req.params;
 
       const result = await ShareService.removeSharedFolder(shareId, userId);
-
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
-  // File sharing controllers
   static async shareFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { fileId, targetUserEmail, canRead, canWrite, canDelete, canShare } = req.body;
 
-      // Find target user by email
       const prisma = (await import('../config/database')).default;
       const targetUser = await prisma.user.findUnique({
         where: { email: targetUserEmail },
@@ -249,7 +230,7 @@ export class ShareController {
           targetEmail: targetUserEmail,
         });
 
-        res.status(200).json({
+        sendSuccess(res, {
           message: 'Invitation envoyée avec succès',
           isNewUser: true,
           sharedFile: null,
@@ -261,22 +242,15 @@ export class ShareController {
         userId,
         fileId,
         targetUser.id,
-        {
-          canRead,
-          canWrite,
-          canDelete,
-          canShare,
-        }
+        { canRead, canWrite, canDelete, canShare }
       );
 
-      // Notification temps réel
       SocketService.emitToUser(targetUser.id, 'share_received', {
         type: 'file',
         item: sharedFile,
         sharedBy: req.user,
       });
 
-      // Notification persistante
       NotificationService.create(
         targetUser.id,
         'SHARE',
@@ -285,7 +259,7 @@ export class ShareController {
         { fileId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
-      res.status(201).json({ sharedFile, isNewUser: false });
+      sendCreated(res, { sharedFile, isNewUser: false });
     } catch (error) { next(error); }
   }
 
@@ -294,8 +268,7 @@ export class ShareController {
       const userId = req.user!.id;
 
       const sharedFiles = await ShareService.listFilesSharedWithMe(userId);
-
-      res.status(200).json({ sharedFiles });
+      sendSuccess(res, { sharedFiles });
     } catch (error) { next(error); }
   }
 
@@ -304,8 +277,7 @@ export class ShareController {
       const userId = req.user!.id;
 
       const sharedFiles = await ShareService.listFilesSharedByMe(userId);
-
-      res.status(200).json({ sharedFiles });
+      sendSuccess(res, { sharedFiles });
     } catch (error) { next(error); }
   }
 
@@ -315,8 +287,7 @@ export class ShareController {
       const { fileId } = req.params;
 
       const shares = await ShareService.getFileShares(fileId, userId);
-
-      res.status(200).json({ shares });
+      sendSuccess(res, { shares });
     } catch (error) { next(error); }
   }
 
@@ -329,15 +300,10 @@ export class ShareController {
       const sharedFile = await ShareService.updateSharedFilePermissions(
         shareId,
         userId,
-        {
-          canRead,
-          canWrite,
-          canDelete,
-          canShare,
-        }
+        { canRead, canWrite, canDelete, canShare }
       );
 
-      res.status(200).json({ sharedFile });
+      sendSuccess(res, { sharedFile });
     } catch (error) { next(error); }
   }
 
@@ -347,12 +313,10 @@ export class ShareController {
       const { shareId } = req.params;
 
       const result = await ShareService.removeSharedFile(shareId, userId);
-
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
-  // Access shared file (stream for authenticated users with read permission)
   static async streamSharedFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -361,24 +325,22 @@ export class ShareController {
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
 
       if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        res.status(404).json({ error: 'File not found on disk' });
+        sendError(res, 'File not found on disk', 404);
         return;
       }
 
       const stat = fs.statSync(sharedFile.file!.storagePath);
       const fileSize = stat.size - 32; // IV + auth tag AES-GCM
 
-      const head = {
+      res.writeHead(200, {
         'Content-Length': fileSize,
         'Content-Type': sharedFile.file!.mimeType,
-      };
-      res.writeHead(200, head);
+      });
       const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
       decryptStream.pipe(res);
     } catch (error) { next(error); }
   }
 
-  // Download shared file (for authenticated users with read permission)
   static async downloadSharedFileAuth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -387,7 +349,7 @@ export class ShareController {
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
 
       if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        res.status(404).json({ error: 'File not found on disk' });
+        sendError(res, 'File not found on disk', 404);
         return;
       }
 
@@ -399,16 +361,14 @@ export class ShareController {
     } catch (error) { next(error); }
   }
 
-  // Get pending shares (not accepted yet)
   static async getPendingShares(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const pendingShares = await ShareService.getPendingShares(userId);
-      res.status(200).json(pendingShares);
+      sendSuccess(res, pendingShares);
     } catch (error) { next(error); }
   }
 
-  // Accept a shared folder
   static async acceptSharedFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -416,7 +376,6 @@ export class ShareController {
 
       const sharedFolder = await ShareService.acceptSharedFolder(shareId, userId);
 
-      // Notification au propriétaire
       if (sharedFolder.folder.userId) {
         SocketService.emitToUser(sharedFolder.folder.userId, 'share_accepted', {
           type: 'folder',
@@ -425,11 +384,10 @@ export class ShareController {
         });
       }
 
-      res.status(200).json({ message: 'Partage accepté', sharedFolder });
+      sendSuccess(res, { message: 'Partage accepté', sharedFolder });
     } catch (error) { next(error); }
   }
 
-  // Accept a shared file
   static async acceptSharedFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -437,7 +395,6 @@ export class ShareController {
 
       const sharedFile = await ShareService.acceptSharedFile(shareId, userId);
 
-      // Notification au propriétaire
       if (sharedFile.file.userId) {
         SocketService.emitToUser(sharedFile.file.userId, 'share_accepted', {
           type: 'file',
@@ -446,29 +403,27 @@ export class ShareController {
         });
       }
 
-      res.status(200).json({ message: 'Partage accepté', sharedFile });
+      sendSuccess(res, { message: 'Partage accepté', sharedFile });
     } catch (error) { next(error); }
   }
 
-  // Reject a shared folder
   static async rejectSharedFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { shareId } = req.params;
 
       await ShareService.rejectSharedFolder(shareId, userId);
-      res.status(200).json({ message: 'Partage rejeté' });
+      sendSuccess(res, { message: 'Partage rejeté' });
     } catch (error) { next(error); }
   }
 
-  // Reject a shared file
   static async rejectSharedFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
       const { shareId } = req.params;
 
       await ShareService.rejectSharedFile(shareId, userId);
-      res.status(200).json({ message: 'Partage rejeté' });
+      sendSuccess(res, { message: 'Partage rejeté' });
     } catch (error) { next(error); }
   }
 }

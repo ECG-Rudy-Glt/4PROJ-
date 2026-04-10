@@ -3,13 +3,14 @@ import { AuthRequest } from '../types';
 import { AuthService } from '../services/authService';
 import { AuditService } from '../services/auditService';
 import logger from '../config/logger';
+import { sendSuccess, sendError } from '../utils/response';
 
 export class UserProfileController {
   static async getProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = req.user!;
 
-      res.status(200).json({
+      sendSuccess(res, {
         user: {
           id: user.id,
           email: user.email,
@@ -43,7 +44,7 @@ export class UserProfileController {
       const { firstName, lastName, avatar, theme } = req.body;
 
       const user = await AuthService.updateProfile(userId, { firstName, lastName, avatar, theme });
-      res.status(200).json({ user });
+      sendSuccess(res, { user });
     } catch (error) { next(error); }
   }
 
@@ -59,7 +60,7 @@ export class UserProfileController {
         userAgent: req.get('user-agent'),
       }).catch((e) => logger.error(e));
 
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
@@ -69,14 +70,14 @@ export class UserProfileController {
       const file = req.file;
 
       if (!file) {
-        res.status(400).json({ error: 'No file uploaded' });
+        sendError(res, 'No file uploaded', 400);
         return;
       }
 
       const avatarUrl = `/uploads/avatars/${file.filename}`;
       const user = await AuthService.updateProfile(userId, { avatar: avatarUrl });
 
-      res.status(200).json({ avatarUrl, user });
+      sendSuccess(res, { avatarUrl, user });
     } catch (error) { next(error); }
   }
 }

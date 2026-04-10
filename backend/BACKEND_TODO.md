@@ -24,8 +24,8 @@
 - [x] Ajouter middleware `requireFolderPermission` sur les routes de dossier partagé — `folderRoutes.ts`
 
 ### Cohérence
-- [ ] Normaliser le schéma de réponse API : `{ success, data?, error?, code? }` sur tous les endpoints
-- [ ] Corriger les status HTTP incohérents (utiliser 401/403/404/409/422 correctement au lieu de 400 systématique)
+- [x] Normaliser le schéma de réponse API : `{ success, data?, error?, code? }` sur tous les endpoints — `utils/response.ts`, appliqué sur les 20 controllers
+- [x] Corriger les status HTTP incohérents (utiliser 401/403/404/409/422 correctement au lieu de 400 systématique) — MFA invalid code 400→401, switchBack sans session 400→401, file type non éditable 400→422
 - [x] Remplacer tous les `console.log` / `console.error` par un logger centralisé (pino) — `config/logger.ts`, appliqué sur tous les controllers, services et middlewares
 
 ---

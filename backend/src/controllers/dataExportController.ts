@@ -3,6 +3,7 @@ import { AuthRequest } from '../types';
 import prisma from '../config/database';
 import logger from '../config/logger';
 import { sendCsv, csvFilename } from '../utils/csvExporter';
+import { sendError } from '../utils/response';
 
 export class DataExportController {
   static async exportUserData(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -48,7 +49,7 @@ export class DataExportController {
         },
       });
 
-      if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+      if (!user) { sendError(res, 'User not found', 404); return; }
 
       type Row = { Section: string; Categorie: string; ItemId: string; Champ: string; Valeur: string; DateCreation: string; DateMiseAJour: string };
       const rows: Row[] = [];

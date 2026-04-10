@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { FolderService } from '../services/folderService';
 import { AuthRequest } from '../types';
+import { sendSuccess, sendCreated } from '../utils/response';
 
 export class FolderController {
   static async createFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -9,8 +10,7 @@ export class FolderController {
       const { name, parentId } = req.body;
 
       const folder = await FolderService.createFolder(userId, name, parentId);
-
-      res.status(201).json({ folder });
+      sendCreated(res, { folder });
     } catch (error) { next(error); }
   }
 
@@ -20,8 +20,7 @@ export class FolderController {
       const { folderId } = req.params;
 
       const folder = await FolderService.getFolder(folderId, userId);
-
-      res.status(200).json({ folder });
+      sendSuccess(res, { folder });
     } catch (error) { next(error); }
   }
 
@@ -35,7 +34,7 @@ export class FolderController {
         parentId ? String(parentId) : undefined
       );
 
-      res.status(200).json({ folders });
+      sendSuccess(res, { folders });
     } catch (error) { next(error); }
   }
 
@@ -46,8 +45,7 @@ export class FolderController {
       const { name } = req.body;
 
       const folder = await FolderService.updateFolder(folderId, userId, name);
-
-      res.status(200).json({ folder });
+      sendSuccess(res, { folder });
     } catch (error) { next(error); }
   }
 
@@ -58,8 +56,7 @@ export class FolderController {
       const { parentId } = req.body;
 
       const folder = await FolderService.moveFolder(folderId, userId, parentId);
-
-      res.status(200).json({ folder });
+      sendSuccess(res, { folder });
     } catch (error) { next(error); }
   }
 
@@ -70,8 +67,7 @@ export class FolderController {
       const { permanent } = req.query;
 
       const result = await FolderService.deleteFolder(folderId, userId, permanent === 'true');
-
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
@@ -81,8 +77,7 @@ export class FolderController {
       const { folderId } = req.params;
 
       const folder = await FolderService.restoreFolder(folderId, userId);
-
-      res.status(200).json({ folder });
+      sendSuccess(res, { folder });
     } catch (error) { next(error); }
   }
 
@@ -91,8 +86,7 @@ export class FolderController {
       const userId = req.user!.id;
 
       const folders = await FolderService.getDeletedFolders(userId);
-
-      res.status(200).json({ folders });
+      sendSuccess(res, { folders });
     } catch (error) { next(error); }
   }
 
@@ -102,8 +96,7 @@ export class FolderController {
       const { folderId } = req.params;
 
       const breadcrumbs = await FolderService.getFolderBreadcrumbs(folderId, userId);
-
-      res.status(200).json({ breadcrumbs });
+      sendSuccess(res, { breadcrumbs });
     } catch (error) { next(error); }
   }
 
@@ -113,8 +106,7 @@ export class FolderController {
       const { folderId } = req.params;
 
       const contents = await FolderService.getFolderTrashContents(folderId, userId);
-
-      res.status(200).json(contents);
+      sendSuccess(res, contents);
     } catch (error) { next(error); }
   }
 
