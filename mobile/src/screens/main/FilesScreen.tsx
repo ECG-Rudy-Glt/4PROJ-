@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,7 +38,7 @@ type ActionTarget =
 export default function FilesScreen() {
   const insets = useSafeAreaInsets();
   const {
-    files, folders, breadcrumbs, currentFolderId,
+    files = [], folders = [], breadcrumbs, currentFolderId,
     loading, fetchContents, navigateToFolder, createFolder, toggleFavorite,
   } = useFileStore();
 
@@ -126,15 +127,16 @@ export default function FilesScreen() {
   };
 
   const handleGoBack = () => {
-    if (breadcrumbs.length > 1) {
-      navigateToFolder(breadcrumbs[breadcrumbs.length - 2].id);
+    if (safeBreadcrumbs.length > 1) {
+      navigateToFolder(safeBreadcrumbs[safeBreadcrumbs.length - 2].id);
     } else {
       navigateToFolder(undefined);
     }
   };
 
-  const currentFolderName = breadcrumbs.length > 0
-    ? breadcrumbs[breadcrumbs.length - 1].name
+  const safeBreadcrumbs = breadcrumbs ?? [];
+  const currentFolderName = safeBreadcrumbs.length > 0
+    ? safeBreadcrumbs[safeBreadcrumbs.length - 1].name
     : 'Mes fichiers';
 
   const items = [
@@ -164,6 +166,55 @@ export default function FilesScreen() {
         </View>
       </View>
 
+      {/* Fil d'Ariane */}
+      <View style={styles.breadcrumbsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.breadcrumbsScroll}
+        >
+          {/* Racine toujours cliquable */}
+          <TouchableOpacity
+            style={styles.breadcrumbItem}
+            onPress={() => navigateToFolder(undefined)}
+            disabled={!currentFolderId}
+          >
+            <Ionicons
+              name="home"
+              size={13}
+              color={currentFolderId ? colors.primary[500] : colors.neutral[500]}
+            />
+            <Text style={[
+              styles.breadcrumbText,
+              !currentFolderId && styles.breadcrumbTextActive,
+            ]}>
+              Racine
+            </Text>
+          </TouchableOpacity>
+
+          {safeBreadcrumbs.map((bc, i) => {
+            const isLast = i === safeBreadcrumbs.length - 1;
+            return (
+              <React.Fragment key={bc.id}>
+                <Ionicons name="chevron-forward" size={12} color={colors.neutral[300]} style={{ marginTop: 1 }} />
+                <TouchableOpacity
+                  style={styles.breadcrumbItem}
+                  onPress={() => !isLast && navigateToFolder(bc.id)}
+                  disabled={isLast}
+                >
+                  <Text style={[
+                    styles.breadcrumbText,
+                    isLast && styles.breadcrumbTextActive,
+                  ]} numberOfLines={1}>
+                    {bc.name}
+                  </Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* Barre de progression upload */}
       {uploading && (
         <View style={styles.uploadProgressContainer}>
@@ -179,30 +230,6 @@ export default function FilesScreen() {
               ]}
             />
           </View>
-        </View>
-      )}
-
-      {/* Breadcrumbs */}
-      {breadcrumbs.length > 0 && (
-        <View style={styles.breadcrumbs}>
-          <TouchableOpacity onPress={() => navigateToFolder(undefined)}>
-            <Text style={styles.breadcrumbLink}>Racine</Text>
-          </TouchableOpacity>
-          {breadcrumbs.map((bc, i) => (
-            <React.Fragment key={bc.id}>
-              <Ionicons name="chevron-forward" size={14} color={colors.neutral[400]} />
-              <TouchableOpacity
-                onPress={() => i < breadcrumbs.length - 1 ? navigateToFolder(bc.id) : null}
-              >
-                <Text style={[
-                  styles.breadcrumbLink,
-                  i === breadcrumbs.length - 1 && styles.breadcrumbCurrent,
-                ]}>
-                  {bc.name}
-                </Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
         </View>
       )}
 
@@ -371,22 +398,35 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
     borderRadius: borderRadius.full,
   },
-  breadcrumbs: {
+  breadcrumbsContainer: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
+    paddingVertical: spacing.sm,
+  },
+  breadcrumbsScroll: {
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
     gap: spacing.xs,
-    flexWrap: 'wrap',
   },
-  breadcrumbLink: {
+  breadcrumbItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  breadcrumbText: {
     ...typography.caption,
     color: colors.primary[500],
     fontWeight: '500',
+    maxWidth: 120,
   },
-  breadcrumbCurrent: {
-    color: colors.neutral[600],
-    fontWeight: '600',
+  breadcrumbTextActive: {
+    color: colors.neutral[700],
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: spacing.lg,
