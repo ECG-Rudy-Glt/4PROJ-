@@ -5,6 +5,7 @@ import {
   CopyObjectCommand,
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
 import fs from 'fs';
@@ -29,6 +30,11 @@ const s3Client = new S3Client({
     secretAccessKey: requireEnv('S3_SECRET_ACCESS_KEY'),
   },
   forcePathStyle: true, // Obligatoire pour MinIO (path-style: /{bucket}/{key})
+  // Timeouts pour éviter les connexions keep-alive stales avec MinIO
+  requestHandler: new NodeHttpHandler({
+    connectionTimeout: 5_000,   // 5s pour établir la connexion
+    socketTimeout: 30_000,      // 30s max par requête S3
+  }),
 });
 
 const BUCKET = process.env.S3_BUCKET || 'supfile-uploads';
