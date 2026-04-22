@@ -245,11 +245,7 @@ export class FileController {
       }
 
       const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
-
-      res.writeHead(200, {
-        'Content-Length': decryptedSize,
-        'Content-Type': file.mimeType,
-      });
+      const rangeHeader = req.headers.range;
 
       const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
       decryptStream.on('error', (err) => {
@@ -260,7 +256,63 @@ export class FileController {
           res.destroy();
         }
       });
-      decryptStream.pipe(res);
+
+      if (rangeHeader) {
+        // Range request — requis par les players vidéo/audio (expo-video, AVFoundation, ExoPlayer)
+        // Le stream décrypté démarre toujours à l'octet 0 : on skip les octets avant `start`
+        // et on ne transmet que `chunkSize` octets.
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end   = parts[1] ? Math.min(parseInt(parts[1], 10), decryptedSize - 1) : decryptedSize - 1;
+        const chunkSize = end - start + 1;
+
+        res.writeHead(206, {
+          'Content-Range':  `bytes ${start}-${end}/${decryptedSize}`,
+          'Accept-Ranges':  'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type':   file.mimeType,
+        });
+
+        // Transform stream : skip `start` octets puis émet exactement `chunkSize` octets
+        let skipped = 0;
+        let sent    = 0;
+        const { Transform } = await import('stream');
+        const rangeFilter = new Transform({
+          transform(chunk: Buffer, _enc, cb) {
+            if (sent >= chunkSize) { cb(); return; }
+
+            let offset = 0;
+
+            // Phase skip
+            if (skipped < start) {
+              const toSkip = Math.min(start - skipped, chunk.length);
+              offset   += toSkip;
+              skipped  += toSkip;
+            }
+
+            // Phase emit
+            if (skipped >= start && offset < chunk.length) {
+              const available = chunk.length - offset;
+              const toSend    = Math.min(chunkSize - sent, available);
+              if (toSend > 0) {
+                this.push(chunk.subarray(offset, offset + toSend));
+                sent += toSend;
+              }
+              if (sent >= chunkSize) this.push(null);
+            }
+            cb();
+          },
+        });
+
+        decryptStream.pipe(rangeFilter).pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Length': decryptedSize,
+          'Content-Type':   file.mimeType,
+          'Accept-Ranges':  'bytes',
+        });
+        decryptStream.pipe(res);
+      }
     } catch (error) {
       if (!res.headersSent) {
         next(error);
