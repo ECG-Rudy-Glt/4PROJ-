@@ -4,9 +4,7 @@ import { AccountAccessService } from '../services/accountAccessService';
 import { AuditService } from '../services/auditService';
 import { ensureSwitchSessionId } from '../utils/cookies';
 import { sendSuccess, sendCreated, sendError } from '../utils/response';
-
-const getRootUserId = (req: AuthRequest) => req.authContext?.rootUserId || req.user!.id;
-const getActorUserId = (req: AuthRequest) => req.authContext?.actorUserId || req.user!.id;
+import { getRootUserId, getActorUserId } from '../utils/authHelpers';
 
 export class AccountAccessController {
   static async listSwitchLinks(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

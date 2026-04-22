@@ -180,6 +180,8 @@ model Folder {
   @@index([parentId])
   @@index([path])
   @@index([isVault])
+  @@index([userId, parentId])
+  @@index([userId, isDeleted])
 }
 
 model AccountSwitchLink {
@@ -270,6 +272,10 @@ model File {
   @@index([category])
   @@index([isFavorite])
   @@index([isVault])
+  @@index([userId, folderId, isDeleted])
+  @@index([userId, isDeleted, updatedAt])
+  @@index([userId, isDeleted, deletedAt])
+  @@index([userId, isDeleted, isFavorite])
 }
 
 model FileSearchIndex {
@@ -380,6 +386,7 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 // --------------------------------------
@@ -538,6 +545,7 @@ model Notification {
   @@index([userId])
   @@index([read])
   @@index([createdAt])
+  @@index([userId, read])
 }
 
 // --------------------------------------

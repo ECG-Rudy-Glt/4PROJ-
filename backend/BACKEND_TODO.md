@@ -44,7 +44,7 @@
 ### Doublons à éliminer
 - [x] Pattern export CSV répété 5x → créer `utils/csvExporter.ts` (`authController`, `fileController`, `auditController`, `adminController`)
 - [x] Regex validation email dupliquée → créer `utils/validators.ts` avec `validateEmail()` — `authController.ts:17-20 & 59-62`
-- [ ] `getRootUserId` / `getActorUserId` locaux → centraliser dans `utils/authHelpers.ts`
+- [x] `getRootUserId` / `getActorUserId` locaux → centraliser dans `utils/authHelpers.ts`
 - [ ] Unifier la validation des entrées : tout passer à `express-validator` dans les routes (actuellement moitié manuelle)
 
 ### Découpage des fichiers trop longs
@@ -56,8 +56,8 @@
 ### Performance
 - [x] Corriger export GDPR : 9 includes imbriqués chargent tout en mémoire → requêtes séparées paginées — `authController.ts:227`
 - [x] Ajouter pagination par défaut sur `listFiles` (ex: `take: 50`) — `fileService.ts`
-- [ ] Remplacer `getUniqueFileName` O(n) (boucle while) par UUID/timestamp — `fileService.ts:40-76`
-- [ ] Vérifier et ajouter les index composites manquants dans le schéma Prisma (ex: `userId + isDeleted + name`)
+- [x] Remplacer `getUniqueFileName` O(n) (boucle while) par UUID/timestamp — `fileUploadService.ts`
+- [x] Vérifier et ajouter les index composites manquants dans le schéma Prisma
 - [ ] Ajouter caching Redis pour : user info (TTL 5min), folder metadata (TTL 1min), user search (TTL 30s)
 
 ### TypeScript
