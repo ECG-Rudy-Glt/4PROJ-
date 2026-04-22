@@ -1,7 +1,6 @@
 import cron from 'node-cron';
 import prisma from '../config/database';
 import fs from 'fs/promises';
-import path from 'path';
 import { PlanService } from '../services/planService';
 import logger from '../config/logger';
 
@@ -66,7 +65,7 @@ export const startTrashCleanupJob = () => {
             where: { id: file.id },
           });
 
-          await PlanService.updateQuotaUsed(file.userId, -Number(file.size));
+          await PlanService.updateQuotaUsed(file.userId, -file.size);
 
           purgedCount++;
         } catch (error) {
@@ -116,7 +115,7 @@ export const startTrashCleanupJob = () => {
                 if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
                 
                 // Mettre à jour le quota pour CHAQUE fichier supprimé physiquement
-                await PlanService.updateQuotaUsed(file.userId, -Number(file.size));
+                await PlanService.updateQuotaUsed(file.userId, -file.size);
                 
                 // Supprimer l'enregistrement du fichier (facultatif si onDelete: Cascade est activé, 
                 // mais sûr car File -> Folder est onDelete: SetNull dans le schéma actuel!)

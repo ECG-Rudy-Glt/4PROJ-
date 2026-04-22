@@ -25,7 +25,9 @@ export class FileQueryService {
     folderId?: string,
     sortBy = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc',
-    filters?: { minSize?: number; maxSize?: number; mimeType?: string; dateFrom?: Date; dateTo?: Date }
+    filters?: { minSize?: number; maxSize?: number; mimeType?: string; dateFrom?: Date; dateTo?: Date },
+    take = 50,
+    skip = 0
   ) {
     const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     if (folderId) {
@@ -60,6 +62,8 @@ export class FileQueryService {
           where: { folderId, isDeleted: false, ...(vaultUnlocked ? {} : { isVault: false }) },
           include: { ...fileInclude, sharedWith: { where: { sharedWithId: userId } } },
           orderBy: { [safeSortBy]: sortOrder },
+          take,
+          skip,
         });
 
         return files.map((file: any) => ({
@@ -78,6 +82,8 @@ export class FileQueryService {
       where: whereClause,
       include: fileInclude,
       orderBy: { [safeSortBy]: sortOrder },
+      take,
+      skip,
     });
   }
 

@@ -54,7 +54,7 @@ export class FileActionService {
       // Supprimer les embeddings ChromaDB (best-effort — non bloquant)
       BrainService.deleteFile(fileId).catch(() => undefined);
       await prisma.file.delete({ where: { id: fileId } });
-      await PlanService.updateQuotaUsed(userId, -Number(file.size));
+      await PlanService.updateQuotaUsed(userId, -file.size);
     } else {
       await prisma.file.update({ where: { id: fileId }, data: { isDeleted: true, deletedAt: new Date() } });
     }

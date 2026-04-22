@@ -287,7 +287,7 @@ export class FolderService {
         try {
           await fs.unlink(file.storagePath).catch(() => {});
           if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
-          await PlanService.updateQuotaUsed(file.userId, -Number(file.size));
+          await PlanService.updateQuotaUsed(file.userId, -file.size);
           // File record suppression is handled by the manual delete loop below 
           // to ensure consistency since File -> Folder is onDelete: SetNull
           await prisma.file.delete({ where: { id: file.id } });
