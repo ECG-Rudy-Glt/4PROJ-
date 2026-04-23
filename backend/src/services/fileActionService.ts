@@ -5,11 +5,12 @@ import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { PlanService } from './planService';
 import { VaultService } from './vaultService';
+import { AppError } from '../middlewares/errorHandler';
 
 export class FileActionService {
   static async updateFile(fileId: string, userId: string, data: { name?: string }) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
-    if (!file) throw new Error('File not found');
+    if (!file) throw new AppError(404, 'File not found');
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     const updatedFile = await prisma.file.update({ where: { id: fileId }, data });
@@ -24,7 +25,7 @@ export class FileActionService {
 
   static async moveFile(fileId: string, userId: string, targetFolderId?: string) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
-    if (!file) throw new Error('File not found');
+    if (!file) throw new AppError(404, 'File not found');
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     if (targetFolderId) {
@@ -47,7 +48,7 @@ export class FileActionService {
 
   static async deleteFile(fileId: string, userId: string, permanent = false) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId } });
-    if (!file) throw new Error('File not found');
+    if (!file) throw new AppError(404, 'File not found');
 
     if (permanent || file.isDeleted) {
       await StorageService.deleteStorageFile(file.storagePath);
@@ -67,7 +68,7 @@ export class FileActionService {
 
   static async restoreFile(fileId: string, userId: string) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: true } });
-    if (!file) throw new Error('File not found in trash');
+    if (!file) throw new AppError(404, 'File not found in trash');
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     const restoredFile = await prisma.file.update({
@@ -81,7 +82,7 @@ export class FileActionService {
 
   static async toggleFavorite(fileId: string, userId: string) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
-    if (!file) throw new Error('Fichier introuvable');
+    if (!file) throw new AppError(404, 'Fichier introuvable');
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
     return prisma.file.update({

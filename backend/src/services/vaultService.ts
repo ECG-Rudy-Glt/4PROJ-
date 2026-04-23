@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
 import { mfaService } from './mfaService';
 import { PlanService } from './planService';
+import { AppError } from '../middlewares/errorHandler';
 
 const DEFAULT_UNLOCK_MINUTES = 10;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -180,7 +181,7 @@ export class VaultService {
           vaultUnlockUntil: null,
         },
       });
-      throw new Error('Identifiants coffre-fort invalides');
+      throw new AppError(401, 'Identifiants coffre-fort invalides');
     }
 
     const unlockUntil = new Date(Date.now() + this.getUnlockDurationMs());
@@ -269,7 +270,7 @@ export class VaultService {
     await this.assertVaultFeatureAvailable(userId);
     const unlocked = await this.isVaultUnlocked(userId);
     if (!unlocked) {
-      throw new Error('Coffre-fort verrouillé. Déverrouillez-le pour accéder à ce contenu.');
+      throw new AppError(423, 'Coffre-fort verrouillé. Déverrouillez-le pour accéder à ce contenu.');
     }
   }
 

@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { VaultService } from './vaultService';
+import { AppError } from '../middlewares/errorHandler';
 
 const fileInclude = {
   folder: true,
@@ -15,7 +16,7 @@ export class FileQueryService {
       include: { ...fileInclude },
     });
 
-    if (!file) throw new Error('File not found');
+    if (!file) throw new AppError(404, 'File not found');
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
     return file;
   }

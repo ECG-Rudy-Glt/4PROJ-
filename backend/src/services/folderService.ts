@@ -8,6 +8,7 @@ import { VaultService } from './vaultService';
 import { PlanService } from './planService';
 import { EncryptionService } from './encryptionService';
 import logger from '../config/logger';
+import { AppError } from '../middlewares/errorHandler';
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -21,7 +22,7 @@ export class FolderService {
     });
 
     if (existing) {
-      throw new Error('Folder with this name already exists');
+      throw new AppError(409, 'Folder with this name already exists');
     }
 
     // Build path
@@ -41,7 +42,7 @@ export class FolderService {
       });
 
       if (!parent) {
-        throw new Error('Parent folder not found');
+        throw new AppError(404, 'Parent folder not found');
       }
 
       await VaultService.assertUnlockedIfVault(userId, parent.isVault);
@@ -88,7 +89,7 @@ export class FolderService {
     });
 
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new AppError(404, 'Folder not found');
     }
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
@@ -128,7 +129,7 @@ export class FolderService {
     });
 
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new AppError(404, 'Folder not found');
     }
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
@@ -144,7 +145,7 @@ export class FolderService {
     });
 
     if (existing) {
-      throw new Error('Folder with this name already exists');
+      throw new AppError(409, 'Folder with this name already exists');
     }
 
     // Update path
@@ -176,7 +177,7 @@ export class FolderService {
     });
 
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new AppError(404, 'Folder not found');
     }
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
@@ -200,7 +201,7 @@ export class FolderService {
       });
 
       if (!targetParent) {
-        throw new Error('Target parent folder not found');
+        throw new AppError(404, 'Target parent folder not found');
       }
 
       await VaultService.assertUnlockedIfVault(userId, targetParent.isVault);
@@ -226,7 +227,7 @@ export class FolderService {
     });
 
     if (existing) {
-      throw new Error('Folder with this name already exists in target location');
+      throw new AppError(409, 'Folder with this name already exists in target location');
     }
 
     // Update path
@@ -259,7 +260,7 @@ export class FolderService {
     });
 
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new AppError(404, 'Folder not found');
     }
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
@@ -328,7 +329,7 @@ export class FolderService {
     });
 
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new AppError(404, 'Folder not found');
     }
 
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
@@ -359,7 +360,7 @@ export class FolderService {
     const folder = await prisma.folder.findFirst({
       where: { id: folderId, userId, isDeleted: true },
     });
-    if (!folder) throw new Error('Folder not found in trash');
+    if (!folder) throw new AppError(404, 'Folder not found in trash');
     await VaultService.assertUnlockedIfVault(userId, folder.isVault);
 
     const restoredFolder = await prisma.folder.update({
