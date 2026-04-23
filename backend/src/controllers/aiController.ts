@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import aiService from '../services/aiService';
 import { FileIndexService } from '../services/fileIndexService';
 import { sendSuccess, sendCreated, sendError } from '../utils/response';
+import logger from '../config/logger';
 
 export class AIController {
   /**
@@ -17,7 +18,8 @@ export class AIController {
         return;
       }
 
-      const { message, conversationId } = req.body;
+      const { message, conversationId, history: clientHistory } = req.body;
+      logger.info({ userId, message, conversationId }, 'Bobby Chat Request');
 
       if (!message || typeof message !== 'string') {
         sendError(res, 'Message is required', 400);
@@ -46,10 +48,20 @@ export class AIController {
         });
       }
 
-      const history = conversation.messages
-        .map((m: any) => ({ role: m.role, content: m.content }));
+      let history = conversation.messages.map((m: any) => ({ role: m.role, content: m.content }));
 
+      // Si le frontend fournit directement l'historique complet (stateless context), on l'utilise en priorité !
+      if (clientHistory && Array.isArray(clientHistory) && clientHistory.length > 0) {
+        logger.info({ historySize: clientHistory.length }, 'Using client-provided history');
+        history = clientHistory.map((m: any) => ({
+          role: m.role === 'model' ? 'assistant' : 'user',
+          content: m.parts?.[0]?.text || m.content || m.text || '',
+        }));
+      }
+
+      logger.info('Calling AIService...');
       const response = await aiService.chat(userId, message, history);
+      logger.info({ responseLength: response?.length }, 'Received response from AIService');
 
       await prisma.conversationMessage.createMany({
         data: [
@@ -69,6 +81,7 @@ export class AIController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      logger.error({ error }, 'Error in AI Controller Chat');
       const msg = error instanceof Error ? error.message : 'Unknown error';
       if (msg === 'RATE_LIMIT_EXCEEDED') {
         sendError(res, 'Le quota quotidien de Bobby a été atteint. Réessayez demain ou ajoutez des crédits OpenRouter.', 429, 'RATE_LIMIT_EXCEEDED');
