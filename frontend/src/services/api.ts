@@ -26,15 +26,26 @@ api.interceptors.request.use((config) => {
   }
 
   const token = localStorage.getItem('token');
-  if (token) {
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Handle token expiration
+// Handle token expiration and format normalization
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Normalisation globale: si le back renvoie { success: true, data: ... } on désencapsule data
+    if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+      if ('data' in response.data) {
+        response.data = response.data.data;
+      } else {
+        // Supprime le flag success si y'a pas de data, ou laisse tel quel (ex: { message: 'Ok' })
+        delete response.data.success;
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       if (error.response?.data?.code === 'REAUTH_REQUIRED') {
@@ -43,11 +54,15 @@ api.interceptors.response.use(
 
       localStorage.removeItem('token');
 
-      // Check if session expired
-      if (error.response?.data?.code === 'SESSION_EXPIRED') {
-        window.location.href = '/login?expired=true';
-      } else {
-        window.location.href = '/login';
+      // Ne pas rediriger si on est déjà sur les pages d'auth
+      const path = window.location.pathname;
+      if (!path.startsWith('/login') && !path.startsWith('/register') && !path.startsWith('/mfa-verify') && !path.startsWith('/auth/callback')) {
+        // Check if session expired
+        if (error.response?.data?.code === 'SESSION_EXPIRED') {
+          window.location.href = '/login?expired=true';
+        } else {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

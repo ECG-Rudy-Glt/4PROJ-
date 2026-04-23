@@ -126,6 +126,13 @@ Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état a
 - [x] Liste des activités récentes (derniers fichiers modifiés).
 - [x] **IA Bobby** : RAG Context, Chat, Recherche sémantique.
 
+###  9. Fonctionnalités Avancées (Statut : TERMINE)
+- [x] **Coffre-fort (Vault)** : Espace chiffré isolé, protégé par mot de passe bcrypt (12 rounds) + TOTP obligatoire. Dossier `isVault=true` créé à l'activation. Verrouillage automatique configurable (défaut : 10 min). Blocage après 5 tentatives échouées (15 min). Statut HTTP correct : 423 si verrouillé, 401 si mauvais identifiants. Plan PRO requis.
+- [x] **Partage de dossiers** : Invitation par email avec permissions Lecture/Écriture (`VIEWER`/`EDITOR`). Flux accept/decline via token. Liste des dossiers partagés (`sharedFolders`) et invitations en attente (`pendingFolders`).
+- [x] **Export GDPR** : Export CSV complet de toutes les données personnelles (fichiers, dossiers, partages, conversations IA, logs d'audit). Aucune donnée sensible (hash, secrets MFA) incluse.
+- [x] **OnlyOffice** : Édition en ligne de documents Word/Excel/Calc. Config JWT signée côté backend (`/api/onlyoffice/config/:fileId`). URL document proxifiée via backend pour isolation réseau.
+- [x] **Panel Admin** : KPIs globaux (utilisateurs, fichiers, stockage), gestion des utilisateurs (rôle, plan, quota), réindexation IA (HTTP 202).
+
 ###  6. Paramètres & UX (Statut : TERMINE)
 - [x] Modification du profil (Avatar, Email).
 - [x] Thème Clair / Sombre persistant.
@@ -158,8 +165,49 @@ Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état a
 - **Fix 429 Tags** : le store Zustand `useTagStore` déclenche désormais un seul appel réseau grâce au flag `isLoaded`, éliminant le storm de requêtes sur `/api/tags` lors de l'affichage de la liste de fichiers.
 - **ZIP Download** : implémentation complète — backend `streamFolderAsZip` (archiver + déchiffrement AES-256 à la volée), route `GET /folders/:folderId/download`, bouton dans l'UI avec feedback visuel au survol.
 - **Drag & Drop Move** : déplacement de fichiers et dossiers par glisser-déposer (HTML5 natif), guard anti-conflit avec l'upload global existant.
+- **Codes HTTP corrects** : `fileActionService`, `fileQueryService`, `folderService` et `vaultService` utilisent désormais `AppError(statusCode)` au lieu de `Error` générique — les routes "not found" retournent 404, les conflits 409, le vault verrouillé 423 et les identifiants invalides 401 (plus de 500 parasite).
 
 ---
-*Documentation mise à jour - Avril 2026*
+
+## Tests E2E (Avril 2026)
+
+Les deux suites de tests se trouvent dans [`scripts/`](scripts/).
+
+### `scripts/test_e2e.py` — Sécurité & Infrastructure (79/80)
+Couvre les flux principaux et les vecteurs d'attaque OWASP :
+
+| Catégorie | Tests |
+|---|---|
+| Authentification & JWT | Register, login, tokens JWT (alg=none, signature invalide, payload modifié) |
+| Upload & Download | Upload chiffré, déchiffrement, vérification contenu |
+| MinIO | Vérification stockage objet (port interne, normal si non exposé) |
+| IA Bobby (RAG) | 3 questions sémantiques sur documents uploadés |
+| Sécurité sans token | 6 endpoints → 401 |
+| Injection SQL | 3 payloads login + 2 payloads recherche |
+| XSS / HTML Injection | 4 payloads dans nom de dossier |
+| Path Traversal | 9 payloads fichiers + dossiers |
+| IDOR | User2 ne peut pas accéder aux fichiers de user1 (download/delete/rename) |
+| Brute Force / Rate Limiting | Blocage 429 après seuil |
+| Mass Assignment | Modification de rôle rejetée (404) |
+| Exposition données sensibles | Hash, mfaSecret, kekSalt absents de la réponse login |
+| Upload malveillant | Noms dangereux assainis (path traversal, .php, .exe, XSS) |
+| Méthodes HTTP non autorisées | DELETE/PUT/PATCH sur mauvaises routes |
+| Injection en-têtes | Host injection, Content-Type invalide |
+
+> 1 échec attendu : Bobby refuse de répondre à la question sur la recette (comportement LLM normal).
+
+### `scripts/test_features.py` — Fonctionnalités Avancées (68/68)
+Couvre les 5 fonctionnalités avancées en flux complet :
+
+| Fonctionnalité | Points testés |
+|---|---|
+| **Coffre-fort (Vault)** | Setup (MFA + mot de passe bcrypt), unlock, lock, rotation de mot de passe, accès fichiers vault, mauvais code TOTP → 401, vault verrouillé → 423 |
+| **Partage de dossiers** | Invitation, accept, liste `sharedFolders` / `pendingFolders`, vérification permissions, révocation |
+| **Export GDPR** | CSV non vide, colonnes attendues, email présent, secrets absents (hash, mfaSecret) |
+| **OnlyOffice** | Config JWT (`config.document`, `config.editorConfig`, `token`), URL document proxifiée backend |
+| **Admin Panel** | KPIs (`kpis.totalUsers`, `kpis.totalFiles`), liste utilisateurs, mise à jour rôle/plan, réindexation IA (202) |
+
+---
+*Documentation mise à jour - 23 Avril 2026*
 
 

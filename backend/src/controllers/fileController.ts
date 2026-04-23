@@ -94,7 +94,10 @@ export class FileController {
   static async listFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { folderId, sortBy, sortOrder, minSize, maxSize, mimeType, dateFrom, dateTo } = req.query;
+      const { folderId, sortBy, sortOrder, minSize, maxSize, mimeType, dateFrom, dateTo, limit, page } = req.query;
+
+      const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
+      const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
       const filters = {
         minSize: minSize ? Number(minSize) : undefined,
@@ -109,10 +112,12 @@ export class FileController {
         folderId ? String(folderId) : undefined,
         sortBy ? String(sortBy) : 'createdAt',
         sortOrder === 'asc' ? 'asc' : 'desc',
-        filters
+        filters,
+        take,
+        skip,
       );
 
-      sendSuccess(res, { files });
+      sendSuccess(res, { files, pagination: { page: Math.max(Number(page) || 1, 1), limit: take } });
     } catch (error) { next(error); }
   }
 
