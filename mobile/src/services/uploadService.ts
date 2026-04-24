@@ -12,6 +12,7 @@ function doUpload(
   assets: UploadAsset[],
   folderId?: string,
   onProgress?: (progress: number) => void,
+  onAbortReady?: (abort: () => void) => void,
 ): Promise<{ success: boolean; count: number }> {
   return new Promise(async (resolve, reject) => {
     const formData = new FormData();
@@ -29,11 +30,15 @@ function doUpload(
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     if (switchSession) xhr.setRequestHeader('X-Switch-Session', switchSession);
 
+    if (onAbortReady) onAbortReady(() => xhr.abort());
+
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
         onProgress(Math.round((e.loaded / e.total) * 100));
       }
     };
+
+    xhr.onabort = () => reject(Object.assign(new Error('Annulé'), { cancelled: true }));
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -60,6 +65,8 @@ export const uploadService = {
   async pickAndUpload(
     folderId?: string,
     onStart?: () => void,
+    onAbortReady?: (abort: () => void) => void,
+    onProgress?: (progress: number) => void,
   ): Promise<{ success: boolean; count: number }> {
     return new Promise((resolve) => {
       Alert.alert(
@@ -83,7 +90,7 @@ export const uploadService = {
                 name: a.name ?? 'file',
                 type: a.mimeType ?? 'application/octet-stream',
               }));
-              resolve(await doUpload(assets, folderId));
+              resolve(await doUpload(assets, folderId, onProgress, onAbortReady));
             },
           },
           {
@@ -112,7 +119,7 @@ export const uploadService = {
                 const type = a.mimeType ?? (a.type === 'video' ? 'video/mp4' : 'image/jpeg');
                 return { uri: a.uri, name, type };
               });
-              resolve(await doUpload(assets, folderId));
+              resolve(await doUpload(assets, folderId, onProgress, onAbortReady));
             },
           },
           { text: 'Annuler', style: 'cancel', onPress: () => resolve({ success: false, count: 0 }) },

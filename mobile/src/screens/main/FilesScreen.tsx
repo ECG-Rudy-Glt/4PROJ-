@@ -48,6 +48,7 @@ export default function FilesScreen() {
   const [uploadLabel, setUploadLabel] = useState('');
   const progressAnim = useRef(new Animated.Value(0)).current;
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelUpload = useRef<(() => void) | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [actionTarget, setActionTarget] = useState<ActionTarget>(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -59,17 +60,39 @@ export default function FilesScreen() {
     }, [currentFolderId])
   );
 
+  const uploadTransferDone = useRef(false);
+
   const startProgressAnimation = () => {
+    uploadTransferDone.current = false;
     progressAnim.setValue(0);
-    // Monte progressivement jusqu'à 85% sur ~8 secondes, simule l'upload
+    // Animation lente jusqu'à 92% — laisse de la place pour "Traitement en cours…"
     Animated.timing(progressAnim, {
-      toValue: 85,
-      duration: 8000,
+      toValue: 92,
+      duration: 45000,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished && !uploadTransferDone.current) {
+        setUploadLabel('Traitement en cours…');
+      }
+    });
+  };
+
+  const setRealProgress = (pct: number) => {
+    // Si les vrais events XHR arrivent, on arrête l'animation fake et on suit la réalité
+    progressAnim.stopAnimation();
+    Animated.timing(progressAnim, {
+      toValue: pct,
+      duration: 150,
       useNativeDriver: false,
     }).start();
+    if (pct >= 100) {
+      uploadTransferDone.current = true;
+      setUploadLabel('Traitement en cours…');
+    }
   };
 
   const completeProgress = () => {
+    progressAnim.stopAnimation();
     Animated.timing(progressAnim, {
       toValue: 100,
       duration: 300,
@@ -86,6 +109,8 @@ export default function FilesScreen() {
           setUploadLabel('Envoi en cours…');
           startProgressAnimation();
         },
+        (abort) => { cancelUpload.current = abort; },
+        (pct) => setRealProgress(pct),
       );
       if (success) {
         completeProgress();
@@ -102,13 +127,27 @@ export default function FilesScreen() {
       }
     } catch (err: any) {
       setUploading(false);
+      progressAnim.stopAnimation();
       progressAnim.setValue(0);
+      cancelUpload.current = null;
+      uploadTransferDone.current = false;
+      if (err?.cancelled) return;
       const msg =
         err?.response?.data?.error ||
         err?.message ||
         "Erreur lors de l'envoi";
       Toast.show({ type: 'error', text1: "Erreur lors de l'envoi", text2: msg });
     }
+  };
+
+  const handleCancelUpload = () => {
+    cancelUpload.current?.();
+    cancelUpload.current = null;
+    uploadTransferDone.current = false;
+    setUploading(false);
+    progressAnim.stopAnimation();
+    progressAnim.setValue(0);
+    Toast.show({ type: 'info', text1: 'Envoi annulé' });
   };
 
   const onRefresh = useCallback(() => {
@@ -220,7 +259,10 @@ export default function FilesScreen() {
         <View style={styles.uploadProgressContainer}>
           <View style={styles.uploadProgressHeader}>
             <Ionicons name="cloud-upload-outline" size={16} color={colors.primary[600]} />
-            <Text style={styles.uploadProgressLabel}>{uploadLabel}</Text>
+            <Text style={[styles.uploadProgressLabel, { flex: 1 }]}>{uploadLabel}</Text>
+            <TouchableOpacity onPress={handleCancelUpload} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle-outline" size={20} color={colors.neutral[400]} />
+            </TouchableOpacity>
           </View>
           <View style={styles.uploadProgressBarBg}>
             <Animated.View
