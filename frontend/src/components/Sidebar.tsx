@@ -49,10 +49,14 @@ export default function Sidebar() {
     ...(vaultStatus?.enabled && vaultStatus?.unlocked && vaultRootFolder
       ? [{ to: `/files/${vaultRootFolder.id}`, icon: Shield, label: t('common.vault'), section: 'main' as const }]
       : []),
-    { to: '/audit', icon: ActivitySquare, label: t('audit.nav_label'), section: 'secondary' },
+    ...(user?.plan && user.plan !== 'FREE'
+      ? [{ to: '/audit', icon: ActivitySquare, label: t('audit.nav_label'), section: 'secondary' as const }]
+      : []),
     { to: '/shared', icon: Share2, label: t('common.shared'), section: 'secondary' },
     { to: '/trash', icon: Trash2, label: t('common.trash'), section: 'secondary' },
-    { to: '/organization-admin', icon: Building2, label: t('common.organization'), section: 'secondary' },
+    ...(user?.currentOrganizationId
+      ? [{ to: '/organization-admin', icon: Building2, label: t('common.organization'), section: 'secondary' as const }]
+      : []),
     ...(user?.role === 'ADMIN'
       ? [{ to: '/admin', icon: ShieldCheck, label: t('common.super_admin'), section: 'secondary' as const }]
       : []),

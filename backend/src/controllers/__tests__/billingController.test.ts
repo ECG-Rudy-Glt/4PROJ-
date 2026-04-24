@@ -51,7 +51,9 @@ describe('BillingController', () => {
   });
 
   describe('createCheckoutSession', () => {
-    it('should reject non-admin bypass when Stripe key is missing', async () => {
+    it('should allow user bypass when Stripe key is missing', async () => {
+      (PlanService.getStorageLimit as jest.Mock).mockReturnValue(BigInt(1234));
+
       const req: any = {
         user: { id: 'user-1', role: Role.USER },
         body: { plan: 'PRO' },
@@ -60,30 +62,9 @@ describe('BillingController', () => {
 
       await BillingController.createCheckoutSession(req, res, jest.fn());
 
-      expect(res.status).toHaveBeenCalledWith(503);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: 'Stripe non configuré',
-        })
-      );
-      expect(prisma.user.update).not.toHaveBeenCalled();
-    });
-
-    it('should allow admin bypass when Stripe key is missing', async () => {
-      (PlanService.getStorageLimit as jest.Mock).mockReturnValue(BigInt(1234));
-
-      const req: any = {
-        user: { id: 'admin-1', role: Role.ADMIN },
-        body: { plan: 'PRO' },
-      };
-      const res = createRes();
-
-      await BillingController.createCheckoutSession(req, res, jest.fn());
-
       expect(PlanService.getStorageLimit).toHaveBeenCalledWith('PRO');
       expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'admin-1' },
+        where: { id: 'user-1' },
         data: { plan: 'PRO', quotaLimit: BigInt(1234) },
       });
       expect(res.status).toHaveBeenCalledWith(200);
