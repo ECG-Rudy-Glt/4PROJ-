@@ -1,8 +1,8 @@
-import { Search, Moon, Sun, LogOut, User, ArrowRightLeft } from 'lucide-react';
+import { Search, Moon, Sun, LogOut, User, ArrowRightLeft, Building2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import ProfileModal from './ProfileModal';
 import AccountSwitcherModal from './AccountSwitcherModal';
 import NotificationCenter from './NotificationCenter';
@@ -77,6 +77,16 @@ export default function Header() {
           </button>
 
           <NotificationCenter />
+
+          {user?.currentOrganizationId && (
+            <Link
+              to="/organization-admin"
+              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title={t('common.organization')}
+            >
+              <Building2 className="w-5 h-5" />
+            </Link>
+          )}
 
           <button
             onClick={() => setShowAccountSwitcherModal(true)}

@@ -2,8 +2,8 @@
 
 ## 🔴 CRITIQUE — Features complètes mais inaccessibles
 
-- [ ] **[UX]** `ActivityLog` et `AccountSwitcherModal` existent (~18KB et ~31KB) mais ne sont **pas montés dans `SettingsPage`** — ces sections sont invisibles pour l'utilisateur. Ajouter les imports et les sections correspondantes dans `SettingsPage.tsx`.
-- [ ] **[UX]** Aucun lien vers `/organization-admin` dans la `Sidebar` ni le `Header` — la page `OrganizationAdminPage` est inaccessible sans connaître l'URL directe. Ajouter une entrée dans la navigation (visible si l'utilisateur a au moins une organisation).
+- [x] **[UX]** `ActivityLog` et `AccountSwitcherModal` existent (~18KB et ~31KB) mais ne sont **pas montés dans `SettingsPage`** — ces sections sont invisibles pour l'utilisateur. Ajouter les imports et les sections correspondantes dans `SettingsPage.tsx`.
+- [x] **[UX]** Aucun lien vers `/organization-admin` dans la `Sidebar` ni le `Header` — la page `OrganizationAdminPage` est inaccessible sans connaître l'URL directe. Ajouter une entrée dans la navigation (visible si l'utilisateur a au moins une organisation).
 
 ---
 
