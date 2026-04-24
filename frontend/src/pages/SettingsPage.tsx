@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
-import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages } from 'lucide-react';
+import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
@@ -14,7 +14,7 @@ import { useVaultStore } from '@/stores/useVaultStore';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { user, updateProfile } = useAuthStore();
+  const { user, updateProfile, logout } = useAuthStore();
   const [isDark, setIsDark] = useState(user?.theme === 'dark');
   const [profile, setProfile] = useState({
     firstName: user?.firstName || '',
@@ -473,25 +473,36 @@ export default function SettingsPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             {t('settings.logout_all_desc')}
           </p>
-          <button
-            onClick={async () => {
-              if (confirm(t('common.confirm'))) {
-                try {
-                  await authService.logoutAll();
-                  toast.success(t('settings.logout_all_button')); // Simplified
-                  setTimeout(() => {
-                    window.location.href = '/login';
-                  }, 1000);
-                } catch {
-                  toast.error(t('common.error'));
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => {
+                logout();
+              }}
+              className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              {t('common.logout')}
+            </button>
+            <button
+              onClick={async () => {
+                if (confirm(t('common.confirm'))) {
+                  try {
+                    await authService.logoutAll();
+                    toast.success(t('settings.logout_all_button')); // Simplified
+                    setTimeout(() => {
+                      window.location.href = '/login';
+                    }, 1000);
+                  } catch {
+                    toast.error(t('common.error'));
+                  }
                 }
-              }
-            }}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center gap-2"
-          >
-            <Shield className="w-4 h-4" />
-            {t('settings.logout_all_button')}
-          </button>
+              }}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              {t('settings.logout_all_button')}
+            </button>
+          </div>
         </div>
       </div>
 

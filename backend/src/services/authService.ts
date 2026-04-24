@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { AppError } from '../middlewares/errorHandler';
 import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
@@ -20,7 +21,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new Error('User already exists');
+      throw new AppError(409, "Un compte avec cette adresse e-mail existe déjà.");
     }
 
     // Hash password
@@ -93,17 +94,17 @@ export class AuthService {
     });
 
     if (!user || !user.password) {
-      throw new Error('Invalid credentials');
+      throw new AppError(401, "Aucun compte n'existe avec cette adresse e-mail.");
     }
     if (user.accountStatus !== 'ACTIVE') {
-      throw new Error('Account inactive or suspended');
+      throw new AppError(401, "Ce compte est inactif ou a été suspendu.");
     }
 
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      throw new Error('Invalid credentials');
+      throw new AppError(401, "Le mot de passe saisi est incorrect.");
     }
 
     // Update lastActiveAt on login

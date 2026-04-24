@@ -20,7 +20,7 @@ export class AuthController {
       const { email, password, firstName, lastName } = req.body;
 
       if (!validateEmail(email)) {
-        sendError(res, 'Format d\'email invalide', 400);
+        sendError(res, "L'adresse e-mail doit être dans un format valide (ex: nom@domaine.com)", 400);
         return;
       }
 
@@ -39,7 +39,7 @@ export class AuthController {
       const { email, password } = req.body;
 
       if (!validateEmail(email)) {
-        sendError(res, 'Format d\'email invalide', 400);
+        sendError(res, "L'adresse e-mail doit être dans un format valide (ex: nom@domaine.com)", 400);
         return;
       }
 
@@ -75,11 +75,6 @@ export class AuthController {
         user: { email: user.email, firstName: user.firstName, lastName: user.lastName },
       });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      if (msg === 'Account inactive or suspended') {
-        sendError(res, msg, 401);
-        return;
-      }
       next(error);
     }
   }
