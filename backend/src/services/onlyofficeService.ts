@@ -218,7 +218,8 @@ export class OnlyOfficeService {
     storagePath: string,
     fileName: string,
     size: number,
-    mimeType: string
+    mimeType: string,
+    dek?: Buffer
   ) {
     await VersionService.createVersion(
       fileId,
@@ -226,7 +227,8 @@ export class OnlyOfficeService {
       storagePath,
       fileName,
       size,
-      mimeType
+      mimeType,
+      dek
     );
   }
 }

@@ -15,7 +15,7 @@ export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { folderId } = req.body;
+      const { folderId, replaceFileId } = req.body;
       const files = Array.isArray(req.files)
         ? req.files
         : req.file
@@ -31,7 +31,8 @@ export class FileController {
         userId,
         files,
         folderId,
-        req.dekBuffer
+        req.dekBuffer,
+        replaceFileId
       );
 
       if (createdFiles.length === 0) {
