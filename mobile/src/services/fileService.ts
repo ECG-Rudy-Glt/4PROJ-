@@ -67,6 +67,11 @@ export const fileService = {
     return `${api.defaults.baseURL}/files/${fileId}/stream?token=${token}`;
   },
 
+  async getSharedStreamUrl(fileId: string): Promise<string> {
+    const token = await SecureStore.getItemAsync('token');
+    return `${api.defaults.baseURL}/share/access/${fileId}/stream?token=${token}`;
+  },
+
   // Synchrone — construit l'URL sans attendre (token déjà en mémoire dans api.defaults)
   buildStreamUrl(fileId: string): string {
     const token = (api.defaults.headers.common['Authorization'] as string | undefined)

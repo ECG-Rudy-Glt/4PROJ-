@@ -46,6 +46,7 @@ interface Props {
   onClose: () => void;
   onDelete?: (fileId: string) => void;
   onToggleFavorite?: (fileId: string) => void;
+  getStreamUrl?: (fileId: string) => Promise<string>;
 }
 
 // ── Player vidéo/audio (expo-video gère les deux) ─────────────────────────────
@@ -88,7 +89,7 @@ function PdfViewer({ uri }: { uri: string }) {
 }
 
 // ── Composant principal ────────────────────────────────────────────────────────
-export default function FilePreviewModal({ file, visible, onClose, onDelete, onToggleFavorite }: Props) {
+export default function FilePreviewModal({ file, visible, onClose, onDelete, onToggleFavorite, getStreamUrl }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
@@ -98,6 +99,8 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
   const isAudio = !!file && file.mimeType.startsWith('audio/');
   const isPdf   = !!file && file.mimeType === 'application/pdf';
 
+  const resolveStreamUrl = getStreamUrl ?? fileService.getStreamUrl;
+
   useEffect(() => {
     if (!file || !visible) {
       setStreamUrl(null);
@@ -105,7 +108,7 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
     }
     setLoadingStream(true);
     setStreamUrl(null);
-    fileService.getStreamUrl(file.id)
+    resolveStreamUrl(file.id)
       .then((url) => setStreamUrl(url))
       .catch(() => Alert.alert('Erreur', 'Impossible de charger le fichier'))
       .finally(() => setLoadingStream(false));

@@ -138,6 +138,26 @@ export class SharedFolderService {
     return prisma.sharedFolder.delete({ where: { id: shareId } });
   }
 
+  static async getSharedFolderContents(folderId: string, userId: string) {
+    const share = await prisma.sharedFolder.findFirst({
+      where: { folderId, sharedWithId: userId, accepted: true, canRead: true },
+    });
+    if (!share) throw new Error('Accès refusé à ce dossier');
+
+    const [files, subfolders] = await Promise.all([
+      prisma.file.findMany({
+        where: { folderId, isDeleted: false, isVault: false },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.folder.findMany({
+        where: { parentId: folderId, isDeleted: false, isVault: false },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    return { files, folders: subfolders };
+  }
+
   static async getAcceptedSharedFolders(userId: string, vaultUnlocked: boolean) {
     return prisma.sharedFolder.findMany({
       where: {
