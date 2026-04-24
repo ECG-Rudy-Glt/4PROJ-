@@ -14,7 +14,7 @@ interface AuthState {
     password: string;
     firstName?: string;
     lastName?: string;
-  }) => Promise<void>;
+  }) => Promise<any>;
   logout: () => void;
   loadUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -54,9 +54,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (data) => {
     set({ isLoading: true });
     try {
-      const { user, token } = await authService.register(data);
+      const response = await authService.register(data);
+      if (response.mfaSetupRequired) {
+        set({ isLoading: false });
+        return response;
+      }
+      const { user, token } = response;
       localStorage.setItem('token', token);
       set({ user, token, sessionContext: null, isAuthenticated: true, isLoading: false });
+      return response;
     } catch {
       set({ isLoading: false });
       throw new Error('Registration failed');
@@ -65,6 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('switchSessionId');
     set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
   },
 
