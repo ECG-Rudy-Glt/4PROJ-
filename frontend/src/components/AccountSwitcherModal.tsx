@@ -50,6 +50,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
   const [delegationsReceived, setDelegationsReceived] = useState<DelegationRecord[]>([]);
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [showGrantForm, setShowGrantForm] = useState(false);
+  const [linkStep, setLinkStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({ email: '', password: '', mfaCode: '', backupCode: '', label: '' });
   const [grantForm, setGrantForm] = useState({
     delegateEmail: '', canWrite: false, canDelete: false, canShare: false, expiresAt: '',
@@ -91,6 +92,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
       toast.success(t('account_access.link_success'));
       setForm({ email: '', password: '', mfaCode: '', backupCode: '', label: '' });
       setShowLinkForm(false);
+      setLinkStep(1);
       await loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('account_access.link_error'));
@@ -99,8 +101,9 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const handleSwitch = async (linkId: string) => {
     try {
-      const { token, user: nextUser } = await accountAccessService.switchToLinkedAccount(linkId);
-      await setAuthToken(token);
+      const { token, user: nextUser, authContext, switchSessionId } = await accountAccessService.switchToLinkedAccount(linkId);
+      if (switchSessionId) localStorage.setItem('switchSessionId', switchSessionId);
+      await setAuthToken(token, nextUser, authContext);
       toast.success(t('account_access.active_session', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
@@ -114,8 +117,9 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const handleSwitchBack = async () => {
     try {
-      const { token, user: nextUser } = await accountAccessService.switchBack();
-      await setAuthToken(token);
+      const { token, user: nextUser, authContext } = await accountAccessService.switchBack();
+      localStorage.removeItem('switchSessionId');
+      await setAuthToken(token, nextUser, authContext);
       toast.success(t('account_access.switch_success', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
@@ -167,8 +171,9 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const handleAssumeDelegation = async (delegationId: string) => {
     try {
-      const { token, user: nextUser } = await accountAccessService.assumeDelegation(delegationId);
-      await setAuthToken(token);
+      const { token, user: nextUser, authContext, switchSessionId } = await accountAccessService.assumeDelegation(delegationId);
+      if (switchSessionId) localStorage.setItem('switchSessionId', switchSessionId);
+      await setAuthToken(token, nextUser, authContext);
       toast.success(t('account_access.assume_success', { email: nextUser.email }));
       onClose();
     } catch (error: any) {
@@ -323,63 +328,99 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <form onSubmit={handleLinkAccount} className="space-y-2.5">
-                    <input
-                      type="text"
-                      value={form.label}
-                      onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-                      placeholder={t('account_access.label_placeholder')}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="email"
-                        value={form.email}
-                        onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                        placeholder={t('account_access.email_placeholder')}
-                        required
-                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                      <input
-                        type="password"
-                        value={form.password}
-                        onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                        placeholder={t('account_access.password_placeholder')}
-                        required
-                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={form.mfaCode}
-                        onChange={(e) => setForm((prev) => ({ ...prev, mfaCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                        placeholder={t('account_access.mfa_placeholder')}
-                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                      <input
-                        type="text"
-                        value={form.backupCode}
-                        onChange={(e) => setForm((prev) => ({ ...prev, backupCode: e.target.value.toUpperCase().slice(0, 8) }))}
-                        placeholder={t('account_access.backup_code_placeholder')}
-                        className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                    </div>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (linkStep === 1) {
+                      setLinkStep(2);
+                    } else {
+                      handleLinkAccount(e);
+                    }
+                  }} className="space-y-2.5">
+                    {linkStep === 1 ? (
+                      <>
+                        <input
+                          type="text"
+                          value={form.label}
+                          onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
+                          placeholder={t('account_access.label_placeholder')}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="email"
+                            value={form.email}
+                            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                            placeholder={t('account_access.email_placeholder')}
+                            required
+                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                          <input
+                            type="password"
+                            value={form.password}
+                            onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                            placeholder={t('account_access.password_placeholder')}
+                            required
+                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={form.mfaCode}
+                          onChange={(e) => setForm((prev) => ({ ...prev, mfaCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                          placeholder={t('account_access.mfa_placeholder')}
+                          className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <input
+                          type="text"
+                          value={form.backupCode}
+                          onChange={(e) => setForm((prev) => ({ ...prev, backupCode: e.target.value.toUpperCase().slice(0, 8) }))}
+                          placeholder={t('account_access.backup_code_placeholder')}
+                          className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                    )}
+                    
                     <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowLinkForm(false)}
-                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        {t('common.cancel')}
-                      </button>
-                      <button
-                        type="submit"
-                        className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
-                      >
-                        {t('account_access.link_account')}
-                      </button>
+                      {linkStep === 1 ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowLinkForm(false);
+                              setLinkStep(1);
+                            }}
+                            className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            {t('common.cancel')}
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+                          >
+                            {t('common.next')}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setLinkStep(1)}
+                            className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            {t('common.back')}
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+                          >
+                            {t('account_access.link_account')}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </form>
                 </div>
