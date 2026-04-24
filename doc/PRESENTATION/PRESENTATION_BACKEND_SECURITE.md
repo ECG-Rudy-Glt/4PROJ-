@@ -5,7 +5,7 @@
 ## Architecture générale
 
 - **Node.js 20 + TypeScript strict** — typage bout en bout, zéro `any` dans les couches critiques
-- **Express 4** avec architecture 3 couches : routes → controllers → services
+- **Express 4** avec architecture 3 couches : routes  controllers  services
 - **Prisma 5** comme ORM : migrations versionnées, queries type-safe, index composites en BDD
 - **PostgreSQL 16** pour la persistance relationnelle, **MinIO** pour le stockage objet (compatible S3)
 - **Réponses API normalisées** : `sendSuccess` / `sendError` — format uniforme dans 100% des endpoints
@@ -18,7 +18,7 @@
 ### JWT avec versionnage de token
 - Token signé HS256, `JWT_SECRET` obligatoire — **crash volontaire au démarrage si absent**
 - Chaque token embarque un `tokenVersion` (entier en BDD) — révocation instantanée sans liste noire
-- **Déconnexion globale** : incrémente `tokenVersion` en BDD → tous les tokens existants deviennent invalides
+- **Déconnexion globale** : incrémente `tokenVersion` en BDD  tous les tokens existants deviennent invalides
 - Extraction Bearer uniquement (`Authorization: Bearer <token>`), pas de cookie, pas de query param
 
 ### OAuth2
@@ -45,7 +45,7 @@
 ## Chiffrement des fichiers — Architecture KEK/DEK
 
 ### Pourquoi deux niveaux de clé ?
-Un seul mot de passe → une seule clé → changer le mot de passe impose de re-chiffrer tous les fichiers.
+Un seul mot de passe  une seule clé  changer le mot de passe impose de re-chiffrer tous les fichiers.
 Avec KEK/DEK, seule la KEK change : les DEK restent intacts.
 
 ### Implémentation
@@ -61,7 +61,7 @@ Avec KEK/DEK, seule la KEK change : les DEK restent intacts.
 
 - Mot de passe **séparé** du compte principal — dérivation KEK indépendante
 - **MFA requis** pour ouvrir le vault si MFA activé
-- **Lockout 5 tentatives** → verrouillage 15 minutes
+- **Lockout 5 tentatives**  verrouillage 15 minutes
 - **Auto-lock** : session vault expire après 10 minutes d'inactivité
 - Rotation du mot de passe vault sans re-chiffrement des fichiers (seule la DEK wrappée est mise à jour)
 - Disponible uniquement sur les plans PRO et supérieurs
@@ -130,7 +130,7 @@ Avec KEK/DEK, seule la KEK change : les DEK restent intacts.
 |---|---|---|
 | Prisma | Sequelize, TypeORM | DX TypeScript supérieure, migrations auto, zero raw SQL obligatoire |
 | MinIO | Volume Docker brut | Compatible S3, scalable horizontalement, interface admin, snapshot/backup natif |
-| Pino | Winston, Morgan | 2× plus rapide, JSON natif, adapté production cloud |
+| Pino | Winston, Morgan | 2 plus rapide, JSON natif, adapté production cloud |
 | bcrypt | Argon2, scrypt | Bibliothèque éprouvée, Node natif, intégration Passport sans friction |
 | speakeasy | otplib, node-2fa | TOTP RFC 6238 strict, backup codes intégrés, window configurable |
 | AES-256-GCM | AES-CBC, ChaCha20 | Chiffrement **authentifié** — détecte toute altération du ciphertext |

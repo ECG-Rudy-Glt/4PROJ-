@@ -8,8 +8,8 @@ SUPFile est une alternative française à Dropbox et Google Drive : stockage chi
 
 ### Prérequis
 
-- [Docker](https://docs.docker.com/get-docker/) ≥ 24
-- [Docker Compose](https://docs.docker.com/compose/install/) ≥ 2.20
+- [Docker](https://docs.docker.com/get-docker/)  24
+- [Docker Compose](https://docs.docker.com/compose/install/)  2.20
 - 8 Go de RAM minimum (16 Go recommandé avec Ollama actif)
 - 20 Go d'espace disque libre
 
@@ -93,21 +93,21 @@ OLLAMA_MODEL=gemma2:2b
 
 ```
 Navigateur / App mobile
-        │
-        ▼
-  nginx :3000  ──────────────────────────────────────────┐
-  (frontend React)                                       │
-        │  /api → proxy                                  │
-        ▼                                                │
-  backend :5001  (Node.js / Express / TypeScript)        │
-        ├── PostgreSQL :5432  (métadonnées, BDD)         │
-        ├── MinIO              (fichiers chiffrés S3)    │
-        ├── OnlyOffice :8080   (édition Office)          │
-        └── brain-api :8001   (IA Python / FastAPI)      │
-                └── Ollama    (LLM local gemma2:2b)      │
-                └── ChromaDB  (base vectorielle RAG)     │
-                                                         │
-  App mobile (Expo / React Native)  ─────────────────────┘
+        |
+        v
+  nginx :3000
+  (frontend React)
+        | /api  proxy
+        v
+  backend :5001  (Node.js / Express / TypeScript)
+        |-- PostgreSQL :5432  (metadonnees, BDD)
+        |-- MinIO              (fichiers chiffres S3)
+        |-- OnlyOffice :8080   (edition Office)
+        +-- brain-api :8001   (IA Python / FastAPI)
+                 |-- Ollama    (LLM local gemma2:2b)
+                 +-- ChromaDB  (base vectorielle RAG)
+
+  App mobile (Expo / React Native)
 ```
 
 **7 services Docker**, **1 réseau bridge interne**, base de données et MinIO non exposés à l'hôte.
@@ -225,7 +225,7 @@ Le pipeline GitHub Actions exécute à chaque push :
 | Vérification quota avant upload | V | V | côté client ET côté serveur |
 | Renommage fichiers & dossiers | V | V | |
 | Déplacement (drag & drop web / menu mobile) | V | V | HTML5 natif web, menu contextuel mobile |
-| Suppression → corbeille (soft delete) | V | V | 90 jours avant purge automatique |
+| Suppression  corbeille (soft delete) | V | V | 90 jours avant purge automatique |
 | Restauration depuis la corbeille | V | V | |
 | Suppression définitive | V | V | |
 | Marquage en favori | V | V | |
@@ -234,7 +234,7 @@ Le pipeline GitHub Actions exécute à chaque push :
 
 | Fonctionnalité | Web | Mobile | Détail |
 |---|---|---|---|
-| Prévisualisation images (JPG, PNG, GIF, WebP) | V | V | blob → ObjectURL |
+| Prévisualisation images (JPG, PNG, GIF, WebP) | V | V | blob  ObjectURL |
 | Prévisualisation PDF | V | V | WebView mobile |
 | Prévisualisation Markdown avec rendu | V | — | react-markdown + coloration |
 | Prévisualisation CSV (tableau) | V | — | |

@@ -11,11 +11,11 @@
 - Utilisateur : `demo@supfile.tech` / mot de passe fort
 - MFA activé (pour montrer le flow)
 - Fichiers pré-uploadés dans différents dossiers :
-  - `Contrats/` → 1 PDF multi-pages (contrat fournisseur)
-  - `Images/` → 3–4 photos JPG/PNG
-  - `Vidéos/` → 1 courte vidéo MP4
-  - `Documents/` → 1 fichier DOCX, 1 XLSX
-  - `Notes/` → 1 fichier Markdown (.md)
+  - `Contrats/`  1 PDF multi-pages (contrat fournisseur)
+  - `Images/`  3–4 photos JPG/PNG
+  - `Vidéos/`  1 courte vidéo MP4
+  - `Documents/`  1 fichier DOCX, 1 XLSX
+  - `Notes/`  1 fichier Markdown (.md)
 - Bobby : fichiers **déjà indexés** (embedding fait en amont)
 - 1 partage actif avec un second compte de démo
 - Tags créés : `Urgent`, `Client`, `Archive`
@@ -36,8 +36,8 @@
 **Ce qu'on montre :** login + MFA TOTP
 
 1. Aller sur la page de connexion
-2. Saisir email + mot de passe → cliquer Connexion
-3. L'écran MFA apparaît → saisir le code Google Authenticator
+2. Saisir email + mot de passe  cliquer Connexion
+3. L'écran MFA apparaît  saisir le code Google Authenticator
 4. *"Notre authentification va plus loin que le login classique : MFA TOTP, et tous les tokens sont versionnés — une seule action côté serveur suffit pour déconnecter tous les appareils d'un coup."*
 
 ---
@@ -58,12 +58,12 @@
 **Ce qu'on montre :** drag & drop, progression, corbeille
 
 1. Naviguer dans `Documents/`
-2. Glisser un fichier depuis le bureau → l'overlay drag & drop s'active
-3. Lâcher → la barre de progression par fichier s'affiche dans la modal
+2. Glisser un fichier depuis le bureau  l'overlay drag & drop s'active
+3. Lâcher  la barre de progression par fichier s'affiche dans la modal
 4. Montrer le fichier qui apparaît dans la liste
-5. Renommer le fichier (clic droit ou menu ⋯)
-6. Supprimer le fichier → il va en corbeille
-7. Aller dans Corbeille → montrer "X jours avant suppression définitive" → Restaurer
+5. Renommer le fichier (clic droit ou menu )
+6. Supprimer le fichier  il va en corbeille
+7. Aller dans Corbeille  montrer "X jours avant suppression définitive"  Restaurer
 8. *"Suppression non destructive, 90 jours de grâce, restauration en un clic."*
 
 ---
@@ -72,9 +72,9 @@
 
 **Ce qu'on montre :** la richesse du lecteur intégré
 
-1. Cliquer sur le PDF dans `Contrats/` → aperçu inline
-2. Cliquer sur une image JPG → prévisualisation plein écran
-3. Cliquer sur le fichier DOCX → OnlyOffice s'ouvre, édition directe dans le navigateur
+1. Cliquer sur le PDF dans `Contrats/`  aperçu inline
+2. Cliquer sur une image JPG  prévisualisation plein écran
+3. Cliquer sur le fichier DOCX  OnlyOffice s'ouvre, édition directe dans le navigateur
 4. *"Pas besoin de télécharger — images, PDF, vidéos, et même les fichiers Office s'ouvrent directement dans le navigateur, avec édition collaborative via OnlyOffice."*
 
 ---
@@ -83,11 +83,11 @@
 
 **Ce qu'on montre :** lien public protégé + partage interne
 
-1. Clic droit sur un fichier → Partager → Générer un lien public
+1. Clic droit sur un fichier  Partager  Générer un lien public
 2. Ajouter un mot de passe + date d'expiration dans 7 jours
 3. Copier le lien
-4. Dans le second onglet (non connecté) → coller le lien → écran de saisie mot de passe → accès au fichier
-5. Revenir sur le premier compte → Partages → montrer le partage interne actif avec permissions (lecture/écriture)
+4. Dans le second onglet (non connecté)  coller le lien  écran de saisie mot de passe  accès au fichier
+5. Revenir sur le premier compte  Partages  montrer le partage interne actif avec permissions (lecture/écriture)
 6. *"Deux niveaux de partage : lien public avec mot de passe et expiration, ou partage interne avec permissions granulaires par utilisateur."*
 
 ---
@@ -108,8 +108,8 @@
 
 **Ce qu'on montre :** le coffre-fort chiffré
 
-1. Aller dans la Sidebar → Vault
-2. Saisir le mot de passe du coffre → déverrouillage
+1. Aller dans la Sidebar  Vault
+2. Saisir le mot de passe du coffre  déverrouillage
 3. Montrer les fichiers dans le vault (icône cadenas)
 4. *"Le vault est un espace chiffré avec une clé séparée du compte principal — même un admin de la plateforme ne peut pas accéder aux fichiers d'un vault sans le mot de passe du propriétaire."*
 

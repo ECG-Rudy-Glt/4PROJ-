@@ -8,19 +8,19 @@ SUPFile est une plateforme de stockage cloud avec assistant documentaire IA, con
 
 ```
 Navigateur
-    │
-    ▼
+    
+    
 nginx (frontend) :3000
-    │  SPA React — proxy /api et /socket.io vers le backend
-    ▼
+      SPA React — proxy /api et /socket.io vers le backend
+    
 backend Node.js :5001
-    │  Express REST API — JWT, Prisma, MinIO, Socket.IO
-    ├──► PostgreSQL :5432      (BDD relationnelle, réseau interne)
-    ├──► MinIO                 (stockage objet S3, réseau interne)
-    ├──► OnlyOffice :8080      (édition documents Office)
-    └──► brain-api :8001       (microservice IA Python)
-              └──► Ollama      (inférence LLM locale, réseau interne)
-              └──► ChromaDB    (base vectorielle, volume persistant)
+      Express REST API — JWT, Prisma, MinIO, Socket.IO
+     PostgreSQL :5432      (BDD relationnelle, réseau interne)
+     MinIO                 (stockage objet S3, réseau interne)
+     OnlyOffice :8080      (édition documents Office)
+     brain-api :8001       (microservice IA Python)
+               Ollama      (inférence LLM locale, réseau interne)
+               ChromaDB    (base vectorielle, volume persistant)
 ```
 
 **7 services Docker**, **1 réseau bridge interne**, **0 exposition directe** de la BDD et du stockage vers l'hôte.
@@ -65,12 +65,12 @@ backend Node.js :5001
 
 ```
 validate-env
-    ├─► backend-checks   (npm install → prisma generate → build → tests + coverage)
-    ├─► frontend-checks  (npm install → lint ESLint → vite build → cypress E2E)
-    ├─► semgrep          (SAST — règles Node.js + React, fail sur ERROR)
-    └─► trufflehog       (scan secrets dans tout l'historique git)
-            └─► docker-build  (build images → Dockle audit → SBOM SPDX-JSON)
-                    └─► docker-push  (GHCR :latest + :sha, main uniquement)
+     backend-checks   (npm install  prisma generate  build  tests + coverage)
+     frontend-checks  (npm install  lint ESLint  vite build  cypress E2E)
+     semgrep          (SAST — règles Node.js + React, fail sur ERROR)
+     trufflehog       (scan secrets dans tout l'historique git)
+             docker-build  (build images  Dockle audit  SBOM SPDX-JSON)
+                     docker-push  (GHCR :latest + :sha, main uniquement)
 ```
 
 **Contrôles de sécurité intégrés :**
@@ -113,10 +113,10 @@ validate-env
 - `AuditLog` : 30+ types d'actions, détails JSON, nettoyage RGPD automatique
 
 **Choix de conception :**
-- **Soft delete partout** → corbeille, restauration, conformité RGPD
-- **BigInt pour les tailles** → supporte les fichiers > 2GB sans overflow
+- **Soft delete partout**  corbeille, restauration, conformité RGPD
+- **BigInt pour les tailles**  supporte les fichiers > 2GB sans overflow
 - **JSON fields** pour les métadonnées flexibles (audit, notifications)
-- **Enums Prisma** pour les plans, statuts, rôles → type-safe dans tout le code
+- **Enums Prisma** pour les plans, statuts, rôles  type-safe dans tout le code
 
 ---
 
@@ -151,8 +151,8 @@ validate-env
 ## nginx — Reverse proxy frontend
 
 - Sert le build statique React (Vite) en `try_files $uri /index.html` (SPA routing)
-- Proxy `/api` → backend avec `proxy_request_buffering off` (streaming upload jusqu'à **5 GB**)
-- Proxy `/socket.io` → backend avec timeout 3600s (connexions WebSocket persistantes)
+- Proxy `/api`  backend avec `proxy_request_buffering off` (streaming upload jusqu'à **5 GB**)
+- Proxy `/socket.io`  backend avec timeout 3600s (connexions WebSocket persistantes)
 - `client_max_body_size 5G` — pas de limite artificielle sur les gros fichiers
 
 ---
@@ -179,56 +179,56 @@ Le backend Node.js reste léger et synchrone. Le traitement IA (embedding, LLM) 
 
 ```
 Fichier uploadé
-    │
-    ▼
+    
+    
 Backend extrait le texte (pdf-parse, mammoth, lecture TXT/MD)
-    │
-    ▼
+    
+    
 BrainService.embedFile() — fire-and-forget (non-bloquant pour l'upload)
-    │
-    ▼
+    
+    
 brain-api reçoit le texte brut (max 200 000 chars)
-    │
-    ▼
+    
+    
 Chunking : découpage par phrases, max 600 chars/chunk, overlap 2 phrases
-    │  → préserve le contexte entre les chunks
-    ▼
+       préserve le contexte entre les chunks
+    
 fastembed : modèle paraphrase-multilingual-MiniLM-L12-v2
-    │  → multilingue natif (FR/EN/DE...), 220 MB, local, gratuit
-    │  → embed() pour les documents (passage embeddings)
-    ▼
+       multilingue natif (FR/EN/DE...), 220 MB, local, gratuit
+       embed() pour les documents (passage embeddings)
+    
 ChromaDB : stockage vecteurs avec métadonnées { file_id, user_id, file_name, chunk_index }
-    │  → ID format : {file_id}__chunk_{n} (idempotent : purge avant re-indexation)
-    └  → collection "documents", distance cosinus, filtrage par user_id
+       ID format : {file_id}__chunk_{n} (idempotent : purge avant re-indexation)
+       collection "documents", distance cosinus, filtrage par user_id
 ```
 
 ### Pipeline de chat RAG (`POST /chat`)
 
 ```
 Utilisateur envoie un message + historique de conversation
-    │
-    ▼
+    
+    
 [Si historique] Reformulation de la question par le LLM
-    │  → résout les pronoms et références implicites
-    │  → ex: "Et cette facture ?" → "Quel est le montant de la facture de mars ?"
-    ▼
-fastembed.embed_query() → vecteur de la question
-    │
-    ▼
+       résout les pronoms et références implicites
+       ex: "Et cette facture ?"  "Quel est le montant de la facture de mars ?"
+    
+fastembed.embed_query()  vecteur de la question
+    
+    
 ChromaDB : 10 chunks les plus proches (filtré par user_id)
-    │
-    ▼
-Filtrage distance cosinus ≤ 0.55 (chunks non pertinents écartés)
-    │  → Si aucun chunk : réponse "aucun document trouvé"
-    ▼
+    
+    
+Filtrage distance cosinus  0.55 (chunks non pertinents écartés)
+       Si aucun chunk : réponse "aucun document trouvé"
+    
 Construction du prompt RAG :
-    │  contexte (3 000 chars max) + question reformulée + règles Bobby
-    ▼
-Ollama POST /api/chat → gemma2:2b
-    │  temperature: 0.1 (réponses factuelles, peu créatives)
-    │  num_predict: 512 tokens, timeout 120s
-    ▼
-Réponse retournée au backend → frontend
+      contexte (3 000 chars max) + question reformulée + règles Bobby
+    
+Ollama POST /api/chat  gemma2:2b
+      temperature: 0.1 (réponses factuelles, peu créatives)
+      num_predict: 512 tokens, timeout 120s
+    
+Réponse retournée au backend  frontend
 ```
 
 ### Isolation des données
@@ -268,7 +268,7 @@ Réponse retournée au backend → frontend
 
 | Décision | Alternative écartée | Raison |
 |---|---|---|
-| Microservice brain-api séparé | LLM dans le backend Node | Isolation des ressources, scalabilité GPU indépendante, crash LLM ≠ crash API |
+| Microservice brain-api séparé | LLM dans le backend Node | Isolation des ressources, scalabilité GPU indépendante, crash LLM  crash API |
 | ChromaDB | Pinecone, Weaviate | Open-source, auto-hébergé, Docker natif, pas d'abonnement SaaS |
 | fastembed | OpenAI text-embedding | Gratuit, local, multilingue, zéro dépendance cloud |
 | gemma2:2b | GPT-4o, Claude | Gratuit, local, fonctionne hors ligne, 3GB VRAM (swap CPU possible) |

@@ -24,7 +24,7 @@
 - Présentation rapide de l'équipe + rôles (30 sec)
 - Le problème : Cloud Act US vs Nextcloud trop technique — le gap du marché
 - Les 3 piliers : souveraineté (Scaleway/Outscale) / sécurité by design / IA on-premise
-- Stratégie : B2C pour l'acquisition → B2B comme moteur de revenus
+- Stratégie : B2C pour l'acquisition  B2B comme moteur de revenus
 - Prix clés : PRO 9,99 €, PME Tier 1 à 1 490 €/mois (marge ~45%), seuil rentabilité 2 PME
 - Comparatif concurrentiel (1 slide)
 - *Transition* : "Voici comment c'est construit…"
@@ -32,12 +32,12 @@
 ### 2. Architecte / Chef de projet — Architecture & Bobby (3 min)
 - Schéma 7 services Docker (1 slide visuel — indispensable)
 - CI/CD : SAST Semgrep + TruffleHog + Dockle + SBOM
-- Bobby en 3 étapes : text → fastembed → ChromaDB → Ollama (1 slide)
+- Bobby en 3 étapes : text  fastembed  ChromaDB  Ollama (1 slide)
 - *Transition* : "Le backend qui tient tout ça…"
 
 ### 3. Backend / Sécurité (3 min)
 - Architecture 3 couches + réponse API normalisée
-- JWT versionné (tokenVersion → déconnexion globale)
+- JWT versionné (tokenVersion  déconnexion globale)
 - KEK/DEK : PBKDF2 100k iter + AES-256-GCM (le point fort à expliquer)
 - MFA TOTP + vault lockout 5 tentatives
 - Rate limiting, Helmet, audit 30+ events
@@ -47,7 +47,7 @@
 - React 18 + Vite + Zustand (6 stores) — pas Redux
 - Drag & drop global, upload 3 simultanés, AbortController
 - Dark mode CSS variables + persisté en BDD
-- Palette vert sauge : choix délibéré ≠ bleu générique
+- Palette vert sauge : choix délibéré  bleu générique
 - Mobile : Expo SDK 54, expo-secure-store (Keychain/Keystore)
 - *Transition* : "On va vous montrer tout ça en live…"
 

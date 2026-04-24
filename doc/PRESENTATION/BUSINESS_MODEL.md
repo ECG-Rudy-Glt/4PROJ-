@@ -35,15 +35,15 @@ SUPFile est une plateforme de stockage cloud **souveraine et sécurisée**, héb
 | **Prix** | Gratuit | **9,99 €/mois** | **24,99 €/mois** | **Sur devis** |
 | **Marge brute** | — | ~60% | ~64% | — |
 | **Stockage** | 30 Go | 100 Go | 500 Go | Sur devis |
-| **IA Bobby** | ❌ | ✅ gemma3:2b | ✅ gemma3:9b | ✅ Modèle dédié |
-| **Coffre-fort chiffré** | ❌ | ✅ | ✅ | ✅ |
-| **Organisations** | ❌ | ❌ | ✅ | ✅ |
-| **Partage avancé** | Lien basique | ✅ mdp + expiration | ✅ | ✅ |
-| **OnlyOffice** | ❌ | ✅ | ✅ | ✅ |
-| **Versioning fichiers** | ❌ | 10 versions | 30 versions | Illimité |
+| **IA Bobby** |  |  gemma3:2b |  gemma3:9b |  Modèle dédié |
+| **Coffre-fort chiffré** |  |  |  |  |
+| **Organisations** |  |  |  |  |
+| **Partage avancé** | Lien basique |  mdp + expiration |  |  |
+| **OnlyOffice** |  |  |  |  |
+| **Versioning fichiers** |  | 10 versions | 30 versions | Illimité |
 | **Support** | Community | Email 48h | Email 24h | Account manager dédié |
 | **SLA** | Aucun | 99,5% | 99,7% | Sur devis |
-| **Garantie données France** | ✅ | ✅ | ✅ | ✅ |
+| **Garantie données France** |  |  |  |  |
 
 > Le plan **ENTERPRISE** est une passerelle vers le B2B — il s'adresse aux freelances avancés ou petites structures qui dépassent les limites BUSINESS. Au-delà, le commercial prend le relais avec une offre B2B dédiée (Tier 1 à partir de 1 490 €/mois).
 
@@ -61,7 +61,7 @@ SUPFile est une plateforme de stockage cloud **souveraine et sécurisée**, héb
 | **Total infrastructure** | | **~€1 035/mois** |
 
 **Coût infra par utilisateur :**
-- FREE : ~€0,44/utilisateur/mois (stockage seul : 30 Go × €0,0146)
+- FREE : ~€0,44/utilisateur/mois (stockage seul : 30 Go  €0,0146)
 - PRO : ~€4/utilisateur/mois (stockage + quote-part GPU mutualisé)
 - BUSINESS : ~€9/utilisateur/mois (stockage 500 Go + GPU dédié)
 
@@ -94,7 +94,7 @@ L'infrastructure est provisionnée à la demande sur **Scaleway** (standard) ou 
 | Serveur applicatif | PRO2-S (8 vCPU, 32 GB) | €159,87 |
 | Base de données | DB-POP2-2C-8G | €104,68 |
 | Object Storage | 1 To | €14,60 |
-| GPU IA | 1× L4-1-24G (gemma3:9b) | €547,50 |
+| GPU IA | 1 L4-1-24G (gemma3:9b) | €547,50 |
 | **Total infra** | | **~€826/mois** |
 | **Prix facturé** | **Marge ~45%** | **1 490 €/mois** |
 
@@ -110,7 +110,7 @@ Inclus : 50 utilisateurs max, 1 To stockage, IA gemma3:9b, support Standard (ema
 | Serveur applicatif | PRO2-M (16 vCPU, 64 GB) | €319,74 |
 | Base de données | DB-POP2-2C-8G (HA répliqué) | €209,36 |
 | Object Storage | 5 To | €73,00 |
-| GPU IA | 2× L4-1-24G (llama3:8b) | €1 095,00 |
+| GPU IA | 2 L4-1-24G (llama3:8b) | €1 095,00 |
 | **Total infra** | | **~€1 697/mois** |
 | **Prix facturé** | **Marge ~51%** | **3 490 €/mois** |
 
@@ -126,7 +126,7 @@ Infrastructure **Outscale SecNumCloud** avec **Kubernetes distribué (OKS)** :
 | Ressource | Config Outscale | Coût infra/mois |
 |---|---|---|
 | OKS Control Plane HA | 3 masters medium (@€0,26/h) | €228,00 |
-| Nœuds applicatifs | 4× VM compute optimisé | €800,00 |
+| Nœuds applicatifs | 4 VM compute optimisé | €800,00 |
 | Base de données HA | PostgreSQL cluster répliqué | €400,00 |
 | Object Storage | 20 To | €500,00 |
 | GPU IA | A100 80 GB (llama3:70b / Qwen 72B) | €2 592,00 |
@@ -158,8 +158,8 @@ Pour les grandes entreprises nécessitant des workflows IA complexes :
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/rag/chat` | Question en langage naturel → réponse générée par le LLM basée sur les documents indexés |
-| `POST /api/rag/search` | Recherche sémantique brute → retourne les chunks les plus proches avec leur score de distance |
+| `POST /api/rag/chat` | Question en langage naturel  réponse générée par le LLM basée sur les documents indexés |
+| `POST /api/rag/search` | Recherche sémantique brute  retourne les chunks les plus proches avec leur score de distance |
 
 #### Exemple d'usage
 
@@ -197,7 +197,7 @@ curl -X POST https://acme-corp.supfile.tech/api/rag/chat \
 | GPU upgrade (LLM tier supérieur) | Sur devis |
 | Formation utilisateurs (demi-journée, jusqu'à 20 pers.) | 1 500 € (one-shot) |
 | Audit de sécurité renforcé | 3 500 € (annuel) |
-| SLA upgrade (99,95% → 99,99%) | +20% sur abonnement mensuel |
+| SLA upgrade (99,95%  99,99%) | +20% sur abonnement mensuel |
 
 ---
 
@@ -212,8 +212,8 @@ curl -X POST https://acme-corp.supfile.tech/api/rag/chat \
 | **Point de reprise (RPO)** | 24h | 4h | 1h | 15 min |
 | **Fenêtre de maintenance** | Samedi 2h–6h | Samedi 2h–4h | Planifiée avec client | Sur validation client |
 | **Pénalités si SLA non respecté** | — | Avoir 5% MRR | Avoir 10% MRR | Avoir 15% MRR |
-| **Rapport de disponibilité mensuel** | ❌ | ✅ | ✅ | ✅ |
-| **Audit de sécurité annuel** | ❌ | ❌ | ✅ inclus | ✅ inclus |
+| **Rapport de disponibilité mensuel** |  |  |  |  |
+| **Audit de sécurité annuel** |  |  |  inclus |  inclus |
 
 ---
 
@@ -249,9 +249,9 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 | Localisation | Paris (PAR-1 et PAR-2) |
 | Certification | ISO 27001, HDS |
 | Object Storage | €0,0146/Go/mois (multi-AZ), egress €0,01/Go (75 Go gratuits/mois) |
-| GPU L4 24 GB VRAM | €0,75/h → **€547,50/mois** |
-| Instance PRO2-S | €0,219/h → **€159,87/mois** |
-| PostgreSQL managé | €0,1434/h → **~€104,68/mois** |
+| GPU L4 24 GB VRAM | €0,75/h  **€547,50/mois** |
+| Instance PRO2-S | €0,219/h  **€159,87/mois** |
+| PostgreSQL managé | €0,1434/h  **~€104,68/mois** |
 | Avantage clé | Meilleur rapport prix/performance GPU du marché européen |
 
 ### Outscale / Numspot — Plans B2B Tier 3/4 et Secteur Public
@@ -260,9 +260,9 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 |---|---|
 | Localisation | France uniquement (Paris, Saint-Omer) |
 | Certification | **SecNumCloud qualifié ANSSI** — seule qualification obligatoire pour OIV, santé (HDS), État |
-| GPU A100 80 GB | €3,60–4,32/h → **~€2 592–3 110/mois** |
-| GPU H100 | €4,00–4,80/h → **~€2 880–3 456/mois** |
-| OKS Kubernetes HA | €0,26/h (3 masters medium) → **~€228/mois** |
+| GPU A100 80 GB | €3,60–4,32/h  **~€2 592–3 110/mois** |
+| GPU H100 | €4,00–4,80/h  **~€2 880–3 456/mois** |
+| OKS Kubernetes HA | €0,26/h (3 masters medium)  **~€228/mois** |
 | Avantage clé | Seul hébergeur permettant de traiter des données sensibles classifiées |
 
 ---
@@ -271,12 +271,12 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 
 | Tier | Modèle | VRAM nécessaire (Q4_K_M) | GPU | Coût GPU/mois |
 |---|---|---|---|---|
-| PRO B2C | gemma3:2b | ~3 GB | L4 24 GB (mutualisé ÷ utilisateurs) | ~€18/user |
+| PRO B2C | gemma3:2b | ~3 GB | L4 24 GB (mutualisé  utilisateurs) | ~€18/user |
 | BUSINESS B2C | gemma3:9b | ~7 GB | L4 24 GB | ~€30/user |
-| PME Tier 1 | gemma3:9b | ~8 GB | 1× L4 24 GB dédié | €547/mois |
-| ETI Tier 2 | llama3:8b | ~8 GB | 2× L4 24 GB dédiés | €1 095/mois |
+| PME Tier 1 | gemma3:9b | ~8 GB | 1 L4 24 GB dédié | €547/mois |
+| ETI Tier 2 | llama3:8b | ~8 GB | 2 L4 24 GB dédiés | €1 095/mois |
 | Grand Compte Tier 3 | llama3:70b / Qwen 72B | ~42 GB | A100 80 GB | ~€2 800/mois |
-| Enterprise Tier 4 | Multi-LLM + GraphRAG | 80–160 GB | 2× A100 ou H100 | ~€5 500–6 900/mois |
+| Enterprise Tier 4 | Multi-LLM + GraphRAG | 80–160 GB | 2 A100 ou H100 | ~€5 500–6 900/mois |
 
 > **Q4_K_M** : quantisation 4-bit, réduit les besoins VRAM de ~75% par rapport au FP16 avec une perte de qualité négligeable — standard de production pour l'inférence locale.
 
@@ -330,12 +330,12 @@ Coût infra B2B Tier 3 : ~€4 520/mois (dédié par client, Outscale)
 
 | Critère | **SUPFile** | Dropbox Business | Google Workspace | Nextcloud Enterprise |
 |---|---|---|---|---|
-| Données hébergées en France | ✅ Garanti | ❌ USA | ❌ USA | ✅ Auto-hébergé |
-| SecNumCloud (ANSSI) | ✅ Outscale | ❌ | ❌ | ⚠️ Selon config |
-| IA embarquée on-premise | ✅ LLM local | ❌ | ⚠️ Gemini (cloud US) | ❌ |
-| Chiffrement au repos (KEK/DEK) | ✅ AES-256 | ⚠️ Basique | ⚠️ Basique | ✅ |
-| MFA natif | ✅ TOTP + backup codes | ✅ | ✅ | ✅ |
+| Données hébergées en France |  Garanti |  USA |  USA |  Auto-hébergé |
+| SecNumCloud (ANSSI) |  Outscale |  |  |  Selon config |
+| IA embarquée on-premise |  LLM local |  |  Gemini (cloud US) |  |
+| Chiffrement au repos (KEK/DEK) |  AES-256 |  Basique |  Basique |  |
+| MFA natif |  TOTP + backup codes |  |  |  |
 | Prix PME 50 users | ~1 490 €/mois | ~1 200 €/mois | ~900 €/mois | ~400 €/mois (licence seule) |
-| Hébergement managé inclus | ✅ | ✅ | ✅ | ❌ (auto-géré) |
+| Hébergement managé inclus |  |  |  |  (auto-géré) |
 
 > **Le premium tarifaire vs Nextcloud** est justifié par : hébergement managé clé en main, conformité SecNumCloud sans effort, IA locale souveraine et support SLA — là où Nextcloud nécessite une équipe technique interne dédiée.

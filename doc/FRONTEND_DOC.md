@@ -27,18 +27,18 @@ Basé sur **React 18 + Vite + TypeScript**.
 
 ```
 frontend/src/
-├── App.tsx              # Définition du routing React Router
-├── main.tsx             # Point d'entrée — BrowserRouter, i18n, stores
-├── components/          # Composants réutilisables
-├── pages/               # Pages (mappées aux routes)
-├── services/            # Clients HTTP (un par domaine métier)
-├── stores/              # État global Zustand
-├── hooks/               # Hooks personnalisés
-├── i18n/                # Configuration i18next + locales (fr/en)
-├── constants/           # Constantes (ex: plans)
-├── types/               # Types TypeScript partagés
-├── styles/              # CSS global
-└── utils/               # Utilitaires
+ App.tsx              # Définition du routing React Router
+ main.tsx             # Point d'entrée — BrowserRouter, i18n, stores
+ components/          # Composants réutilisables
+ pages/               # Pages (mappées aux routes)
+ services/            # Clients HTTP (un par domaine métier)
+ stores/              # État global Zustand
+ hooks/               # Hooks personnalisés
+ i18n/                # Configuration i18next + locales (fr/en)
+ constants/           # Constantes (ex: plans)
+ types/               # Types TypeScript partagés
+ styles/              # CSS global
+ utils/               # Utilitaires
 ```
 
 ---
@@ -62,7 +62,7 @@ Elles sont encapsulées dans le composant `Layout` (Header + Sidebar).
 
 | Route | Page | Description |
 |---|---|---|
-| `/` | → redirect `/dashboard` | |
+| `/` |  redirect `/dashboard` | |
 | `/dashboard` | `DashboardPage` | Tableau de bord (quota, fichiers récents, graphiques) |
 | `/files` | `FilesPage` | Gestionnaire de fichiers (racine) |
 | `/files/:folderId` | `FilesPage` | Gestionnaire de fichiers (dossier spécifique) |
@@ -87,7 +87,7 @@ Elles sont encapsulées dans le composant `Layout` (Header + Sidebar).
 Formulaire de connexion avec :
 - Email / password
 - Boutons OAuth2 (Google, GitHub)
-- Gestion du flow MFA : si `mfaRequired` → redirige vers `/mfa-verify`, si `mfaSetupRequired` → ouvre `MFASetupModal`
+- Gestion du flow MFA : si `mfaRequired`  redirige vers `/mfa-verify`, si `mfaSetupRequired`  ouvre `MFASetupModal`
 
 ### `RegisterPage`
 Formulaire d'inscription (prénom, nom, email, password) avec validation.
@@ -309,9 +309,9 @@ baseURL = VITE_API_URL + /api   (ou /api si non défini)
 - Bloque les requêtes HTTP non-localhost si `VITE_REQUIRE_HTTPS=true`
 
 **Intercepteur response :**
-- `401 + SESSION_EXPIRED` → redirige vers `/login?expired=true`
-- `401` standard → supprime le token, redirige vers `/login`
-- `401 + REAUTH_REQUIRED` → laisse passer (géré localement, ex: MFA)
+- `401 + SESSION_EXPIRED`  redirige vers `/login?expired=true`
+- `401` standard  supprime le token, redirige vers `/login`
+- `401 + REAUTH_REQUIRED`  laisse passer (géré localement, ex: MFA)
 
 ---
 
@@ -327,19 +327,19 @@ VITE_REQUIRE_HTTPS=false               # Bloquer les requêtes non-HTTPS
 ## Flow d'authentification complet
 
 ```
-1. LoginPage → POST /api/auth/login
-   ├── Réponse: { token, user }          → stocke token, redirige /dashboard
-   ├── Réponse: { mfaRequired, tempToken } → redirige /mfa-verify
-   └── Réponse: { mfaSetupRequired, tempToken } → ouvre MFASetupModal
+1. LoginPage  POST /api/auth/login
+    Réponse: { token, user }           stocke token, redirige /dashboard
+    Réponse: { mfaRequired, tempToken }  redirige /mfa-verify
+    Réponse: { mfaSetupRequired, tempToken }  ouvre MFASetupModal
 
-2. MFAVerificationPage → POST /api/mfa/verify
-   └── Réponse: { token, user }          → stocke token, redirige /dashboard
+2. MFAVerificationPage  POST /api/mfa/verify
+    Réponse: { token, user }           stocke token, redirige /dashboard
 
-3. MFASetupModal → POST /api/mfa/setup → POST /api/mfa/verify-setup
-   └── Réponse: { backupCodes, token }   → ouvre BackupCodesModal
+3. MFASetupModal  POST /api/mfa/setup  POST /api/mfa/verify-setup
+    Réponse: { backupCodes, token }    ouvre BackupCodesModal
 
-4. OAuthCallbackPage → extrait token depuis URL → setAuthToken → redirige /dashboard
+4. OAuthCallbackPage  extrait token depuis URL  setAuthToken  redirige /dashboard
 
-5. Chaque requête API → Authorization: Bearer <token>
-   └── 401 → logout + redirect /login
+5. Chaque requête API  Authorization: Bearer <token>
+    401  logout + redirect /login
 ```

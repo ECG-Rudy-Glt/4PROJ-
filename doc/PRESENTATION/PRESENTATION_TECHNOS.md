@@ -5,14 +5,14 @@
 ## Vue d'ensemble
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend          Backend          Brain-API      Infra     │
-│  React 18          Node.js 20       Python 3       Docker    │
-│  TypeScript        TypeScript       FastAPI        nginx     │
-│  Vite              Express          Ollama         MinIO     │
-│  TailwindCSS       Prisma           ChromaDB       Postgres  │
-│  Zustand           Socket.IO        fastembed      OnlyOffice│
-└─────────────────────────────────────────────────────────────┘
+
+  Frontend          Backend          Brain-API      Infra     
+  React 18          Node.js 20       Python 3       Docker    
+  TypeScript        TypeScript       FastAPI        nginx     
+  Vite              Express          Ollama         MinIO     
+  TailwindCSS       Prisma           ChromaDB       Postgres  
+  Zustand           Socket.IO        fastembed      OnlyOffice
+
 ```
 
 ---

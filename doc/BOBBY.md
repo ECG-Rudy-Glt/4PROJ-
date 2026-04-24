@@ -1,4 +1,4 @@
-# 🧠 brain-api — Documentation
+#  brain-api — Documentation
 
 Microservice Python dédié à l'IA de SUPFile (l'assistant **Bobby**).  
 Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement par le backend Node.js** — jamais directement par le frontend.
@@ -21,20 +21,20 @@ Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement
 
 ```
 Frontend (React)
-     │
-     ▼
-Backend (Node.js / Express)          ← point d'entrée unique pour le frontend
-     │   └── BrainService.ts         ← client HTTP interne (retry 3x, timeout 30-120s)
-     │
-     ▼
-brain-api (Python / FastAPI) :8001   ← ce microservice
-     ├── /embed     → ChromaDB  (indexation vectorielle)
-     ├── /search    → ChromaDB  (recherche sémantique)
-     ├── /chat      → ChromaDB + Ollama  (RAG + LLM)
-     ├── /analyze   → Ollama  (analyse directe, sans RAG)
-     └── /generate  → Ollama  (génération libre)
-          │
-          ▼
+     
+     
+Backend (Node.js / Express)           point d'entrée unique pour le frontend
+         BrainService.ts          client HTTP interne (retry 3x, timeout 30-120s)
+     
+     
+brain-api (Python / FastAPI) :8001    ce microservice
+      /embed      ChromaDB  (indexation vectorielle)
+      /search     ChromaDB  (recherche sémantique)
+      /chat       ChromaDB + Ollama  (RAG + LLM)
+      /analyze    Ollama  (analyse directe, sans RAG)
+      /generate   Ollama  (génération libre)
+          
+          
      Ollama :11434  (container séparé, modèle gemma2:2b)
 ```
 
@@ -168,10 +168,10 @@ Recherche les documents pertinents puis génère une réponse contextualisée vi
 ```
 
 **Flux interne :**
-1. Si `history` non vide → reformulation de la question par le LLM pour lever les ambiguïtés (pronoms, références implicites)
-2. Recherche sémantique : 10 chunks récupérés, filtrés (distance ≤ 0.55)
-3. Si chunks pertinents → prompt RAG avec contexte
-4. Si aucun chunk → réponse "Aucun document trouvé"
+1. Si `history` non vide  reformulation de la question par le LLM pour lever les ambiguïtés (pronoms, références implicites)
+2. Recherche sémantique : 10 chunks récupérés, filtrés (distance  0.55)
+3. Si chunks pertinents  prompt RAG avec contexte
+4. Si aucun chunk  réponse "Aucun document trouvé"
 5. Génération via Ollama (timeout 120s)
 
 **Erreurs :**
@@ -237,8 +237,8 @@ Utilisé par le backend pour créer un fichier texte généré par IA.
 | Max chunks par recherche | 20 |
 | Contexte LLM utilisé | 3 000 chars (~750 tokens) |
 | Timeout Ollama (chat / analyze / generate) | 120 secondes |
-| Retry backend → brain-api | 3 tentatives (backoff exponentiel 1s, 2s) |
-| Filtre de distance cosinus (chat RAG) | ≤ 0.55 |
+| Retry backend  brain-api | 3 tentatives (backoff exponentiel 1s, 2s) |
+| Filtre de distance cosinus (chat RAG) |  0.55 |
 
 ---
 

@@ -34,7 +34,7 @@
 - Renommage de fichier
 - Déplacement de fichier vers un autre dossier
 - Marquage / démarquage en favori
-- Suppression (soft delete → corbeille)
+- Suppression (soft delete  corbeille)
 - Suppression permanente
 - Restauration depuis la corbeille
 - Corbeille avec affichage des jours restants avant purge (90 jours)
@@ -78,7 +78,7 @@
 - Recherche dans le contenu indexé des fichiers (PDF, TXT, MD…)
 - Recherche sémantique par IA (RAG — si brain-api actif)
 - Filtrage par type MIME (images, vidéos, audio, PDF, documents…)
-- Filtrage par date (plage from → to)
+- Filtrage par date (plage from  to)
 - Filtrage par taille (min / max)
 - Tri par nom, date, taille (croissant / décroissant)
 - Recherche d'utilisateurs pour le partage

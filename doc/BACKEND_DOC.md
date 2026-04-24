@@ -1,4 +1,4 @@
-# 🖥️ Backend — Documentation Technique
+#  Backend — Documentation Technique
 
 API REST Express / TypeScript du projet **SUPFile**.  
 Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
@@ -25,18 +25,18 @@ Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
 ## Structure des dossiers
 
 backend/
-├── src/                  # Code source TypeScript
-│   ├── config/           # Configuration transversale
-│   ├── controllers/      # Couche HTTP — gère req/res, délègue aux services
-│   ├── middlewares/      # Middlewares Express
-│   ├── routes/           # Définition des routes
-│   ├── services/         # Logique métier
-│   ├── types/            # Types TypeScript partagés
-│   ├── utils/            # Utilitaires (cors, helpers)
-│   └── index.ts          # Point d'entrée App
-├── entrypoint.sh         # Script de démarrage Docker (migrations + app)
-├── Dockerfile            # Image de production
-└── prisma/               # Schéma et migrations database
+ src/                  # Code source TypeScript
+    config/           # Configuration transversale
+    controllers/      # Couche HTTP — gère req/res, délègue aux services
+    middlewares/      # Middlewares Express
+    routes/           # Définition des routes
+    services/         # Logique métier
+    types/            # Types TypeScript partagés
+    utils/            # Utilitaires (cors, helpers)
+    index.ts          # Point d'entrée App
+ entrypoint.sh         # Script de démarrage Docker (migrations + app)
+ Dockerfile            # Image de production
+ prisma/               # Schéma et migrations database
 ```
 
 ---
@@ -103,18 +103,18 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
-| POST | `/register` | ❌ | Inscription (email + password, validé) |
-| POST | `/login` | ❌ | Connexion locale |
-| POST | `/logout-all` | ✅ | Révoque tous les refresh tokens |
-| GET | `/profile` | ✅ | Infos utilisateur courant |
-| PUT | `/profile` | ✅ | Mise à jour du profil |
-| POST | `/avatar` | ✅ | Upload avatar (multipart) |
-| POST | `/change-password` | ✅ | Changement de mot de passe |
-| GET | `/export-data` | ✅ | Export RGPD des données utilisateur |
-| GET | `/google` | ❌ | Redirection OAuth2 Google |
-| GET | `/google/callback` | ❌ | Callback Google → JWT |
-| GET | `/github` | ❌ | Redirection OAuth2 GitHub |
-| GET | `/github/callback` | ❌ | Callback GitHub → JWT |
+| POST | `/register` |  | Inscription (email + password, validé) |
+| POST | `/login` |  | Connexion locale |
+| POST | `/logout-all` |  | Révoque tous les refresh tokens |
+| GET | `/profile` |  | Infos utilisateur courant |
+| PUT | `/profile` |  | Mise à jour du profil |
+| POST | `/avatar` |  | Upload avatar (multipart) |
+| POST | `/change-password` |  | Changement de mot de passe |
+| GET | `/export-data` |  | Export RGPD des données utilisateur |
+| GET | `/google` |  | Redirection OAuth2 Google |
+| GET | `/google/callback` |  | Callback Google  JWT |
+| GET | `/github` |  | Redirection OAuth2 GitHub |
+| GET | `/github/callback` |  | Callback GitHub  JWT |
 
 ---
 
@@ -163,8 +163,8 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 #### Liens publics (non-authentifiés)
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
-| GET | `/:token` | ❌ | Accès à un fichier / dossier partagé publiquement |
-| GET | `/:token/download` | ❌ | Télécharger via lien public |
+| GET | `/:token` |  | Accès à un fichier / dossier partagé publiquement |
+| GET | `/:token/download` |  | Télécharger via lien public |
 
 #### Gestion des liens
 | Méthode | Route | Permission | Description |
@@ -209,15 +209,15 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
-| POST | `/setup` | ✅ | Génère le secret TOTP + QR code |
-| POST | `/verify-setup` | ✅ | Valide le premier code → active le MFA |
-| POST | `/verify` | ❌ (tempToken) | Vérifie un code TOTP lors du login |
-| POST | `/verify-backup-code` | ❌ (tempToken) | Vérifie un code de secours |
-| POST | `/regenerate-codes` | ✅ | Régénère les codes de secours |
-| GET | `/trusted-devices` | ✅ | Liste des appareils de confiance |
-| DELETE | `/trusted-devices/:deviceId` | ✅ | Révoquer un appareil |
-| POST | `/disable` | ✅ | Désactiver le MFA |
-| GET | `/status` | ✅ | Statut MFA de l'utilisateur |
+| POST | `/setup` |  | Génère le secret TOTP + QR code |
+| POST | `/verify-setup` |  | Valide le premier code  active le MFA |
+| POST | `/verify` |  (tempToken) | Vérifie un code TOTP lors du login |
+| POST | `/verify-backup-code` |  (tempToken) | Vérifie un code de secours |
+| POST | `/regenerate-codes` |  | Régénère les codes de secours |
+| GET | `/trusted-devices` |  | Liste des appareils de confiance |
+| DELETE | `/trusted-devices/:deviceId` |  | Révoquer un appareil |
+| POST | `/disable` |  | Désactiver le MFA |
+| GET | `/status` |  | Statut MFA de l'utilisateur |
 
 ---
 
@@ -277,11 +277,11 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
-| GET | `/status` | ✅ | Statut du vault (setup, ouvert/fermé) |
-| POST | `/setup` | ✅ (non-délégué) | Configurer le vault (clé dédiée) |
-| POST | `/unlock` | ✅ (non-délégué) | Déverrouiller le vault |
-| POST | `/lock` | ✅ (non-délégué) | Verrouiller le vault |
-| POST | `/rotate-password` | ✅ (non-délégué) | Changer le mot de passe du vault |
+| GET | `/status` |  | Statut du vault (setup, ouvert/fermé) |
+| POST | `/setup` |  (non-délégué) | Configurer le vault (clé dédiée) |
+| POST | `/unlock` |  (non-délégué) | Déverrouiller le vault |
+| POST | `/lock` |  (non-délégué) | Verrouiller le vault |
+| POST | `/rotate-password` |  (non-délégué) | Changer le mot de passe du vault |
 
 > Les routes vault sont toutes **bloquées en session déléguée** (sécurité).
 
@@ -393,7 +393,7 @@ GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 
 # IA
-BRAIN_API_URL=http://brain-api:8001   # Si absent → fonctionnalités RAG désactivées
+BRAIN_API_URL=http://brain-api:8001   # Si absent  fonctionnalités RAG désactivées
 
 # CORS & HTTPS
 ALLOWED_ORIGINS=http://localhost:3000,https://supfile.fr

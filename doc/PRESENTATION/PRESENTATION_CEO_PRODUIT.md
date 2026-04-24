@@ -89,7 +89,7 @@ Pour faire tourner SUPFile en production, le coût humain mensuel post-lancement
 | Infrastructure & DevOps | Géré par l'équipe fondatrice (0 € initial) | — |
 | **Total RH opérationnel de base** | | **~4 000 €/mois** |
 
-**Seuil de rentabilité** : 2 clients PME Tier 1 (2 × 1 490 €) + ~200 utilisateurs payants B2C couvrent les charges fixes d'exploitation (infra + RH).
+**Seuil de rentabilité** : 2 clients PME Tier 1 (2  1 490 €) + ~200 utilisateurs payants B2C couvrent les charges fixes d'exploitation (infra + RH).
 
 ---
 
@@ -97,10 +97,10 @@ Pour faire tourner SUPFile en production, le coût humain mensuel post-lancement
 
 | | **SUPFile** | Dropbox | Google | Nextcloud |
 |---|---|---|---|---|
-| Données en France | ✅ | ❌ USA | ❌ USA | ✅ auto-hébergé |
-| SecNumCloud ANSSI | ✅ Outscale | ❌ | ❌ | ⚠️ |
-| IA on-premise | ✅ LLM local | ❌ | ⚠️ cloud US | ❌ |
-| Clé en main | ✅ | ✅ | ✅ | ❌ (auto-géré) |
+| Données en France |  |  USA |  USA |  auto-hébergé |
+| SecNumCloud ANSSI |  Outscale |  |  |  |
+| IA on-premise |  LLM local |  |  cloud US |  |
+| Clé en main |  |  |  |  (auto-géré) |
 
 Le premium tarifaire vs Nextcloud se justifie : hébergement managé, conformité SecNumCloud, IA locale et SLA — là où Nextcloud nécessite une équipe interne.
 

@@ -8,7 +8,7 @@
 - **Vite 6** comme bundler : démarrage < 300ms, HMR instantané, build optimisé (tree-shaking)
 - **React Router v6** avec layout nesting : routes publiques / protégées / admin dans une seule arborescence
 - **TailwindCSS 3.4** utility-first — design system cohérent sans CSS custom, dark mode via stratégie `class`
-- Architecture 4 couches : pages → composants → services → stores
+- Architecture 4 couches : pages  composants  services  stores
 
 ---
 
@@ -28,14 +28,14 @@
 ## Routing & protection des routes
 
 ```
-/login, /register, /mfa-verify, /auth/callback  →  public
-/share/:token                                    →  public (lien partagé sans compte)
-<ProtectedRoute>                                 →  vérifie isAuthenticated (Zustand)
-  <Layout>                                       →  Sidebar + Header + AIChatbot + UploadModal
+/login, /register, /mfa-verify, /auth/callback    public
+/share/:token                                      public (lien partagé sans compte)
+<ProtectedRoute>                                   vérifie isAuthenticated (Zustand)
+  <Layout>                                         Sidebar + Header + AIChatbot + UploadModal
     /dashboard, /files/:folderId, /favorites
     /shared, /trash, /settings, /plans
     /organization-admin, /audit
-    <AdminRoute>  →  /admin (super-admin uniquement)
+    <AdminRoute>    /admin (super-admin uniquement)
 ```
 
 - **ProtectedRoute** : redirige vers `/login` si non authentifié, monte `SocketListener` pour le temps réel
@@ -67,7 +67,7 @@
 | Accent bright | `#E8B84A` (moutarde) | `#F0C96B` |
 | Fond cards | `#F5F3EF` (blanc cassé) | `#2D2D2D` (anthracite) |
 
-- Préférence persistée en BDD (pas de localStorage raw) → survit à la déconnexion / changement d'appareil
+- Préférence persistée en BDD (pas de localStorage raw)  survit à la déconnexion / changement d'appareil
 
 ---
 
@@ -82,12 +82,12 @@
 - **Vérification quota avant enqueue** : fichier refusé si `quotaUsé + taille > quotaLimit` (côté client ET côté serveur)
 - **3 uploads simultanés** (CONCURRENT = 3) — pas de flood réseau, pas d'attente séquentielle
 - **AbortController** par fichier : bouton "Annuler" par fichier ou "Tout annuler"
-- Progression transmise par callback axios (`onUploadProgress`) → mise à jour store en temps réel
+- Progression transmise par callback axios (`onUploadProgress`)  mise à jour store en temps réel
 
 ### UploadModal
-- Barre de progression par fichier (gradient `primary-500 → primary-600`)
+- Barre de progression par fichier (gradient `primary-500  primary-600`)
 - Progression globale = moyenne pondérée des fichiers en cours
-- Icône statut : spinner (en cours), ✓ vert (terminé), ✗ rouge (erreur)
+- Icône statut : spinner (en cours),  vert (terminé),  rouge (erreur)
 - Rechargement automatique du dossier courant à la fin du batch
 
 ---
@@ -95,7 +95,7 @@
 ## Drag & drop — déplacement de fichiers
 
 - Attribut custom `dataTransfer` : `'application/supfile-item'` avec `{ id, type: 'file'|'folder' }`
-- `effectAllowed: 'move'` → curseur OS en mode déplacement
+- `effectAllowed: 'move'`  curseur OS en mode déplacement
 - Cible de drop : highlight visuel (bordure + fond) sur le dossier survolé
 - Validation : impossible de déposer un dossier dans lui-même
 - Toast de confirmation après déplacement réussi
@@ -105,15 +105,15 @@
 ## Temps réel — Socket.IO Client
 
 - Connexion authentifiée : `io(url, { auth: { token }, transports: ['websocket', 'polling'] })`
-- Fallback automatique WebSocket → long-polling si réseau restrictif
+- Fallback automatique WebSocket  long-polling si réseau restrictif
 
 | Événement reçu | Déclencheur UI |
 |---|---|
 | `comment_added` | Toast avec avatar + nom du commentateur |
 | `share_received` | Toast vert + rafraîchissement des partages |
 | `share_accepted` | Toast de confirmation |
-| `file_uploaded` | `refreshProfile()` → mise à jour quota affiché |
-| `file_deleted` | `refreshProfile()` → mise à jour quota |
+| `file_uploaded` | `refreshProfile()`  mise à jour quota affiché |
+| `file_deleted` | `refreshProfile()`  mise à jour quota |
 | `notification_new` | Ajout au centre de notifications (badge +1) |
 
 ---
@@ -122,7 +122,7 @@
 
 | Format | Rendu |
 |---|---|
-| **Images** (JPG, PNG, GIF, WebP…) | Blob → ObjectURL (libéré à la fermeture) |
+| **Images** (JPG, PNG, GIF, WebP…) | Blob  ObjectURL (libéré à la fermeture) |
 | **Vidéo** (MP4, AVI, MKV…) | `<video>` natif, `preload="metadata"`, streaming |
 | **Audio** (MP3, WAV, FLAC…) | `<audio>` natif avec player |
 | **Markdown** | `react-markdown` + `remark-breaks` + coloration syntaxique |
@@ -144,7 +144,7 @@
 - Rendu des réponses en **Markdown** (listes, code, titres)
 - `Shift+Enter` pour saut de ligne, `Enter` pour envoyer
 - Auto-scroll vers le bas sur chaque nouveau message
-- Gestion d'erreur : quota dépassé (429) → toast dédié, erreur réseau → message d'erreur inline
+- Gestion d'erreur : quota dépassé (429)  toast dédié, erreur réseau  message d'erreur inline
 
 ---
 
@@ -166,7 +166,7 @@
 - **Shimmer** : animation CSS background-position pour les états de chargement
 - **Focus ring** sur tous les inputs (accessibilité clavier)
 - **Modals** : portal fixed inset-0, z-50, fermeture ESC + clic extérieur
-- **Responsive** : layout sidebar collapsible, grille adaptative (desktop → tablette)
+- **Responsive** : layout sidebar collapsible, grille adaptative (desktop  tablette)
 - Toutes les actions destructives ont une **confirmation** (suppression, vidage corbeille)
 
 ---
@@ -176,7 +176,7 @@
 | Choix | Alternative écartée | Raison |
 |---|---|---|
 | Zustand | Redux, Context API | 80% moins de boilerplate, pas de Provider hell, DevTools intégrés |
-| Vite | CRA, Webpack | 10× plus rapide en dev, ESM natif, build optimisé out-of-the-box |
+| Vite | CRA, Webpack | 10 plus rapide en dev, ESM natif, build optimisé out-of-the-box |
 | TailwindCSS | CSS Modules, styled-components | Cohérence design, pas de CSS mort, dark mode via `class` trivial |
 | react-hot-toast | react-toastify | API minimaliste, animations CSS custom, plus léger (3kb) |
 | Recharts | Chart.js, D3 | Composants React natifs, responsive, customisable sans DOM direct |
@@ -217,15 +217,15 @@
 
 ```
 App.tsx
-  SafeAreaProvider → NavigationContainer
-    ├── RootNavigator        (branchement auth / main)
-    │    ├── Auth Stack      (Login, Register, MfaVerify)
-    │    └── Main Stack
-    │         ├── TabNavigator  (5 onglets bottom)
-    │         ├── TrashScreen   (plein écran)
-    │         └── AdminScreen   (plein écran)
-    ├── SocketListener       (temps réel — monté si authentifié)
-    └── Toast                (global)
+  SafeAreaProvider  NavigationContainer
+     RootNavigator        (branchement auth / main)
+         Auth Stack      (Login, Register, MfaVerify)
+         Main Stack
+              TabNavigator  (5 onglets bottom)
+              TrashScreen   (plein écran)
+              AdminScreen   (plein écran)
+     SocketListener       (temps réel — monté si authentifié)
+     Toast                (global)
 ```
 
 **5 onglets bottom tabs :**
@@ -245,7 +245,7 @@ App.tsx
 - **Authentification** : login email/password, register, MFA setup (QR code + deep-link Authenticator) + vérification
 - **Explorateur de fichiers** : navigation dossiers avec breadcrumbs, liste fichiers/dossiers, recherche globale
 - **Upload** : sélection via document picker OU galerie photo/vidéo, barre de progression animée par fichier (XMLHttpRequest natif), annulation, vérification quota
-- **Actions fichiers** : appui long → menu contextuel (renommer, déplacer, supprimer, partager, favoris)
+- **Actions fichiers** : appui long  menu contextuel (renommer, déplacer, supprimer, partager, favoris)
 - **Prévisualisation** : images, vidéo (expo-video), audio, PDF (WebView), documents Office (WebView)
 - **Partage** : onglets "En attente / Avec moi / Par moi", acceptation/refus d'invitations, permissions affichées (lecture/écriture/suppression/partage)
 - **Dashboard** : quota coloré (vert < 70% / orange < 90% / rouge), stats (total fichiers, taille, types), fichiers récents
@@ -267,7 +267,7 @@ App.tsx
 | Navigation | React Router (URL) | React Navigation (stack + tabs) |
 | Stockage token | localStorage | expo-secure-store (chiffré OS) |
 | Progression upload | Axios `onUploadProgress` | XMLHttpRequest natif (plus compatible RN) |
-| Déplacement fichiers | Drag & drop HTML5 | Appui long → menu contextuel |
+| Déplacement fichiers | Drag & drop HTML5 | Appui long  menu contextuel |
 | Thème dark | Tailwind CSS class toggle | Tokens définis, bascule non encore câblée |
 | Éditeur Office | OnlyOffice intégré | Prévisualisation WebView uniquement |
 | i18n | i18next complet (FR/EN) | Non implémenté (français uniquement) |
@@ -280,11 +280,11 @@ Palette identique au web (`#254441` primary, `#D4785C` accent warm, `#E8B84A` ac
 
 ```
 src/theme/
-├── colors.ts      — palette complète (primary, accent, semantic, neutral)
-├── typography.ts  — h1-h4, body, caption, label, button
-├── spacing.ts     — grille xs / sm / md / lg / xl / 2xl / 3xl / 4xl
-├── shadows.ts     — sm / md / lg / xl / 2xl
-└── index.ts       — export global
+ colors.ts      — palette complète (primary, accent, semantic, neutral)
+ typography.ts  — h1-h4, body, caption, label, button
+ spacing.ts     — grille xs / sm / md / lg / xl / 2xl / 3xl / 4xl
+ shadows.ts     — sm / md / lg / xl / 2xl
+ index.ts       — export global
 ```
 
 Styles via `StyleSheet.create()` par composant — performances optimisées (pas de recalcul CSS).

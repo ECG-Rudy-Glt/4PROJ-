@@ -29,7 +29,7 @@ Chaque action critique déclenche un retour visuel :
 
 Toasts animés (entrée slide, sortie fade) pour confirmations et erreurs
 Barre de progression par fichier pendant l'upload
-Indicateur de quota en couleur : vert → orange (75%) → rouge (90%)
+Indicateur de quota en couleur : vert  orange (75%)  rouge (90%)
 Badge sur la sidebar pour les partages en attente
 Shimmer/skeleton pendant les chargements
 Iconographie unifiée (Lucide React)
