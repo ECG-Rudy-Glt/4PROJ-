@@ -27,15 +27,17 @@ export const authService = {
     lastName?: string;
     avatar?: string;
     theme?: string;
+    language?: string;
   }) {
     const response = await api.put('/auth/profile', data);
     return response.data.data || response.data;
   },
 
-  async changePassword(oldPassword: string, newPassword: string) {
+  async changePassword(oldPassword: string, newPassword: string, mfaCode?: string) {
     const response = await api.post('/auth/change-password', {
       oldPassword,
       newPassword,
+      mfaCode,
     });
     return response.data.data || response.data;
   },

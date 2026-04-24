@@ -25,6 +25,7 @@ export default function SettingsPage() {
     oldPassword: '',
     newPassword: '',
     confirmPassword: '',
+    mfaCode: '',
   });
   const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null);
   const [vaultSetup, setVaultSetup] = useState({ password: '', totpCode: '' });
@@ -114,9 +115,13 @@ export default function SettingsPage() {
     }
 
     try {
-      await authService.changePassword(password.oldPassword, password.newPassword);
+      await authService.changePassword(
+        password.oldPassword,
+        password.newPassword,
+        password.mfaCode.trim() || undefined
+      );
       toast.success(t('settings.change_password')); // Simplified
-      setPassword({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      setPassword({ oldPassword: '', newPassword: '', confirmPassword: '', mfaCode: '' });
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
     }
@@ -229,7 +234,10 @@ export default function SettingsPage() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => i18n.changeLanguage('fr')}
+              onClick={() => {
+                i18n.changeLanguage('fr');
+                updateProfile({ language: 'fr' }).catch(console.error);
+              }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 i18n.language.startsWith('fr')
                   ? 'bg-primary-500 text-white shadow-md'
@@ -239,7 +247,10 @@ export default function SettingsPage() {
                Français
             </button>
             <button
-              onClick={() => i18n.changeLanguage('en')}
+              onClick={() => {
+                i18n.changeLanguage('en');
+                updateProfile({ language: 'en' }).catch(console.error);
+              }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 i18n.language.startsWith('en')
                   ? 'bg-primary-500 text-white shadow-md'
@@ -456,6 +467,22 @@ export default function SettingsPage() {
             <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
               {t('settings.password_hint')}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('settings.mfa_code')}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={password.mfaCode}
+              onChange={(e) => setPassword({ ...password, mfaCode: e.target.value.trim() })}
+              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+              placeholder={t('settings.mfa_code_placeholder')}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {t('settings.mfa_code_hint')}
             </p>
           </div>
           <button

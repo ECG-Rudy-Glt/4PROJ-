@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import logger from '../config/logger';
+import { getWelcomeEmail, getPasswordChangeNotification, getPasswordResetEmail } from '../utils/mailTemplates';
 
 interface MailOptions {
     to: string;
@@ -79,25 +80,36 @@ export class MailService {
         });
     }
 
-    static async sendWelcomeNotification(to: string, name: string) {
-        const subject = 'Bienvenue sur SupFile !';
-        const text = `Bonjour ${name},\n\nBienvenue sur SupFile ! Nous sommes ravis de vous compter parmi nous.\n\nVous pouvez maintenant stocker, partager et gérer vos fichiers en toute sécurité.\n\nCordialement,\nL'équipe SupFile`;
+    static async sendWelcomeNotification(to: string, name: string, lang: string = 'fr') {
+        const template = getWelcomeEmail(lang, name);
 
         return this.sendMail({
             to,
-            subject,
-            text,
+            subject: template.subject,
+            text: `Bonjour ${name},\n\nBienvenue sur SupFile ! Nous sommes ravis de vous compter parmi nous.`,
+            html: template.html,
         });
     }
 
-    static async sendPasswordChangeNotification(to: string, name: string) {
-        const subject = 'Alerte de sécurité : Mot de passe modifié';
-        const text = `Bonjour ${name},\n\nLe mot de passe de votre compte SupFile a été modifié récemment. Si vous n'êtes pas à l'origine de cette action, veuillez contacter le support immédiatement.\n\nCordialement,\nL'équipe SupFile`;
+    static async sendPasswordChangeNotification(to: string, name: string, lang: string = 'fr') {
+        const template = getPasswordChangeNotification(lang, name);
 
         return this.sendMail({
             to,
-            subject,
-            text,
+            subject: template.subject,
+            text: `Bonjour ${name},\n\nLe mot de passe de votre compte SupFile a été modifié récemment. Si vous n'êtes pas à l'origine de cette action, veuillez contacter le support immédiatement.`,
+            html: template.html,
+        });
+    }
+
+    static async sendPasswordResetMail(to: string, name: string, resetLink: string, lang: string = 'fr') {
+        const template = getPasswordResetEmail(lang, name, resetLink);
+
+        return this.sendMail({
+            to,
+            subject: template.subject,
+            text: template.text || `Vous avez demandé à réinitialiser votre mot de passe. Utilisez ce lien: ${resetLink}`,
+            html: template.html,
         });
     }
 

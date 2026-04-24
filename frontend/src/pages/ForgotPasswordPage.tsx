@@ -21,7 +21,10 @@ export default function ForgotPasswordPage() {
         lang: i18n.language
       });
       setIsSuccess(true);
-      toast.success(t('login.forgot_password_success', 'Si un compte est associé à cette adresse e-mail, un lien de réinitialisation a été envoyé.'));
+      toast.success(
+        t('login.forgot_password_success', 'Si un compte est associé à cette adresse e-mail, un lien de réinitialisation a été envoyé.'),
+        { duration: 5000 }
+      );
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('login.failed', 'Une erreur est survenue'));
     } finally {
@@ -75,7 +78,12 @@ export default function ForgotPasswordPage() {
           </form>
         ) : (
           <div className="mt-8 text-center p-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-200 dark:border-green-800">
-            {t('login.check_email', 'Veuillez vérifier votre boîte de réception (et vos spams) pour trouver le lien de réinitialisation.')}
+            <p className="font-semibold">
+              {t('login.forgot_password_sent', 'Demande de réinitialisation envoyée')}
+            </p>
+            <p className="mt-1 text-sm">
+              {t('login.check_email', 'Veuillez vérifier votre boîte de réception (et vos spams) pour trouver le lien de réinitialisation.')}
+            </p>
           </div>
         )}
 

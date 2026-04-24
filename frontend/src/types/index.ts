@@ -9,6 +9,7 @@ export interface User {
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
+  language?: string;
   plan?: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
   subscriptionStatus?: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
   vaultEnabled?: boolean;

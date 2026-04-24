@@ -247,6 +247,9 @@
     "new_password_placeholder": "Entrez le nouveau mot de passe",
     "confirm_password": "Confirmer le nouveau mot de passe",
     "confirm_password_placeholder": "Confirmez le nouveau mot de passe",
+    "mfa_code": "Code MFA / secours",
+    "mfa_code_placeholder": "Code MFA (6 chiffres) ou code de secours",
+    "mfa_code_hint": "Requis si l'authentification à deux facteurs est activée sur votre compte.",
     "password_hint": "Le mot de passe doit contenir au moins 6 caractères",
     "change_password": "Modifier le mot de passe",
     "active_sessions": "Sessions actives",
@@ -413,6 +416,12 @@
     "subtitle": "Connectez-vous pour accéder à vos fichiers",
     "email_label": "Adresse e-mail",
     "password_label": "Mot de passe",
+    "forgot_password": "Mot de passe oublié ?",
+    "forgot_password_success": "Si un compte est associé à cette adresse e-mail, un lien de réinitialisation a été envoyé.",
+    "forgot_password_sent": "Demande de réinitialisation envoyée",
+    "check_email": "Veuillez vérifier votre boîte de réception (et vos spams) pour trouver le lien de réinitialisation.",
+    "send_link": "Envoyer le lien",
+    "back_to_login": "Retour à la connexion",
     "button": "Se connecter",
     "button_loading": "Connexion...",
     "or_continue_with": "Ou continuer avec",
@@ -421,7 +430,8 @@
     "session_expired": "Votre session a expiré. Veuillez vous reconnecter.",
     "welcome_back": "Bon retour !",
     "failed": "Connexion échouée",
-    "mfa_setup_success": "Authentification à deux facteurs activée !"
+    "mfa_setup_success": "Authentification à deux facteurs activée !",
+    "reset_password_mfa_invalid": "Code MFA invalide. Veuillez réessayer."
   },
   "register": {
     "title": "Créer un compte",

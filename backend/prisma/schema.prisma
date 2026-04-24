@@ -66,6 +66,7 @@ model User {
   quotaUsed     BigInt    @default(0)
   quotaLimit    BigInt    @default(32212254720) // 30 GB
   theme         String    @default("light")
+  language      String    @default("fr")
 
   // Plans & Billing
   plan          Plan      @default(FREE)
@@ -115,6 +116,7 @@ model User {
 
   // Nouvelles fonctionnalités
   refreshTokens RefreshToken[] // Pour la sécurité JWT
+  passwordResetTokens PasswordResetToken[]
   auditLogs     AuditLog[]     // Pour le Dashboard (Activité)
   tags          Tag[]          // Tags créés par l'utilisateur
   comments      Comment[]      // Commentaires créés par l'utilisateur
@@ -140,6 +142,19 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+// Nouveau : Pour la réinitialisation de mot de passe
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([token])

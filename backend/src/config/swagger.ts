@@ -283,6 +283,7 @@ Obtenez un token via **POST /api/auth/login**.
                 properties: {
                   oldPassword: { type: 'string' },
                   newPassword: { type: 'string', minLength: 6 },
+                  mfaCode: { type: 'string', description: 'Code MFA (TOTP ou code de secours) requis si MFA activé' },
                 },
               },
             },

@@ -107,4 +107,53 @@ export class AuthController {
       res.redirect(`${frontendUrl}/auth/callback?error=${msg}`);
     }
   }
+
+  static async requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email, lang } = req.body;
+      if (!validateEmail(email)) {
+        sendError(res, "L'adresse e-mail doit être dans un format valide (ex: nom@domaine.com)", 400);
+        return;
+      }
+
+      const result = await AuthService.requestPasswordReset(email, lang);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getResetTokenInfo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== 'string') {
+        sendError(res, 'Token manquant ou invalide', 400);
+        return;
+      }
+
+      const result = await AuthService.getResetTokenInfo(token);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token, newPassword, mfaCode } = req.body;
+      if (!token || !newPassword) {
+        sendError(res, 'Token et nouveau mot de passe requis', 400);
+        return;
+      }
+      if (newPassword.length < 6) {
+        sendError(res, 'Le mot de passe doit contenir au moins 6 caractères', 400);
+        return;
+      }
+
+      const result = await AuthService.resetPassword(token, newPassword, mfaCode);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

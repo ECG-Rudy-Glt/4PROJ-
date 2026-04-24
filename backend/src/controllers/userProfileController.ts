@@ -23,11 +23,12 @@ export class UserProfileController {
           subscriptionStatus: user.subscriptionStatus,
           vaultEnabled: user.vaultEnabled,
           currentOrganizationId: user.currentOrganizationId,
-          quotaUsed: Number(user.quotaUsed),
-          quotaLimit: Number(user.quotaLimit),
-          theme: user.theme,
-          createdAt: user.createdAt,
-        },
+        quotaUsed: Number(user.quotaUsed),
+        quotaLimit: Number(user.quotaLimit),
+        theme: user.theme,
+        language: user.language,
+        createdAt: user.createdAt,
+      },
         session: {
           authType: req.authContext?.authType || 'DIRECT',
           rootUserId: req.authContext?.rootUserId || user.id,
@@ -41,9 +42,9 @@ export class UserProfileController {
   static async updateProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { firstName, lastName, avatar, theme } = req.body;
+      const { firstName, lastName, avatar, theme, language } = req.body;
 
-      const user = await AuthService.updateProfile(userId, { firstName, lastName, avatar, theme });
+      const user = await AuthService.updateProfile(userId, { firstName, lastName, avatar, theme, language });
       sendSuccess(res, { user });
     } catch (error) { next(error); }
   }
@@ -51,9 +52,9 @@ export class UserProfileController {
   static async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { oldPassword, newPassword } = req.body;
+      const { oldPassword, newPassword, mfaCode } = req.body;
 
-      const result = await AuthService.changePassword(userId, oldPassword, newPassword);
+      const result = await AuthService.changePassword(userId, oldPassword, newPassword, mfaCode);
 
       AuditService.createLog(userId, 'PASSWORD_CHANGE', {
         ipAddress: req.ip,

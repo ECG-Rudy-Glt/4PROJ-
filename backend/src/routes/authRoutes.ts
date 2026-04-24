@@ -29,6 +29,11 @@ router.post(
   AuthController.login
 );
 
+// Password Reset
+router.post('/forgot-password', AuthController.requestPasswordReset);
+router.get('/reset-password-info', AuthController.getResetTokenInfo);
+router.post('/reset-password', AuthController.resetPassword);
+
 // Global Logout
 router.post('/logout-all', authenticate, AuthController.logoutAll);
 
@@ -42,6 +47,7 @@ router.post(
   validate([
     body('oldPassword').notEmpty().withMessage('Old password required'),
     body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+    body('mfaCode').optional().isString().withMessage('MFA code must be a string'),
   ]),
   UserProfileController.changePassword
 );

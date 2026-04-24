@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { AppError } from '../middlewares/errorHandler';
 import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from '../config/database';
@@ -6,6 +7,7 @@ import { generateToken } from '../utils/jwt';
 import { MailService } from './mailService';
 import { PlanService } from './planService';
 import { KekService } from './kekService';
+import { mfaService } from './mfaService';
 import logger from '../config/logger';
 
 export class AuthService {
@@ -166,6 +168,7 @@ export class AuthService {
       lastName?: string;
       avatar?: string;
       theme?: string;
+      language?: string;
     }
   ) {
     const user = await prisma.user.update({
@@ -188,6 +191,7 @@ export class AuthService {
       quotaUsed: Number(user.quotaUsed),
       quotaLimit: Number(user.quotaLimit),
       theme: user.theme,
+      language: user.language,
       createdAt: user.createdAt,
     };
   }
@@ -195,7 +199,8 @@ export class AuthService {
   static async changePassword(
     userId: string,
     oldPassword: string,
-    newPassword: string
+    newPassword: string,
+    mfaCode?: string
   ) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -209,6 +214,23 @@ export class AuthService {
     const isValid = await bcrypt.compare(oldPassword, user.password);
     if (!isValid) {
       throw new Error('Invalid old password');
+    }
+
+    if (user.mfaEnabled) {
+      if (!mfaCode) {
+        throw new AppError(401, 'Code MFA requis.');
+      }
+
+      const isTotpValid = await mfaService.verifyUserTOTPCode(user.id, mfaCode);
+      let isBackupValid = false;
+
+      if (!isTotpValid) {
+        isBackupValid = await mfaService.verifyBackupCode(user.id, mfaCode);
+      }
+
+      if (!isTotpValid && !isBackupValid) {
+        throw new AppError(401, 'Code MFA invalide.');
+      }
     }
 
     // Hash new password
@@ -238,11 +260,132 @@ export class AuthService {
 
     // Send notification
     try {
-      await MailService.sendPasswordChangeNotification(updatedUser.email, updatedUser.firstName || 'Utilisateur');
+      await MailService.sendPasswordChangeNotification(updatedUser.email, updatedUser.firstName || 'Utilisateur', updatedUser.language);
     } catch (error) {
       logger.error({ err: error }, 'Failed to send password change notification');
     }
 
     return { message: 'Password changed successfully' };
+  }
+
+  static async requestPasswordReset(email: string, requestLanguage?: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Don't throw error to prevent email enumeration
+      logger.info('[AuthService.requestPasswordReset] Reset requested for unknown email');
+      return { message: 'If this email exists, a reset link has been sent.' };
+    }
+
+    // Invalidate existing tokens
+    await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiration
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt,
+      }
+    });
+
+    // Determine language: use user.language, fallback to requestLanguage or 'fr'
+    const lang = user.language || requestLanguage || 'fr';
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    try {
+      const sent = await MailService.sendPasswordResetMail(user.email, user.firstName || 'Utilisateur', resetLink, lang);
+      if (sent) {
+        logger.info({ userId: user.id }, '[AuthService.requestPasswordReset] Reset email sent');
+      } else {
+        logger.error({ userId: user.id }, '[AuthService.requestPasswordReset] Reset email send failed');
+      }
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to send password reset email');
+    }
+
+    return { message: 'If this email exists, a reset link has been sent.' };
+  }
+
+  static async getResetTokenInfo(token: string) {
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true }
+    });
+
+    if (!resetToken || resetToken.expiresAt < new Date()) {
+      throw new AppError(400, "Le lien de réinitialisation est invalide ou a expiré.");
+    }
+
+    return {
+      mfaEnabled: resetToken.user.mfaEnabled
+    };
+  }
+
+  static async resetPassword(token: string, newPassword: string, mfaCode?: string) {
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true }
+    });
+
+    if (!resetToken || resetToken.expiresAt < new Date()) {
+      throw new AppError(400, "Le lien de réinitialisation est invalide ou a expiré.");
+    }
+
+    const user = resetToken.user;
+
+    // MFA Verification if enabled
+    if (user.mfaEnabled) {
+      if (!mfaCode) {
+        throw new AppError(401, "Code MFA requis.");
+      }
+      
+      const isTotpValid = await mfaService.verifyUserTOTPCode(user.id, mfaCode);
+      let isBackupValid = false;
+      
+      if (!isTotpValid) {
+        isBackupValid = await mfaService.verifyBackupCode(user.id, mfaCode);
+      }
+
+      if (!isTotpValid && !isBackupValid) {
+        throw new AppError(401, "Code MFA invalide.");
+      }
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    let dekUpdate = {};
+    if (user.kekSalt && user.encryptedDek) {
+        dekUpdate = {
+            kekSalt: null,
+            encryptedDek: null,
+            vaultEnabled: false,
+            vaultPasswordHash: null
+        };
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        tokenVersion: { increment: 1 },
+        ...dekUpdate
+      }
+    });
+
+    // Delete token
+    await prisma.passwordResetToken.delete({ where: { id: resetToken.id } });
+
+    try {
+      await MailService.sendPasswordChangeNotification(user.email, user.firstName || 'Utilisateur', user.language);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to send password change notification');
+    }
+
+    return { message: 'Password reset successfully' };
   }
 }

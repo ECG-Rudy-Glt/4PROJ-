@@ -38,6 +38,15 @@ services:
       PORT: ${BACKEND_PORT:-5001}
       UPLOAD_DIR: /app/uploads
       NODE_ENV: production
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@supfile.com}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+      SMTP_MOCK: ${SMTP_MOCK:-false}
+      MAIL_LOGO_URL: ${MAIL_LOGO_URL:-}
       # OnlyOffice configuration
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
       ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:8080}

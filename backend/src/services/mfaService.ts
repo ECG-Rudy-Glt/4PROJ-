@@ -5,7 +5,10 @@ import bcrypt from 'bcrypt';
 import prisma from '../config/database';
 
 const APP_NAME = 'SupFile';
-const ENCRYPTION_KEY = process.env.MFA_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const ENCRYPTION_KEY = process.env.MFA_ENCRYPTION_KEY || '';
+if (!/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+  throw new Error('MFA_ENCRYPTION_KEY must be a 64-character hex string');
+}
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 
 /**

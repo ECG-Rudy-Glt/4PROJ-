@@ -64,7 +64,12 @@ export default function ResetPasswordPage() {
       toast.success(t('login.reset_password_success', 'Votre mot de passe a été réinitialisé avec succès.'));
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('login.failed', 'Une erreur est survenue'));
+      const apiError = err.response?.data?.error as string | undefined;
+      if (apiError?.toLowerCase().includes('mfa')) {
+        toast.error(t('login.reset_password_mfa_invalid', 'Code MFA invalide. Veuillez réessayer.'));
+      } else {
+        toast.error(apiError || t('login.failed', 'Une erreur est survenue'));
+      }
     } finally {
       setIsSubmitting(false);
     }
