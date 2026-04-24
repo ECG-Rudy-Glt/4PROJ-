@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AuthSessionContext, User } from '@/types';
+import { AuthSessionContext, User, AuthResponse } from '@/types';
 import { authService } from '@/services/authService';
 
 interface AuthState {
