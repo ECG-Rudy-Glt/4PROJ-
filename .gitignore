@@ -40,3 +40,13 @@ coverage/
 .nyc_output/
 
 .claude/
+repomix-output.*
+.codesight/report.html
+.codesight/
+repomix.config.json
+
+.cursorrules/
+.AGENTS.md
+.CLAUDE.md
+.codex.md
+.copilot-instructions.md
