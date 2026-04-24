@@ -34,6 +34,6 @@ export const folderService = {
 
   async getBreadcrumbs(folderId: string): Promise<Breadcrumb[]> {
     const res = await api.get(`/folders/${folderId}/breadcrumbs`);
-    return res.data;
+    return res.data.breadcrumbs ?? res.data;
   },
 };

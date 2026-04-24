@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   Share as RNShare,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -112,7 +114,10 @@ export default function ShareModal({ target, onClose }: Props) {
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.sheet}>
           <View style={styles.grabber} />
 
@@ -144,7 +149,7 @@ export default function ShareModal({ target, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 420 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={styles.scrollContent}>
             {mode === 'user' ? (
               <View>
                 <Text style={styles.label}>Email du destinataire</Text>
@@ -223,7 +228,7 @@ export default function ShareModal({ target, onClose }: Props) {
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -254,6 +259,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing['2xl'],
     ...shadows['2xl'],
+  },
+  scrollContent: {
+    flexShrink: 1,
   },
   grabber: {
     alignSelf: 'center',

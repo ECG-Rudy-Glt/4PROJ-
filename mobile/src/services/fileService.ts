@@ -66,4 +66,11 @@ export const fileService = {
     const token = await SecureStore.getItemAsync('token');
     return `${api.defaults.baseURL}/files/${fileId}/stream?token=${token}`;
   },
+
+  // Synchrone — construit l'URL sans attendre (token déjà en mémoire dans api.defaults)
+  buildStreamUrl(fileId: string): string {
+    const token = (api.defaults.headers.common['Authorization'] as string | undefined)
+      ?.replace('Bearer ', '') ?? '';
+    return `${api.defaults.baseURL}/files/${fileId}/stream?token=${token}`;
+  },
 };
