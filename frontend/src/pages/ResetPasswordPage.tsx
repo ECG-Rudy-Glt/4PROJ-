@@ -24,7 +24,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const checkToken = async () => {
       if (!token) {
-        setError("Token manquant.");
+        setError(t('login.reset_password_missing_token', 'Token manquant.'));
         setIsLoading(false);
         return;
       }
@@ -33,23 +33,23 @@ export default function ResetPasswordPage() {
         const response = await api.get(`/auth/reset-password-info?token=${token}`);
         setMfaRequired(response.data.mfaEnabled);
       } catch (err: any) {
-        setError(err.response?.data?.error || "Le lien de réinitialisation est invalide ou a expiré.");
+        setError(err.response?.data?.error || t('login.reset_password_invalid_link', 'Le lien de réinitialisation est invalide ou a expiré.'));
       } finally {
         setIsLoading(false);
       }
     };
 
     void checkToken();
-  }, [token]);
+  }, [token, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error("Les mots de passe ne correspondent pas.");
+      toast.error(t('common.password_mismatch', 'Les mots de passe ne correspondent pas'));
       return;
     }
     if (newPassword.length < 6) {
-      toast.error("Le mot de passe doit contenir au moins 6 caractères.");
+      toast.error(t('common.password_too_short', 'Le mot de passe doit contenir au moins 6 caractères'));
       return;
     }
 
@@ -61,10 +61,10 @@ export default function ResetPasswordPage() {
         mfaCode: mfaRequired ? mfaCode : undefined
       });
       setIsSuccess(true);
-      toast.success("Votre mot de passe a été réinitialisé avec succès.");
+      toast.success(t('login.reset_password_success', 'Votre mot de passe a été réinitialisé avec succès.'));
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Une erreur est survenue.");
+      toast.error(err.response?.data?.error || t('login.failed', 'Une erreur est survenue'));
     } finally {
       setIsSubmitting(false);
     }
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
             onClick={() => navigate('/forgot-password')}
             className="w-full py-2 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
           >
-            Demander un nouveau lien
+            {t('login.send_link', 'Demander un nouveau lien')}
           </button>
         </div>
       </div>
@@ -105,9 +105,9 @@ export default function ResetPasswordPage() {
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mot de passe réinitialisé !</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('login.reset_password_done_title', 'Mot de passe réinitialisé !')}</h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Votre mot de passe a été modifié avec succès. Vous allez être redirigé vers la page de connexion...
+            {t('login.reset_password_done_desc', 'Votre mot de passe a été modifié avec succès. Vous allez être redirigé vers la page de connexion...')}
           </p>
         </div>
       </div>
@@ -124,10 +124,10 @@ export default function ResetPasswordPage() {
             </div>
           </div>
           <h2 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-            Nouveau mot de passe
+            {t('login.reset_password_title', 'Nouveau mot de passe')}
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Veuillez entrer votre nouveau mot de passe.
+            {t('login.reset_password_desc', 'Veuillez entrer votre nouveau mot de passe.')}
           </p>
         </div>
 
@@ -135,7 +135,7 @@ export default function ResetPasswordPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Nouveau mot de passe
+                {t('settings.new_password', 'Nouveau mot de passe')}
               </label>
               <input
                 type="password"
@@ -143,12 +143,12 @@ export default function ResetPasswordPage() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Au moins 6 caractères"
+                placeholder={t('settings.password_hint', 'Au moins 6 caractères')}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Confirmer le mot de passe
+                {t('common.confirm_password', 'Confirmer le mot de passe')}
               </label>
               <input
                 type="password"
@@ -163,7 +163,7 @@ export default function ResetPasswordPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
                   <ShieldCheck className="w-4 h-4 mr-2" />
-                  Code MFA requis
+                  {t('login.reset_password_mfa_required', 'Code MFA requis')}
                 </label>
                 <input
                   type="text"
@@ -175,7 +175,7 @@ export default function ResetPasswordPage() {
                   maxLength={10} // Permet les codes TOTP (6) ou de backup (ex: 8-10)
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Entrez votre code 2FA ou un de vos codes de récupération.
+                  {t('login.reset_password_mfa_help', 'Entrez votre code 2FA ou un de vos codes de récupération.')}
                 </p>
               </div>
             )}
@@ -186,7 +186,7 @@ export default function ResetPasswordPage() {
             disabled={isSubmitting || !newPassword || !confirmPassword || (mfaRequired && !mfaCode)}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            {isSubmitting ? "Réinitialisation..." : "Enregistrer le mot de passe"}
+            {isSubmitting ? t('login.reset_password_loading', 'Réinitialisation...') : t('settings.change_password', 'Enregistrer le mot de passe')}
           </button>
         </form>
       </div>
