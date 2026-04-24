@@ -125,7 +125,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
           {t('versions.title')}
         </h3>
         <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
-          {versions.length} {t('common.file_plural', { count: versions.length })}
+          {versions.length} {t('versions.count', { count: versions.length })}
         </span>
       </div>
 

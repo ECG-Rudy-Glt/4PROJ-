@@ -107,7 +107,8 @@ export class OnlyOfficeService {
     const fileUrl = `${API_INTERNAL_URL}/api/onlyoffice/file/${file.id}?access_token=${fileAccessToken}`;
 
     // URL de callback pour sauvegarder les modifications - OnlyOffice appelle le backend en interne
-    const callbackUrl = `${API_INTERNAL_URL}/api/onlyoffice/callback/${file.id}`;
+    // On passe le wrappedDek et le userId dans l'URL pour pouvoir chiffrer la nouvelle version avec la bonne clé
+    const callbackUrl = `${API_INTERNAL_URL}/api/onlyoffice/callback/${file.id}?userId=${userId}${wrappedDek ? `&wrappedDek=${encodeURIComponent(wrappedDek)}` : ''}`;
 
     const config: any = {
       document: {

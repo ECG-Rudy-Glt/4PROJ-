@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { mfaController } from '../controllers/mfaController';
-import { authenticate } from '../middlewares/auth';
+import { authenticate, authenticateMfa } from '../middlewares/auth';
 
 const router = Router();
 
@@ -8,17 +8,17 @@ const router = Router();
  * Routes MFA (Multi-Factor Authentication)
  */
 
-// Configuration initiale du MFA (nécessite authentification)
-router.post('/setup', authenticate, (req, res, next) => mfaController.setupMFA(req, res, next));
+// Configuration initiale du MFA (nécessite authentification ou tempToken)
+router.post('/setup', authenticateMfa, (req, res, next) => mfaController.setupMFA(req, res, next));
 
 // Vérification du code initial pour activer le MFA
-router.post('/verify-setup', authenticate, (req, res, next) => mfaController.verifySetup(req, res, next));
+router.post('/verify-setup', authenticateMfa, (req, res, next) => mfaController.verifySetup(req, res, next));
 
-// Vérification du code TOTP lors de la connexion (pas d'auth requise, utilise tempToken)
-router.post('/verify', (req, res, next) => mfaController.verifyMFA(req, res, next));
+// Vérification du code TOTP lors de la connexion (nécessite tempToken)
+router.post('/verify', authenticateMfa, (req, res, next) => mfaController.verifyMFA(req, res, next));
 
-// Vérification d'un code de récupération (pas d'auth requise, utilise tempToken)
-router.post('/verify-backup-code', (req, res, next) => mfaController.verifyBackupCode(req, res, next));
+// Vérification d'un code de récupération (nécessite tempToken)
+router.post('/verify-backup-code', authenticateMfa, (req, res, next) => mfaController.verifyBackupCode(req, res, next));
 
 // Régénération des codes de récupération (nécessite authentification + code TOTP)
 router.post('/regenerate-codes', authenticate, (req, res, next) => mfaController.regenerateBackupCodes(req, res, next));

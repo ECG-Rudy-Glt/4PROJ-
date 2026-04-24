@@ -5,13 +5,14 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_MFA_SECRET = process.env.JWT_MFA_SECRET || (JWT_SECRET + '_mfa');
 const TEMP_TOKEN_EXPIRY = '5m'; // Token temporaire valide 5 minutes
 
 /**
  * Génère un token temporaire pour la phase MFA
  */
 function generateTempToken(userId: string): string {
-  return jwt.sign({ userId, temp: true }, JWT_SECRET, { expiresIn: TEMP_TOKEN_EXPIRY });
+  return jwt.sign({ userId, type: 'mfa' }, JWT_MFA_SECRET, { expiresIn: TEMP_TOKEN_EXPIRY });
 }
 
 import { generateToken } from '../utils/jwt';
@@ -85,10 +86,11 @@ export class MFAController {
    */
   async verifyMFA(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { userId, token, rememberDevice } = req.body;
+      const userId = (req as any).user.id;
+      const { token, rememberDevice } = req.body;
 
-      if (!userId || !token) {
-        sendError(res, 'userId et token requis', 400);
+      if (!token) {
+        sendError(res, 'token requis', 400);
         return;
       }
 
@@ -132,10 +134,11 @@ export class MFAController {
    */
   async verifyBackupCode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { userId, backupCode, rememberDevice } = req.body;
+      const userId = (req as any).user.id;
+      const { backupCode, rememberDevice } = req.body;
 
-      if (!userId || !backupCode) {
-        sendError(res, 'userId et backupCode requis', 400);
+      if (!backupCode) {
+        sendError(res, 'backupCode requis', 400);
         return;
       }
 

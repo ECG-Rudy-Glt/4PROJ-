@@ -28,6 +28,7 @@ export const generateToken = (
     ...(context?.delegatedByUserId ? { delegatedByUserId: context.delegatedByUserId } : {}),
     ...(context?.delegationId ? { delegationId: context.delegationId } : {}),
     ...(context?.wrappedDek ? { wrappedDek: context.wrappedDek } : {}),
+    type: 'auth',
   };
 
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);

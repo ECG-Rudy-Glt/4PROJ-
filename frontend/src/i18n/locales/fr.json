@@ -816,6 +816,8 @@
   },
   "versions": {
     "title": "Historique des versions",
+    "count": "version",
+    "count_plural": "versions",
     "no_versions": "Aucune version antérieure",
     "no_versions_desc": "Les versions précédentes apparaîtront ici lors des modifications",
     "restore_confirm": "Restaurer la version {{versionNumber}} ? Le fichier actuel sera sauvegardé comme nouvelle version.",

@@ -122,12 +122,14 @@ export class OnlyOfficeController {
    * Callback OnlyOffice pour sauvegarder les modifications
    * Note: OnlyOffice attend toujours un status 200 avec { error: 0|1 } — ce format est imposé par le protocole.
    */
-  static async handleCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
+  static async handleCallback(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { fileId } = req.params;
       const callbackData = req.body;
+      const queryUserId = req.query.userId as string;
+      const queryWrappedDek = req.query.wrappedDek as string;
 
-      logger.info({ fileId, status: callbackData.status }, 'OnlyOffice callback received:');
+      logger.info({ fileId, status: callbackData.status, userId: queryUserId }, 'OnlyOffice callback received:');
 
       const file = await prisma.file.findUnique({ where: { id: fileId } });
 
@@ -148,13 +150,17 @@ export class OnlyOfficeController {
 
           await fs.writeFile(filepath, response.data);
 
+          // Déchiffrer le DEK pour chiffrer la nouvelle version
+          const dek = queryWrappedDek ? KekService.unwrapDek(queryWrappedDek) ?? undefined : undefined;
+
           await OnlyOfficeService.createFileVersion(
             fileId,
-            file.userId,
+            queryUserId || file.userId,
             filepath,
             file.name,
             response.data.byteLength,
-            file.mimeType
+            file.mimeType,
+            dek
           );
 
           logger.info({ filepath }, 'File saved successfully:');

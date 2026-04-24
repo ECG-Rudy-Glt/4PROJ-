@@ -98,23 +98,7 @@ export class FileUploadService {
       throw new Error('Quota exceeded');
     }
 
-    let targetFileId = replaceFileId;
-
-    // If no explicit replaceFileId, check if a file with the same name exists in this folder
-    if (!targetFileId) {
-      const existingFile = await prisma.file.findFirst({
-        where: {
-          userId,
-          folderId: folderId || null,
-          name: name,
-          isDeleted: false,
-        },
-        select: { id: true },
-      });
-      if (existingFile) {
-        targetFileId = existingFile.id;
-      }
-    }
+    const targetFileId = replaceFileId;
 
     if (targetFileId) {
       // Replaces existing file content (creates a new version)

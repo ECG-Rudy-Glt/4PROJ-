@@ -816,6 +816,8 @@
   },
   "versions": {
     "title": "Version history",
+    "count": "version",
+    "count_plural": "versions",
     "no_versions": "No previous versions",
     "no_versions_desc": "Previous versions will appear here as changes are made",
     "restore_confirm": "Restore version {{versionNumber}}? Current file will be saved as a new version.",
