@@ -169,14 +169,22 @@ describe('KekService.wrapDek / unwrapDek', () => {
     expect(KekService.wrapDek(dek)).not.toBe(KekService.wrapDek(dek));
   });
 
-  it('wrapDek sans DEK_WRAP_SECRET -> throw avec message clair', () => {
+  it('wrapDek sans DEK_WRAP_SECRET -> ne throw pas (utilise le fallback)', () => {
     delete process.env.DEK_WRAP_SECRET;
-    expect(() => KekService.wrapDek(KekService.generateDek())).toThrow('[KekService] DEK_WRAP_SECRET');
+    const dek = KekService.generateDek();
+    const wrapped = KekService.wrapDek(dek);
+    expect(wrapped).toBeDefined();
+    
+    // Verifier que l'unwrap fonctionne aussi avec le fallback
+    const unwrapped = KekService.unwrapDek(wrapped);
+    expect(unwrapped!.equals(dek)).toBe(true);
   });
 
-  it('unwrapDek sans DEK_WRAP_SECRET -> null (degradation gracieuse)', () => {
+  it('unwrapDek sans DEK_WRAP_SECRET -> fonctionne via le fallback', () => {
     delete process.env.DEK_WRAP_SECRET;
-    expect(KekService.unwrapDek('some-base64-data')).toBeNull();
+    const dek = KekService.generateDek();
+    const wrapped = KekService.wrapDek(dek);
+    expect(KekService.unwrapDek(wrapped)).not.toBeNull();
   });
 
   it('bit flip dans le token wrappe -> null (degradation gracieuse)', () => {

@@ -34,14 +34,14 @@ export default function LoginPage() {
       const result = await login(email, password);
 
       // Cas 1 : MFA setup requis (première connexion ou MFA jamais activé)
-      if (result?.mfaSetupRequired) {
+      if (result && 'mfaSetupRequired' in result && result.mfaSetupRequired) {
         localStorage.setItem('tempToken', result.tempToken);
         setShowMFASetupModal(true);
         return;
       }
 
       // Cas 2 : MFA requis (appareil non trusté)
-      if (result?.mfaRequired) {
+      if (result && 'mfaRequired' in result && result.mfaRequired) {
         localStorage.setItem('tempToken', result.tempToken);
         navigate('/mfa-verify', {
           state: {

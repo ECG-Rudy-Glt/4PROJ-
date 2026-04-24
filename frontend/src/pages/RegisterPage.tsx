@@ -46,7 +46,7 @@ export default function RegisterPage() {
         lastName: formData.lastName,
       });
 
-      if (result?.mfaSetupRequired) {
+      if (result && 'mfaSetupRequired' in result && result.mfaSetupRequired) {
         localStorage.setItem('tempToken', result.tempToken);
         setShowMFASetupModal(true);
         return;
