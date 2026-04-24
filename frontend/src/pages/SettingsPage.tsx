@@ -14,6 +14,7 @@ import { useVaultStore } from '@/stores/useVaultStore';
 import ActivityLog from '@/components/ActivityLog';
 import AccountSwitcherModal from '@/components/AccountSwitcherModal';
 import { validatePasswordStrength } from '@/utils/validators';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -83,8 +84,8 @@ export default function SettingsPage() {
     try {
       await updateProfile({ theme: newTheme });
       toast.success(t('settings.theme_success', { theme: t(`settings.theme_${newTheme}`) }));
-    } catch {
-      toast.error(t('settings.theme_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('settings.theme_error')));
       setIsDark(isDark); // Revert on error
       // Revert DOM class on error
       if (isDark) {
@@ -100,8 +101,8 @@ export default function SettingsPage() {
     try {
       await updateProfile(profile);
       toast.success(t('profile.update_success'));
-    } catch {
-      toast.error(t('profile.update_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('profile.update_error')));
     }
   };
 
@@ -127,8 +128,8 @@ export default function SettingsPage() {
       );
       toast.success(t('settings.change_password')); // Simplified
       setPassword({ oldPassword: '', newPassword: '', confirmPassword: '', mfaCode: '' });
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -169,8 +170,8 @@ export default function SettingsPage() {
       setVaultSetup({ password: '', totpCode: '' });
       toast.success(t('settings.vault.activate')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -181,8 +182,8 @@ export default function SettingsPage() {
       setVaultUnlock({ password: '', totpCode: '' });
       toast.success(t('settings.vault.unlocked')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -191,8 +192,8 @@ export default function SettingsPage() {
       await vaultService.lock();
       toast.success(t('settings.vault.locked')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -212,8 +213,8 @@ export default function SettingsPage() {
       setVaultRotate({ oldPassword: '', newPassword: '', totpCode: '' });
       toast.success(t('settings.vault.update_password')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -556,8 +557,8 @@ export default function SettingsPage() {
                     setTimeout(() => {
                       window.location.href = '/login';
                     }, 1000);
-                  } catch {
-                    toast.error(t('common.error'));
+                  } catch (error) {
+                    toast.error(getApiErrorMessage(error, t('common.error')));
                   }
                 }
               }}

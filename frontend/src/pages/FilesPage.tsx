@@ -39,6 +39,7 @@ import PendingSharesModal from '@/components/PendingSharesModal';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { FilterBar, FilterState } from '@/components/FilterBar';
 import { useTranslation } from 'react-i18next';
 
@@ -193,8 +194,8 @@ export default function FilesPage() {
     try {
       const result = await fileService.searchFiles(query);
       setSearchResults(result.files);
-    } catch {
-      toast.error(t('files.error_search'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.error_search')));
     } finally {
       setIsSearching(false);
     }
@@ -242,8 +243,8 @@ export default function FilesPage() {
     fileService.getFile(previewId).then(({ file }) => {
       setPreviewFile(file);
       setShowPreviewModal(true);
-    }).catch(() => {
-      toast.error(t('common.error_loading'));
+    }).catch((error) => {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     });
   }, [searchParams, files, acceptedSharedFiles, t]);
 
@@ -270,16 +271,16 @@ export default function FilesPage() {
       toast.success(t('files.create_folder_success'));
       setShowNewFolderModal(false);
       setNewFolderName('');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
   const handleDownloadFile = async (fileId: string, fileName: string) => {
     try {
       await fileService.triggerDownload(fileId, fileName);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -288,8 +289,8 @@ export default function FilesPage() {
     try {
       await deleteFile(fileId);
       toast.success(t('trash.delete_success', { type: t('common.file') }));
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -298,8 +299,8 @@ export default function FilesPage() {
     try {
       await deleteFolder(folderId);
       toast.success(t('trash.delete_success', { type: t('common.folder') }));
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -309,8 +310,8 @@ export default function FilesPage() {
       await shareService.rejectSharedFolder(sharedFolderId);
       toast.success(t('files.stop_sharing_success'));
       getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -319,8 +320,8 @@ export default function FilesPage() {
       await fileService.toggleFavorite(fileId);
       toast.success(currentStatus ? t('files.favorites_removed') : t('files.favorites_added'));
       loadContent(folderId, sortBy, sortOrder, activeFilters);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -349,8 +350,8 @@ export default function FilesPage() {
       const result = await shareService.createShareLink(selectedFile.id, options);
       setShareLink(result.shareLink.url);
       toast.success(t('files.share_link_created'));
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -393,8 +394,8 @@ export default function FilesPage() {
       await fileService.updateFile(renamingFileId, renameValue.trim() + renameExtension);
       toast.success(t('files.rename_success', { type: t('common.file') }));
       loadContent(folderId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('files.rename_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.rename_error')));
     } finally {
       cancelRename();
     }
@@ -406,8 +407,8 @@ export default function FilesPage() {
       await folderService.updateFolder(renamingFolderId, renameValue.trim());
       toast.success(t('files.rename_success', { type: t('common.folder') }));
       loadContent(folderId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('files.rename_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.rename_error')));
     } finally {
       cancelRename();
     }
@@ -459,8 +460,8 @@ export default function FilesPage() {
       }
       toast.success(t('files.move_success'));
       loadContent(folderId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('files.move_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.move_error')));
     } finally {
       setDraggedItem(null);
     }
@@ -618,7 +619,7 @@ export default function FilesPage() {
                   <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
                     <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch(() => toast.error(t('common.download_error'))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch((error) => toast.error(getApiErrorMessage(error, t('common.download_error')))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
                     <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 hover:border-red-300 dark:hover:border-red-800 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
                   </div>
                 )}

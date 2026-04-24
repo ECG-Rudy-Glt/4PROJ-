@@ -22,6 +22,7 @@ import TagSelector from '@/components/TagSelector';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
@@ -90,8 +91,8 @@ export default function FavoritesPage() {
       });
 
       setFavoriteFiles(sortedFiles);
-    } catch {
-      toast.error(t('favorites.error_loading_favorites'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('favorites.error_loading_favorites')));
     } finally {
       setIsLoading(false);
     }
@@ -100,8 +101,8 @@ export default function FavoritesPage() {
   const handleDownload = async (fileId: string, fileName: string) => {
     try {
       await fileService.triggerDownload(fileId, fileName);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -110,8 +111,8 @@ export default function FavoritesPage() {
       await fileService.toggleFavorite(fileId);
       toast.success(t('favorites.remove_success'));
       loadFavoriteFiles();
-    } catch {
-      toast.error(t('common.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     }
   };
 
@@ -122,8 +123,8 @@ export default function FavoritesPage() {
       await fileService.deleteFile(fileId, false);
       toast.success(t('trash.delete_success', { type: t('common.file') }));
       loadFavoriteFiles();
-    } catch {
-      toast.error(t('common.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     }
   };
 

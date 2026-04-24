@@ -23,6 +23,7 @@ import { fr, enUS } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/useAuthStore';
 import ActivityLog from '@/components/ActivityLog';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -71,8 +72,8 @@ export default function DashboardPage() {
     try {
       const dashboardData = await dashboardService.getDashboard();
       setData(dashboardData);
-    } catch {
-      toast.error(t('common.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     } finally {
       setIsLoading(false);
     }

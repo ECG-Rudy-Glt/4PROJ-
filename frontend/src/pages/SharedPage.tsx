@@ -32,6 +32,7 @@ import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import FilePreviewModal from '@/components/FilePreviewModal';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
@@ -122,8 +123,8 @@ export default function SharedPage() {
       // Partages en attente
       setPendingFolders(pendingData.pendingFolders || []);
       setPendingFiles(pendingData.pendingFiles || []);
-    } catch {
-      toast.error(t('shared.error_loading_shared'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('shared.error_loading_shared')));
     } finally {
       setIsLoading(false);
     }
@@ -138,8 +139,8 @@ export default function SharedPage() {
       }
       toast.success(t('shared.pending.accept_success'));
       loadShared();
-    } catch {
-      toast.error(t('shared.pending.error_accept'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('shared.pending.error_accept')));
     }
   };
 
@@ -153,8 +154,8 @@ export default function SharedPage() {
       }
       toast.success(t('shared.pending.reject_success'));
       loadShared();
-    } catch {
-      toast.error(t('shared.pending.error_reject'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('shared.pending.error_reject')));
     }
   };
 
@@ -165,8 +166,8 @@ export default function SharedPage() {
       await shareService.deleteShareLink(linkId);
       toast.success(t('shared.my_shares.delete_link_success'));
       loadShared();
-    } catch {
-      toast.error(t('shared.my_shares.error_delete_link'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('shared.my_shares.error_delete_link')));
     }
   };
 
@@ -188,8 +189,8 @@ export default function SharedPage() {
     try {
       await fileService.triggerSharedFileDownload(file.id, file.name);
       toast.success(t('shared.download_started'));
-    } catch {
-      toast.error(t('shared.error_download'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('shared.error_download')));
     }
   };
 

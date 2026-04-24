@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 // ── Action metadata ───────────────────────────────────────────────────────────
 
@@ -185,8 +186,8 @@ export default function AuditPage() {
       });
       setLogs(result.logs);
       setTotal(result.total);
-    } catch {
-      toast.error(t('common.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     } finally {
       setIsLoading(false);
     }
@@ -201,8 +202,8 @@ export default function AuditPage() {
       a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 

@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import BackupCodesModal from './BackupCodesModal';
 import { useTranslation } from 'react-i18next';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 export default function MFASettingsSection() {
   const { t, i18n } = useTranslation();
@@ -26,8 +27,8 @@ export default function MFASettingsSection() {
     try {
       const devices = await mfaService.getTrustedDevices();
       setTrustedDevices(devices);
-    } catch {
-      toast.error(t('mfa.error_loading_devices', { defaultValue: 'Erreur lors du chargement des appareils' }));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('mfa.error_loading_devices', { defaultValue: 'Erreur lors du chargement des appareils' })));
     } finally {
       setLoading(false);
     }
@@ -40,8 +41,8 @@ export default function MFASettingsSection() {
       await mfaService.revokeTrustedDevice(deviceId);
       toast.success(t('mfa.revoke_success'));
       loadTrustedDevices();
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -59,8 +60,8 @@ export default function MFASettingsSection() {
       setShowBackupCodesModal(true);
       setRegenerateCode('');
       toast.success(t('mfa.regenerate_success'));
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     } finally {
       setRegenerating(false);
     }

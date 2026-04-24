@@ -48,9 +48,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: false });
       }
       return response;
-    } catch {
+    } catch (error) {
       set({ isLoading: false });
-      throw new Error('Login failed');
+      throw error;
     }
   },
 
@@ -71,9 +71,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: false });
       }
       return response;
-    } catch {
+    } catch (error) {
       set({ isLoading: false });
-      throw new Error('Registration failed');
+      throw error;
     }
   },
 
@@ -104,8 +104,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { user } = await authService.updateProfile(data);
       set({ user });
-    } catch {
-      throw new Error('Update profile failed');
+    } catch (error) {
+      throw error;
     }
   },
   refreshProfile: async () => {

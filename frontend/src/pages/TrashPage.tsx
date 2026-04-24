@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import TagSelector from '@/components/TagSelector';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
@@ -92,8 +93,8 @@ export default function TrashPage() {
 
       setDeletedFiles(sortItems(files));
       setDeletedFolders(sortItems(folders));
-    } catch {
-      toast.error(t('trash.error_loading_trash'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('trash.error_loading_trash')));
     } finally {
       setIsLoading(false);
     }
@@ -110,8 +111,8 @@ export default function TrashPage() {
         type: type === 'file' ? t('common.file') : t('common.folder') 
       }));
       loadTrash();
-    } catch {
-      toast.error(t('trash.error_restore'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('trash.error_restore')));
     }
   };
 
@@ -127,8 +128,8 @@ export default function TrashPage() {
       }
       toast.success(t('trash.delete_success', { type: typeLabel }));
       loadTrash();
-    } catch {
-      toast.error(t('common.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     }
   };
 
@@ -149,8 +150,8 @@ export default function TrashPage() {
           // Fetch contents in background
           folderService.getFolderTrashContents(folderId).then(contents => {
             setFolderContents(curr => ({ ...curr, [folderId]: contents }));
-          }).catch(() => {
-            toast.error(t('trash.error_contents'));
+          }).catch((error) => {
+            toast.error(getApiErrorMessage(error, t('trash.error_contents')));
           });
         }
       }
