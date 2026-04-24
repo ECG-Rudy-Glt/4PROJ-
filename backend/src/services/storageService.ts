@@ -4,9 +4,9 @@ import {
   DeleteObjectCommand,
   CopyObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
-import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
 import fs from 'fs';
 import { deleteFile } from '../utils/fileUtils';
@@ -53,24 +53,27 @@ export class StorageService {
   }
 
   /**
-   * Upload depuis un Readable stream (multipart automatique pour les gros fichiers).
+   * Upload depuis un Readable stream vers S3 via PutObject.
+   * Le multipart upload de @aws-sdk/lib-storage est incompatible avec cette version de MinIO
+   * (bug XML : &#xD; mal parsé dans la réponse CreateMultipartUpload).
+   * contentLength est obligatoire pour que MinIO accepte le stream sans le bufferiser entier.
    */
-  static async upload(key: string, stream: Readable): Promise<void> {
-    const upload = new Upload({
-      client: s3Client,
-      params: { Bucket: BUCKET, Key: key, Body: stream },
-      queueSize: 4,
-      partSize: 8 * 1024 * 1024, // 8 MB par part
-    });
-    await upload.done();
+  static async upload(key: string, stream: Readable, contentLength?: number): Promise<void> {
+    await s3Client.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: stream,
+      ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
+    }));
   }
 
   /**
    * Upload depuis un fichier local (stream vers S3).
    */
   static async uploadFromFile(key: string, filePath: string): Promise<void> {
+    const stat = fs.statSync(filePath);
     const stream = fs.createReadStream(filePath);
-    await this.upload(key, stream);
+    await this.upload(key, stream, stat.size);
   }
 
   /**

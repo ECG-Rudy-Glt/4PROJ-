@@ -110,8 +110,12 @@ export class EncryptionService {
 
     input.pipe(cipher).pipe(gcmFinalizer).pipe(pass, { end: true });
 
+    // Taille chiffrée = 16 (IV) + taille originale + 16 (auth tag GCM)
+    const originalSize = fs.statSync(localPath).size;
+    const encryptedSize = originalSize + 32;
+
     try {
-      await StorageService.upload(s3Key, pass);
+      await StorageService.upload(s3Key, pass, encryptedSize);
     } finally {
       await deleteFile(localPath).catch(() => undefined);
     }
