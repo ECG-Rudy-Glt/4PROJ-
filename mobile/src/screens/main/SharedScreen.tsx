@@ -17,8 +17,9 @@ import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import Toast from 'react-native-toast-message';
 import { shareService } from '../../services/shareService';
-import { SharedFile, SharedFolder } from '../../types';
+import { SharedFile, SharedFolder, FileItem } from '../../types';
 import EmptyState from '../../components/EmptyState';
+import FilePreviewModal from '../../components/FilePreviewModal';
 
 type Tab = 'pending' | 'withMe' | 'byMe';
 
@@ -42,6 +43,7 @@ export default function SharedScreen() {
   const [foldersByMe, setFoldersByMe] = useState<SharedFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -133,7 +135,9 @@ export default function SharedScreen() {
         text: 'Révoquer', style: 'destructive', onPress: async () => {
           try {
             if (type === 'file') {
-              await shareService.deleteShareLink(shareId);
+              await shareService.removeSharedFile(shareId);
+            } else {
+              await shareService.removeSharedFolder(shareId);
             }
             Toast.show({ type: 'success', text1: 'Partage révoqué' });
             fetchData();
@@ -205,9 +209,20 @@ export default function SharedScreen() {
     const isFolder = item.type === 'folder';
     const name = isFolder ? (sf as SharedFolder).folder?.name : (sf as SharedFile).file?.name;
     const partner = tab === 'withMe' ? sf.sharedBy : sf.sharedWith;
+    const fileItem = !isFolder ? (sf as SharedFile).file : null;
+
+    const handlePress = () => {
+      if (!isFolder && fileItem) {
+        setPreviewFile(fileItem);
+      }
+    };
 
     return (
-      <View style={styles.shareRow}>
+      <TouchableOpacity
+        style={styles.shareRow}
+        onPress={handlePress}
+        activeOpacity={isFolder ? 1 : 0.7}
+      >
         <View style={[styles.shareIconCircle, isFolder && styles.folderIconBg]}>
           <Ionicons
             name={isFolder ? 'folder' : 'document-outline'}
@@ -226,12 +241,15 @@ export default function SharedScreen() {
             {sf.canShare && <PermBadge label="Partage" />}
           </View>
         </View>
-        {tab === 'byMe' && !isFolder && (
-          <TouchableOpacity onPress={() => handleRevokeShare('file', sf.id, name || '')}>
+        {tab === 'byMe' && (
+          <TouchableOpacity
+            onPress={() => handleRevokeShare(item.type, sf.id, name || '')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Ionicons name="trash-outline" size={18} color={colors.neutral[400]} />
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -315,6 +333,12 @@ export default function SharedScreen() {
           renderItem={renderSharedItem}
         />
       )}
+
+      <FilePreviewModal
+        file={previewFile}
+        visible={previewFile !== null}
+        onClose={() => setPreviewFile(null)}
+      />
     </View>
   );
 }
