@@ -63,6 +63,7 @@ describe('BillingController', () => {
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
+          success: false,
           error: 'Stripe non configuré',
         })
       );
@@ -87,7 +88,10 @@ describe('BillingController', () => {
       });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        url: 'http://localhost:3000/plans?checkout=success',
+        success: true,
+        data: {
+          url: 'http://localhost:3000/plans?checkout=success',
+        },
       });
     });
 
@@ -109,7 +113,10 @@ describe('BillingController', () => {
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        url: 'https://checkout.stripe.test/session',
+        success: true,
+        data: {
+          url: 'https://checkout.stripe.test/session',
+        },
       });
     });
   });

@@ -17,6 +17,7 @@ import SharedLinkPage from './pages/SharedLinkPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import AdminPage from './pages/AdminPage';
 import OrganizationAdminPage from './pages/OrganizationAdminPage';
+import AuditPage from './pages/AuditPage';
 
 // Components
 import Layout from './components/Layout';
@@ -52,6 +53,7 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/organization-admin" element={<OrganizationAdminPage />} />
+          <Route path="/audit" element={<AuditPage />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminPage />} />
           </Route>

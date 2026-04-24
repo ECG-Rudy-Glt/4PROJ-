@@ -24,8 +24,9 @@ router.post('/subscribe', authenticate, async (req: AuthRequest, res: Response) 
 
     await WebPushService.subscribe(userId, subscription);
     res.json({ message: 'Subscription enregistrée' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -37,8 +38,9 @@ router.post('/unsubscribe', authenticate, async (req: AuthRequest, res: Response
 
     await WebPushService.unsubscribe(userId, endpoint);
     res.json({ message: 'Subscription supprimée' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ error: msg });
   }
 });
 

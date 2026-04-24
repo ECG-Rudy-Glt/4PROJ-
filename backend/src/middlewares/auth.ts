@@ -4,6 +4,7 @@ import { AuthRequest, JWTPayload } from '../types';
 import prisma from '../config/database';
 import { activityMiddleware } from './activityMiddleware';
 import { PlanService } from '../services/planService';
+import { KekService } from '../services/kekService';
 import { getCookieValue, SWITCH_SESSION_COOKIE } from '../utils/cookies';
 import logger from '../config/logger';
 
@@ -23,13 +24,10 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
     let token: string | undefined;
 
-    // Try to get token from Authorization header
+    // Token must come from the Authorization header only.
+    // Query-param tokens are rejected: they leak into server logs and browser history.
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-    }
-    // If not in header, try query parameter (for media streaming)
-    else if (req.query.token && typeof req.query.token === 'string') {
-      token = req.query.token;
     }
 
     if (!token) {
@@ -151,6 +149,12 @@ export const authenticate = async (
       req.user = user;
     }
     req.authContext = authContext;
+
+    // Extraire et déchiffrer le DEK depuis le JWT (si présent)
+    if (decoded.wrappedDek) {
+      const dek = KekService.unwrapDek(decoded.wrappedDek);
+      if (dek) req.dekBuffer = dek;
+    }
 
     // Check activity / session timeout
     activityMiddleware(req, res, next);

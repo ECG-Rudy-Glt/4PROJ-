@@ -45,9 +45,10 @@ export class AIFileService {
         ],
       });
       return (response.message.content as any)?.[0]?.text || 'Impossible d\'analyser ce fichier.';
-    } catch (error: any) {
+    } catch (error) {
       logger.error({ err: error }, 'Error analyzing file');
-      throw new Error(`Failed to analyze file: ${error.message}`);
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to analyze file: ${msg}`);
     }
   }
 

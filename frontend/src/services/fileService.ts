@@ -101,25 +101,45 @@ export const fileService = {
   },
 
   getDownloadUrl(fileId: string): string {
-    const token = localStorage.getItem('token');
-    return `${api.defaults.baseURL}/files/${fileId}/download?token=${token}`;
+    return `${api.defaults.baseURL}/files/${fileId}/download`;
   },
 
   getStreamUrl(fileId: string): string {
-    const token = localStorage.getItem('token');
-    return `${api.defaults.baseURL}/files/${fileId}/stream?token=${token}`;
+    return `${api.defaults.baseURL}/files/${fileId}/stream`;
   },
 
   // For files shared with you
   getSharedFileStreamUrl(fileId: string): string {
-    const token = localStorage.getItem('token');
-    return `${api.defaults.baseURL}/share/access/${fileId}/stream?token=${token}`;
+    return `${api.defaults.baseURL}/share/access/${fileId}/stream`;
   },
 
   // For files shared with you
   getSharedFileDownloadUrl(fileId: string): string {
-    const token = localStorage.getItem('token');
-    return `${api.defaults.baseURL}/share/access/${fileId}/download?token=${token}`;
+    return `${api.defaults.baseURL}/share/access/${fileId}/download`;
+  },
+
+  async triggerDownload(fileId: string, fileName: string): Promise<void> {
+    const response = await api.get(`/files/${fileId}/download`, { responseType: 'blob' });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  async triggerSharedFileDownload(fileId: string, fileName: string): Promise<void> {
+    const response = await api.get(`/share/access/${fileId}/download`, { responseType: 'blob' });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   async toggleFavorite(fileId: string): Promise<{ file: File }> {

@@ -9,17 +9,17 @@ export const authService = {
     lastName?: string;
   }) {
     const response = await api.post('/auth/register', data);
-    return response.data;
+    return response.data.data || response.data;
   },
 
   async login(email: string, password: string) {
     const response = await api.post('/auth/login', { email, password });
-    return response.data;
+    return response.data.data || response.data;
   },
 
   async getProfile(): Promise<{ user: User; session?: AuthSessionContext }> {
     const response = await api.get('/auth/profile');
-    return response.data;
+    return response.data.data || response.data;
   },
 
   async updateProfile(data: {
@@ -29,7 +29,7 @@ export const authService = {
     theme?: string;
   }) {
     const response = await api.put('/auth/profile', data);
-    return response.data;
+    return response.data.data || response.data;
   },
 
   async changePassword(oldPassword: string, newPassword: string) {
@@ -37,18 +37,18 @@ export const authService = {
       oldPassword,
       newPassword,
     });
-    return response.data;
+    return response.data.data || response.data;
   },
 
   async exportUserData() {
     const response = await api.get('/auth/export-data', {
       responseType: 'blob',
     });
-    return response.data;
+    return response.data.data || response.data;
   },
 
   async logoutAll() {
     const response = await api.post('/auth/logout-all');
-    return response.data;
+    return response.data.data || response.data;
   },
 };

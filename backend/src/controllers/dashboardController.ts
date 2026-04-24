@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { DashboardService } from '../services/dashboardService';
 import { AuthRequest } from '../types';
+import { sendSuccess } from '../utils/response';
 
 export class DashboardController {
   static async getDashboard(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -8,8 +9,7 @@ export class DashboardController {
       const userId = req.user!.id;
 
       const dashboardData = await DashboardService.getDashboardData(userId);
-
-      res.status(200).json(dashboardData);
+      sendSuccess(res, dashboardData);
     } catch (error) { next(error); }
   }
 }

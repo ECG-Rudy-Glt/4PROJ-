@@ -2,13 +2,14 @@ import { Response, NextFunction } from 'express';
 import { FileService } from '../services/fileService';
 import { AuthRequest, FileUploadRequest } from '../types';
 import fs from 'fs';
-import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { StorageService } from '../services/storageService';
 import { AuditService } from '../services/auditService';
 import { NotificationService } from '../services/notificationService';
 import prisma from '../config/database';
+import { sendCsv, csvFilename } from '../utils/csvExporter';
 import logger from '../config/logger';
+import { sendSuccess, sendError, sendMultiStatus } from '../utils/response';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response, next: NextFunction): Promise<void> {
@@ -22,21 +23,19 @@ export class FileController {
           : [];
 
       if (files.length === 0) {
-        res.status(400).json({ error: 'No file provided' });
+        sendError(res, 'No file provided', 400);
         return;
       }
 
       const { files: createdFiles, errors } = await FileService.createFiles(
         userId,
         files,
-        folderId
+        folderId,
+        req.dekBuffer
       );
 
       if (createdFiles.length === 0) {
-        res.status(400).json({
-          error: errors[0]?.error || 'Upload failed',
-          errors,
-        });
+        sendError(res, errors[0]?.error || 'Upload failed', 400, undefined, { errors });
         return;
       }
 
@@ -59,7 +58,7 @@ export class FileController {
       }
 
       const hasPartialFailures = errors.length > 0;
-      res.status(hasPartialFailures ? 207 : 201).json({
+      const responseData = {
         file: createdFiles[0],
         files: createdFiles,
         errors,
@@ -68,7 +67,13 @@ export class FileController {
           success: createdFiles.length,
           failed: errors.length,
         },
-      });
+      };
+
+      if (hasPartialFailures) {
+        sendMultiStatus(res, responseData);
+      } else {
+        sendSuccess(res, responseData, 201);
+      }
     } catch (error) { next(error); }
   }
 
@@ -82,14 +87,17 @@ export class FileController {
       // Increment view count (async, don't wait)
       FileService.incrementViewCount(fileId).catch((e) => logger.error(e));
 
-      res.status(200).json({ file });
+      sendSuccess(res, { file });
     } catch (error) { next(error); }
   }
 
   static async listFiles(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { folderId, sortBy, sortOrder, minSize, maxSize, mimeType, dateFrom, dateTo } = req.query;
+      const { folderId, sortBy, sortOrder, minSize, maxSize, mimeType, dateFrom, dateTo, limit, page } = req.query;
+
+      const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
+      const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
       const filters = {
         minSize: minSize ? Number(minSize) : undefined,
@@ -104,10 +112,12 @@ export class FileController {
         folderId ? String(folderId) : undefined,
         sortBy ? String(sortBy) : 'createdAt',
         sortOrder === 'asc' ? 'asc' : 'desc',
-        filters
+        filters,
+        take,
+        skip,
       );
 
-      res.status(200).json({ files });
+      sendSuccess(res, { files, pagination: { page: Math.max(Number(page) || 1, 1), limit: take } });
     } catch (error) { next(error); }
   }
 
@@ -118,8 +128,7 @@ export class FileController {
       const { name } = req.body;
 
       const file = await FileService.updateFile(fileId, userId, { name });
-
-      res.status(200).json({ file });
+      sendSuccess(res, { file });
     } catch (error) { next(error); }
   }
 
@@ -130,8 +139,7 @@ export class FileController {
       const { folderId } = req.body;
 
       const file = await FileService.moveFile(fileId, userId, folderId);
-
-      res.status(200).json({ file });
+      sendSuccess(res, { file });
     } catch (error) { next(error); }
   }
 
@@ -141,13 +149,8 @@ export class FileController {
       const { fileId } = req.params;
       const { permanent } = req.query;
 
-      const result = await FileService.deleteFile(
-        fileId,
-        userId,
-        permanent === 'true'
-      );
-
-      res.status(200).json(result);
+      const result = await FileService.deleteFile(fileId, userId, permanent === 'true');
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 
@@ -157,8 +160,7 @@ export class FileController {
       const { fileId } = req.params;
 
       const file = await FileService.restoreFile(fileId, userId);
-
-      res.status(200).json({ file });
+      sendSuccess(res, { file });
     } catch (error) { next(error); }
   }
 
@@ -167,8 +169,7 @@ export class FileController {
       const userId = req.user!.id;
 
       const files = await FileService.getDeletedFiles(userId);
-
-      res.status(200).json({ files });
+      sendSuccess(res, { files });
     } catch (error) { next(error); }
   }
 
@@ -179,9 +180,8 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
-      // Vérifier l'existence selon la source (S3 ou local)
       if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
-        res.status(404).json({ error: 'File not found on disk' });
+        sendError(res, 'File not found on disk', 404);
         return;
       }
 
@@ -197,11 +197,11 @@ export class FileController {
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
       res.setHeader('Content-Type', file.mimeType);
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath, req.dekBuffer);
       decryptStream.on('error', (err) => {
         logger.error({ err }, '[downloadFile] decrypt error:');
         if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to download file' });
+          res.status(500).json({ success: false, error: 'Failed to download file' });
         } else {
           res.destroy();
         }
@@ -222,7 +222,7 @@ export class FileController {
       const file = await FileService.getFile(fileId, userId);
 
       if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
-        res.status(404).json({ error: 'File not found on disk' });
+        sendError(res, 'File not found on disk', 404);
         return;
       }
 
@@ -240,18 +240,18 @@ export class FileController {
 
       if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
         logger.error({ fileId: file.id, storagePath: file.storagePath, encryptedSize }, '[streamFile] invalid encrypted file size');
-        res.status(500).json({ error: 'Stored file is invalid or corrupted' });
+        res.status(500).json({ success: false, error: 'Stored file is invalid or corrupted' });
         return;
       }
 
       const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
       const rangeHeader = req.headers.range;
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath, req.dekBuffer);
       decryptStream.on('error', (err) => {
         logger.error({ err }, '[streamFile] decrypt error:');
         if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to stream file' });
+          res.status(500).json({ success: false, error: 'Failed to stream file' });
         } else {
           res.destroy();
         }
@@ -326,7 +326,7 @@ export class FileController {
       const { q, mimeType, dateFrom, dateTo } = req.query;
 
       if (!q) {
-        res.status(400).json({ error: 'Query parameter required' });
+        sendError(res, 'Query parameter required', 400);
         return;
       }
 
@@ -336,7 +336,7 @@ export class FileController {
         dateTo: dateTo ? new Date(String(dateTo)) : undefined,
       });
 
-      res.status(200).json({ files });
+      sendSuccess(res, { files });
     } catch (error) { next(error); }
   }
 
@@ -346,8 +346,7 @@ export class FileController {
       const { fileId } = req.params;
 
       const file = await FileService.toggleFavorite(fileId, userId);
-
-      res.status(200).json({ file });
+      sendSuccess(res, { file });
     } catch (error) { next(error); }
   }
 
@@ -356,8 +355,7 @@ export class FileController {
       const userId = req.user!.id;
 
       const files = await FileService.getFavoriteFiles(userId);
-
-      res.status(200).json({ files });
+      sendSuccess(res, { files });
     } catch (error) { next(error); }
   }
 
@@ -366,8 +364,7 @@ export class FileController {
       const userId = req.user!.id;
 
       const shares = await FileService.getAcceptedShares(userId);
-
-      res.status(200).json(shares);
+      sendSuccess(res, shares);
     } catch (error) { next(error); }
   }
 
@@ -417,13 +414,7 @@ export class FileController {
         modifieLe: file.updatedAt.toISOString(),
       }));
 
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, { header: true });
-      const fileName = `supfile-files-${new Date().toISOString().split('T')[0]}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.status(200).send(csv);
+      sendCsv(res, rows, csvFilename('supfile-files'));
     } catch (error) { next(error); }
   }
 }

@@ -18,6 +18,8 @@ export interface AuthSessionContext {
 export interface AuthRequest extends Request {
   user?: User;
   authContext?: AuthSessionContext;
+  /** DEK déchiffré depuis le wrappedDek du JWT. Disponible après le middleware authenticate(). */
+  dekBuffer?: Buffer;
 }
 
 export interface FileUploadRequest extends AuthRequest {
@@ -33,6 +35,8 @@ export interface JWTPayload {
   switchSessionId?: string;
   delegatedByUserId?: string;
   delegationId?: string;
+  /** DEK enveloppée avec DEK_WRAP_SECRET (base64). Déchiffrée côté serveur uniquement. */
+  wrappedDek?: string;
 }
 
 export interface OAuth2Profile {

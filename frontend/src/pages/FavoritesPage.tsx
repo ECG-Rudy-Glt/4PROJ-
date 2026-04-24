@@ -97,6 +97,14 @@ export default function FavoritesPage() {
     }
   };
 
+  const handleDownload = async (fileId: string, fileName: string) => {
+    try {
+      await fileService.triggerDownload(fileId, fileName);
+    } catch {
+      toast.error(t('common.error'));
+    }
+  };
+
   const handleToggleFavorite = async (fileId: string) => {
     try {
       await fileService.toggleFavorite(fileId);
@@ -226,13 +234,13 @@ export default function FavoritesPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <a
-                          href={fileService.getDownloadUrl(file.id)}
+                        <button
+                          onClick={() => handleDownload(file.id, file.name)}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
                           title={t('common.download')}
                         >
                           <Download className="w-4 h-4" />
-                        </a>
+                        </button>
                         <button
                           onClick={() => handleDelete(file.id)}
                           className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"

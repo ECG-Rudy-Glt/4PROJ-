@@ -19,9 +19,19 @@ export class AIService {
     mimeType?: string;
     category?: string;
     isFavorite?: boolean;
+    folderName?: string;
   } {
     const q = query.toLowerCase();
     const criteria: Record<string, any> = {};
+
+    // Folder detection — must come first to avoid consuming folder name as keyword
+    // Matches: "dans le dossier X", "dans mon dossier X", "dans le sous-dossier X"
+    const folderMatch = q.match(
+      /dans\s+(?:le\s+|mon\s+|mes\s+|la\s+|les\s+)?(?:sous-?)?dossiers?\s+([\w\u00C0-\u017E0-9 _/-]+?)(?:\s*[?!.,]|$)/i,
+    );
+    if (folderMatch) {
+      criteria.folderName = folderMatch[1].trim();
+    }
 
     if (/\bimage[s]?\b|photo[s]?|\.png\b|\.jpg\b|\.jpeg\b|\.gif\b|\.webp\b/.test(q)) {
       criteria.category = 'image';
@@ -29,7 +39,9 @@ export class AIService {
       criteria.category = 'video';
     } else if (/\baudio\b|\bmusique\b|\.mp3\b|\.wav\b|\.flac\b/.test(q)) {
       criteria.category = 'audio';
-    } else if (/\bpdf\b|\bdocument[s]?\b|\bword\b|\bexcel\b|\btableur\b/.test(q)) {
+    } else if (!criteria.folderName && /\bpdf\b|\bdocument[s]?\b|\bword\b|\bexcel\b|\btableur\b/.test(q)) {
+      // Only apply doc category when no folder name detected (avoids "documents" in folder path
+      // being misidentified as category)
       criteria.category = 'doc';
     }
 
@@ -37,8 +49,8 @@ export class AIService {
     if (/\.png\b/.test(q) && !criteria.mimeType) criteria.mimeType = 'png';
     if (/\bfavori[s]?\b|\bstar\b|\bépingl/.test(q)) criteria.isFavorite = true;
 
-    // Extract keyword only when no structural category was detected
-    if (!criteria.category && !criteria.mimeType) {
+    // Extract keyword only when no structural signal was detected and no folder
+    if (!criteria.category && !criteria.mimeType && !criteria.folderName) {
       const stop = new Set([
         'les', 'mes', 'trouve', 'cherche', 'montre', 'affiche', 'liste', 'fichier',
         'fichiers', 'document', 'documents', 'où', 'est', 'mon', 'ma', 'le', 'la',
@@ -53,6 +65,28 @@ export class AIService {
     }
 
     return criteria;
+  }
+
+  /**
+   * Returns the IDs of the given folders plus all their descendants (recursive).
+   */
+  private async _getAllSubfolderIds(userId: string, rootIds: string[]): Promise<string[]> {
+    const all = new Set<string>(rootIds);
+    const queue = [...rootIds];
+    while (queue.length > 0) {
+      const batch = queue.splice(0, queue.length);
+      const children = await prisma.folder.findMany({
+        where: { userId, parentId: { in: batch } },
+        select: { id: true },
+      });
+      for (const c of children) {
+        if (!all.has(c.id)) {
+          all.add(c.id);
+          queue.push(c.id);
+        }
+      }
+    }
+    return [...all];
   }
 
   // ---------------------------------------------------------------------------
@@ -96,8 +130,9 @@ export class AIService {
       }
 
       return BrainService.analyze(text, question);
-    } catch (error: any) {
-      throw new Error(`Failed to analyze file: ${error.message}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to analyze file: ${msg}`);
     }
   }
 
@@ -120,6 +155,25 @@ export class AIService {
       ...(vaultUnlocked ? {} : { isVault: false }),
     };
     const include = { folder: true, tags: { include: { tag: true } } };
+
+    // ── 0. Folder-scoped query ─────────────────────────────────────────────
+    if (args.folderName) {
+      const matchingFolders = await prisma.folder.findMany({
+        where: { userId, name: { contains: args.folderName, mode: 'insensitive' } },
+        select: { id: true, name: true },
+      });
+      if (matchingFolders.length === 0) {
+        return { files: [], searchCriteria: args, message: `Aucun dossier nommé "${args.folderName}" trouvé.` };
+      }
+      const folderIds = await this._getAllSubfolderIds(userId, matchingFolders.map((f) => f.id));
+      const files = await prisma.file.findMany({
+        where: { ...baseWhere, folderId: { in: folderIds } },
+        include,
+        orderBy: { updatedAt: 'desc' },
+        take: 30,
+      });
+      return this._buildResult(files, args);
+    }
 
     // ── 1. Structural query (category / mime / favorites) ──────────────────
     if (args.category || args.mimeType || args.isFavorite !== undefined) {
@@ -264,7 +318,7 @@ export class AIService {
         const list = result.files
           .map(
             (f: any) =>
-              `- ${f.name} (${f.category || 'autre'}, ${(Number(f.size) / 1024).toFixed(1)} KB)`,
+              `- ${f.name}${f.folder ? ` [${f.folder.name}]` : ''} (${f.category || 'autre'}, ${(Number(f.size) / 1024).toFixed(1)} KB)`,
           )
           .join('\n');
         return `${result.message}\n\n${list}`;
@@ -278,10 +332,10 @@ export class AIService {
         .filter((msg: any) => msg.role === 'user' || msg.role === 'assistant')
         .map((msg: any) => ({ role: msg.role as string, content: msg.content as string }));
       return await BrainService.chat(userId, message, historyItems);
-    } catch (error: any) {
-      if (error.name === 'AbortError') throw new Error('TIMEOUT');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw new Error('TIMEOUT');
       // brain-api unreachable (ECONNREFUSED, fetch failed, etc.)
-      const msg = error?.message ?? '';
+      const msg = error instanceof Error ? error.message : '';
       if (
         msg.includes('ECONNREFUSED') ||
         msg.includes('fetch failed') ||

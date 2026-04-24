@@ -164,10 +164,11 @@ IMPORTANT :
       }
 
       return (response.message.content as any)?.[0]?.text || 'Désolé, je n\'ai pas pu traiter votre demande.';
-    } catch (error: any) {
+    } catch (error) {
       logger.error({ err: error }, 'Error in chat');
-      if (error.message?.includes('429')) throw new Error('RATE_LIMIT_EXCEEDED');
-      throw new Error(`Chat failed: ${error.message}`);
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('429')) throw new Error('RATE_LIMIT_EXCEEDED');
+      throw new Error(`Chat failed: ${msg}`);
     }
   }
 }

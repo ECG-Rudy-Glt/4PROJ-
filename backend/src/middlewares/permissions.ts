@@ -92,8 +92,9 @@ export function requireFilePermission(permission: Permission) {
       }
 
       next();
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: msg });
     }
   };
 }
@@ -139,8 +140,9 @@ export function requireFolderPermission(permission: Permission) {
       }
 
       next();
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: msg });
     }
   };
 }

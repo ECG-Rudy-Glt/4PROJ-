@@ -3,15 +3,14 @@ import { AuthRequest } from '../types';
 import { AccountAccessService } from '../services/accountAccessService';
 import { AuditService } from '../services/auditService';
 import { ensureSwitchSessionId } from '../utils/cookies';
-
-const getRootUserId = (req: AuthRequest) => req.authContext?.rootUserId || req.user!.id;
-const getActorUserId = (req: AuthRequest) => req.authContext?.actorUserId || req.user!.id;
+import { sendSuccess, sendCreated, sendError } from '../utils/response';
+import { getRootUserId, getActorUserId } from '../utils/authHelpers';
 
 export class AccountAccessController {
   static async listSwitchLinks(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const links = await AccountAccessService.listSwitchLinks(getRootUserId(req));
-      res.status(200).json({ links });
+      sendSuccess(res, { links });
     } catch (error) { next(error); }
   }
 
@@ -21,7 +20,7 @@ export class AccountAccessController {
       const { email, password, mfaCode, backupCode, label } = req.body;
 
       if (!email || !password) {
-        res.status(400).json({ error: 'email et password sont requis' });
+        sendError(res, 'email et password sont requis', 400);
         return;
       }
 
@@ -41,7 +40,7 @@ export class AccountAccessController {
         userAgent: req.get('user-agent'),
       });
 
-      res.status(201).json({ link });
+      sendCreated(res, { link });
     } catch (error) { next(error); }
   }
 
@@ -57,7 +56,7 @@ export class AccountAccessController {
         targetUserId: revoked.targetUserId,
       });
 
-      res.status(200).json({ message: 'Lien de switch révoqué' });
+      sendSuccess(res, { message: 'Lien de switch révoqué' });
     } catch (error) { next(error); }
   }
 
@@ -69,10 +68,7 @@ export class AccountAccessController {
 
       const result = await AccountAccessService.createSwitchToken(rootUserId, linkId, switchSessionId);
       if (result.reauthRequired) {
-        res.status(401).json({
-          error: 'Re-authentification requise pour continuer le switch',
-          code: 'REAUTH_REQUIRED',
-        });
+        sendError(res, 'Re-authentification requise pour continuer le switch', 401, 'REAUTH_REQUIRED');
         return;
       }
 
@@ -90,7 +86,7 @@ export class AccountAccessController {
         ipAddress: req.ip,
       });
 
-      res.status(200).json({
+      sendSuccess(res, {
         token: result.token,
         user: result.user,
         switchSessionId,
@@ -106,7 +102,7 @@ export class AccountAccessController {
   static async switchBack(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.authContext || req.authContext.authType === 'DIRECT') {
-        res.status(400).json({ error: 'Aucune session déléguée/switch active' });
+        sendError(res, 'Aucune session déléguée/switch active', 401);
         return;
       }
 
@@ -120,7 +116,7 @@ export class AccountAccessController {
         ipAddress: req.ip,
       });
 
-      res.status(200).json({
+      sendSuccess(res, {
         token: result.token,
         user: result.user,
         authContext: {
@@ -138,7 +134,7 @@ export class AccountAccessController {
       const { delegateEmail, permissions, expiresAt } = req.body;
 
       if (!delegateEmail) {
-        res.status(400).json({ error: 'delegateEmail est requis' });
+        sendError(res, 'delegateEmail est requis', 400);
         return;
       }
 
@@ -161,14 +157,14 @@ export class AccountAccessController {
         expiresAt: delegation.expiresAt,
       });
 
-      res.status(201).json({ delegation });
+      sendCreated(res, { delegation });
     } catch (error) { next(error); }
   }
 
   static async listDelegations(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await AccountAccessService.listDelegations(req.user!.id);
-      res.status(200).json(data);
+      sendSuccess(res, data);
     } catch (error) { next(error); }
   }
 
@@ -183,7 +179,7 @@ export class AccountAccessController {
         delegateUserId: delegation.delegateUserId,
       });
 
-      res.status(200).json({ message: 'Délégation révoquée' });
+      sendSuccess(res, { message: 'Délégation révoquée' });
     } catch (error) { next(error); }
   }
 
@@ -207,7 +203,7 @@ export class AccountAccessController {
         ipAddress: req.ip,
       });
 
-      res.status(200).json({
+      sendSuccess(res, {
         ...result,
         switchSessionId,
         authContext: {
@@ -220,4 +216,3 @@ export class AccountAccessController {
     } catch (error) { next(error); }
   }
 }
-

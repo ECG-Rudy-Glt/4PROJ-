@@ -3,11 +3,13 @@ import { AuthService } from '../services/authService';
 import { AuthRequest } from '../types';
 import { generateToken } from '../utils/jwt';
 import { AuditService } from '../services/auditService';
+import { validateEmail } from '../utils/validators';
 import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
 import { generateTempToken } from './mfaController';
 import { clearSwitchSessionCookie } from '../utils/cookies';
 import logger from '../config/logger';
+import { sendSuccess, sendCreated, sendError } from '../utils/response';
 
 export { UserProfileController } from './userProfileController';
 export { DataExportController } from './dataExportController';
@@ -17,19 +19,18 @@ export class AuthController {
     try {
       const { email, password, firstName, lastName } = req.body;
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || !emailRegex.test(email)) {
-        res.status(400).json({ error: 'Format d\'email invalide' });
+      if (!validateEmail(email)) {
+        sendError(res, "L'adresse e-mail doit être dans un format valide (ex: nom@domaine.com)", 400);
         return;
       }
 
       if (!password || password.length < 6) {
-        res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+        sendError(res, 'Le mot de passe doit contenir au moins 6 caractères', 400);
         return;
       }
 
       const result = await AuthService.register(email, password, firstName, lastName);
-      res.status(201).json(result);
+      sendCreated(res, result);
     } catch (error) { next(error); }
   }
 
@@ -37,9 +38,8 @@ export class AuthController {
     try {
       const { email, password } = req.body;
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || !emailRegex.test(email)) {
-        res.status(400).json({ error: 'Format d\'email invalide' });
+      if (!validateEmail(email)) {
+        sendError(res, "L'adresse e-mail doit être dans un format valide (ex: nom@domaine.com)", 400);
         return;
       }
 
@@ -58,28 +58,23 @@ export class AuthController {
             mfaUsed: false,
             trustedDevice: true,
           });
-          res.status(200).json(result);
+          sendSuccess(res, result);
           return;
         }
 
         const tempToken = generateTempToken(user.id);
-        res.status(200).json({ mfaRequired: true, tempToken, userId: user.id });
+        sendSuccess(res, { mfaRequired: true, tempToken, userId: user.id });
         return;
       }
 
       const tempToken = generateTempToken(user.id);
-      res.status(200).json({
+      sendSuccess(res, {
         mfaSetupRequired: true,
         tempToken,
         userId: user.id,
         user: { email: user.email, firstName: user.firstName, lastName: user.lastName },
       });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      if (msg === 'Account inactive or suspended') {
-        res.status(401).json({ error: msg });
-        return;
-      }
       next(error);
     }
   }
@@ -96,7 +91,7 @@ export class AuthController {
       }).catch((e) => logger.error(e));
       clearSwitchSessionCookie(res);
 
-      res.status(200).json(result);
+      sendSuccess(res, result);
     } catch (error) { next(error); }
   }
 

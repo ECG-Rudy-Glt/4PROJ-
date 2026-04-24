@@ -1,14 +1,4 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
-};
+import api from './api';
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -45,11 +35,7 @@ export const aiService = {
    * Chat général avec Bobby le robot
    */
   async chat(message: string, history?: ChatMessage[]): Promise<ChatResponse> {
-    const response = await axios.post(
-      `${API_URL}/api/ai/chat`,
-      { message, history },
-      { headers: getAuthHeaders() }
-    );
+    const response = await api.post('/ai/chat', { message, history });
     return response.data;
   },
 
@@ -57,11 +43,7 @@ export const aiService = {
    * Analyser un fichier
    */
   async analyzeFile(fileId: string, prompt?: string): Promise<AnalyzeFileResponse> {
-    const response = await axios.post(
-      `${API_URL}/api/ai/analyze-file`,
-      { fileId, prompt },
-      { headers: getAuthHeaders() }
-    );
+    const response = await api.post('/ai/analyze-file', { fileId, prompt });
     return response.data;
   },
 
@@ -69,11 +51,7 @@ export const aiService = {
    * Rechercher des fichiers avec l'IA
    */
   async searchFiles(query: string): Promise<SearchFilesResponse> {
-    const response = await axios.post(
-      `${API_URL}/api/ai/search-files`,
-      { query },
-      { headers: getAuthHeaders() }
-    );
+    const response = await api.post('/ai/search-files', { query });
     return response.data;
   },
 
@@ -85,11 +63,7 @@ export const aiService = {
     fileName?: string,
     folderId?: string
   ): Promise<GenerateFileResponse> {
-    const response = await axios.post(
-      `${API_URL}/api/ai/generate-file`,
-      { prompt, fileName, folderId },
-      { headers: getAuthHeaders() }
-    );
+    const response = await api.post('/ai/generate-file', { prompt, fileName, folderId });
     return response.data;
   },
 };

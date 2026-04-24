@@ -88,9 +88,12 @@ describe('AuthController', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        mfaRequired: true,
-        tempToken: 'temp-token-1',
-        userId: 'user-1',
+        success: true,
+        data: {
+          mfaRequired: true,
+          tempToken: 'temp-token-1',
+          userId: 'user-1',
+        },
       });
       expect(AuditService.createLog).not.toHaveBeenCalled();
     });
@@ -109,29 +112,35 @@ describe('AuthController', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        mfaSetupRequired: true,
-        tempToken: 'temp-token-2',
-        userId: 'user-1',
-        user: {
-          email: 'user@example.com',
-          firstName: 'User',
-          lastName: 'One',
+        success: true,
+        data: {
+          mfaSetupRequired: true,
+          tempToken: 'temp-token-2',
+          userId: 'user-1',
+          user: {
+            email: 'user@example.com',
+            firstName: 'User',
+            lastName: 'One',
+          },
         },
       });
     });
 
-    it('should reject inactive account login with 401', async () => {
-      (AuthService.login as jest.Mock).mockRejectedValue(new Error('Account inactive or suspended'));
+    it('should forward inactive account login error to error handler', async () => {
+      const err = Object.assign(new Error('Account inactive or suspended'), { statusCode: 401 });
+      (AuthService.login as jest.Mock).mockRejectedValue(err);
 
       const req: any = {
         body: { email: 'user@example.com', password: 'password123' },
       };
       const res = createRes();
+      const next = jest.fn();
 
-      await AuthController.login(req, res, jest.fn());
+      await AuthController.login(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Account inactive or suspended' });
+      expect(next).toHaveBeenCalledWith(err);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
     });
   });
 });

@@ -2,6 +2,8 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import prisma from '../config/database';
 import logger from '../config/logger';
+import { sendCsv, csvFilename } from '../utils/csvExporter';
+import { sendError } from '../utils/response';
 
 export class DataExportController {
   static async exportUserData(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -10,44 +12,64 @@ export class DataExportController {
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: {
-          files: {
-            where: { isDeleted: false },
-            select: { id: true, name: true, size: true, mimeType: true, storagePath: true, createdAt: true, updatedAt: true, isFavorite: true, folderId: true },
-          },
-          folders: {
-            select: { id: true, name: true, path: true, parentId: true, createdAt: true, updatedAt: true },
-          },
-          sharedLinks: {
-            select: { id: true, token: true, fileId: true, folderId: true, downloads: true, expiresAt: true, createdAt: true },
-          },
-          trustedDevices: {
-            select: { id: true, deviceName: true, ipAddress: true, createdAt: true, expiresAt: true, lastUsedAt: true },
-          },
-          auditLogs: {
-            orderBy: { createdAt: 'desc' },
-            take: 1000,
-            select: { id: true, action: true, details: true, createdAt: true },
-          },
-          organizationMemberships: {
-            include: { organization: { select: { id: true, name: true, slug: true } } },
-          },
-          switchLinksAsRoot: {
-            select: { id: true, targetUserId: true, expiresAt: true, lastAuthenticatedAt: true, revokedAt: true, createdAt: true },
-          },
-          switchLinksAsTarget: {
-            select: { id: true, rootUserId: true, expiresAt: true, lastAuthenticatedAt: true, revokedAt: true, createdAt: true },
-          },
-          delegationsGiven: {
-            select: { id: true, delegateUserId: true, status: true, canRead: true, canWrite: true, canDelete: true, canShare: true, startsAt: true, expiresAt: true, revokedAt: true, createdAt: true },
-          },
-          delegationsReceived: {
-            select: { id: true, ownerUserId: true, status: true, canRead: true, canWrite: true, canDelete: true, canShare: true, startsAt: true, expiresAt: true, revokedAt: true, createdAt: true },
-          },
+        select: {
+          id: true, email: true, firstName: true, lastName: true,
+          role: true, accountStatus: true, plan: true, subscriptionStatus: true,
+          mfaEnabled: true, vaultEnabled: true, quotaUsed: true, quotaLimit: true,
+          lastActiveAt: true, createdAt: true, updatedAt: true,
         },
       });
 
-      if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+      if (!user) { sendError(res, 'User not found', 404); return; }
+
+      const [
+        files, folders, sharedLinks, trustedDevices, auditLogs,
+        organizationMemberships, switchLinksAsRoot, switchLinksAsTarget,
+        delegationsGiven, delegationsReceived,
+      ] = await Promise.all([
+        prisma.file.findMany({
+          where: { userId, isDeleted: false },
+          select: { id: true, name: true, size: true, mimeType: true, storagePath: true, createdAt: true, updatedAt: true, isFavorite: true, folderId: true },
+        }),
+        prisma.folder.findMany({
+          where: { userId },
+          select: { id: true, name: true, path: true, parentId: true, createdAt: true, updatedAt: true },
+        }),
+        prisma.sharedLink.findMany({
+          where: { userId },
+          select: { id: true, token: true, fileId: true, folderId: true, downloads: true, expiresAt: true, createdAt: true },
+        }),
+        prisma.trustedDevice.findMany({
+          where: { userId },
+          select: { id: true, deviceName: true, ipAddress: true, createdAt: true, expiresAt: true, lastUsedAt: true },
+        }),
+        prisma.auditLog.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          take: 1000,
+          select: { id: true, action: true, details: true, createdAt: true },
+        }),
+        prisma.organizationMember.findMany({
+          where: { userId },
+          include: { organization: { select: { id: true, name: true, slug: true } } },
+        }),
+        prisma.accountSwitchLink.findMany({
+          where: { rootUserId: userId },
+          select: { id: true, targetUserId: true, expiresAt: true, lastAuthenticatedAt: true, revokedAt: true, createdAt: true },
+        }),
+        prisma.accountSwitchLink.findMany({
+          where: { targetUserId: userId },
+          select: { id: true, rootUserId: true, expiresAt: true, lastAuthenticatedAt: true, revokedAt: true, createdAt: true },
+        }),
+        prisma.delegation.findMany({
+          where: { ownerUserId: userId },
+          select: { id: true, delegateUserId: true, status: true, canRead: true, canWrite: true, canDelete: true, canShare: true, startsAt: true, expiresAt: true, revokedAt: true, createdAt: true },
+        }),
+        prisma.delegation.findMany({
+          where: { delegateUserId: userId },
+          select: { id: true, ownerUserId: true, status: true, canRead: true, canWrite: true, canDelete: true, canShare: true, startsAt: true, expiresAt: true, revokedAt: true, createdAt: true },
+        }),
+      ]);
 
       type Row = { Section: string; Categorie: string; ItemId: string; Champ: string; Valeur: string; DateCreation: string; DateMiseAJour: string };
       const rows: Row[] = [];
@@ -74,7 +96,7 @@ export class DataExportController {
       pushRow('Profil', 'Stockage', user.id, 'QuotaLimiteOctets', user.quotaLimit.toString(), user.createdAt, user.updatedAt);
       pushRow('Profil', 'Sécurité', user.id, 'DernièreActivité', user.lastActiveAt?.toISOString() || '', user.createdAt, user.updatedAt);
 
-      for (const file of user.files) {
+      for (const file of files) {
         pushRow('Fichiers', 'Métadonnées', file.id, 'Nom', file.name, file.createdAt, file.updatedAt);
         pushRow('Fichiers', 'Métadonnées', file.id, 'TypeMime', file.mimeType, file.createdAt, file.updatedAt);
         pushRow('Fichiers', 'Métadonnées', file.id, 'TailleOctets', file.size.toString(), file.createdAt, file.updatedAt);
@@ -83,13 +105,13 @@ export class DataExportController {
         pushRow('Fichiers', 'Métadonnées', file.id, 'CheminStockage', file.storagePath, file.createdAt, file.updatedAt);
       }
 
-      for (const folder of user.folders) {
+      for (const folder of folders) {
         pushRow('Dossiers', 'Métadonnées', folder.id, 'Nom', folder.name, folder.createdAt, folder.updatedAt);
         pushRow('Dossiers', 'Métadonnées', folder.id, 'Chemin', folder.path, folder.createdAt, folder.updatedAt);
         pushRow('Dossiers', 'Métadonnées', folder.id, 'ParentId', folder.parentId || 'Racine', folder.createdAt, folder.updatedAt);
       }
 
-      for (const link of user.sharedLinks) {
+      for (const link of sharedLinks) {
         pushRow('Partages', 'LiensPublics', link.id, 'Token', link.token, link.createdAt, null);
         pushRow('Partages', 'LiensPublics', link.id, 'Type', link.fileId ? 'Fichier' : 'Dossier', link.createdAt, null);
         pushRow('Partages', 'LiensPublics', link.id, 'ObjetId', link.fileId || link.folderId || '', link.createdAt, null);
@@ -97,43 +119,43 @@ export class DataExportController {
         pushRow('Partages', 'LiensPublics', link.id, 'Expiration', link.expiresAt ? link.expiresAt.toISOString() : 'Jamais', link.createdAt, null);
       }
 
-      for (const device of user.trustedDevices) {
+      for (const device of trustedDevices) {
         pushRow('Sécurité', 'AppareilsConfiance', device.id, 'NomAppareil', device.deviceName, device.createdAt, device.lastUsedAt);
         pushRow('Sécurité', 'AppareilsConfiance', device.id, 'AdresseIP', device.ipAddress, device.createdAt, device.lastUsedAt);
         pushRow('Sécurité', 'AppareilsConfiance', device.id, 'ExpireLe', device.expiresAt.toISOString(), device.createdAt, device.lastUsedAt);
       }
 
-      for (const membership of user.organizationMemberships) {
+      for (const membership of organizationMemberships) {
         pushRow('Organisations', 'Membership', membership.id, 'OrganisationId', membership.organization.id, membership.createdAt, membership.updatedAt);
         pushRow('Organisations', 'Membership', membership.id, 'OrganisationNom', membership.organization.name, membership.createdAt, membership.updatedAt);
         pushRow('Organisations', 'Membership', membership.id, 'Rôle', membership.role, membership.createdAt, membership.updatedAt);
       }
 
-      for (const link of user.switchLinksAsRoot) {
+      for (const link of switchLinksAsRoot) {
         pushRow('Comptes', 'SwitchSortants', link.id, 'CompteCibleId', link.targetUserId, link.createdAt, link.lastAuthenticatedAt);
         pushRow('Comptes', 'SwitchSortants', link.id, 'ExpireLe', link.expiresAt.toISOString(), link.createdAt, link.lastAuthenticatedAt);
         pushRow('Comptes', 'SwitchSortants', link.id, 'RévoquéLe', link.revokedAt?.toISOString() || '', link.createdAt, link.lastAuthenticatedAt);
       }
 
-      for (const link of user.switchLinksAsTarget) {
+      for (const link of switchLinksAsTarget) {
         pushRow('Comptes', 'SwitchEntrants', link.id, 'CompteRacineId', link.rootUserId, link.createdAt, link.lastAuthenticatedAt);
         pushRow('Comptes', 'SwitchEntrants', link.id, 'ExpireLe', link.expiresAt.toISOString(), link.createdAt, link.lastAuthenticatedAt);
         pushRow('Comptes', 'SwitchEntrants', link.id, 'RévoquéLe', link.revokedAt?.toISOString() || '', link.createdAt, link.lastAuthenticatedAt);
       }
 
-      for (const delegation of user.delegationsGiven) {
+      for (const delegation of delegationsGiven) {
         pushRow('Délégations', 'Sortantes', delegation.id, 'DelegateUserId', delegation.delegateUserId, delegation.createdAt, delegation.revokedAt);
         pushRow('Délégations', 'Sortantes', delegation.id, 'Statut', delegation.status, delegation.createdAt, delegation.revokedAt);
         pushRow('Délégations', 'Sortantes', delegation.id, 'Permissions', `read=${delegation.canRead};write=${delegation.canWrite};delete=${delegation.canDelete};share=${delegation.canShare}`, delegation.createdAt, delegation.revokedAt);
       }
 
-      for (const delegation of user.delegationsReceived) {
+      for (const delegation of delegationsReceived) {
         pushRow('Délégations', 'Entrantes', delegation.id, 'OwnerUserId', delegation.ownerUserId, delegation.createdAt, delegation.revokedAt);
         pushRow('Délégations', 'Entrantes', delegation.id, 'Statut', delegation.status, delegation.createdAt, delegation.revokedAt);
         pushRow('Délégations', 'Entrantes', delegation.id, 'Permissions', `read=${delegation.canRead};write=${delegation.canWrite};delete=${delegation.canDelete};share=${delegation.canShare}`, delegation.createdAt, delegation.revokedAt);
       }
 
-      for (const log of user.auditLogs) {
+      for (const log of auditLogs) {
         let parsedDetails = '';
         if (log.details) {
           try { parsedDetails = JSON.stringify(JSON.parse(log.details)); }
@@ -143,16 +165,10 @@ export class DataExportController {
         pushRow('Historique', 'Audit', log.id, 'Détails', parsedDetails, log.createdAt, null);
       }
 
-      const { stringify } = require('csv-stringify/sync');
-      const csv = stringify(rows, {
-        header: true,
+      sendCsv(res, rows, csvFilename('supfile-export'), {
         columns: ['Section', 'Categorie', 'ItemId', 'Champ', 'Valeur', 'DateCreation', 'DateMiseAJour'],
+        bom: true,
       });
-
-      const filename = `supfile-export-${new Date().toISOString().split('T')[0]}.csv`;
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.status(200).send(`\uFEFF${csv}`);
 
     } catch (error) {
       logger.error({ err: error }, 'Error exporting user data');
