@@ -169,6 +169,37 @@ export default function FilesPage() {
     }
   }, []);
 
+  const loadBreadcrumbs = useCallback(async (folderId: string) => {
+    try {
+      const { breadcrumbs } = await folderService.getBreadcrumbs(folderId);
+      setBreadcrumbs(breadcrumbs);
+    } catch (error) {
+      console.error('Failed to load breadcrumbs', error);
+    }
+  }, []);
+
+  const loadPendingSharesCount = useCallback(async () => {
+    try {
+      const data = await shareService.getPendingShares();
+      const count = (data.files?.length || 0) + (data.folders?.length || 0);
+      setPendingSharesCount(count);
+    } catch (error) {
+      console.error('Error loading pending shares count', error);
+    }
+  }, []);
+
+  const handleSearch = useCallback(async (query: string) => {
+    setIsSearching(true);
+    try {
+      const result = await fileService.searchFiles(query);
+      setSearchResults(result.files);
+    } catch {
+      toast.error(t('files.error_search'));
+    } finally {
+      setIsSearching(false);
+    }
+  }, [t]);
+
   useEffect(() => {
     setCurrentFolder(folderId || null);
   }, [folderId, setCurrentFolder]);
@@ -216,36 +247,7 @@ export default function FilesPage() {
     });
   }, [searchParams, files, acceptedSharedFiles, t]);
 
-  const loadBreadcrumbs = useCallback(async (folderId: string) => {
-    try {
-      const { breadcrumbs } = await folderService.getBreadcrumbs(folderId);
-      setBreadcrumbs(breadcrumbs);
-    } catch (error) {
-      console.error('Failed to load breadcrumbs', error);
-    }
-  }, []);
 
-  const loadPendingSharesCount = useCallback(async () => {
-    try {
-      const data = await shareService.getPendingShares();
-      const count = (data.files?.length || 0) + (data.folders?.length || 0);
-      setPendingSharesCount(count);
-    } catch (error) {
-      console.error('Error loading pending shares count', error);
-    }
-  }, []);
-
-  const handleSearch = useCallback(async (query: string) => {
-    setIsSearching(true);
-    try {
-      const result = await fileService.searchFiles(query);
-      setSearchResults(result.files);
-    } catch {
-      toast.error(t('files.error_search'));
-    } finally {
-      setIsSearching(false);
-    }
-  }, [t]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
