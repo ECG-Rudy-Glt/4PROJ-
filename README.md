@@ -159,12 +159,12 @@ Navigateur / App mobile
 
 | Document | Contenu |
 |---|---|
-| [`doc/BACKEND_DOC.md`](doc/BACKEND_DOC.md) | Architecture backend, endpoints, sécurité |
-| [`doc/FRONTEND_DOC.md`](doc/FRONTEND_DOC.md) | Architecture frontend, stores, composants |
-| [`doc/BOBBY.md`](doc/BOBBY.md) | Documentation du microservice IA (brain-api) |
-| [`doc/MANUEL_UTILISATEUR.md`](doc/MANUEL_UTILISATEUR.md) | Guide utilisateur complet avec captures d'écran |
-| [`doc/RENDU_STATUS.md`](doc/RENDU_STATUS.md) | État du rendu par rapport au barème |
-| [`doc/PRESENTATION/`](doc/PRESENTATION/) | Supports de présentation orale |
+| [`doc/BACKEND_DOC.md`](doc/BACKEND_DOC.md) | Architecture backend, endpoints, sécurité, modèle de données |
+| [`doc/FRONTEND_DOC.md`](doc/FRONTEND_DOC.md) | Architecture frontend, stores Zustand, composants, mobile |
+| [`doc/BOBBY.md`](doc/BOBBY.md) | Documentation du microservice IA brain-api (RAG, ChromaDB, Ollama) |
+| [`doc/MANUEL_UTILISATEUR.md`](doc/MANUEL_UTILISATEUR.md) | Guide utilisateur complet avec emplacements captures d'écran |
+| [`doc/PRESENTATION/PRESENTATION_CICD.md`](doc/PRESENTATION/PRESENTATION_CICD.md) | Pipeline CI/CD GitHub Actions, SAST, SBOM, Dockle |
+| [`doc/PRESENTATION/`](doc/PRESENTATION/) | Supports de présentation orale (architecture, sécurité, frontend, CEO) |
 
 ---
 
