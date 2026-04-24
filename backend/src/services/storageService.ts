@@ -33,7 +33,7 @@ const s3Client = new S3Client({
   // Timeouts pour éviter les connexions keep-alive stales avec MinIO
   requestHandler: new NodeHttpHandler({
     connectionTimeout: 5_000,   // 5s pour établir la connexion
-    socketTimeout: 30_000,      // 30s max par requête S3
+    socketTimeout: 600_000,     // 10 min — nécessaire pour les gros fichiers (vidéos)
   }),
 });
 

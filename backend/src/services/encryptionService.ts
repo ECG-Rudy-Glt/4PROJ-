@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import { Readable } from 'stream';
+import { PassThrough, Readable, Transform } from 'stream';
 import { StorageService } from './storageService';
 import { deleteFile } from '../utils/fileUtils';
 
@@ -86,40 +86,34 @@ export class EncryptionService {
   // ── Méthodes S3 ──────────────────────────────────────────────────────────
 
   /**
-   * Chiffre un fichier local et l'uploade sur S3.
-   * - Chiffre dans un fichier .enc temporaire (même format IV+content+AuthTag)
-   * - Upload le fichier chiffré vers S3
-   * - Supprime les deux fichiers temporaires locaux
+   * Chiffre un fichier local et l'uploade sur S3 en streaming (sans fichier .enc temporaire).
+   * Format streamé vers S3 : IV (16 bytes) + contenu chiffré + AuthTag (16 bytes)
    */
   static async encryptFileToS3(localPath: string, s3Key: string): Promise<void> {
     const key = this.getKey();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-
-    const tempEncPath = `${localPath}.enc`;
     const input = fs.createReadStream(localPath);
-    const output = fs.createWriteStream(tempEncPath);
 
-    output.write(iv);
-
-    await new Promise<void>((resolve, reject) => {
-      input.pipe(cipher).pipe(output);
-      output.on('finish', () => {
-        const authTag = cipher.getAuthTag();
-        fs.appendFileSync(tempEncPath, authTag);
-        resolve();
-      });
-      output.on('error', reject);
-      input.on('error', reject);
-      cipher.on('error', reject);
+    // Appende l'auth tag GCM à la fin du stream chiffré
+    const gcmFinalizer = new Transform({
+      transform(chunk, _enc, cb) { this.push(chunk); cb(); },
+      flush(cb) { this.push(cipher.getAuthTag()); cb(); },
     });
 
+    // Stream de sortie : IV d'abord, puis données chiffrées + auth tag
+    const pass = new PassThrough();
+    pass.write(iv);
+
+    // Si une erreur survient dans la pipeline, on détruit pass (ce qui fait échouer l'upload S3)
+    [input, cipher, gcmFinalizer].forEach(s => s.on('error', err => pass.destroy(err)));
+
+    input.pipe(cipher).pipe(gcmFinalizer).pipe(pass, { end: true });
+
     try {
-      await StorageService.uploadFromFile(s3Key, tempEncPath);
+      await StorageService.upload(s3Key, pass);
     } finally {
-      // Toujours nettoyer les fichiers temporaires, même en cas d'erreur S3
       await deleteFile(localPath).catch(() => undefined);
-      await deleteFile(tempEncPath).catch(() => undefined);
     }
   }
 
