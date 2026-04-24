@@ -33,6 +33,8 @@
     "file_plural": "fichiers",
     "folder": "dossier",
     "folder_plural": "dossiers",
+    "next": "Suivant",
+    "back": "Retour",
     "loading": "Chargement...",
     "error_loading": "Échec du chargement",
     "no_data": "Aucune donnée disponible",
@@ -51,7 +53,13 @@
     "close": "Fermer",
     "confirm_password": "Confirmer le mot de passe",
     "password_mismatch": "Les mots de passe ne correspondent pas",
-    "password_too_short": "Le mot de passe doit contenir au moins 6 caractères",
+    "password_too_short": "Le mot de passe doit respecter les critères de sécurité",
+    "password_rules": "Le mot de passe doit contenir :",
+    "password_rule_length": "Au moins 12 caractères",
+    "password_rule_uppercase": "Au moins une majuscule",
+    "password_rule_lowercase": "Au moins une minuscule",
+    "password_rule_number": "Au moins un chiffre",
+    "password_rule_special": "Au moins un caractère spécial",
     "unknown_date": "Date inconnue",
     "invalid_date": "Date invalide",
     "drag_overlay": {
@@ -63,7 +71,9 @@
       "minutes_ago": "Il y a {{count}}min",
       "hours_ago": "Il y a {{count}}h",
       "days_ago": "Il y a {{count}}j"
-    }
+    },
+    "comments_tab": "Commentaires",
+    "versions_tab": "Versions"
   },
   "files": {
     "title": "Mes fichiers",
@@ -247,7 +257,7 @@
     "new_password_placeholder": "Entrez le nouveau mot de passe",
     "confirm_password": "Confirmer le nouveau mot de passe",
     "confirm_password_placeholder": "Confirmez le nouveau mot de passe",
-    "password_hint": "Le mot de passe doit contenir au moins 6 caractères",
+    "password_hint": "Votre mot de passe doit respecter les règles de sécurité.",
     "change_password": "Modifier le mot de passe",
     "active_sessions": "Sessions actives",
     "logout_all_desc": "Si vous pensez que votre compte est compromis, vous pouvez vous déconnecter de tous les autres appareils.",
@@ -705,6 +715,7 @@
     "business_desc": "Pour les équipes",
     "enterprise_name": "Enterprise",
     "enterprise_desc": "Pour les organisations exigeantes",
+    "on_quote": "Sur devis",
     "features": {
       "secure_cloud": "Stockage Cloud sécurisé",
       "file_sharing": "Partage de fichiers",
@@ -802,5 +813,25 @@
     "share_received_body": "{{firstName}} vous a partagé un {{type}}.",
     "share_accepted_title": "Partage accepté",
     "share_accepted_body": "{{firstName}} a accepté votre partage de {{type}}."
+  },
+  "versions": {
+    "title": "Historique des versions",
+    "no_versions": "Aucune version antérieure",
+    "no_versions_desc": "Les versions précédentes apparaîtront ici lors des modifications",
+    "restore_confirm": "Restaurer la version {{versionNumber}} ? Le fichier actuel sera sauvegardé comme nouvelle version.",
+    "restore_success": "Version restaurée",
+    "restore_error": "Échec de la restauration",
+    "delete_confirm": "Supprimer définitivement la version {{versionNumber}} ?",
+    "delete_success": "Version supprimée",
+    "delete_error": "Échec de la suppression",
+    "load_error": "Impossible de charger l'historique",
+    "not_available_shared": "L'historique des versions n'est pas disponible pour ce fichier partagé",
+    "read_only_warning": "Lecture seule - Vous ne pouvez pas restaurer ou supprimer des versions",
+    "info_title": "Info :",
+    "info_auto_keep": "Les 10 dernières versions sont conservées automatiquement.",
+    "info_quota": "Les versions comptent dans votre quota de stockage.",
+    "restore_tooltip": "Restaurer cette version",
+    "delete_tooltip": "Supprimer cette version",
+    "date_format": "dd MMM yyyy 'à' HH:mm"
   }
 }
