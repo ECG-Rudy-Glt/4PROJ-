@@ -18,10 +18,35 @@ export class VersionService {
     newFilePath: string,
     newFileName: string,
     newFileSize: number,
-    newMimeType: string
+    newMimeType: string,
+    dek?: Buffer
   ) {
     const file = await prisma.file.findFirst({
-      where: { id: fileId, userId, isDeleted: false },
+      where: {
+        id: fileId,
+        isDeleted: false,
+        OR: [
+          { userId },
+          {
+            sharedWith: {
+              some: {
+                sharedWithId: userId,
+                canWrite: true,
+              },
+            },
+          },
+          {
+            folder: {
+              sharedWith: {
+                some: {
+                  sharedWithId: userId,
+                  canWrite: true,
+                },
+              },
+            },
+          },
+        ],
+      },
       include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } }
     });
 
@@ -48,7 +73,7 @@ export class VersionService {
 
     // Chiffrer et uploader la nouvelle version vers S3
     const s3Key = `versions/${fileId}/${newVersionNumber}-${path.basename(newFilePath)}`;
-    await EncryptionService.encryptFileToS3(newFilePath, s3Key);
+    await EncryptionService.encryptFileToS3(newFilePath, s3Key, dek);
 
     // Créer la nouvelle version en sauvegardant l'ancien storagePath (S3 ou local)
     const version = await prisma.fileVersion.create({

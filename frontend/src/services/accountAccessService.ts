@@ -60,12 +60,12 @@ export const accountAccessService = {
     return response.data;
   },
 
-  async switchToLinkedAccount(linkId: string): Promise<{ token: string; user: User }> {
+  async switchToLinkedAccount(linkId: string): Promise<{ token: string; user: User; authContext: any; switchSessionId: string }> {
     const response = await api.post(`/account-access/switch-links/${linkId}/switch`);
     return response.data;
   },
 
-  async switchBack(): Promise<{ token: string; user: User }> {
+  async switchBack(): Promise<{ token: string; user: User; authContext: any }> {
     const response = await api.post('/account-access/switch/back');
     return response.data;
   },
@@ -97,14 +97,8 @@ export const accountAccessService = {
   async assumeDelegation(delegationId: string): Promise<{
     token: string;
     user: User;
-    delegation: {
-      id: string;
-      canRead: boolean;
-      canWrite: boolean;
-      canDelete: boolean;
-      canShare: boolean;
-      expiresAt: string | null;
-    };
+    authContext: any;
+    switchSessionId: string;
   }> {
     const response = await api.post(`/account-access/delegations/${delegationId}/assume`);
     return response.data;

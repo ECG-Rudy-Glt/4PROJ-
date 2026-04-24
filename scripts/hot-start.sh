@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Se placer à la racine du projet
+cd "$(dirname "$0")/.."
+
 echo "========================================="
 echo "  SUPFILE - Hot Reload Dev Start"
 echo "========================================="
@@ -60,11 +63,11 @@ if [ ! -f ".env" ]; then
 fi
 
 cp .env .env.backup
-sed -i.tmp "s|HOST_IP=.*|HOST_IP=$FINAL_IP|" .env
-sed -i.tmp "s|API_URL=.*|API_URL=http://$FINAL_IP:5001|" .env
-sed -i.tmp "s|FRONTEND_URL=.*|FRONTEND_URL=http://$FINAL_IP:3000|" .env
-sed -i.tmp "s|ONLYOFFICE_PUBLIC_URL=.*|ONLYOFFICE_PUBLIC_URL=http://$FINAL_IP:8080|" .env
-sed -i.tmp "s|VITE_API_URL=.*|VITE_API_URL=http://$FINAL_IP:5001|" .env
+sed -i.tmp "s|^HOST_IP=.*|HOST_IP=$FINAL_IP|" .env
+sed -i.tmp "s|^API_URL=.*|API_URL=http://$FINAL_IP:5001|" .env
+sed -i.tmp "s|^FRONTEND_URL=.*|FRONTEND_URL=http://$FINAL_IP:3000|" .env
+sed -i.tmp "s|^ONLYOFFICE_PUBLIC_URL=.*|ONLYOFFICE_PUBLIC_URL=http://$FINAL_IP:8080|" .env
+sed -i.tmp "s|^VITE_API_URL=.*|VITE_API_URL=http://$FINAL_IP:5001|" .env
 rm -f .env.tmp
 echo "✓ Fichier .env mis à jour avec l'IP : $FINAL_IP"
 echo ""
@@ -84,6 +87,10 @@ if ! $DOCKER_COMPOSE -f docker-compose.dev.yml up -d --build; then
   echo "   $DOCKER_COMPOSE -f docker-compose.dev.yml logs --tail=200"
   exit 1
 fi
+
+# 4. Synchronize database schema (Prisma)
+echo "🔄 Synchronizing database schema..."
+$DOCKER_COMPOSE -f docker-compose.dev.yml exec backend npx prisma db push
 
 echo ""
 echo "✅ SUPFILE est démarré en mode hot reload !"

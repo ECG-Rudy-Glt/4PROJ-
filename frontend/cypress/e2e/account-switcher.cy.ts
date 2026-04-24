@@ -80,8 +80,10 @@ describe('Account Switcher Modal', () => {
     cy.contains('button', 'Link an account').click();
     cy.get('input[placeholder="Email"]').type('linked@example.com');
     cy.get('input[placeholder="Password"]').type('password123');
-    cy.get('input[placeholder="MFA Code (optional)"]').type('123456');
     cy.get('input[placeholder="Label (e.g., Work account)"]').type('Compte secondaire');
+    cy.contains('button', 'Next').click();
+
+    cy.get('input[placeholder="MFA Code (optional)"]').type('123456');
     cy.get('form').contains('button', 'Link an account').click();
 
     cy.wait('@addSwitchLink');
@@ -211,6 +213,13 @@ describe('Account Switcher Modal', () => {
         body: {
           token: 'switched-token-2',
           user: switchedUser,
+          authContext: {
+            authType: 'SWITCH',
+            rootUserId: rootUser.id,
+            actorUserId: rootUser.id,
+            delegation: null,
+          },
+          switchSessionId: 'sw-123'
         },
       });
     }).as('switchAccount');
@@ -226,6 +235,12 @@ describe('Account Switcher Modal', () => {
         body: {
           token: 'root-token',
           user: rootUser,
+          authContext: {
+            authType: 'DIRECT',
+            rootUserId: rootUser.id,
+            actorUserId: rootUser.id,
+            delegation: null,
+          }
         },
       });
     }).as('switchBack');

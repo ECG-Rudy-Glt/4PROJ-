@@ -73,14 +73,17 @@ export const mfaService = {
    * Vérifie un code TOTP lors de la connexion
    */
   async verifyMFA(
-    userId: string,
     token: string,
     rememberDevice: boolean
   ): Promise<MFAVerifyResponse> {
+    const tempToken = localStorage.getItem('tempToken');
     const response = await api.post('/mfa/verify', {
-      userId,
       token,
       rememberDevice,
+    }, {
+      headers: tempToken ? {
+        Authorization: `Bearer ${tempToken}`
+      } : undefined
     });
     return response.data;
   },
@@ -89,14 +92,17 @@ export const mfaService = {
    * Vérifie un code de récupération
    */
   async verifyBackupCode(
-    userId: string,
     backupCode: string,
     rememberDevice: boolean
   ): Promise<MFAVerifyResponse> {
+    const tempToken = localStorage.getItem('tempToken');
     const response = await api.post('/mfa/verify-backup-code', {
-      userId,
       backupCode,
       rememberDevice,
+    }, {
+      headers: tempToken ? {
+        Authorization: `Bearer ${tempToken}`
+      } : undefined
     });
     return response.data;
   },

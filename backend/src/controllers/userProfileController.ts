@@ -4,6 +4,7 @@ import { AuthService } from '../services/authService';
 import { AuditService } from '../services/auditService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
+import { validatePasswordStrength } from '../utils/validators';
 
 export class UserProfileController {
   static async getProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -52,6 +53,12 @@ export class UserProfileController {
     try {
       const userId = req.user!.id;
       const { oldPassword, newPassword } = req.body;
+
+      const pwdCheck = validatePasswordStrength(newPassword);
+      if (!pwdCheck.valid) {
+        sendError(res, pwdCheck.error!, 400);
+        return;
+      }
 
       const result = await AuthService.changePassword(userId, oldPassword, newPassword);
 

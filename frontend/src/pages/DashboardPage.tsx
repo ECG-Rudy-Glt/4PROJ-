@@ -322,9 +322,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Activity Log Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
-        <ActivityLog />
-      </div>
+      {user?.plan && user.plan !== 'FREE' && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl">
+          <ActivityLog />
+        </div>
+      )}
     </div>
   );
 }

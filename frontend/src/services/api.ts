@@ -29,6 +29,10 @@ api.interceptors.request.use((config) => {
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const switchSessionId = localStorage.getItem('switchSessionId');
+  if (switchSessionId) {
+    config.headers['x-switch-session'] = switchSessionId;
+  }
   return config;
 });
 

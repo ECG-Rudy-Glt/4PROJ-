@@ -37,6 +37,11 @@ export const authenticate = async (
 
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
 
+    if (decoded.type !== 'auth') {
+      res.status(401).json({ error: 'Access denied: full authentication required' });
+      return;
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
     });
@@ -188,5 +193,76 @@ export const optionalAuth = async (
     next();
   } catch (error) {
     next();
+  }
+};
+
+/**
+ * Middleware d'authentification pour la phase MFA.
+ * Accepte les jetons complets ('auth') ET les jetons temporaires ('mfa').
+ */
+export const authenticateMfa = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const JWT_SECRET = process.env.JWT_SECRET;
+  const JWT_MFA_SECRET = process.env.JWT_MFA_SECRET || (JWT_SECRET + '_mfa');
+
+  if (!JWT_SECRET) {
+    logger.error('[FATAL] JWT_SECRET is not set.');
+    process.exit(1);
+  }
+
+  try {
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+
+    if (!token) {
+      res.status(401).json({ error: 'No token provided' });
+      return;
+    }
+
+    let decoded: JWTPayload;
+    try {
+      // Tentative avec le secret principal (token complet)
+      decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+      if (decoded.type !== 'auth') throw new Error('Not an auth token');
+    } catch {
+      // Tentative avec le secret MFA (token temporaire)
+      try {
+        decoded = jwt.verify(token, JWT_MFA_SECRET) as JWTPayload;
+        if (decoded.type !== 'mfa') {
+          res.status(401).json({ error: 'Invalid token type for MFA' });
+          return;
+        }
+      } catch (err) {
+        res.status(401).json({ error: 'Invalid token' });
+        return;
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+    });
+
+    if (!user) {
+      res.status(401).json({ error: 'User not found' });
+      return;
+    }
+
+    req.user = user;
+    req.authContext = {
+      authType: 'DIRECT',
+      rootUserId: user.id,
+      actorUserId: user.id,
+    };
+
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Authentication failed' });
   }
 };

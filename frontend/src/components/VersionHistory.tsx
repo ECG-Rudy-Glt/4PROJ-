@@ -3,8 +3,9 @@ import { versionService, FileVersion } from '@/services/versionService';
 import { History, RotateCcw, Trash2, Clock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import { formatBytes } from '@/utils/bytes';
+import { useTranslation } from 'react-i18next';
 
 interface VersionHistoryProps {
   fileId: string;
@@ -14,9 +15,12 @@ interface VersionHistoryProps {
 }
 
 export default function VersionHistory({ fileId, onVersionRestored, isShared = false, canWrite = true }: VersionHistoryProps) {
+  const { t, i18n } = useTranslation();
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+
+  const dateLocale = i18n.language === 'fr' ? fr : enUS;
 
   useEffect(() => {
     loadVersions();
@@ -34,7 +38,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
       setHasError(true);
       // Don't show toast for shared files
       if (!isShared) {
-        toast.error('Échec du chargement des versions');
+        toast.error(t('versions.load_error'));
       }
     } finally {
       setIsLoading(false);
@@ -42,33 +46,33 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
   };
 
   const handleRestore = async (versionId: string, versionNumber: number) => {
-    if (!confirm(`Restaurer la version ${versionNumber} ? Le fichier actuel sera sauvegardé comme nouvelle version.`)) {
+    if (!confirm(t('versions.restore_confirm', { versionNumber }))) {
       return;
     }
 
     try {
       await versionService.restoreVersion(fileId, versionId);
-      toast.success('Version restaurée');
+      toast.success(t('versions.restore_success'));
       loadVersions();
       if (onVersionRestored) {
         onVersionRestored();
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la restauration');
+      toast.error(error.response?.data?.error || t('versions.restore_error'));
     }
   };
 
   const handleDelete = async (versionId: string, versionNumber: number) => {
-    if (!confirm(`Supprimer définitivement la version ${versionNumber} ?`)) {
+    if (!confirm(t('versions.delete_confirm', { versionNumber }))) {
       return;
     }
 
     try {
       await versionService.deleteVersion(fileId, versionId);
-      toast.success('Version supprimée');
+      toast.success(t('versions.delete_success'));
       loadVersions();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Échec de la suppression');
+      toast.error(error.response?.data?.error || t('versions.delete_error'));
     }
   };
 
@@ -91,10 +95,10 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
     return (
       <div className="text-center py-8">
         <History className="w-12 h-12 mx-auto text-red-300 dark:text-red-600 mb-2" />
-        <p className="text-red-600 dark:text-red-400">Impossible de charger l'historique</p>
+        <p className="text-red-600 dark:text-red-400">{t('versions.load_error')}</p>
         {isShared && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            L'historique des versions n'est pas disponible pour ce fichier partagé
+            {t('versions.not_available_shared')}
           </p>
         )}
       </div>
@@ -105,9 +109,9 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
     return (
       <div className="text-center py-8">
         <History className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-        <p className="text-gray-500 dark:text-gray-400">Aucune version antérieure</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('versions.no_versions')}</p>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          Les versions précédentes apparaîtront ici lors des modifications
+          {t('versions.no_versions_desc')}
         </p>
       </div>
     );
@@ -118,17 +122,17 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
       <div className="flex items-center gap-2 mb-4">
         <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Historique des versions
+          {t('versions.title')}
         </h3>
         <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
-          {versions.length} version{versions.length > 1 ? 's' : ''}
+          {versions.length} {t('versions.count', { count: versions.length })}
         </span>
       </div>
 
       {isShared && !canWrite && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
           <p className="text-sm text-yellow-800 dark:text-yellow-300">
-            Lecture seule - Vous ne pouvez pas restaurer ou supprimer des versions
+            {t('versions.read_only_warning')}
           </p>
         </div>
       )}
@@ -166,7 +170,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  <span>{format(new Date(version.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}</span>
+                  <span>{format(new Date(version.createdAt), t('versions.date_format'), { locale: dateLocale })}</span>
                 </div>
               </div>
             </div>
@@ -176,14 +180,14 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
               <button
                 onClick={() => handleRestore(version.id, version.versionNumber)}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all"
-                title="Restaurer cette version"
+                title={t('versions.restore_tooltip')}
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handleDelete(version.id, version.versionNumber)}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                title="Supprimer cette version"
+                title={t('versions.delete_tooltip')}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -194,8 +198,8 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
 
       <div className="mt-4 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
         <p className="text-xs text-primary-800 dark:text-primary-300">
-          <strong>Info :</strong> Les 10 dernières versions sont conservées automatiquement.
-          Les versions comptent dans votre quota de stockage.
+          <strong>{t('versions.info_title')}</strong> {t('versions.info_auto_keep')}
+          {' '}{t('versions.info_quota')}
         </p>
       </div>
     </div>

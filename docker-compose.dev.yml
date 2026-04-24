@@ -33,8 +33,8 @@ services:
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-supfile-uploads}
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ACCESS_KEY_ID: ${MINIO_APP_ACCESS_KEY:-supfile_app_user}
+      S3_SECRET_ACCESS_KEY: ${MINIO_APP_SECRET_KEY:-supfile_app_dev_only}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       API_URL: ${API_URL:-http://localhost:5001}
@@ -62,6 +62,8 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       BRAIN_API_URL: ${BRAIN_API_URL:-http://brain-api:8001}
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY:-}
+      DEK_WRAP_SECRET: ${DEK_WRAP_SECRET:-}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
     volumes:
       - ./backend/src:/app/src
       - ./backend/prisma:/app/prisma
@@ -73,6 +75,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      brain-api:
+        condition: service_started
     restart: unless-stopped
     networks:
       - supfile-network
@@ -121,14 +125,22 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
+      BUCKET='${S3_BUCKET:-supfile-uploads}' &&
       mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
-      mc mb local/${S3_BUCKET:-supfile-uploads} --ignore-existing &&
+      mc mb local/$$BUCKET --ignore-existing &&
+      mc admin user add local $$MINIO_APP_ACCESS_KEY $$MINIO_APP_SECRET_KEY || true &&
+      printf '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::'$$BUCKET'\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:AbortMultipartUpload\",\"s3:ListMultipartUploadParts\"],\"Resource\":[\"arn:aws:s3:::'$$BUCKET'/*\"]}]}' > /tmp/app-policy.json &&
+      mc admin policy remove local app-bucket-policy >/dev/null 2>&1 || true &&
+      mc admin policy create local app-bucket-policy /tmp/app-policy.json &&
+      mc admin policy attach local app-bucket-policy --user $$MINIO_APP_ACCESS_KEY &&
       echo 'Bucket MinIO prêt.' &&
       exit 0
       "
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY:-supfile_app_user}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY:-supfile_app_dev_only}
     restart: "no"
     networks:
       - supfile-network
@@ -176,6 +188,40 @@ services:
     networks:
       - supfile-network
 
+  ollama:
+    image: ollama/ollama:0.5.4
+    container_name: supfile-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
+  brain-api:
+    build:
+      context: ./brain-api
+      dockerfile: Dockerfile
+    container_name: supfile-brain
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      CHROMA_PATH: /app/chromadb
+    volumes:
+      - brain_chromadb:/app/chromadb
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
 networks:
   supfile-network:
     driver: bridge
@@ -190,4 +236,8 @@ volumes:
   onlyoffice_data:
     driver: local
   onlyoffice_log:
+    driver: local
+  ollama_data:
+    driver: local
+  brain_chromadb:
     driver: local

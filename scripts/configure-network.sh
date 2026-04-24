@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Se placer à la racine du projet
+cd "$(dirname "$0")/.."
+
 # Script de configuration réseau pour SUPFILE
 # Ce script aide à configurer l'application pour l'accès réseau local
 
@@ -56,10 +59,10 @@ if [ -f ".env" ]; then
     cp .env .env.backup
 
     # Mise à jour des variables
-    sed -i.tmp "s|HOST_IP=.*|HOST_IP=$FINAL_IP|" .env
-    sed -i.tmp "s|API_URL=.*|API_URL=http://$FINAL_IP:5001|" .env
-    sed -i.tmp "s|FRONTEND_URL=.*|FRONTEND_URL=http://$FINAL_IP:3000|" .env
-    sed -i.tmp "s|ONLYOFFICE_PUBLIC_URL=.*|ONLYOFFICE_PUBLIC_URL=http://$FINAL_IP:8080|" .env
+    sed -i.tmp "s|^HOST_IP=.*|HOST_IP=$FINAL_IP|" .env
+    sed -i.tmp "s|^API_URL=.*|API_URL=http://$FINAL_IP:5001|" .env
+    sed -i.tmp "s|^FRONTEND_URL=.*|FRONTEND_URL=http://$FINAL_IP:3000|" .env
+    sed -i.tmp "s|^ONLYOFFICE_PUBLIC_URL=.*|ONLYOFFICE_PUBLIC_URL=http://$FINAL_IP:8080|" .env
 
     # Nettoyage des fichiers temporaires
     rm -f .env.tmp

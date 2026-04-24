@@ -233,8 +233,19 @@ export class AIService {
       }
     }
 
-    // ── 3. Fallback: SQL LIKE on name + extractedText ──────────────────────
-    const keyword = args.keyword || userPrompt.slice(0, 50);
+    // ── 3. No criteria at all → list all files ─────────────────────────────
+    if (!args.keyword) {
+      const files = await prisma.file.findMany({
+        where: baseWhere,
+        include,
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+      });
+      return this._buildResult(files, args);
+    }
+
+    // ── 4. Fallback: SQL LIKE on name + extractedText ──────────────────────
+    const keyword = args.keyword;
     const files = await prisma.file.findMany({
       where: {
         ...baseWhere,

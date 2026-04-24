@@ -1,5 +1,5 @@
 import api from './api';
-import { AuthSessionContext, User } from '@/types';
+import { AuthSessionContext, User, AuthResponse } from '@/types';
 
 export const authService = {
   async register(data: {
@@ -7,12 +7,12 @@ export const authService = {
     password: string;
     firstName?: string;
     lastName?: string;
-  }) {
+  }): Promise<AuthResponse> {
     const response = await api.post('/auth/register', data);
     return response.data.data || response.data;
   },
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string): Promise<AuthResponse> {
     const response = await api.post('/auth/login', { email, password });
     return response.data.data || response.data;
   },

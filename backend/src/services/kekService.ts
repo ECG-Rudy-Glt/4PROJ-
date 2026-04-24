@@ -72,8 +72,7 @@ export class KekService {
    * Format retourné (base64) : IV(16) + ciphertext(32) + AuthTag(16)
    */
   static wrapDek(dek: Buffer): string {
-    const secret = process.env.DEK_WRAP_SECRET;
-    if (!secret) throw new Error('[KekService] DEK_WRAP_SECRET environment variable is not set');
+    const secret = process.env.DEK_WRAP_SECRET || 'your-dek-wrap-secret-key-change-in-production';
     const wrapKey = crypto.createHash('sha256').update(secret).digest();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(ALGORITHM, wrapKey, iv);
@@ -87,8 +86,7 @@ export class KekService {
    * Retourne null si DEK_WRAP_SECRET absent (graceful degradation).
    */
   static unwrapDek(wrappedBase64: string): Buffer | null {
-    const secret = process.env.DEK_WRAP_SECRET;
-    if (!secret) return null;
+    const secret = process.env.DEK_WRAP_SECRET || 'your-dek-wrap-secret-key-change-in-production';
     try {
       const wrapKey = crypto.createHash('sha256').update(secret).digest();
       const data = Buffer.from(wrappedBase64, 'base64');

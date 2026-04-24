@@ -20,9 +20,9 @@ export class OnlyOfficeService {
   /**
    * Génère un token d'accès temporaire pour un fichier (pour OnlyOffice)
    */
-  static generateFileAccessToken(fileId: string, userId: string): string {
+  static generateFileAccessToken(fileId: string, userId: string, wrappedDek?: string): string {
     return jwt.sign(
-      { fileId, userId, purpose: 'onlyoffice-access' },
+      { fileId, userId, purpose: 'onlyoffice-access', ...(wrappedDek ? { wrappedDek } : {}) },
       FILE_ACCESS_SECRET,
       { expiresIn: '2h' }
     );
@@ -31,11 +31,11 @@ export class OnlyOfficeService {
   /**
    * Vérifie un token d'accès fichier
    */
-  static verifyFileAccessToken(token: string): { fileId: string; userId: string } | null {
+  static verifyFileAccessToken(token: string): { fileId: string; userId: string; wrappedDek?: string } | null {
     try {
       const decoded = jwt.verify(token, FILE_ACCESS_SECRET) as any;
       if (decoded.purpose === 'onlyoffice-access') {
-        return { fileId: decoded.fileId, userId: decoded.userId };
+        return { fileId: decoded.fileId, userId: decoded.userId, wrappedDek: decoded.wrappedDek };
       }
       return null;
     } catch {
@@ -94,19 +94,21 @@ export class OnlyOfficeService {
     file: File,
     userId: string,
     user: { email: string; firstName?: string; lastName?: string },
-    mode: 'view' | 'edit' = 'edit'
+    mode: 'view' | 'edit' = 'edit',
+    wrappedDek?: string
   ) {
     const fileExtension = file.name.split('.').pop() || '';
     const documentType = this.getDocumentType(file.mimeType);
 
-    // Générer un token d'accès temporaire pour le fichier
-    const fileAccessToken = this.generateFileAccessToken(file.id, userId);
+    // Générer un token d'accès temporaire pour le fichier (inclut le wrappedDek pour le déchiffrement)
+    const fileAccessToken = this.generateFileAccessToken(file.id, userId, wrappedDek);
 
     // URL pour télécharger le fichier - avec token d'accès pour OnlyOffice
     const fileUrl = `${API_INTERNAL_URL}/api/onlyoffice/file/${file.id}?access_token=${fileAccessToken}`;
 
     // URL de callback pour sauvegarder les modifications - OnlyOffice appelle le backend en interne
-    const callbackUrl = `${API_INTERNAL_URL}/api/onlyoffice/callback/${file.id}`;
+    // On passe le wrappedDek et le userId dans l'URL pour pouvoir chiffrer la nouvelle version avec la bonne clé
+    const callbackUrl = `${API_INTERNAL_URL}/api/onlyoffice/callback/${file.id}?userId=${userId}${wrappedDek ? `&wrappedDek=${encodeURIComponent(wrappedDek)}` : ''}`;
 
     const config: any = {
       document: {
@@ -217,7 +219,8 @@ export class OnlyOfficeService {
     storagePath: string,
     fileName: string,
     size: number,
-    mimeType: string
+    mimeType: string,
+    dek?: Buffer
   ) {
     await VersionService.createVersion(
       fileId,
@@ -225,7 +228,8 @@ export class OnlyOfficeService {
       storagePath,
       fileName,
       size,
-      mimeType
+      mimeType,
+      dek
     );
   }
 }
