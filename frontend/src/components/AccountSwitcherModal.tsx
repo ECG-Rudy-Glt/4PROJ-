@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   X, RefreshCw, UserPlus, Shield, ArrowRightLeft, Undo2, Trash2,
   Eye, Pencil, Trash, Share2, Clock, ChevronRight, Plus, Users,
@@ -56,7 +56,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     delegateEmail: '', canWrite: false, canDelete: false, canShare: false, expiresAt: '',
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [switchData, delegationData] = await Promise.all([
@@ -71,11 +71,11 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     if (isOpen) void loadData();
-  }, [isOpen]);
+  }, [isOpen, loadData]);
 
   if (!isOpen) return null;
 

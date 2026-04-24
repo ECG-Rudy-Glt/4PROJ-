@@ -40,7 +40,6 @@ describe('Onboarding FREE plan', () => {
         },
       });
     }).as('registerRequest');
-    });
 
     cy.intercept('POST', '**/api/mfa/setup', {
       statusCode: 200,
