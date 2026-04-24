@@ -88,7 +88,7 @@ describe('AuthService', () => {
     it('should throw an error if user already exists', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'existing-id', email: 'new@example.com' });
 
-      await expect(AuthService.register('new@example.com', 'password123')).rejects.toThrow('User already exists');
+      await expect(AuthService.register('new@example.com', 'password123')).rejects.toThrow("Un compte avec cette adresse e-mail existe déjà.");
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
@@ -109,7 +109,7 @@ describe('AuthService', () => {
     it('should throw an error if user is not found', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(AuthService.login('test@example.com', 'password')).rejects.toThrow('Invalid credentials');
+      await expect(AuthService.login('test@example.com', 'password')).rejects.toThrow("Aucun compte n'existe avec cette adresse e-mail.");
     });
 
     it('should throw an error if account is inactive', async () => {
@@ -123,7 +123,7 @@ describe('AuthService', () => {
         quotaLimit: BigInt(104857600),
       });
 
-      await expect(AuthService.login('test@example.com', 'password')).rejects.toThrow('Account inactive or suspended');
+      await expect(AuthService.login('test@example.com', 'password')).rejects.toThrow("Ce compte est inactif ou a été suspendu.");
       expect(bcrypt.compare).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
