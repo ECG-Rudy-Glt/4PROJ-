@@ -62,14 +62,22 @@ describe('Register Flow', () => {
       },
     }).as('registerRequest')
 
-    cy.intercept('POST', '**/api/auth/mfa/setup', {
+    cy.intercept('POST', '**/api/mfa/setup', {
+      statusCode: 200,
+      body: {
+        secret: 'TESTSECRET',
+        qrCodeDataUrl: 'data:image/png;base64,fake',
+        backupCodes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5', 'CODE6', 'CODE7', 'CODE8']
+      },
+    }).as('mfaSetupRequest')
+
+    cy.intercept('POST', '**/api/mfa/verify-setup', {
       statusCode: 200,
       body: {
         success: true,
         token: 'fake-jwt-token',
-        backupCodes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5', 'CODE6', 'CODE7', 'CODE8']
       },
-    }).as('mfaSetupRequest')
+    }).as('mfaVerifyRequest')
 
     cy.get('input[type="text"]').first().type('Jean')
     cy.get('input[type="text"]').last().type('Dupont')
@@ -81,9 +89,10 @@ describe('Register Flow', () => {
     cy.wait('@registerRequest')
 
     // Handle MFA Setup Modal
+    cy.wait('@mfaSetupRequest')
     cy.get('input[placeholder="000000"]').type('123456')
     cy.contains('button', 'Verify and enable').click()
-    cy.wait('@mfaSetupRequest')
+    cy.wait('@mfaVerifyRequest')
 
     // Handle Backup Codes Modal
     cy.contains('Recovery Codes').should('be.visible')
