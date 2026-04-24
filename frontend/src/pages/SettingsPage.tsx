@@ -519,9 +519,6 @@ export default function SettingsPage() {
               className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
               placeholder={t('settings.mfa_code_placeholder')}
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {t('settings.mfa_code_hint')}
-            </p>
           </div>
           <button
             type="submit"
