@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { VaultService } from '../services/vaultService';
+import { KekService } from '../services/kekService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
 
@@ -39,29 +40,22 @@ export class OnlyOfficeController {
 
       await VaultService.assertUnlockedIfVault(tokenData.userId, file.isVault);
 
-      let filePath: string;
-      if (file.storagePath.startsWith('/')) {
-        filePath = file.storagePath;
-      } else {
-        const uploadDir = process.env.UPLOAD_DIR || './uploads';
-        filePath = path.join(uploadDir, file.storagePath);
-      }
+      // Extract DEK from the access token for file decryption
+      const dek = tokenData.wrappedDek ? KekService.unwrapDek(tokenData.wrappedDek) ?? undefined : undefined;
 
-      logger.info({ fileId, filePath, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
+      logger.info({ fileId, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
 
       try {
-        await fs.access(filePath);
+        res.setHeader('Content-Type', file.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
+
+        const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath, dek);
+        decryptStream.pipe(res);
       } catch (err) {
-        logger.error({ filePath, err }, 'File not found on disk:');
-        sendError(res, 'File not found on disk', 404);
+        logger.error({ storagePath: file.storagePath, err }, 'Failed to serve file to OnlyOffice:');
+        sendError(res, 'File not found or unreadable', 404);
         return;
       }
-
-      res.setHeader('Content-Type', file.mimeType);
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
-
-      const decryptStream = EncryptionService.getDecryptStream(filePath);
-      decryptStream.pipe(res);
     } catch (error) { next(error); }
   }
 
@@ -116,7 +110,10 @@ export class OnlyOfficeController {
         return;
       }
 
-      const config = await OnlyOfficeService.generateConfig(file, userId, user, editMode);
+      // Re-wrap the DEK for the OnlyOffice access token
+      const wrappedDek = req.dekBuffer ? KekService.wrapDek(req.dekBuffer) : undefined;
+
+      const config = await OnlyOfficeService.generateConfig(file, userId, user, editMode, wrappedDek);
       sendSuccess(res, config);
     } catch (error) { next(error); }
   }
