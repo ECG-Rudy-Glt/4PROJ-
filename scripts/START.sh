@@ -1,5 +1,7 @@
-#!/bin/bash
 set -euo pipefail
+
+# Se placer à la racine du projet
+cd "$(dirname "$0")/.."
 
 echo "🚀 Starting SUPFILE Application..."
 echo ""
