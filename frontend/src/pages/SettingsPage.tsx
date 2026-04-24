@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
-import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut } from 'lucide-react';
+import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
@@ -11,6 +11,9 @@ import { vaultService, VaultStatus } from '@/services/vaultService';
 import { formatBytes } from '@/utils/bytes';
 import { isVaultAvailableForPlan } from '@/constants/plans';
 import { useVaultStore } from '@/stores/useVaultStore';
+import ActivityLog from '@/components/ActivityLog';
+import AccountSwitcherModal from '@/components/AccountSwitcherModal';
+import { validatePasswordStrength } from '@/utils/validators';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -31,6 +34,7 @@ export default function SettingsPage() {
   const [vaultSetup, setVaultSetup] = useState({ password: '', totpCode: '' });
   const [vaultUnlock, setVaultUnlock] = useState({ password: '', totpCode: '' });
   const [vaultRotate, setVaultRotate] = useState({ oldPassword: '', newPassword: '', totpCode: '' });
+  const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState(false);
 
   const quotaUsed = user?.quotaUsed || 0;
   const quotaLimit = user?.quotaLimit || 32212254720; // 30GB default
@@ -105,12 +109,13 @@ export default function SettingsPage() {
     e.preventDefault();
 
     if (password.newPassword !== password.confirmPassword) {
-      toast.error(t('settings.confirm_password_placeholder')); // Simplified for now
+      toast.error(t('settings.confirm_password_placeholder')); 
       return;
     }
 
-    if (password.newPassword.length < 6) {
-      toast.error(t('settings.password_hint'));
+    const pwdValidation = validatePasswordStrength(password.newPassword);
+    if (!pwdValidation.valid) {
+      toast.error(t('common.password_too_short'));
       return;
     }
 
@@ -154,10 +159,15 @@ export default function SettingsPage() {
 
   const handleVaultSetup = async (e: React.FormEvent) => {
     e.preventDefault();
+    const pwdValidation = validatePasswordStrength(vaultSetup.password);
+    if (!pwdValidation.valid) {
+        toast.error(t('common.password_too_short'));
+        return;
+    }
     try {
       await vaultService.setup(vaultSetup.password, vaultSetup.totpCode);
       setVaultSetup({ password: '', totpCode: '' });
-      toast.success(t('settings.vault.activate')); // Simplified
+      toast.success(t('settings.vault.activate')); 
       await refreshVaultStatus();
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
@@ -169,7 +179,7 @@ export default function SettingsPage() {
     try {
       await vaultService.unlock(vaultUnlock.password, vaultUnlock.totpCode);
       setVaultUnlock({ password: '', totpCode: '' });
-      toast.success(t('settings.vault.unlocked')); // Simplified
+      toast.success(t('settings.vault.unlocked')); 
       await refreshVaultStatus();
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
@@ -179,7 +189,7 @@ export default function SettingsPage() {
   const handleVaultLock = async () => {
     try {
       await vaultService.lock();
-      toast.success(t('settings.vault.locked')); // Simplified
+      toast.success(t('settings.vault.locked')); 
       await refreshVaultStatus();
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
@@ -188,6 +198,11 @@ export default function SettingsPage() {
 
   const handleVaultRotatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    const pwdValidation = validatePasswordStrength(vaultRotate.newPassword);
+    if (!pwdValidation.valid) {
+        toast.error(t('common.password_too_short'));
+        return;
+    }
     try {
       await vaultService.rotatePassword(
         vaultRotate.oldPassword,
@@ -195,7 +210,7 @@ export default function SettingsPage() {
         vaultRotate.totpCode
       );
       setVaultRotate({ oldPassword: '', newPassword: '', totpCode: '' });
-      toast.success(t('settings.vault.update_password')); // Simplified
+      toast.success(t('settings.vault.update_password')); 
       await refreshVaultStatus();
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
@@ -448,6 +463,28 @@ export default function SettingsPage() {
                 placeholder={t('settings.new_password_placeholder')}
                 required
               />
+              {password.newPassword.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.password_rules')}</p>
+                  <ul className="text-xs space-y-1">
+                    {[
+                      { key: 'length', text: t('common.password_rule_length') },
+                      { key: 'uppercase', text: t('common.password_rule_uppercase') },
+                      { key: 'lowercase', text: t('common.password_rule_lowercase') },
+                      { key: 'number', text: t('common.password_rule_number') },
+                      { key: 'special', text: t('common.password_rule_special') },
+                    ].map((rule) => {
+                      const isValid = validatePasswordStrength(password.newPassword)[rule.key as keyof ReturnType<typeof validatePasswordStrength>];
+                      return (
+                        <li key={rule.key} className={`flex items-center gap-2 ${isValid ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {isValid ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          {rule.text}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -564,14 +601,38 @@ export default function SettingsPage() {
         ) : !vaultStatus?.enabled ? (
           <form onSubmit={handleVaultSetup} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="password"
-                value={vaultSetup.password}
-                onChange={(e) => setVaultSetup((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder={t('settings.vault.password')}
-                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
-                required
-              />
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  value={vaultSetup.password}
+                  onChange={(e) => setVaultSetup((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder={t('settings.vault.password')}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+                {vaultSetup.password.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.password_rules')}</p>
+                    <ul className="text-xs space-y-1">
+                      {[
+                        { key: 'length', text: t('common.password_rule_length') },
+                        { key: 'uppercase', text: t('common.password_rule_uppercase') },
+                        { key: 'lowercase', text: t('common.password_rule_lowercase') },
+                        { key: 'number', text: t('common.password_rule_number') },
+                        { key: 'special', text: t('common.password_rule_special') },
+                      ].map((rule) => {
+                        const isValid = validatePasswordStrength(vaultSetup.password)[rule.key as keyof ReturnType<typeof validatePasswordStrength>];
+                        return (
+                          <li key={rule.key} className={`flex items-center gap-2 ${isValid ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {isValid ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                            {rule.text}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
               <input
                 type="text"
                 inputMode="numeric"
@@ -656,14 +717,38 @@ export default function SettingsPage() {
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
                   required
                 />
-                <input
-                  type="password"
-                  value={vaultRotate.newPassword}
-                  onChange={(e) => setVaultRotate((prev) => ({ ...prev, newPassword: e.target.value }))}
-                  placeholder={t('settings.new_password')}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
-                  required
-                />
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    value={vaultRotate.newPassword}
+                    onChange={(e) => setVaultRotate((prev) => ({ ...prev, newPassword: e.target.value }))}
+                    placeholder={t('settings.new_password')}
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                  {vaultRotate.newPassword.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.password_rules')}</p>
+                      <ul className="text-xs space-y-1">
+                        {[
+                          { key: 'length', text: t('common.password_rule_length') },
+                          { key: 'uppercase', text: t('common.password_rule_uppercase') },
+                          { key: 'lowercase', text: t('common.password_rule_lowercase') },
+                          { key: 'number', text: t('common.password_rule_number') },
+                          { key: 'special', text: t('common.password_rule_special') },
+                        ].map((rule) => {
+                          const isValid = validatePasswordStrength(vaultRotate.newPassword)[rule.key as keyof ReturnType<typeof validatePasswordStrength>];
+                          return (
+                            <li key={rule.key} className={`flex items-center gap-2 ${isValid ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {isValid ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                              {rule.text}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -721,6 +806,37 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Account Access (Delegation/Switch) Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+            <User className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              {t('account_access.title')}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Gérez les délégations et les comptes liés (basculer entre vos comptes).
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsAccountSwitcherOpen(true)}
+          className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium"
+        >
+          Ouvrir le gestionnaire d'accès
+        </button>
+      </div>
+
+      {/* Activity Log Section */}
+      <ActivityLog />
+
+      <AccountSwitcherModal
+        isOpen={isAccountSwitcherOpen}
+        onClose={() => setIsAccountSwitcherOpen(false)}
+      />
     </div>
   );
 }

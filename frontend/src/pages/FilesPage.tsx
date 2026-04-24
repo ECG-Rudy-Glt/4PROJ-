@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useFileStore } from '@/stores/useFileStore';
 import {
@@ -114,7 +114,7 @@ export default function FilesPage() {
 
   const displayFiles = searchQuery ? searchResults : files;
 
-  const getSharedItemsAsDisplayFiles = async () => {
+  const getSharedItemsAsDisplayFiles = useCallback(async () => {
     try {
       const data = await shareService.getAcceptedShares();
       const sharedItems: any[] = [];
@@ -167,7 +167,38 @@ export default function FilesPage() {
       console.error('Error loading shared items', error);
       return [];
     }
-  };
+  }, []);
+
+  const loadBreadcrumbs = useCallback(async (folderId: string) => {
+    try {
+      const { breadcrumbs } = await folderService.getBreadcrumbs(folderId);
+      setBreadcrumbs(breadcrumbs);
+    } catch (error) {
+      console.error('Failed to load breadcrumbs', error);
+    }
+  }, []);
+
+  const loadPendingSharesCount = useCallback(async () => {
+    try {
+      const data = await shareService.getPendingShares();
+      const count = (data.files?.length || 0) + (data.folders?.length || 0);
+      setPendingSharesCount(count);
+    } catch (error) {
+      console.error('Error loading pending shares count', error);
+    }
+  }, []);
+
+  const handleSearch = useCallback(async (query: string) => {
+    setIsSearching(true);
+    try {
+      const result = await fileService.searchFiles(query);
+      setSearchResults(result.files);
+    } catch {
+      toast.error(t('files.error_search'));
+    } finally {
+      setIsSearching(false);
+    }
+  }, [t]);
 
   useEffect(() => {
     setCurrentFolder(folderId || null);
@@ -181,7 +212,7 @@ export default function FilesPage() {
       setAcceptedSharedFiles([]);
       setAcceptedSharedFolders([]);
     }
-  }, [folderId, searchQuery]);
+  }, [folderId, searchQuery, getSharedItemsAsDisplayFiles, loadPendingSharesCount]);
 
   useEffect(() => {
     if (searchQuery) {
@@ -195,7 +226,7 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-  }, [folderId, searchQuery, activeFilters, sortBy, sortOrder]);
+  }, [folderId, searchQuery, activeFilters, sortBy, sortOrder, handleSearch, loadContent, loadBreadcrumbs]);
 
   useEffect(() => {
     const previewId = searchParams.get('preview');
@@ -216,36 +247,7 @@ export default function FilesPage() {
     });
   }, [searchParams, files, acceptedSharedFiles, t]);
 
-  const loadBreadcrumbs = async (folderId: string) => {
-    try {
-      const { breadcrumbs } = await folderService.getBreadcrumbs(folderId);
-      setBreadcrumbs(breadcrumbs);
-    } catch (error) {
-      console.error('Failed to load breadcrumbs', error);
-    }
-  };
 
-  const loadPendingSharesCount = async () => {
-    try {
-      const data = await shareService.getPendingShares();
-      const count = (data.files?.length || 0) + (data.folders?.length || 0);
-      setPendingSharesCount(count);
-    } catch (error) {
-      console.error('Error loading pending shares count', error);
-    }
-  };
-
-  const handleSearch = async (query: string) => {
-    setIsSearching(true);
-    try {
-      const result = await fileService.searchFiles(query);
-      setSearchResults(result.files);
-    } catch {
-      toast.error(t('files.error_search'));
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;

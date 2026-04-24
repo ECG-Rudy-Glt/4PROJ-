@@ -4,6 +4,7 @@ import { AuthService } from '../services/authService';
 import { AuditService } from '../services/auditService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
+import { validatePasswordStrength } from '../utils/validators';
 
 export class UserProfileController {
   static async getProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -23,12 +24,12 @@ export class UserProfileController {
           subscriptionStatus: user.subscriptionStatus,
           vaultEnabled: user.vaultEnabled,
           currentOrganizationId: user.currentOrganizationId,
-        quotaUsed: Number(user.quotaUsed),
-        quotaLimit: Number(user.quotaLimit),
-        theme: user.theme,
-        language: user.language,
-        createdAt: user.createdAt,
-      },
+          quotaUsed: Number(user.quotaUsed),
+          quotaLimit: Number(user.quotaLimit),
+          theme: user.theme,
+          language: user.language,
+          createdAt: user.createdAt,
+        },
         session: {
           authType: req.authContext?.authType || 'DIRECT',
           rootUserId: req.authContext?.rootUserId || user.id,
@@ -53,6 +54,12 @@ export class UserProfileController {
     try {
       const userId = req.user!.id;
       const { oldPassword, newPassword, mfaCode } = req.body;
+
+      const pwdCheck = validatePasswordStrength(newPassword);
+      if (!pwdCheck.valid) {
+        sendError(res, pwdCheck.error!, 400);
+        return;
+      }
 
       const result = await AuthService.changePassword(userId, oldPassword, newPassword, mfaCode);
 

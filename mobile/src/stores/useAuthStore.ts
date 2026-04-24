@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAuth: async (token, user, sessionContext = null) => {
     await SecureStore.setItemAsync('token', token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    set({ token, user, sessionContext, isAuthenticated: true, isLoading: false });
+    set({ token, user, sessionContext, isAuthenticated: true, isLoading: false, hydrated: true });
   },
 
   setUser: (user) => set({ user }),

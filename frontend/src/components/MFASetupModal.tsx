@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Loader2, Smartphone, Copy, Check } from 'lucide-react';
 import { mfaService } from '@/services/mfaService';
 import toast from 'react-hot-toast';
@@ -20,13 +20,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
   const [rememberDevice, setRememberDevice] = useState(true);
   const [secretCopied, setSecretCopied] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadMFASetup();
-    }
-  }, [isOpen]);
-
-  const loadMFASetup = async () => {
+  const loadMFASetup = useCallback(async () => {
     setLoading(true);
     try {
       const data = await mfaService.setupMFA();
@@ -38,7 +32,13 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadMFASetup();
+    }
+  }, [isOpen, loadMFASetup]);
 
   const handleVerify = async () => {
     if (verificationCode.length !== 6) {

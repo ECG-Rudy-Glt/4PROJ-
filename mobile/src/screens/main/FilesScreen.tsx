@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,12 @@ import {
   Alert,
   TextInput,
   Modal,
+  Animated,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -35,35 +38,117 @@ type ActionTarget =
 export default function FilesScreen() {
   const insets = useSafeAreaInsets();
   const {
-    files, folders, breadcrumbs, currentFolderId,
+    files = [], folders = [], breadcrumbs, currentFolderId,
     loading, fetchContents, navigateToFolder, createFolder, toggleFavorite,
   } = useFileStore();
 
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadLabel, setUploadLabel] = useState('');
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelUpload = useRef<(() => void) | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [actionTarget, setActionTarget] = useState<ActionTarget>(null);
   const [showSearch, setShowSearch] = useState(false);
 
-  const handleUpload = async () => {
-    setUploading(true);
-    try {
-      const { success, count } = await uploadService.pickAndUpload(currentFolderId);
-      if (success) {
-        Toast.show({ type: 'success', text1: `${count} fichier(s) envoyé(s)` });
-        fetchContents(currentFolderId);
+  // Rafraîchit la liste à chaque fois que l'onglet reçoit le focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchContents(currentFolderId);
+    }, [currentFolderId])
+  );
+
+  const uploadTransferDone = useRef(false);
+
+  const startProgressAnimation = () => {
+    uploadTransferDone.current = false;
+    progressAnim.setValue(0);
+    // Animation lente jusqu'à 92% — laisse de la place pour "Traitement en cours…"
+    Animated.timing(progressAnim, {
+      toValue: 92,
+      duration: 45000,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished && !uploadTransferDone.current) {
+        setUploadLabel('Traitement en cours…');
       }
-    } catch {
-      Toast.show({ type: 'error', text1: "Erreur lors de l'envoi" });
-    } finally {
-      setUploading(false);
+    });
+  };
+
+  const setRealProgress = (pct: number) => {
+    // Si les vrais events XHR arrivent, on arrête l'animation fake et on suit la réalité
+    progressAnim.stopAnimation();
+    Animated.timing(progressAnim, {
+      toValue: pct,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+    if (pct >= 100) {
+      uploadTransferDone.current = true;
+      setUploadLabel('Traitement en cours…');
     }
   };
 
-  useEffect(() => {
-    fetchContents();
-  }, []);
+  const completeProgress = () => {
+    progressAnim.stopAnimation();
+    Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleUpload = async () => {
+    try {
+      const { success, count } = await uploadService.pickAndUpload(
+        currentFolderId,
+        () => {
+          setUploading(true);
+          setUploadLabel('Envoi en cours…');
+          startProgressAnimation();
+        },
+        (abort) => { cancelUpload.current = abort; },
+        (pct) => setRealProgress(pct),
+      );
+      if (success) {
+        completeProgress();
+        setUploadLabel('Terminé !');
+        setTimeout(async () => {
+          setUploading(false);
+          progressAnim.setValue(0);
+          Toast.show({ type: 'success', text1: `${count} fichier(s) envoyé(s)` });
+          await fetchContents(currentFolderId);
+        }, 400);
+      } else {
+        setUploading(false);
+        progressAnim.setValue(0);
+      }
+    } catch (err: any) {
+      setUploading(false);
+      progressAnim.stopAnimation();
+      progressAnim.setValue(0);
+      cancelUpload.current = null;
+      uploadTransferDone.current = false;
+      if (err?.cancelled) return;
+      const msg =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Erreur lors de l'envoi";
+      Toast.show({ type: 'error', text1: "Erreur lors de l'envoi", text2: msg });
+    }
+  };
+
+  const handleCancelUpload = () => {
+    cancelUpload.current?.();
+    cancelUpload.current = null;
+    uploadTransferDone.current = false;
+    setUploading(false);
+    progressAnim.stopAnimation();
+    progressAnim.setValue(0);
+    Toast.show({ type: 'info', text1: 'Envoi annulé' });
+  };
 
   const onRefresh = useCallback(() => {
     fetchContents(currentFolderId);
@@ -81,15 +166,16 @@ export default function FilesScreen() {
   };
 
   const handleGoBack = () => {
-    if (breadcrumbs.length > 1) {
-      navigateToFolder(breadcrumbs[breadcrumbs.length - 2].id);
+    if (safeBreadcrumbs.length > 1) {
+      navigateToFolder(safeBreadcrumbs[safeBreadcrumbs.length - 2].id);
     } else {
       navigateToFolder(undefined);
     }
   };
 
-  const currentFolderName = breadcrumbs.length > 0
-    ? breadcrumbs[breadcrumbs.length - 1].name
+  const safeBreadcrumbs = breadcrumbs ?? [];
+  const currentFolderName = safeBreadcrumbs.length > 0
+    ? safeBreadcrumbs[safeBreadcrumbs.length - 1].name
     : 'Mes fichiers';
 
   const items = [
@@ -119,27 +205,73 @@ export default function FilesScreen() {
         </View>
       </View>
 
-      {/* Breadcrumbs */}
-      {breadcrumbs.length > 0 && (
-        <View style={styles.breadcrumbs}>
-          <TouchableOpacity onPress={() => navigateToFolder(undefined)}>
-            <Text style={styles.breadcrumbLink}>Racine</Text>
+      {/* Fil d'Ariane */}
+      <View style={styles.breadcrumbsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.breadcrumbsScroll}
+        >
+          {/* Racine toujours cliquable */}
+          <TouchableOpacity
+            style={styles.breadcrumbItem}
+            onPress={() => navigateToFolder(undefined)}
+            disabled={!currentFolderId}
+          >
+            <Ionicons
+              name="home"
+              size={13}
+              color={currentFolderId ? colors.primary[500] : colors.neutral[500]}
+            />
+            <Text style={[
+              styles.breadcrumbText,
+              !currentFolderId && styles.breadcrumbTextActive,
+            ]}>
+              Racine
+            </Text>
           </TouchableOpacity>
-          {breadcrumbs.map((bc, i) => (
-            <React.Fragment key={bc.id}>
-              <Ionicons name="chevron-forward" size={14} color={colors.neutral[400]} />
-              <TouchableOpacity
-                onPress={() => i < breadcrumbs.length - 1 ? navigateToFolder(bc.id) : null}
-              >
-                <Text style={[
-                  styles.breadcrumbLink,
-                  i === breadcrumbs.length - 1 && styles.breadcrumbCurrent,
-                ]}>
-                  {bc.name}
-                </Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
+
+          {safeBreadcrumbs.map((bc, i) => {
+            const isLast = i === safeBreadcrumbs.length - 1;
+            return (
+              <React.Fragment key={bc.id}>
+                <Ionicons name="chevron-forward" size={12} color={colors.neutral[300]} style={{ marginTop: 1 }} />
+                <TouchableOpacity
+                  style={styles.breadcrumbItem}
+                  onPress={() => !isLast && navigateToFolder(bc.id)}
+                  disabled={isLast}
+                >
+                  <Text style={[
+                    styles.breadcrumbText,
+                    isLast && styles.breadcrumbTextActive,
+                  ]} numberOfLines={1}>
+                    {bc.name}
+                  </Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Barre de progression upload */}
+      {uploading && (
+        <View style={styles.uploadProgressContainer}>
+          <View style={styles.uploadProgressHeader}>
+            <Ionicons name="cloud-upload-outline" size={16} color={colors.primary[600]} />
+            <Text style={[styles.uploadProgressLabel, { flex: 1 }]}>{uploadLabel}</Text>
+            <TouchableOpacity onPress={handleCancelUpload} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle-outline" size={20} color={colors.neutral[400]} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.uploadProgressBarBg}>
+            <Animated.View
+              style={[
+                styles.uploadProgressBarFill,
+                { width: progressAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) },
+              ]}
+            />
+          </View>
         </View>
       )}
 
@@ -278,22 +410,65 @@ const styles = StyleSheet.create({
   addBtn: {
     padding: spacing.xs,
   },
-  breadcrumbs: {
+  uploadProgressContainer: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    ...shadows.sm,
+  },
+  uploadProgressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
     gap: spacing.xs,
-    flexWrap: 'wrap',
+    marginBottom: spacing.sm,
   },
-  breadcrumbLink: {
+  uploadProgressLabel: {
+    ...typography.caption,
+    color: colors.primary[600],
+    fontWeight: '600',
+  },
+  uploadProgressBarBg: {
+    height: 6,
+    backgroundColor: colors.neutral[100],
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  uploadProgressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary[500],
+    borderRadius: borderRadius.full,
+  },
+  breadcrumbsContainer: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
+    paddingVertical: spacing.sm,
+  },
+  breadcrumbsScroll: {
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  breadcrumbItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  breadcrumbText: {
     ...typography.caption,
     color: colors.primary[500],
     fontWeight: '500',
+    maxWidth: 120,
   },
-  breadcrumbCurrent: {
-    color: colors.neutral[600],
-    fontWeight: '600',
+  breadcrumbTextActive: {
+    color: colors.neutral[700],
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: spacing.lg,

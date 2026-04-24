@@ -11,7 +11,7 @@ const plans: Array<{
   id: PlanId;
   name: string;
   price: string;
-  period: string;
+  period?: string;
   description: string;
   storage: string;
   features: Array<{ name: string; included: boolean }>;
@@ -81,8 +81,7 @@ const plans: Array<{
   {
     id: 'ENTERPRISE',
     name: 'plans_page.enterprise_name',
-    price: '99.99€',
-    period: 'plans_page.period_month',
+    price: 'plans_page.on_quote',
     description: 'plans_page.enterprise_desc',
     storage: PLAN_STORAGE_LABELS.ENTERPRISE,
     features: [
@@ -194,8 +193,10 @@ export default function PlansPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t(plan.description)}</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-3xl font-black text-gray-900 dark:text-white">{plan.price}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">{t(plan.period)}</span>
+                    <span className="text-3xl font-black text-gray-900 dark:text-white">
+                      {plan.price.includes('.') ? t(plan.price) : plan.price}
+                    </span>
+                    {plan.period && <span className="text-xs text-gray-500 dark:text-gray-400 block">{t(plan.period)}</span>}
                   </div>
                 </div>
 

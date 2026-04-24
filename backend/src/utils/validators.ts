@@ -30,3 +30,30 @@ export function sanitizeQuery(value: unknown, maxLength = 100): string {
   if (typeof value !== 'string') throw new Error('Query must be a string');
   return value.slice(0, maxLength);
 }
+
+/**
+ * Vérifie la force du mot de passe selon les recommandations de l'ANSSI:
+ * - Au moins 12 caractères
+ * - Au moins une majuscule
+ * - Au moins une minuscule
+ * - Au moins un chiffre
+ * - Au moins un caractère spécial
+ */
+export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (!password || password.length < 12) {
+    return { valid: false, error: 'Le mot de passe doit contenir au moins 12 caractères' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Le mot de passe doit contenir au moins une majuscule' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Le mot de passe doit contenir au moins une minuscule' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Le mot de passe doit contenir au moins un chiffre' };
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { valid: false, error: 'Le mot de passe doit contenir au moins un caractère spécial' };
+  }
+  return { valid: true };
+}

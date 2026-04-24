@@ -37,6 +37,8 @@ export interface JWTPayload {
   delegationId?: string;
   /** DEK enveloppée avec DEK_WRAP_SECRET (base64). Déchiffrée côté serveur uniquement. */
   wrappedDek?: string;
+  /** Type de jeton : 'auth' pour accès complet, 'mfa' pour phase d'authentification uniquement. */
+  type?: 'auth' | 'mfa';
 }
 
 export interface OAuth2Profile {

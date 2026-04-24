@@ -7,7 +7,7 @@ const MB = BigInt(1024 * 1024);
 export const PLAN_LIMITS = {
     [Plan.FREE]: {
         storage: BigInt(30) * GB, // 30 GB
-        maxFileSize: BigInt(100) * MB, // 100 MB per file
+        maxFileSize: BigInt(10) * GB, // 10 GB per file
         maxShares: 5,
         maxVersions: 3,
         maxTags: 10,

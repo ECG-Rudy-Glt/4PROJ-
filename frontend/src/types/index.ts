@@ -17,6 +17,27 @@ export interface User {
   createdAt: string;
 }
 
+export type AuthResponse = 
+  | { 
+      user: User; 
+      token: string; 
+      mfaRequired?: false;
+      mfaSetupRequired?: false;
+      session?: AuthSessionContext;
+    }
+  | { 
+      mfaSetupRequired: true; 
+      tempToken: string; 
+      userId: string;
+      user: { email: string; firstName?: string; lastName?: string };
+    }
+  | {
+      mfaRequired: true;
+      tempToken: string;
+      userId: string;
+    };
+
+
 export interface AuthSessionContext {
   authType: 'DIRECT' | 'SWITCH' | 'DELEGATION';
   rootUserId: string;

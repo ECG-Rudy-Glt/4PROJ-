@@ -37,6 +37,6 @@ export class ShareService {
       SharedFileService.getPendingFiles(userId),
       SharedFolderService.getPendingFolders(userId),
     ]);
-    return { pendingFiles: files, pendingFolders: folders, total: files.length + folders.length };
+    return { files, folders, total: files.length + folders.length };
   }
 }

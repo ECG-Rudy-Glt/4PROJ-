@@ -58,6 +58,7 @@ export class MFAService {
    */
   async generateMFASecret(userId: string, email: string): Promise<{
     secret: string;
+    otpauthUrl: string;
     qrCodeDataUrl: string;
     backupCodes: string[];
   }> {
@@ -80,6 +81,7 @@ export class MFAService {
 
     return {
       secret: secret.base32,
+      otpauthUrl,
       qrCodeDataUrl,
       backupCodes,
     };

@@ -72,7 +72,9 @@ def chat_with_rag(user_id: str, query: str, history: List[Dict[str, str]] = None
     logger = logging.getLogger("brain-api")
 
     search_query = query
-    if history and len(history) > 0:
+    # Only reformulate if there is real conversation history AND the query is long enough
+    # to benefit from context resolution (skip for greetings, short messages)
+    if history and len(history) > 0 and len(query.split()) > 3:
         reformulation_system = (
             "Tu es un assistant IA spécialisé dans l'optimisation de recherche. "
             "Ton rôle est de lire l'historique de conversation et la nouvelle question de l'utilisateur, "
@@ -118,10 +120,12 @@ def chat_with_rag(user_id: str, query: str, history: List[Dict[str, str]] = None
     else:
         system = (
             f"{SECURITY_RULES}\n"
-            "Tu es Bobby, un assistant de gestion de fichiers.\n"
-            "Aucun document pertinent n'a été trouvé pour cette question. Réponds : 'Aucun document trouvé pour répondre à votre question. Je ne réponds qu'aux questions concernant vos documents.'"
+            "Tu es Bobby, un assistant amical de gestion de fichiers dans l'application SUPFILE.\n"
+            "Aucun document pertinent n'a été trouvé dans les fichiers de l'utilisateur.\n"
+            "Si l'utilisateur te salue ou fait la conversation, réponds de manière amicale et brève en te présentant.\n"
+            "Sinon, dis-lui brièvement qu'aucun document ne correspond à sa question et propose-lui d'uploader des fichiers."
         )
-        prompt = f"Question : {query}"
+        prompt = f"Message de l'utilisateur : {query}"
 
     return generate(prompt, system=system, history=history)
 

@@ -219,9 +219,22 @@ export class FileIndexService {
     let extractedText = '';
     let ocrUsed = false;
 
+    const mime = file.mimeType;
+    // Pas d'indexation pour les types non-textuels (vidéo, audio, archives...) — évite de charger de gros fichiers en mémoire
+    const isIndexable =
+      mime === 'application/pdf' ||
+      mime.startsWith('text/') ||
+      mime.startsWith('image/') ||
+      mime.includes('document') || mime.includes('word') ||
+      mime.includes('excel') || mime.includes('spreadsheet') ||
+      mime.includes('presentation') || mime.includes('powerpoint') ||
+      mime.includes('json') || mime.includes('javascript') || mime.includes('xml') ||
+      file.name.toLowerCase().match(/\.(docx?|xlsx?|pptx?|md|markdown)$/);
+
+    if (!isIndexable) return;
+
     try {
       const decryptedBuffer = await EncryptionService.decryptToBufferAuto(file.storagePath);
-      const mime = file.mimeType;
       const nameLower = file.name.toLowerCase();
 
       if (mime === 'application/pdf') {

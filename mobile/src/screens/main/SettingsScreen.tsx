@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Toast from 'react-native-toast-message';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -24,13 +25,14 @@ import { shadows } from '../../theme/shadows';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { authService } from '../../services/authService';
-import { RootStackParamList } from '../../types';
+import { RootStackParamList, TabParamList } from '../../types';
 import NotificationCenter from '../../components/NotificationCenter';
 import MfaSetupModal from '../../components/MfaSetupModal';
 import AccountSwitcherModal from '../../components/AccountSwitcherModal';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type TabNav = BottomTabNavigationProp<TabParamList>;
 
 const formatQuota = (bytes: number): string => {
   if (bytes === 0) return '0 o';
@@ -42,6 +44,7 @@ const formatQuota = (bytes: number): string => {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
+  const tabNavigation = useNavigation<TabNav>();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
@@ -367,7 +370,14 @@ export default function SettingsScreen() {
         <Text style={styles.logoutText}>Se déconnecter</Text>
       </TouchableOpacity>
 
-      <NotificationCenter visible={showNotifs} onClose={() => setShowNotifs(false)} />
+      <NotificationCenter
+        visible={showNotifs}
+        onClose={() => setShowNotifs(false)}
+        onNavigateToShares={() => {
+          setShowNotifs(false);
+          tabNavigation.navigate('Shared');
+        }}
+      />
       <MfaSetupModal visible={showMfa} onClose={() => setShowMfa(false)} />
       <AccountSwitcherModal visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
     </ScrollView>

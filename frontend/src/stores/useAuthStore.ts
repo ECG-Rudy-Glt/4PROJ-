@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AuthSessionContext, User } from '@/types';
+import { AuthSessionContext, User, AuthResponse } from '@/types';
 import { authService } from '@/services/authService';
 
 interface AuthState {
@@ -8,13 +8,13 @@ interface AuthState {
   sessionContext: AuthSessionContext | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<any>;
+  login: (email: string, password: string) => Promise<AuthResponse>;
   register: (data: {
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
-  }) => Promise<void>;
+  }) => Promise<AuthResponse>;
   logout: () => void;
   loadUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -35,15 +35,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       const response = await authService.login(email, password);
 
       // Si MFA requis ou setup requis, ne pas stocker le token et retourner la réponse
-      if (response.mfaRequired || response.mfaSetupRequired) {
+      if ('mfaRequired' in response || 'mfaSetupRequired' in response) {
         set({ isLoading: false });
         return response;
       }
 
       // Connexion normale (appareil de confiance)
-      const { user, token } = response;
-      localStorage.setItem('token', token);
-      set({ user, token, sessionContext: null, isAuthenticated: true, isLoading: false });
+      if ('token' in response) {
+        localStorage.setItem('token', response.token);
+        set({ user: response.user, token: response.token, sessionContext: response.session || null, isAuthenticated: true, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
       return response;
     } catch {
       set({ isLoading: false });
@@ -54,9 +57,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (data) => {
     set({ isLoading: true });
     try {
-      const { user, token } = await authService.register(data);
-      localStorage.setItem('token', token);
-      set({ user, token, sessionContext: null, isAuthenticated: true, isLoading: false });
+      const response = await authService.register(data);
+      if ('mfaSetupRequired' in response) {
+        set({ isLoading: false });
+        return response;
+      }
+      
+      // Connexion normale (ne devrait pas arriver si MFA est obligatoire, mais pour le typage)
+      if ('token' in response) {
+        localStorage.setItem('token', response.token);
+        set({ user: response.user, token: response.token, sessionContext: response.session || null, isAuthenticated: true, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
+      return response;
     } catch {
       set({ isLoading: false });
       throw new Error('Registration failed');
@@ -65,6 +79,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('switchSessionId');
     set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
   },
 

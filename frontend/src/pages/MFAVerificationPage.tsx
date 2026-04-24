@@ -33,7 +33,7 @@ export default function MFAVerificationPage() {
 
     setLoading(true);
     try {
-      const result = await mfaService.verifyMFA(userId, code, rememberDevice);
+      const result = await mfaService.verifyMFA(code, rememberDevice);
 
       // Stocker le token
       localStorage.setItem('token', result.token);
@@ -60,7 +60,7 @@ export default function MFAVerificationPage() {
 
     setLoading(true);
     try {
-      const result = await mfaService.verifyBackupCode(userId, backupCode.toUpperCase(), rememberDevice);
+      const result = await mfaService.verifyBackupCode(backupCode.toUpperCase(), rememberDevice);
 
       // Stocker le token
       localStorage.setItem('token', result.token);

@@ -382,7 +382,7 @@ def test_ai_chat(token):
             )
         else:
             fail(f"Erreur LLM : {r.text[:300]}")
-            warn("(Le modèle Ollama doit être téléchargé — voir pull_model.sh)")
+            warn("(Le modèle Ollama doit être téléchargé — voir scripts/pull_model.sh)")
 
 
 def test_input_validation(token):

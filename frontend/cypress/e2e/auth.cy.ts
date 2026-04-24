@@ -39,7 +39,7 @@ describe('Register Flow', () => {
     cy.get('input[type="password"]').first().type('abc')
     cy.get('input[type="password"]').last().type('abc')
     cy.get('button[type="submit"]').click()
-    cy.contains('at least 6 characters').should('be.visible')
+    cy.contains('must meet the security criteria').should('be.visible')
   })
 
   it('should navigate to login page via the link', () => {
@@ -57,17 +57,48 @@ describe('Register Flow', () => {
       body: {
         user: { id: '1', email: 'jean.dupont@example.com', firstName: 'Jean', lastName: 'Dupont' },
         token: 'fake-jwt-token',
+        mfaSetupRequired: true,
+        tempToken: 'temp-jwt-token'
       },
     }).as('registerRequest')
+
+    cy.intercept('POST', '**/api/mfa/setup', {
+      statusCode: 200,
+      body: {
+        secret: 'TESTSECRET',
+        qrCodeDataUrl: 'data:image/png;base64,fake',
+        backupCodes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5', 'CODE6', 'CODE7', 'CODE8']
+      },
+    }).as('mfaSetupRequest')
+
+    cy.intercept('POST', '**/api/mfa/verify-setup', {
+      statusCode: 200,
+      body: {
+        success: true,
+        token: 'fake-jwt-token',
+      },
+    }).as('mfaVerifyRequest')
 
     cy.get('input[type="text"]').first().type('Jean')
     cy.get('input[type="text"]').last().type('Dupont')
     cy.get('input[type="email"]').type('jean.dupont@example.com')
-    cy.get('input[type="password"]').first().type('password123')
-    cy.get('input[type="password"]').last().type('password123')
+    cy.get('input[type="password"]').first().type('P@ssword123!!')
+    cy.get('input[type="password"]').last().type('P@ssword123!!')
     cy.get('button[type="submit"]').click()
 
     cy.wait('@registerRequest')
+
+    // Handle MFA Setup Modal
+    cy.wait('@mfaSetupRequest')
+    cy.get('input[placeholder="000000"]').type('123456')
+    cy.contains('button', 'Verify and enable').click()
+    cy.wait('@mfaVerifyRequest')
+
+    // Handle Backup Codes Modal
+    cy.contains('Recovery Codes').should('be.visible')
+    cy.get('input[type="checkbox"]').check()
+    cy.contains('button', 'Continue').click()
+
     cy.url().should('include', '/dashboard')
   })
 })

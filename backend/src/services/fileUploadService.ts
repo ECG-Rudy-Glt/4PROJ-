@@ -42,7 +42,7 @@ async function getUniqueFileName(name: string, folderId: string | undefined, use
 }
 
 export class FileUploadService {
-  static async createFiles(userId: string, files: Express.Multer.File[], folderId?: string, dek?: Buffer) {
+  static async createFiles(userId: string, files: Express.Multer.File[], folderId?: string, dek?: Buffer, replaceFileId?: string) {
     const createdFiles: any[] = [];
     const errors: Array<{ fileName: string; error: string }> = [];
 
@@ -57,7 +57,8 @@ export class FileUploadService {
           uploadedFile.size,
           uploadedFile.path,
           folderId,
-          dek
+          dek,
+          replaceFileId
         );
         createdFiles.push(createdFile);
       } catch (error) {
@@ -79,7 +80,8 @@ export class FileUploadService {
     size: number,
     storagePath: string,
     folderId?: string,
-    dek?: Buffer
+    dek?: Buffer,
+    replaceFileId?: string
   ) {
     const isVault = await VaultService.isVaultFolder(userId, folderId || null);
     await VaultService.assertUnlockedIfVault(userId, isVault);
@@ -94,6 +96,24 @@ export class FileUploadService {
     if (!hasSpace) {
       await deleteFile(storagePath);
       throw new Error('Quota exceeded');
+    }
+
+    const targetFileId = replaceFileId;
+
+    if (targetFileId) {
+      // Replaces existing file content (creates a new version)
+      const updatedFile = await this.replaceFileContent(
+        targetFileId,
+        userId,
+        storagePath,
+        name,
+        size,
+        mimeType,
+        dek
+      );
+      // Clean up temporary file as replaceFileContent (via createVersion) uploads it to S3
+      await deleteFile(storagePath).catch(() => undefined);
+      return updatedFile;
     }
 
     const uniqueName = await getUniqueFileName(name, folderId, userId);
@@ -125,9 +145,10 @@ export class FileUploadService {
     newFilePath: string,
     newFileName: string,
     newFileSize: number,
-    newMimeType: string
+    newMimeType: string,
+    dek?: Buffer
   ) {
-    await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType);
+    await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType, dek);
     FileIndexService.indexFileAsync(fileId, userId);
 
     return prisma.file.findFirst({

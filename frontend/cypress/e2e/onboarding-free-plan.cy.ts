@@ -35,20 +35,51 @@ describe('Onboarding FREE plan', () => {
         body: {
           user: registeredUser,
           token: 'jwt-new-user-token',
+          mfaSetupRequired: true,
+          tempToken: 'temp-jwt-token'
         },
       });
     }).as('registerRequest');
+
+    cy.intercept('POST', '**/api/mfa/setup', {
+      statusCode: 200,
+      body: {
+        secret: 'TESTSECRET',
+        qrCodeDataUrl: 'data:image/png;base64,fake',
+        backupCodes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5', 'CODE6', 'CODE7', 'CODE8']
+      },
+    }).as('mfaSetupRequest');
+
+    cy.intercept('POST', '**/api/mfa/verify-setup', {
+      statusCode: 200,
+      body: {
+        success: true,
+        token: 'jwt-new-user-token',
+      },
+    }).as('mfaVerifyRequest');
 
     cy.visit('/register');
 
     cy.get('input[type="text"]').first().type('New');
     cy.get('input[type="text"]').last().type('User');
     cy.get('input[type="email"]').type('new.user@example.com');
-    cy.get('input[type="password"]').first().type('password123');
-    cy.get('input[type="password"]').last().type('password123');
+    cy.get('input[type="password"]').first().type('P@ssword123!!');
+    cy.get('input[type="password"]').last().type('P@ssword123!!');
     cy.get('button[type="submit"]').click();
 
     cy.wait('@registerRequest');
+
+    // Handle MFA Setup Modal
+    cy.wait('@mfaSetupRequest');
+    cy.get('input[placeholder="000000"]').type('123456');
+    cy.contains('button', 'Verify and enable').click();
+    cy.wait('@mfaVerifyRequest');
+
+    // Handle Backup Codes Modal
+    cy.contains('Recovery Codes').should('be.visible');
+    cy.get('input[type="checkbox"]').check();
+    cy.contains('button', 'Continue').click();
+
     cy.url().should('include', '/dashboard');
     cy.wait('@getDashboard');
 

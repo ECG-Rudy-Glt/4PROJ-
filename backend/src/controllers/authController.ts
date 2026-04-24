@@ -3,7 +3,7 @@ import { AuthService } from '../services/authService';
 import { AuthRequest } from '../types';
 import { generateToken } from '../utils/jwt';
 import { AuditService } from '../services/auditService';
-import { validateEmail } from '../utils/validators';
+import { validateEmail, validatePasswordStrength } from '../utils/validators';
 import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
 import { generateTempToken } from './mfaController';
@@ -24,13 +24,20 @@ export class AuthController {
         return;
       }
 
-      if (!password || password.length < 6) {
-        sendError(res, 'Le mot de passe doit contenir au moins 6 caractères', 400);
+      const pwdCheck = validatePasswordStrength(password);
+      if (!pwdCheck.valid) {
+        sendError(res, pwdCheck.error!, 400);
         return;
       }
 
       const result = await AuthService.register(email, password, firstName, lastName);
-      sendCreated(res, result);
+      const tempToken = generateTempToken(result.user.id);
+      sendCreated(res, {
+        mfaSetupRequired: true,
+        tempToken,
+        userId: result.user.id,
+        user: { email: result.user.email, firstName: result.user.firstName, lastName: result.user.lastName },
+      });
     } catch (error) { next(error); }
   }
 

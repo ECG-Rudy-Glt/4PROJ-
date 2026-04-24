@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { VaultService } from '../services/vaultService';
+import { KekService } from '../services/kekService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
 
@@ -39,29 +40,22 @@ export class OnlyOfficeController {
 
       await VaultService.assertUnlockedIfVault(tokenData.userId, file.isVault);
 
-      let filePath: string;
-      if (file.storagePath.startsWith('/')) {
-        filePath = file.storagePath;
-      } else {
-        const uploadDir = process.env.UPLOAD_DIR || './uploads';
-        filePath = path.join(uploadDir, file.storagePath);
-      }
+      // Extract DEK from the access token for file decryption
+      const dek = tokenData.wrappedDek ? KekService.unwrapDek(tokenData.wrappedDek) ?? undefined : undefined;
 
-      logger.info({ fileId, filePath, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
+      logger.info({ fileId, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
 
       try {
-        await fs.access(filePath);
+        res.setHeader('Content-Type', file.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
+
+        const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath, dek);
+        decryptStream.pipe(res);
       } catch (err) {
-        logger.error({ filePath, err }, 'File not found on disk:');
-        sendError(res, 'File not found on disk', 404);
+        logger.error({ storagePath: file.storagePath, err }, 'Failed to serve file to OnlyOffice:');
+        sendError(res, 'File not found or unreadable', 404);
         return;
       }
-
-      res.setHeader('Content-Type', file.mimeType);
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
-
-      const decryptStream = EncryptionService.getDecryptStream(filePath);
-      decryptStream.pipe(res);
     } catch (error) { next(error); }
   }
 
@@ -116,7 +110,10 @@ export class OnlyOfficeController {
         return;
       }
 
-      const config = await OnlyOfficeService.generateConfig(file, userId, user, editMode);
+      // Re-wrap the DEK for the OnlyOffice access token
+      const wrappedDek = req.dekBuffer ? KekService.wrapDek(req.dekBuffer) : undefined;
+
+      const config = await OnlyOfficeService.generateConfig(file, userId, user, editMode, wrappedDek);
       sendSuccess(res, config);
     } catch (error) { next(error); }
   }
@@ -125,12 +122,14 @@ export class OnlyOfficeController {
    * Callback OnlyOffice pour sauvegarder les modifications
    * Note: OnlyOffice attend toujours un status 200 avec { error: 0|1 } — ce format est imposé par le protocole.
    */
-  static async handleCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
+  static async handleCallback(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { fileId } = req.params;
       const callbackData = req.body;
+      const queryUserId = req.query.userId as string;
+      const queryWrappedDek = req.query.wrappedDek as string;
 
-      logger.info({ fileId, status: callbackData.status }, 'OnlyOffice callback received:');
+      logger.info({ fileId, status: callbackData.status, userId: queryUserId }, 'OnlyOffice callback received:');
 
       const file = await prisma.file.findUnique({ where: { id: fileId } });
 
@@ -151,13 +150,17 @@ export class OnlyOfficeController {
 
           await fs.writeFile(filepath, response.data);
 
+          // Déchiffrer le DEK pour chiffrer la nouvelle version
+          const dek = queryWrappedDek ? KekService.unwrapDek(queryWrappedDek) ?? undefined : undefined;
+
           await OnlyOfficeService.createFileVersion(
             fileId,
-            file.userId,
+            queryUserId || file.userId,
             filepath,
             file.name,
             response.data.byteLength,
-            file.mimeType
+            file.mimeType,
+            dek
           );
 
           logger.info({ filepath }, 'File saved successfully:');

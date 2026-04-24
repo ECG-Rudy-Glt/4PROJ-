@@ -35,9 +35,10 @@ const timeAgo = (iso: string): string => {
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onNavigateToShares?: () => void;
 }
 
-export default function NotificationCenter({ visible, onClose }: Props) {
+export default function NotificationCenter({ visible, onClose, onNavigateToShares }: Props) {
   const { notifications, unreadCount, loading, fetch, markAsRead, markAllAsRead, remove } =
     useNotificationStore();
 
@@ -51,7 +52,13 @@ export default function NotificationCenter({ visible, onClose }: Props) {
     return (
       <TouchableOpacity
         style={[styles.notifRow, !item.read && styles.notifUnread]}
-        onPress={() => markAsRead(item.id)}
+        onPress={() => {
+          markAsRead(item.id);
+          if (item.type === 'SHARE' && onNavigateToShares) {
+            onClose();
+            onNavigateToShares();
+          }
+        }}
         activeOpacity={0.7}
       >
         <View style={[styles.notifIcon, { backgroundColor: `${cfg.color}15` }]}>

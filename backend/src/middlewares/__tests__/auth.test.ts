@@ -62,6 +62,7 @@ describe('authenticate middleware', () => {
     (jwt.verify as jest.Mock).mockReturnValue({
       userId: 'user-1',
       tokenVersion: 2,
+      type: 'auth',
       switchRootUserId: 'root-1',
       switchSessionId: 'expected-cookie',
     });
@@ -88,6 +89,7 @@ describe('authenticate middleware', () => {
     (jwt.verify as jest.Mock).mockReturnValue({
       userId: 'owner-user',
       tokenVersion: 2,
+      type: 'auth',
       delegatedByUserId: 'delegate-user',
       delegationId: 'delegation-1',
       switchRootUserId: 'delegate-user',
