@@ -19,14 +19,9 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ── Response: dénormaliser { success: true, data: X } → X ──
+// ── Response: gérer expiration / 401 ────────────────────
 api.interceptors.response.use(
-  (response) => {
-    if (response.data?.success === true && 'data' in response.data) {
-      return { ...response, data: response.data.data };
-    }
-    return response;
-  },
+  (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
       if (error.response?.data?.code === 'REAUTH_REQUIRED') {
