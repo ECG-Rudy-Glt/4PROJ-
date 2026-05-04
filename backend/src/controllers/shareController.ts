@@ -365,7 +365,8 @@ export class ShareController {
     try {
       const userId = req.user!.id;
       const { folderId } = req.params;
-      const contents = await ShareService.getSharedFolderContents(folderId, userId);
+      const rootFolderId = req.query.rootFolderId as string | undefined;
+      const contents = await ShareService.getSharedFolderContents(folderId, userId, rootFolderId);
       res.status(200).json(contents);
     } catch (error) { next(error); }
   }

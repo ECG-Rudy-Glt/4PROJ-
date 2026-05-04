@@ -138,9 +138,10 @@ export class SharedFolderService {
     return prisma.sharedFolder.delete({ where: { id: shareId } });
   }
 
-  static async getSharedFolderContents(folderId: string, userId: string) {
+  static async getSharedFolderContents(folderId: string, userId: string, rootFolderId?: string) {
+    const idToCheck = rootFolderId ?? folderId;
     const share = await prisma.sharedFolder.findFirst({
-      where: { folderId, sharedWithId: userId, accepted: true, canRead: true },
+      where: { folderId: idToCheck, sharedWithId: userId, accepted: true, canRead: true },
     });
     if (!share) throw new Error('Accès refusé à ce dossier');
 
