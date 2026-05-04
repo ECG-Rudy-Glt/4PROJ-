@@ -24,10 +24,13 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
     let token: string | undefined;
 
-    // Token must come from the Authorization header only.
-    // Query-param tokens are rejected: they leak into server logs and browser history.
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
+    }
+
+    // Accept token via query param for native stream/download requests (video, image players)
+    if (!token && req.query.token) {
+      token = req.query.token as string;
     }
 
     if (!token) {
