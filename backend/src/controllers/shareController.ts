@@ -6,8 +6,53 @@ import { SocketService } from '../services/socketService';
 import { NotificationService } from '../services/notificationService';
 import fs from 'fs';
 import { EncryptionService } from '../services/encryptionService';
+import { StorageService } from '../services/storageService';
 import logger from '../config/logger';
 import { sendSuccess, sendCreated, sendError } from '../utils/response';
+import { Readable } from 'stream';
+
+const ENCRYPTION_OVERHEAD_BYTES = 32;
+
+async function getStoredEncryptedSize(storagePath: string): Promise<number | null> {
+  if (StorageService.isS3Key(storagePath)) {
+    try {
+      return await StorageService.getObjectSize(storagePath);
+    } catch (error) {
+      logger.error({ error, storagePath }, '[shareController] stored S3 object unavailable');
+      return null;
+    }
+  }
+
+  if (!fs.existsSync(storagePath)) {
+    return null;
+  }
+
+  return fs.statSync(storagePath).size;
+}
+
+function sendStoredFileNotFound(res: Response, storagePath: string): void {
+  const message = StorageService.isS3Key(storagePath)
+    ? 'File not found in storage'
+    : 'File not found on disk';
+  sendError(res, message, 404);
+}
+
+function sendInvalidStoredFile(res: Response, storagePath: string, encryptedSize: number): void {
+  logger.error({ storagePath, encryptedSize }, '[shareController] invalid encrypted file size');
+  sendError(res, 'Stored file is invalid or corrupted', 500);
+}
+
+function pipeDecryptStream(decryptStream: Readable, res: Response, errorMessage: string): void {
+  decryptStream.on('error', (error) => {
+    logger.error({ error }, '[shareController] decrypt stream error');
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: errorMessage });
+    } else {
+      res.destroy();
+    }
+  });
+  decryptStream.pipe(res);
+}
 
 export class ShareController {
   static async createShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -68,19 +113,27 @@ export class ShareController {
         password ? String(password) : undefined
       );
 
-      if (!fs.existsSync(shareLink.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+      const storagePath = shareLink.file!.storagePath;
+      const encryptedSize = await getStoredEncryptedSize(storagePath);
+      if (encryptedSize === null) {
+        sendStoredFileNotFound(res, storagePath);
+        return;
+      }
+
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        sendInvalidStoredFile(res, storagePath, encryptedSize);
         return;
       }
 
       // Increment download count
       await ShareService.incrementDownloadCount(token);
 
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath);
+
       res.setHeader('Content-Disposition', `attachment; filename="${shareLink.file!.name}"`);
       res.setHeader('Content-Type', shareLink.file!.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(shareLink.file!.storagePath);
-      decryptStream.pipe(res);
+      pipeDecryptStream(decryptStream, res, 'Failed to download file');
     } catch (error) { next(error); }
   }
 
@@ -324,20 +377,27 @@ export class ShareController {
 
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
 
-      if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+      const storagePath = sharedFile.file!.storagePath;
+      const encryptedSize = await getStoredEncryptedSize(storagePath);
+      if (encryptedSize === null) {
+        sendStoredFileNotFound(res, storagePath);
         return;
       }
 
-      const stat = fs.statSync(sharedFile.file!.storagePath);
-      const fileSize = stat.size - 32; // IV + auth tag AES-GCM
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        sendInvalidStoredFile(res, storagePath, encryptedSize);
+        return;
+      }
+
+      const fileSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
+
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, req.dekBuffer);
 
       res.writeHead(200, {
         'Content-Length': fileSize,
         'Content-Type': sharedFile.file!.mimeType,
       });
-      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
-      decryptStream.pipe(res);
+      pipeDecryptStream(decryptStream, res, 'Failed to stream file');
     } catch (error) { next(error); }
   }
 
@@ -348,16 +408,24 @@ export class ShareController {
 
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
 
-      if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+      const storagePath = sharedFile.file!.storagePath;
+      const encryptedSize = await getStoredEncryptedSize(storagePath);
+      if (encryptedSize === null) {
+        sendStoredFileNotFound(res, storagePath);
         return;
       }
+
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        sendInvalidStoredFile(res, storagePath, encryptedSize);
+        return;
+      }
+
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, req.dekBuffer);
 
       res.setHeader('Content-Disposition', `attachment; filename="${sharedFile.file!.name}"`);
       res.setHeader('Content-Type', sharedFile.file!.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
-      decryptStream.pipe(res);
+      pipeDecryptStream(decryptStream, res, 'Failed to download file');
     } catch (error) { next(error); }
   }
 
