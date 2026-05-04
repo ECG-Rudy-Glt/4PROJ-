@@ -5,8 +5,8 @@ yarn.lock
 pnpm-lock.yaml
 
 # Environment variables (whitelist approach: ignore all, except examples)
-.env
-.env.*
+env
+env.*
 !.env.example
 
 # Build outputs
@@ -15,14 +15,14 @@ build/
 *.log
 
 # IDEs
-.vscode/
-.idea/
+vscode/
+idea/
 *.swp
 *.swo
 *~
 
 # OS
-.DS_Store
+DS_Store
 Thumbs.db
 
 # Uploads (for local development)
@@ -37,17 +37,17 @@ backend/prisma/migrations/
 
 # Testing
 coverage/
-.nyc_output/
+nyc_output/
 
-.claude/
+claude/
 repomix-output.*
-.codesight/report.html
-.codesight/
+codesight/report.html
+codesight/
 repomix.config.json
 
-.cursorrules/
-.AGENTS.md
-.CLAUDE.md
-.codex.md
-.copilot-instructions.md
-.AUDIT_FONCTIONNALITES_SUPFILE.md
+cursorrules/
+AGENTS.md
+CLAUDE.md
+codex.md
+copilot-instructions.md
+AUDIT_FONCTIONNALITES_SUPFILE.md
