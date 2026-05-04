@@ -1,5 +1,4 @@
 import prisma from '../config/database';
-import fs from 'fs/promises';
 import archiver from 'archiver';
 import { Response } from 'express';
 import { AuditService } from './auditService';
@@ -7,8 +6,17 @@ import { SocketService } from './socketService';
 import { VaultService } from './vaultService';
 import { PlanService } from './planService';
 import { EncryptionService } from './encryptionService';
+import { StorageService } from './storageService';
 import logger from '../config/logger';
 import { AppError } from '../middlewares/errorHandler';
+
+async function deleteStorageFileBestEffort(pathOrKey: string, fileId: string): Promise<void> {
+  try {
+    await StorageService.deleteStorageFile(pathOrKey);
+  } catch (err) {
+    logger.error(`Error deleting storage object ${pathOrKey} for file ${fileId}: ${err}`);
+  }
+}
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -286,8 +294,8 @@ export class FolderService {
       // 2. Supprimer physiquement chaque fichier et ajuster les quotas
       for (const file of filesInFolder) {
         try {
-          await fs.unlink(file.storagePath).catch(() => {});
-          if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
+          await deleteStorageFileBestEffort(file.storagePath, file.id);
+          if (file.thumbnailPath) await deleteStorageFileBestEffort(file.thumbnailPath, file.id);
           await PlanService.updateQuotaUsed(file.userId, -file.size);
           // File record suppression is handled by the manual delete loop below 
           // to ensure consistency since File -> Folder is onDelete: SetNull
