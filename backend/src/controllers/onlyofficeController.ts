@@ -11,6 +11,16 @@ import { KekService } from '../services/kekService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
 import { DEK_UNLOCK_REQUIRED, ensureDekUnlocked } from '../utils/dekGuard';
+import { acceptedShareBaseWhere, acceptedSharePermissionWhere } from '../middlewares/permissions';
+
+const fileAccessWhere = (fileId: string, userId: string, permission: 'read' | 'write') => ({
+  id: fileId,
+  isDeleted: false,
+  OR: [
+    { userId },
+    { sharedWith: { some: acceptedSharePermissionWhere(userId, permission) } },
+  ],
+});
 
 export class OnlyOfficeController {
   /**
@@ -32,10 +42,12 @@ export class OnlyOfficeController {
         return;
       }
 
-      const file = await prisma.file.findUnique({ where: { id: fileId } });
+      const file = await prisma.file.findFirst({
+        where: fileAccessWhere(fileId, tokenData.userId, 'read'),
+      });
 
       if (!file) {
-        sendError(res, 'File not found', 404);
+        sendError(res, 'File not found or access denied', 403);
         return;
       }
 
@@ -83,12 +95,12 @@ export class OnlyOfficeController {
           id: fileId,
           OR: [
             { userId },
-            { sharedWith: { some: { sharedWithId: userId } } },
+            { sharedWith: { some: acceptedSharePermissionWhere(userId, 'read') } },
           ],
           isDeleted: false,
         },
         include: {
-          sharedWith: { where: { sharedWithId: userId } },
+          sharedWith: { where: acceptedShareBaseWhere(userId) },
         },
       });
 
@@ -167,6 +179,17 @@ export class OnlyOfficeController {
             return;
           }
 
+          const callbackUserId = queryUserId || file.userId;
+          const accessibleFile = await prisma.file.findFirst({
+            where: fileAccessWhere(fileId, callbackUserId, 'write'),
+          });
+
+          if (!accessibleFile) {
+            logger.warn({ fileId, userId: callbackUserId }, 'OnlyOffice callback write access denied');
+            res.status(200).json({ error: 1, code: 'FORBIDDEN' });
+            return;
+          }
+
           const response = await axios.get(result.downloadUrl, { responseType: 'arraybuffer' });
 
           const uploadDir = process.env.UPLOAD_DIR || './uploads';
@@ -177,7 +200,7 @@ export class OnlyOfficeController {
 
           await OnlyOfficeService.createFileVersion(
             fileId,
-            queryUserId || file.userId,
+            callbackUserId,
             filepath,
             file.name,
             response.data.byteLength,
@@ -213,12 +236,12 @@ export class OnlyOfficeController {
           id: fileId,
           OR: [
             { userId },
-            { sharedWith: { some: { sharedWithId: userId } } },
+            { sharedWith: { some: acceptedSharePermissionWhere(userId, 'read') } },
           ],
           isDeleted: false,
         },
         include: {
-          sharedWith: { where: { sharedWithId: userId } },
+          sharedWith: { where: acceptedShareBaseWhere(userId) },
         },
       });
 

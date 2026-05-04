@@ -7,6 +7,7 @@ import { PlanService } from './planService';
 import { EncryptionService } from './encryptionService';
 import { FileIndexService } from './fileIndexService';
 import { VaultService } from './vaultService';
+import { acceptedSharePermissionWhere } from '../middlewares/permissions';
 
 export class VersionService {
   /**
@@ -29,19 +30,13 @@ export class VersionService {
           { userId },
           {
             sharedWith: {
-              some: {
-                sharedWithId: userId,
-                canWrite: true,
-              },
+              some: acceptedSharePermissionWhere(userId, 'write'),
             },
           },
           {
             folder: {
               sharedWith: {
-                some: {
-                  sharedWithId: userId,
-                  canWrite: true,
-                },
+                some: acceptedSharePermissionWhere(userId, 'write'),
               },
             },
           },
@@ -129,16 +124,13 @@ export class VersionService {
           {
             folder: {
               sharedWith: {
-                some: { sharedWithId: userId },
+                some: acceptedSharePermissionWhere(userId, 'read'),
               },
             },
           },
           {
             sharedWith: {
-              some: {
-                sharedWithId: userId,
-                canRead: true,
-              },
+              some: acceptedSharePermissionWhere(userId, 'read'),
             },
           },
         ],

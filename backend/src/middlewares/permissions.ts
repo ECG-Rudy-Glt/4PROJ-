@@ -4,6 +4,35 @@ import prisma from '../config/database';
 
 export type Permission = 'read' | 'write' | 'delete' | 'share';
 
+function permissionWhere(requiredPermission: Permission) {
+  switch (requiredPermission) {
+    case 'read':
+      return { canRead: true };
+    case 'write':
+      return { canWrite: true };
+    case 'delete':
+      return { canDelete: true };
+    case 'share':
+      return { canShare: true };
+    default:
+      return {};
+  }
+}
+
+export function acceptedShareBaseWhere(userId: string) {
+  return {
+    sharedWithId: userId,
+    accepted: true,
+  };
+}
+
+export function acceptedSharePermissionWhere(userId: string, requiredPermission: Permission) {
+  return {
+    ...acceptedShareBaseWhere(userId),
+    ...permissionWhere(requiredPermission),
+  };
+}
+
 /**
  * Vérifie si l'utilisateur a la permission requise sur un dossier partagé
  */
@@ -15,7 +44,7 @@ export async function checkSharedFolderPermission(
   const sharedFolder = await prisma.sharedFolder.findFirst({
     where: {
       folderId,
-      sharedWithId: userId,
+      ...acceptedShareBaseWhere(userId),
     },
   });
 
@@ -57,6 +86,17 @@ export async function checkFilePermission(
 
   // Si l'utilisateur est propriétaire, il a tous les droits
   if (file.userId === userId) {
+    return true;
+  }
+
+  const sharedFile = await prisma.sharedFile.findFirst({
+    where: {
+      fileId,
+      ...acceptedSharePermissionWhere(userId, requiredPermission),
+    },
+  });
+
+  if (sharedFile) {
     return true;
   }
 
@@ -183,7 +223,7 @@ export async function getFolderPermissions(
   const sharedFolder = await prisma.sharedFolder.findFirst({
     where: {
       folderId,
-      sharedWithId: userId,
+      ...acceptedShareBaseWhere(userId),
     },
   });
 

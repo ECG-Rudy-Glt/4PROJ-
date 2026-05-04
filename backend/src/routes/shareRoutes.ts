@@ -17,10 +17,6 @@ router.post('/links', authenticate, requireDelegationPermission('share'), ShareC
 router.get('/links', authenticate, requireDelegationPermission('read'), ShareController.listUserShareLinks);
 router.delete('/links/:linkId', authenticate, requireDelegationPermission('delete'), ShareController.deleteShareLink);
 
-// Public access to shared files
-router.get('/:token', ShareController.getSharedFile);
-router.get('/:token/download', ShareController.downloadSharedFile);
-
 // Folder sharing (internal between users)
 router.post('/folders', authenticate, requireDelegationPermission('share'), ShareController.shareFolder);
 router.get('/folders/with-me', authenticate, requireDelegationPermission('read'), ShareController.listSharedWithMe);
@@ -39,5 +35,9 @@ router.delete('/files/:shareId', authenticate, requireDelegationPermission('dele
 // Access shared file (authenticated user accessing file shared with them)
 router.get('/access/:fileId/stream', authenticate, requireDelegationPermission('read'), ShareController.streamSharedFile);
 router.get('/access/:fileId/download', authenticate, requireDelegationPermission('read'), ShareController.downloadSharedFileAuth);
+
+// Public access to shared files (keep after static/authenticated routes)
+router.get('/:token', ShareController.getSharedFile);
+router.get('/:token/download', ShareController.downloadSharedFile);
 
 export default router;

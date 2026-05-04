@@ -4,6 +4,7 @@ import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { SharedLinkService } from './sharedLinkService';
 import logger from '../config/logger';
+import { acceptedSharePermissionWhere } from '../middlewares/permissions';
 
 type Permissions = {
   canRead?: boolean;
@@ -112,7 +113,7 @@ export class SharedFileService {
 
   static async getSharedFileAccess(fileId: string, userId: string) {
     const sharedFile = await prisma.sharedFile.findFirst({
-      where: { fileId, sharedWithId: userId, canRead: true },
+      where: { fileId, ...acceptedSharePermissionWhere(userId, 'read') },
       include: { file: true },
     });
 
@@ -127,7 +128,7 @@ export class SharedFileService {
     if (file.folderId) {
       if (file.isVault) throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
       const sharedFolder = await prisma.sharedFolder.findFirst({
-        where: { folderId: file.folderId, sharedWithId: userId, canRead: true },
+        where: { folderId: file.folderId, ...acceptedSharePermissionWhere(userId, 'read') },
       });
 
       if (sharedFolder) {

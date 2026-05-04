@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { SocketService } from './socketService';
 import { AuditService } from './auditService';
 import logger from '../config/logger';
+import { acceptedSharePermissionWhere } from '../middlewares/permissions';
 export class CommentService {
   /**
    * Créer un nouveau commentaire sur un fichier
@@ -22,17 +23,14 @@ export class CommentService {
             // Ou le fichier est dans un dossier partagé avec l'utilisateur
             folder: {
               sharedWith: {
-                some: { sharedWithId: userId },
+                some: acceptedSharePermissionWhere(userId, 'read'),
               },
             },
           },
           {
             // Ou le fichier est directement partagé avec l'utilisateur
             sharedWith: {
-              some: {
-                sharedWithId: userId,
-                canRead: true,
-              },
+              some: acceptedSharePermissionWhere(userId, 'read'),
             },
           },
         ],
@@ -96,16 +94,13 @@ export class CommentService {
           {
             folder: {
               sharedWith: {
-                some: { sharedWithId: userId },
+                some: acceptedSharePermissionWhere(userId, 'read'),
               },
             },
           },
           {
             sharedWith: {
-              some: {
-                sharedWithId: userId,
-                canRead: true,
-              },
+              some: acceptedSharePermissionWhere(userId, 'read'),
             },
           },
         ],
@@ -220,16 +215,13 @@ export class CommentService {
             {
               folder: {
                 sharedWith: {
-                  some: { sharedWithId: userId },
+                  some: acceptedSharePermissionWhere(userId, 'read'),
                 },
               },
             },
             {
               sharedWith: {
-                some: {
-                  sharedWithId: userId,
-                  canRead: true,
-                },
+                some: acceptedSharePermissionWhere(userId, 'read'),
               },
             },
           ],
