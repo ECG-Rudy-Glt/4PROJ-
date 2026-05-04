@@ -48,6 +48,7 @@ export default function SharedLinkPage() {
   const { token } = useParams<{ token: string }>();
   const [file, setFile] = useState<any>(null);
   const [sharedBy, setSharedBy] = useState<any>(null);
+  const [bundleInfo, setBundleInfo] = useState<{ fileCount: number } | null>(null);
   const [password, setPassword] = useState('');
   const [needsPassword, setNeedsPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,12 +65,18 @@ export default function SharedLinkPage() {
   const loadSharedFile = async (pwd?: string) => {
     try {
       const data = await shareService.getSharedFile(token!, pwd);
+      setNeedsPassword(false);
+
+      if (data.isBundle) {
+        setBundleInfo({ fileCount: data.fileCount });
+        setSharedBy(data.sharedBy);
+        return;
+      }
+
       setFile(data.file);
       setSharedBy(data.sharedBy);
-      setNeedsPassword(false);
-      
-      // Générer l'URL de prévisualisation pour les images
-      if (data.file.mimeType.startsWith('image/')) {
+
+      if (data.file?.mimeType?.startsWith('image/')) {
         setPreviewUrl(shareService.getSharedFileDownloadUrl(token!, pwd));
       }
     } catch (error: any) {
@@ -143,6 +150,45 @@ export default function SharedLinkPage() {
                 Accéder au fichier
               </button>
             </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (bundleInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-8 text-center">
+            <div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Archive className="w-12 h-12 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white">Archive ZIP</h1>
+            <p className="text-white/80 mt-2 text-sm">{bundleInfo.fileCount} fichier{bundleInfo.fileCount > 1 ? 's' : ''}</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {sharedBy && (
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <User className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Partagé par</p>
+                  <p className="font-semibold text-gray-900 dark:text-white truncate">
+                    {sharedBy.firstName || sharedBy.email?.split('@')[0]}
+                  </p>
+                </div>
+              </div>
+            )}
+            <a
+              href={`/api/share/${token}/download-bundle`}
+              className="flex items-center justify-center space-x-3 w-full py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+              download
+            >
+              <Download className="w-5 h-5" />
+              <span>Télécharger l'archive</span>
+            </a>
           </div>
         </div>
       </div>
