@@ -14,12 +14,14 @@ router.post('/files/:shareId/reject', authenticate, requireDelegationPermission(
 
 // Share links (public file sharing)
 router.post('/links', authenticate, requireDelegationPermission('share'), ShareController.createShareLink);
+router.post('/links/bundle', authenticate, requireDelegationPermission('share'), ShareController.createBundleShareLink);
 router.get('/links', authenticate, requireDelegationPermission('read'), ShareController.listUserShareLinks);
 router.delete('/links/:linkId', authenticate, requireDelegationPermission('delete'), ShareController.deleteShareLink);
 
 // Public access to shared files
 router.get('/:token', ShareController.getSharedFile);
 router.get('/:token/download', ShareController.downloadSharedFile);
+router.get('/:token/download-bundle', ShareController.downloadBundleShareLink);
 
 // Folder sharing (internal between users)
 router.post('/folders', authenticate, requireDelegationPermission('share'), ShareController.shareFolder);

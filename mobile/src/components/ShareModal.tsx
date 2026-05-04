@@ -41,7 +41,7 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
   // link-only state
   const [password, setPassword] = useState('');
   const [maxDownloads, setMaxDownloads] = useState('');
-  const [createdLinks, setCreatedLinks] = useState<{ name: string; url: string }[]>([]);
+  const [createdLink, setCreatedLink] = useState<string | null>(null);
 
   // Normalise : targetsProp prend la priorité, sinon on wrap target en tableau
   const targets: Target[] = targetsProp ?? (target ? [target] : []);
@@ -57,7 +57,7 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
     setEmail('');
     setPassword('');
     setMaxDownloads('');
-    setCreatedLinks([]);
+    setCreatedLink(null);
     setPerms({ canRead: true });
     setMode('user');
   };
@@ -102,11 +102,14 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
         password: password.trim() || undefined,
         maxDownloads: Number.isFinite(max) ? max : undefined,
       };
-      const results = await Promise.all(
-        fileTargets.map((t) => shareService.createShareLink(t.data.id, opts))
-      );
-      setCreatedLinks(results.map((r, i) => ({ name: fileTargets[i].data.name, url: r.shareLink.url })));
-      Toast.show({ type: 'success', text1: results.length > 1 ? `${results.length} liens créés` : 'Lien créé' });
+      if (fileTargets.length === 1) {
+        const res = await shareService.createShareLink(fileTargets[0].data.id, opts);
+        setCreatedLink(res.shareLink.url);
+      } else {
+        const res = await shareService.createBundleShareLink(fileTargets.map((t) => t.data.id), opts);
+        setCreatedLink(res.shareLink.url);
+      }
+      Toast.show({ type: 'success', text1: 'Lien créé' });
     } catch {
       Toast.show({ type: 'error', text1: 'Erreur lors de la création du lien' });
     } finally {
@@ -114,19 +117,10 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
     }
   };
 
-  const handleShareLink = async (url: string) => {
+  const handleShareLink = async () => {
+    if (!createdLink) return;
     try {
-      await RNShare.share({ message: url });
-    } catch {
-      /* user cancelled */
-    }
-  };
-
-  const handleShareAllLinks = async () => {
-    if (createdLinks.length === 0) return;
-    try {
-      const message = createdLinks.map((l) => `${l.name}: ${l.url}`).join('\n');
-      await RNShare.share({ message });
+      await RNShare.share({ message: createdLink });
     } catch {
       /* user cancelled */
     }
@@ -206,11 +200,11 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                     Les liens publics sont disponibles uniquement pour les fichiers.
                   </Text>
                 )}
-                {hasFileTargets && createdLinks.length === 0 && (
+                {hasFileTargets && !createdLink && (
                   <>
                     {isMulti && fileTargets.length < targets.length && (
                       <Text style={[styles.muted, { textAlign: 'left', paddingHorizontal: 0, paddingTop: 0, paddingBottom: spacing.md }]}>
-                        {`${fileTargets.length} fichier(s) sélectionné(s) — les dossiers sont ignorés.`}
+                        {`${fileTargets.length} fichier(s) — les dossiers seront ignorés.`}
                       </Text>
                     )}
                     <Text style={styles.label}>Mot de passe (optionnel)</Text>
@@ -239,33 +233,20 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                       disabled={loading}
                     >
                       <Text style={styles.primaryBtnText}>
-                        {loading ? 'Création…' : fileTargets.length > 1 ? `Créer ${fileTargets.length} liens` : 'Créer le lien'}
+                        {loading ? 'Création…' : 'Créer le lien'}
                       </Text>
                     </TouchableOpacity>
                   </>
                 )}
 
-                {hasFileTargets && createdLinks.length > 0 && (
+                {hasFileTargets && createdLink && (
                   <View style={styles.linkResult}>
-                    {createdLinks.map((l, i) => (
-                      <View key={i} style={i > 0 ? { marginTop: spacing.md } : undefined}>
-                        <Text style={styles.label} numberOfLines={1}>{l.name}</Text>
-                        <Text style={styles.linkText} selectable numberOfLines={2}>{l.url}</Text>
-                        <TouchableOpacity
-                          style={[styles.primaryBtn, { marginTop: spacing.sm }]}
-                          onPress={() => handleShareLink(l.url)}
-                        >
-                          <Ionicons name="share-outline" size={18} color={colors.white} />
-                          <Text style={styles.primaryBtnText}>Partager ce lien</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                    {createdLinks.length > 1 && (
-                      <TouchableOpacity style={[styles.primaryBtn, { marginTop: spacing.lg }]} onPress={handleShareAllLinks}>
-                        <Ionicons name="share-social-outline" size={18} color={colors.white} />
-                        <Text style={styles.primaryBtnText}>Partager tous les liens</Text>
-                      </TouchableOpacity>
-                    )}
+                    <Text style={styles.label}>Lien public{fileTargets.length > 1 ? ' (archive ZIP)' : ''}</Text>
+                    <Text style={styles.linkText} selectable numberOfLines={2}>{createdLink}</Text>
+                    <TouchableOpacity style={styles.primaryBtn} onPress={handleShareLink}>
+                      <Ionicons name="share-outline" size={18} color={colors.white} />
+                      <Text style={styles.primaryBtnText}>Partager le lien</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>

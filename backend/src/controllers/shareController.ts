@@ -68,18 +68,36 @@ export class ShareController {
         password ? String(password) : undefined
       );
 
-      if (!fs.existsSync(shareLink.file!.storagePath)) {
+      const file = shareLink.file!;
+      const { StorageService } = await import('../services/storageService');
+      const isS3 = StorageService.isS3Key(file.storagePath);
+
+      if (!isS3 && !fs.existsSync(file.storagePath)) {
         sendError(res, 'File not found on disk', 404);
         return;
       }
 
-      // Increment download count
+      const ENCRYPTION_OVERHEAD_BYTES = 32;
+      let encryptedSize: number;
+      if (isS3) {
+        encryptedSize = await StorageService.getObjectSize(file.storagePath);
+      } else {
+        encryptedSize = fs.statSync(file.storagePath).size;
+      }
+      const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
+
       await ShareService.incrementDownloadCount(token);
 
-      res.setHeader('Content-Disposition', `attachment; filename="${shareLink.file!.name}"`);
-      res.setHeader('Content-Type', shareLink.file!.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+      res.setHeader('Content-Type', file.mimeType);
+      res.setHeader('Content-Length', decryptedSize);
 
-      const decryptStream = EncryptionService.getDecryptStream(shareLink.file!.storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[downloadSharedFile] decrypt error');
+        if (!res.headersSent) res.status(500).end();
+        else res.destroy();
+      });
       decryptStream.pipe(res);
     } catch (error) { next(error); }
   }
@@ -159,8 +177,8 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'notifications.share.folder_received.title',
-        'notifications.share.folder_received.message',
+        'Nouveau dossier partagé',
+        `${req.user!.firstName || req.user!.email} a partagé un dossier avec vous`,
         { folderId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
@@ -254,8 +272,8 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'notifications.share.file_received.title',
-        'notifications.share.file_received.message',
+        'Nouveau fichier partagé',
+        `${req.user!.firstName || req.user!.email} a partagé un fichier avec vous`,
         { fileId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
@@ -323,21 +341,74 @@ export class ShareController {
       const { fileId } = req.params;
 
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
+      const file = sharedFile.file!;
+      const { StorageService } = await import('../services/storageService');
+      const { Transform } = await import('stream');
 
-      if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+      const ENCRYPTION_OVERHEAD_BYTES = 32;
+      let encryptedSize: number;
+      if (StorageService.isS3Key(file.storagePath)) {
+        encryptedSize = await StorageService.getObjectSize(file.storagePath);
+      } else {
+        if (!fs.existsSync(file.storagePath)) { sendError(res, 'File not found', 404); return; }
+        encryptedSize = fs.statSync(file.storagePath).size;
+      }
+
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        res.status(500).json({ success: false, error: 'Stored file is invalid' });
         return;
       }
 
-      const stat = fs.statSync(sharedFile.file!.storagePath);
-      const fileSize = stat.size - 32; // IV + auth tag AES-GCM
+      const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
+      const rangeHeader = req.headers.range;
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
 
-      res.writeHead(200, {
-        'Content-Length': fileSize,
-        'Content-Type': sharedFile.file!.mimeType,
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[streamSharedFile] decrypt error');
+        if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to stream file' });
+        else res.destroy();
       });
-      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
-      decryptStream.pipe(res);
+
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? Math.min(parseInt(parts[1], 10), decryptedSize - 1) : decryptedSize - 1;
+        const chunkSize = end - start + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${decryptedSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type': file.mimeType,
+        });
+
+        let skipped = 0;
+        let sent = 0;
+        const sliceTransform = new Transform({
+          transform(chunk: Buffer, _enc, cb) {
+            const remaining = start - skipped;
+            if (remaining > 0) {
+              if (chunk.length <= remaining) { skipped += chunk.length; return cb(); }
+              chunk = chunk.subarray(remaining);
+              skipped += remaining;
+            }
+            const need = chunkSize - sent;
+            if (need <= 0) return cb();
+            const slice = chunk.subarray(0, need);
+            sent += slice.length;
+            this.push(slice);
+            cb();
+          },
+        });
+        decryptStream.pipe(sliceTransform).pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Length': decryptedSize,
+          'Accept-Ranges': 'bytes',
+          'Content-Type': file.mimeType,
+        });
+        decryptStream.pipe(res);
+      }
     } catch (error) { next(error); }
   }
 
@@ -347,16 +418,34 @@ export class ShareController {
       const { fileId } = req.params;
 
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
+      const file = sharedFile.file!;
+      const { StorageService } = await import('../services/storageService');
+      const isS3 = StorageService.isS3Key(file.storagePath);
 
-      if (!fs.existsSync(sharedFile.file!.storagePath)) {
+      if (!isS3 && !fs.existsSync(file.storagePath)) {
         sendError(res, 'File not found on disk', 404);
         return;
       }
 
-      res.setHeader('Content-Disposition', `attachment; filename="${sharedFile.file!.name}"`);
-      res.setHeader('Content-Type', sharedFile.file!.mimeType);
+      const ENCRYPTION_OVERHEAD_BYTES = 32;
+      let encryptedSize: number;
+      if (isS3) {
+        encryptedSize = await StorageService.getObjectSize(file.storagePath);
+      } else {
+        encryptedSize = fs.statSync(file.storagePath).size;
+      }
+      const decryptedSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
 
-      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+      res.setHeader('Content-Type', file.mimeType);
+      res.setHeader('Content-Length', decryptedSize);
+
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+      decryptStream.on('error', (err) => {
+        logger.error({ err }, '[downloadSharedFileAuth] decrypt error');
+        if (!res.headersSent) res.status(500).end();
+        else res.destroy();
+      });
       decryptStream.pipe(res);
     } catch (error) { next(error); }
   }
@@ -434,6 +523,66 @@ export class ShareController {
 
       await ShareService.rejectSharedFile(shareId, userId);
       sendSuccess(res, { message: 'Partage rejeté' });
+    } catch (error) { next(error); }
+  }
+
+  static async createBundleShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { fileIds, password, expiresAt, maxDownloads } = req.body;
+
+      if (!Array.isArray(fileIds) || fileIds.length === 0) {
+        sendError(res, 'fileIds must be a non-empty array', 400);
+        return;
+      }
+
+      const shareLink = await ShareService.createBundleShareLink(userId, fileIds, {
+        password,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        maxDownloads,
+      });
+
+      sendCreated(res, {
+        shareLink: {
+          id: shareLink.id,
+          token: shareLink.token,
+          fileIds,
+          expiresAt: shareLink.expiresAt,
+          maxDownloads: shareLink.maxDownloads,
+          downloads: shareLink.downloads,
+          url: `${process.env.FRONTEND_URL}/share/${shareLink.token}`,
+        },
+      });
+    } catch (error) { next(error); }
+  }
+
+  static async downloadBundleShareLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.params;
+      const { password } = req.query;
+
+      const { shareLink, files } = await ShareService.getBundleShareLink(
+        token,
+        password ? String(password) : undefined
+      );
+
+      await ShareService.incrementDownloadCount(token);
+
+      const archiver = (await import('archiver')).default;
+      const { EncryptionService } = await import('../services/encryptionService');
+
+      res.setHeader('Content-Disposition', `attachment; filename="bundle-${shareLink.token.slice(0, 8)}.zip"`);
+      res.setHeader('Content-Type', 'application/zip');
+
+      const archive = archiver('zip', { zlib: { level: 6 } });
+      archive.pipe(res);
+
+      for (const file of files) {
+        const stream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+        archive.append(stream as any, { name: file.name });
+      }
+
+      await archive.finalize();
     } catch (error) { next(error); }
   }
 }
