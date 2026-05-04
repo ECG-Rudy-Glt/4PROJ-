@@ -47,9 +47,11 @@ export default function SharedScreen() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [previewIsShared, setPreviewIsShared] = useState(false);
+  const [folderStack, setFolderStack] = useState<{ folderId: string; name: string; rootFolderId: string }[]>([]);
   const [folderContents, setFolderContents] = useState<{ files: FileItem[]; folders: any[] } | null>(null);
-  const [folderContentsName, setFolderContentsName] = useState('');
   const [folderContentsLoading, setFolderContentsLoading] = useState(false);
+
+  const currentFolder = folderStack[folderStack.length - 1] ?? null;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -155,19 +157,44 @@ export default function SharedScreen() {
     ]);
   };
 
-  const openSharedFolder = async (folderId: string, name: string) => {
-    setFolderContentsName(name);
+  const loadFolderContents = async (folderId: string, rootFolderId: string) => {
     setFolderContentsLoading(true);
-    setFolderContents({ files: [], folders: [] });
     try {
-      const data = await shareService.getSharedFolderContents(folderId);
+      const data = await shareService.getSharedFolderContents(folderId, rootFolderId);
       setFolderContents(data);
     } catch {
       Toast.show({ type: 'error', text1: 'Impossible de charger le contenu du dossier' });
-      setFolderContents(null);
     } finally {
       setFolderContentsLoading(false);
     }
+  };
+
+  const openSharedFolder = (folderId: string, name: string) => {
+    const newStack = [{ folderId, name, rootFolderId: folderId }];
+    setFolderStack(newStack);
+    setFolderContents(null);
+    loadFolderContents(folderId, folderId);
+  };
+
+  const navigateIntoSubfolder = (folderId: string, name: string) => {
+    const rootFolderId = folderStack[0]?.rootFolderId ?? folderId;
+    const newStack = [...folderStack, { folderId, name, rootFolderId }];
+    setFolderStack(newStack);
+    setFolderContents(null);
+    loadFolderContents(folderId, rootFolderId);
+  };
+
+  const navigateBack = () => {
+    if (folderStack.length <= 1) {
+      setFolderStack([]);
+      setFolderContents(null);
+      return;
+    }
+    const newStack = folderStack.slice(0, -1);
+    setFolderStack(newStack);
+    const parent = newStack[newStack.length - 1];
+    setFolderContents(null);
+    loadFolderContents(parent.folderId, parent.rootFolderId);
   };
 
   const getUserName = (user?: { email: string; firstName?: string; lastName?: string }) => {
@@ -368,23 +395,34 @@ export default function SharedScreen() {
 
       {/* Folder contents modal */}
       <Modal
-        visible={folderContents !== null}
+        visible={folderStack.length > 0}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setFolderContents(null)}
+        onRequestClose={() => { setFolderStack([]); setFolderContents(null); }}
       >
         <View style={styles.folderModal}>
           <View style={styles.folderModalHeader}>
-            <TouchableOpacity onPress={() => setFolderContents(null)} style={styles.folderModalClose}>
-              <Ionicons name="close" size={24} color={colors.neutral[600]} />
+            <TouchableOpacity onPress={navigateBack} style={styles.folderModalClose}>
+              <Ionicons
+                name={folderStack.length <= 1 ? 'close' : 'chevron-back'}
+                size={24}
+                color={colors.neutral[600]}
+              />
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
               <Ionicons name="folder" size={20} color={colors.accent.bright} />
-              <Text style={styles.folderModalTitle} numberOfLines={1}>{folderContentsName}</Text>
+              <Text style={styles.folderModalTitle} numberOfLines={1}>
+                {currentFolder?.name ?? ''}
+              </Text>
             </View>
+            {folderStack.length > 1 && (
+              <TouchableOpacity onPress={() => { setFolderStack([]); setFolderContents(null); }}>
+                <Ionicons name="close" size={22} color={colors.neutral[400]} />
+              </TouchableOpacity>
+            )}
           </View>
 
-          {folderContentsLoading ? (
+          {folderContentsLoading || folderContents === null ? (
             <View style={styles.folderModalLoader}>
               <ActivityIndicator color={colors.primary[600]} size="large" />
             </View>
@@ -404,7 +442,9 @@ export default function SharedScreen() {
                   style={styles.shareRow}
                   activeOpacity={0.7}
                   onPress={() => {
-                    if (item.kind === 'file') {
+                    if (item.kind === 'folder') {
+                      navigateIntoSubfolder(item.data.id, item.data.name);
+                    } else {
                       setPreviewFile(item.data as FileItem);
                       setPreviewIsShared(true);
                     }
@@ -423,9 +463,11 @@ export default function SharedScreen() {
                       <Text style={styles.shareMeta}>{item.data.mimeType.split('/')[1]?.toUpperCase()}</Text>
                     )}
                   </View>
-                  {item.kind === 'file' && (
-                    <Ionicons name="chevron-forward" size={16} color={colors.neutral[300]} />
-                  )}
+                  <Ionicons
+                    name={item.kind === 'folder' ? 'chevron-forward' : 'eye-outline'}
+                    size={16}
+                    color={colors.neutral[300]}
+                  />
                 </TouchableOpacity>
               )}
             />

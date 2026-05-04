@@ -111,8 +111,10 @@ export const shareService = {
     return res.data;
   },
 
-  async getSharedFolderContents(folderId: string): Promise<{ files: any[]; folders: any[] }> {
-    const res = await api.get(`/share/folders/${folderId}/contents`);
+  async getSharedFolderContents(folderId: string, rootFolderId?: string): Promise<{ files: any[]; folders: any[] }> {
+    const res = await api.get(`/share/folders/${folderId}/contents`, {
+      params: rootFolderId ? { rootFolderId } : undefined,
+    });
     return res.data;
   },
 
