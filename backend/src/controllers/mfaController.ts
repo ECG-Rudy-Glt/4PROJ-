@@ -3,6 +3,8 @@ import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
+import type { AuthRequest } from '../types';
+import { KekService } from '../services/kekService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_MFA_SECRET = process.env.JWT_MFA_SECRET || (JWT_SECRET + '_mfa');
@@ -11,12 +13,22 @@ const TEMP_TOKEN_EXPIRY = '5m'; // Token temporaire valide 5 minutes
 /**
  * Génère un token temporaire pour la phase MFA
  */
-function generateTempToken(userId: string): string {
-  return jwt.sign({ userId, type: 'mfa' }, JWT_MFA_SECRET, { expiresIn: TEMP_TOKEN_EXPIRY });
+function generateTempToken(userId: string, wrappedDek?: string): string {
+  return jwt.sign(
+    { userId, type: 'mfa', ...(wrappedDek ? { wrappedDek } : {}) },
+    JWT_MFA_SECRET,
+    { expiresIn: TEMP_TOKEN_EXPIRY }
+  );
 }
 
 import { generateToken } from '../utils/jwt';
 import { sendSuccess, sendError } from '../utils/response';
+
+function getWrappedDekFromRequest(req: AuthRequest): string | undefined {
+  if (req.wrappedDek) return req.wrappedDek;
+  if (!req.dekBuffer) return undefined;
+  return KekService.wrapDek(req.dekBuffer);
+}
 
 /**
  * Contrôleur MFA
@@ -73,8 +85,8 @@ export class MFAController {
         await trustedDeviceService.createTrustedDevice(userId, req);
       }
 
-      // @ts-ignore
-      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
+      const wrappedDek = getWrappedDekFromRequest(req as AuthRequest);
+      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1, { wrappedDek });
 
       sendSuccess(res, { message: 'MFA activé avec succès', token: authToken });
     } catch (error) { next(error); }
@@ -121,8 +133,8 @@ export class MFAController {
         },
       });
 
-      // @ts-ignore
-      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
+      const wrappedDek = getWrappedDekFromRequest(req as AuthRequest);
+      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1, { wrappedDek });
 
       sendSuccess(res, { message: 'Authentification réussie', token: authToken, user });
     } catch (error) { next(error); }
@@ -169,8 +181,8 @@ export class MFAController {
         },
       });
 
-      // @ts-ignore
-      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1);
+      const wrappedDek = getWrappedDekFromRequest(req as AuthRequest);
+      const authToken = generateToken(user.id, user.email, user.tokenVersion || 1, { wrappedDek });
 
       const remainingCodes = await mfaService.getRemainingBackupCodesCount(userId);
 

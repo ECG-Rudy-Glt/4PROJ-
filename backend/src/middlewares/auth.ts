@@ -261,6 +261,12 @@ export const authenticateMfa = async (
       actorUserId: user.id,
     };
 
+    if (decoded.wrappedDek) {
+      req.wrappedDek = decoded.wrappedDek;
+      const dek = KekService.unwrapDek(decoded.wrappedDek);
+      if (dek) req.dekBuffer = dek;
+    }
+
     next();
   } catch (error) {
     res.status(401).json({ error: 'Authentication failed' });

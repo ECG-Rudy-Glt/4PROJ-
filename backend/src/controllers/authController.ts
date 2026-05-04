@@ -31,7 +31,7 @@ export class AuthController {
       }
 
       const result = await AuthService.register(email, password, firstName, lastName);
-      const tempToken = generateTempToken(result.user.id);
+      const tempToken = generateTempToken(result.user.id, result.wrappedDek);
       sendCreated(res, {
         mfaSetupRequired: true,
         tempToken,
@@ -65,16 +65,16 @@ export class AuthController {
             mfaUsed: false,
             trustedDevice: true,
           });
-          sendSuccess(res, result);
+          sendSuccess(res, { token: result.token, user: result.user });
           return;
         }
 
-        const tempToken = generateTempToken(user.id);
+        const tempToken = generateTempToken(user.id, result.wrappedDek);
         sendSuccess(res, { mfaRequired: true, tempToken, userId: user.id });
         return;
       }
 
-      const tempToken = generateTempToken(user.id);
+      const tempToken = generateTempToken(user.id, result.wrappedDek);
       sendSuccess(res, {
         mfaSetupRequired: true,
         tempToken,
@@ -105,7 +105,7 @@ export class AuthController {
   static async oauthCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const user = req.user!;
-      const token = generateToken(user.id, user.email);
+      const token = generateToken(user.id, user.email, user.tokenVersion || 1);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
     } catch (error) {

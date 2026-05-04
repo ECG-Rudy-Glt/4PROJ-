@@ -10,7 +10,11 @@ jest.mock('../../config/database', () => ({
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
-    }
+    },
+    passwordResetToken: {
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+    },
   }
 }));
 
@@ -37,6 +41,13 @@ jest.mock('../mailService', () => ({
     sendWelcomeNotification: jest.fn(),
     sendPasswordChangeNotification: jest.fn()
   }
+}));
+
+jest.mock('../mfaService', () => ({
+  mfaService: {
+    verifyUserTOTPCode: jest.fn(),
+    verifyBackupCode: jest.fn(),
+  },
 }));
 
 describe('AuthService', () => {
@@ -148,6 +159,79 @@ describe('AuthService', () => {
       expect(result.token).toBe('mock-token');
       expect(result.user.email).toBe('test@example.com');
       expect(prisma.user.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    const futureDate = new Date(Date.now() + 60 * 60 * 1000);
+
+    it('should refuse reset for encrypted accounts without deleting DEK or vault data', async () => {
+      (prisma.passwordResetToken.findUnique as jest.Mock).mockResolvedValue({
+        id: 'reset-token-id',
+        expiresAt: futureDate,
+        user: {
+          id: 'user-1',
+          email: 'secure@example.com',
+          firstName: 'Secure',
+          language: 'fr',
+          mfaEnabled: false,
+          encryptedDek: 'encrypted-dek',
+          kekSalt: 'kek-salt',
+          vaultEnabled: true,
+          vaultPasswordHash: 'vault-hash',
+        },
+      });
+
+      await expect(AuthService.resetPassword('reset-token', 'new-password')).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'DEK_RECOVERY_REQUIRED',
+      });
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.passwordResetToken.delete).not.toHaveBeenCalled();
+    });
+
+    it('should reset password for accounts without encrypted DEK without touching vault fields', async () => {
+      (prisma.passwordResetToken.findUnique as jest.Mock).mockResolvedValue({
+        id: 'reset-token-id',
+        expiresAt: futureDate,
+        user: {
+          id: 'oauth-user',
+          email: 'oauth@example.com',
+          firstName: 'OAuth',
+          language: 'fr',
+          mfaEnabled: false,
+          encryptedDek: null,
+          kekSalt: null,
+          vaultEnabled: false,
+          vaultPasswordHash: null,
+        },
+      });
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-new-password');
+      (prisma.user.update as jest.Mock).mockResolvedValue({
+        email: 'oauth@example.com',
+        firstName: 'OAuth',
+        language: 'fr',
+      });
+      (prisma.passwordResetToken.delete as jest.Mock).mockResolvedValue({});
+
+      const result = await AuthService.resetPassword('reset-token', 'new-password');
+
+      expect(result).toEqual({ message: 'Password reset successfully' });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'oauth-user' },
+        data: {
+          password: 'hashed-new-password',
+          tokenVersion: { increment: 1 },
+        },
+      });
+      const updateData = (prisma.user.update as jest.Mock).mock.calls[0][0].data;
+      expect(updateData).not.toHaveProperty('kekSalt');
+      expect(updateData).not.toHaveProperty('encryptedDek');
+      expect(updateData).not.toHaveProperty('vaultEnabled');
+      expect(updateData).not.toHaveProperty('vaultPasswordHash');
+      expect(prisma.passwordResetToken.delete).toHaveBeenCalledWith({ where: { id: 'reset-token-id' } });
     });
   });
 });

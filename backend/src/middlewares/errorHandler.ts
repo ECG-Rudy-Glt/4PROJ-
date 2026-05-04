@@ -4,7 +4,8 @@ import logger from '../config/logger';
 export class AppError extends Error {
   constructor(
     public statusCode: number,
-    message: string
+    message: string,
+    public code?: string
   ) {
     super(message);
     this.name = 'AppError';
@@ -18,7 +19,9 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({ error: err.message });
+    const body: Record<string, unknown> = { error: err.message };
+    if (err.code) body.code = err.code;
+    res.status(err.statusCode).json(body);
     return;
   }
 

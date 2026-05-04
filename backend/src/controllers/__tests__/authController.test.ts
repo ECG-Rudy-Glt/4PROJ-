@@ -4,6 +4,7 @@ import { mfaService } from '../../services/mfaService';
 import { trustedDeviceService } from '../../services/trustedDeviceService';
 import { generateTempToken } from '../mfaController';
 import { AuditService } from '../../services/auditService';
+import { generateToken } from '../../utils/jwt';
 
 jest.mock('../../services/authService', () => ({
   AuthService: {
@@ -33,19 +34,33 @@ jest.mock('../../services/auditService', () => ({
   },
 }));
 
+jest.mock('../userProfileController', () => ({
+  UserProfileController: {},
+}));
+
+jest.mock('../dataExportController', () => ({
+  DataExportController: {},
+}));
+
 jest.mock('../../utils/cookies', () => ({
   clearSwitchSessionCookie: jest.fn(),
+}));
+
+jest.mock('../../utils/jwt', () => ({
+  generateToken: jest.fn(),
 }));
 
 const createRes = () => {
   const res: any = {};
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
+  res.redirect = jest.fn().mockReturnValue(res);
   return res;
 };
 
 const baseLoginResult = {
   token: 'jwt-token',
+  wrappedDek: 'wrapped-dek',
   user: {
     id: 'user-1',
     email: 'user@example.com',
@@ -86,6 +101,7 @@ describe('AuthController', () => {
 
       await AuthController.login(req, res, jest.fn());
 
+      expect(generateTempToken).toHaveBeenCalledWith('user-1', 'wrapped-dek');
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -110,6 +126,7 @@ describe('AuthController', () => {
 
       await AuthController.login(req, res, jest.fn());
 
+      expect(generateTempToken).toHaveBeenCalledWith('user-1', 'wrapped-dek');
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -122,6 +139,30 @@ describe('AuthController', () => {
             firstName: 'User',
             lastName: 'One',
           },
+        },
+      });
+    });
+
+    it('should not expose wrappedDek in trusted-device login responses', async () => {
+      (AuthService.login as jest.Mock).mockResolvedValue(baseLoginResult);
+      (mfaService.isMFAEnabled as jest.Mock).mockResolvedValue(true);
+      (trustedDeviceService.isTrustedDeviceFromRequest as jest.Mock).mockResolvedValue(true);
+      (AuditService.createLog as jest.Mock).mockResolvedValue(undefined);
+
+      const req: any = {
+        body: { email: 'user@example.com', password: 'password123' },
+        ip: '127.0.0.1',
+        get: jest.fn(),
+      };
+      const res = createRes();
+
+      await AuthController.login(req, res, jest.fn());
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          token: 'jwt-token',
+          user: baseLoginResult.user,
         },
       });
     });
@@ -141,6 +182,25 @@ describe('AuthController', () => {
       expect(next).toHaveBeenCalledWith(err);
       expect(res.status).not.toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('oauthCallback', () => {
+    it('should issue OAuth token with current tokenVersion', async () => {
+      (generateToken as jest.Mock).mockReturnValue('oauth-token');
+      const req: any = {
+        user: {
+          id: 'oauth-user',
+          email: 'oauth@example.com',
+          tokenVersion: 9,
+        },
+      };
+      const res = createRes();
+
+      await AuthController.oauthCallback(req, res, jest.fn());
+
+      expect(generateToken).toHaveBeenCalledWith('oauth-user', 'oauth@example.com', 9);
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback?token=oauth-token');
     });
   });
 });

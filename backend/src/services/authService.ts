@@ -86,6 +86,7 @@ export class AuthService {
         createdAt: user.createdAt,
       },
       token,
+      wrappedDek,
     };
   }
 
@@ -149,6 +150,7 @@ export class AuthService {
         createdAt: user.createdAt,
       },
       token,
+      wrappedDek,
     };
   }
 
@@ -337,6 +339,14 @@ export class AuthService {
 
     const user = resetToken.user;
 
+    if (user.encryptedDek || user.vaultEnabled || user.vaultPasswordHash) {
+      throw new AppError(
+        409,
+        'La réinitialisation du mot de passe nécessite une clé de récupération pour préserver vos données chiffrées.',
+        user.encryptedDek ? 'DEK_RECOVERY_REQUIRED' : 'VAULT_RECOVERY_REQUIRED'
+      );
+    }
+
     // MFA Verification if enabled
     if (user.mfaEnabled) {
       if (!mfaCode) {
@@ -358,22 +368,11 @@ export class AuthService {
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    let dekUpdate = {};
-    if (user.kekSalt && user.encryptedDek) {
-        dekUpdate = {
-            kekSalt: null,
-            encryptedDek: null,
-            vaultEnabled: false,
-            vaultPasswordHash: null
-        };
-    }
-
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
         tokenVersion: { increment: 1 },
-        ...dekUpdate
       }
     });
 

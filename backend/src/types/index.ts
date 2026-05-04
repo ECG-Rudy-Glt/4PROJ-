@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { User } from '@prisma/client';
+import type { User } from '@prisma/client';
 
 export interface AuthSessionContext {
   authType: 'DIRECT' | 'SWITCH' | 'DELEGATION';
@@ -20,6 +20,8 @@ export interface AuthRequest extends Request {
   authContext?: AuthSessionContext;
   /** DEK déchiffré depuis le wrappedDek du JWT. Disponible après le middleware authenticate(). */
   dekBuffer?: Buffer;
+  /** DEK enveloppée extraite du JWT, conservée pour réémettre un token final MFA. */
+  wrappedDek?: string;
 }
 
 export interface FileUploadRequest extends AuthRequest {

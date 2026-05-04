@@ -10,6 +10,7 @@ import { VaultService } from '../services/vaultService';
 import { KekService } from '../services/kekService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
+import { DEK_UNLOCK_REQUIRED, ensureDekUnlocked } from '../utils/dekGuard';
 
 export class OnlyOfficeController {
   /**
@@ -42,6 +43,15 @@ export class OnlyOfficeController {
 
       // Extract DEK from the access token for file decryption
       const dek = tokenData.wrappedDek ? KekService.unwrapDek(tokenData.wrappedDek) ?? undefined : undefined;
+      const tokenUser = await prisma.user.findUnique({
+        where: { id: tokenData.userId },
+        select: { encryptedDek: true },
+      });
+
+      if (tokenUser?.encryptedDek && !dek) {
+        sendError(res, 'DEK unlock required for encrypted content', 401, DEK_UNLOCK_REQUIRED);
+        return;
+      }
 
       logger.info({ fileId, storagePath: file.storagePath }, 'Serving file to OnlyOffice:');
 
@@ -88,6 +98,8 @@ export class OnlyOfficeController {
       }
 
       await VaultService.assertUnlockedIfVault(userId, file.isVault);
+
+      if (!ensureDekUnlocked(req, res)) return;
 
       // 422 : le fichier existe mais son type n'est pas éditable
       if (!OnlyOfficeService.canEdit(file.mimeType)) {
@@ -142,6 +154,19 @@ export class OnlyOfficeController {
 
       if (result.shouldSave && result.downloadUrl) {
         try {
+          // Déchiffrer le DEK avant tout téléchargement/écriture disque.
+          const dek = queryWrappedDek ? KekService.unwrapDek(queryWrappedDek) ?? undefined : undefined;
+          const callbackUser = await prisma.user.findUnique({
+            where: { id: queryUserId || file.userId },
+            select: { encryptedDek: true },
+          });
+
+          if (callbackUser?.encryptedDek && !dek) {
+            logger.warn({ fileId, userId: queryUserId || file.userId }, DEK_UNLOCK_REQUIRED);
+            res.status(200).json({ error: 1, code: DEK_UNLOCK_REQUIRED });
+            return;
+          }
+
           const response = await axios.get(result.downloadUrl, { responseType: 'arraybuffer' });
 
           const uploadDir = process.env.UPLOAD_DIR || './uploads';
@@ -149,9 +174,6 @@ export class OnlyOfficeController {
           const filepath = path.join(uploadDir, filename);
 
           await fs.writeFile(filepath, response.data);
-
-          // Déchiffrer le DEK pour chiffrer la nouvelle version
-          const dek = queryWrappedDek ? KekService.unwrapDek(queryWrappedDek) ?? undefined : undefined;
 
           await OnlyOfficeService.createFileVersion(
             fileId,

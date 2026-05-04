@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
-import { authenticate } from '../auth';
+import { authenticate, authenticateMfa } from '../auth';
 import { PlanService } from '../../services/planService';
+import { KekService } from '../../services/kekService';
 
 jest.mock('jsonwebtoken', () => ({
   verify: jest.fn(),
@@ -23,6 +24,12 @@ jest.mock('../../config/database', () => ({
 jest.mock('../../services/planService', () => ({
   PlanService: {
     getStorageLimit: jest.fn(),
+  },
+}));
+
+jest.mock('../../services/kekService', () => ({
+  KekService: {
+    unwrapDek: jest.fn(),
   },
 }));
 
@@ -117,5 +124,38 @@ describe('authenticate middleware', () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: 'Delegation is no longer valid' });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('should expose wrappedDek and dekBuffer from MFA temp tokens', async () => {
+    const dek = Buffer.from('dek-buffer');
+    (jwt.verify as jest.Mock)
+      .mockReturnValueOnce({
+        userId: 'user-1',
+        tokenVersion: 2,
+        type: 'mfa',
+      })
+      .mockReturnValueOnce({
+        userId: 'user-1',
+        type: 'mfa',
+        wrappedDek: 'wrapped-dek',
+      });
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(baseUser);
+    (KekService.unwrapDek as jest.Mock).mockReturnValue(dek);
+
+    const req: any = {
+      headers: {
+        authorization: 'Bearer mfa-token',
+      },
+      query: {},
+    };
+    const res = createRes();
+    const next = jest.fn();
+
+    await authenticateMfa(req, res, next);
+
+    expect(req.wrappedDek).toBe('wrapped-dek');
+    expect(req.dekBuffer).toBe(dek);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
