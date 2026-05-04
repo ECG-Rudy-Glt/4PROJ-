@@ -11,6 +11,7 @@ import {
   Modal,
   Animated,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,12 +23,14 @@ import { shadows } from '../../theme/shadows';
 import Toast from 'react-native-toast-message';
 import { useFileStore } from '../../stores/useFileStore';
 import { uploadService } from '../../services/uploadService';
+import { folderService } from '../../services/folderService';
 import FileRow from '../../components/FileRow';
 import FolderRow from '../../components/FolderRow';
 import EmptyState from '../../components/EmptyState';
 import FilePreviewModal from '../../components/FilePreviewModal';
 import ItemActionsSheet from '../../components/ItemActionsSheet';
 import SearchBar from '../../components/SearchBar';
+import ShareModal from '../../components/ShareModal';
 import { FileItem, Folder } from '../../types';
 
 type ActionTarget =
@@ -52,6 +55,14 @@ export default function FilesScreen() {
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [actionTarget, setActionTarget] = useState<ActionTarget>(null);
   const [showSearch, setShowSearch] = useState(false);
+
+  // Multi-sélection
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchMove, setShowBatchMove] = useState(false);
+  const [showBatchShare, setShowBatchShare] = useState(false);
+  const [batchMoveFolders, setBatchMoveFolders] = useState<Folder[]>([]);
+  const [batchMoveFoldersLoading, setBatchMoveFoldersLoading] = useState(false);
 
   // Rafraîchit la liste à chaque fois que l'onglet reçoit le focus
   useFocusEffect(
@@ -173,6 +184,91 @@ export default function FilesScreen() {
     }
   };
 
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.size === 0) setSelectionMode(false);
+      return next;
+    });
+  };
+
+  const enterSelectionWith = (id: string) => {
+    setSelectionMode(true);
+    setSelectedIds(new Set([id]));
+  };
+
+  const getSelectedTargets = () => {
+    return items.filter((it) => selectedIds.has(it.data.id)).map((it) =>
+      it.type === 'file'
+        ? { kind: 'file' as const, data: it.data as FileItem }
+        : { kind: 'folder' as const, data: it.data as Folder }
+    );
+  };
+
+  const handleBatchDelete = () => {
+    const count = selectedIds.size;
+    Alert.alert(
+      `Supprimer ${count} élément(s) ?`,
+      'Les fichiers seront déplacés dans la corbeille. Les dossiers et leur contenu seront supprimés.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer', style: 'destructive', onPress: async () => {
+            try {
+              const targets = getSelectedTargets();
+              await Promise.all(targets.map((t) =>
+                t.kind === 'file'
+                  ? useFileStore.getState().deleteFile(t.data.id)
+                  : useFileStore.getState().deleteFolder(t.data.id)
+              ));
+              Toast.show({ type: 'success', text1: `${count} élément(s) supprimé(s)` });
+              exitSelectionMode();
+            } catch {
+              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openBatchMove = async () => {
+    setShowBatchMove(true);
+    setBatchMoveFoldersLoading(true);
+    try {
+      const res = await folderService.listAllFolders().catch(() => folderService.listFolders());
+      setBatchMoveFolders(res.folders ?? []);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Impossible de charger les dossiers' });
+    } finally {
+      setBatchMoveFoldersLoading(false);
+    }
+  };
+
+  const handleBatchMoveTo = async (folderId?: string) => {
+    const targets = getSelectedTargets();
+    try {
+      await Promise.all(targets.map((t) =>
+        t.kind === 'file'
+          ? useFileStore.getState().moveFile(t.data.id, folderId)
+          : t.data.id !== folderId
+            ? useFileStore.getState().moveFolder(t.data.id, folderId)
+            : Promise.resolve()
+      ));
+      Toast.show({ type: 'success', text1: `${targets.length} élément(s) déplacé(s)` });
+      setShowBatchMove(false);
+      exitSelectionMode();
+    } catch {
+      Toast.show({ type: 'error', text1: 'Erreur lors du déplacement' });
+    }
+  };
+
   const safeBreadcrumbs = breadcrumbs ?? [];
   const currentFolderName = safeBreadcrumbs.length > 0
     ? safeBreadcrumbs[safeBreadcrumbs.length - 1].name
@@ -188,21 +284,40 @@ export default function FilesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          {currentFolderId && (
+          {selectionMode ? (
+            <TouchableOpacity onPress={exitSelectionMode} style={styles.backBtn}>
+              <Ionicons name="close" size={24} color={colors.primary[600]} />
+            </TouchableOpacity>
+          ) : currentFolderId ? (
             <TouchableOpacity onPress={handleGoBack} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={24} color={colors.primary[600]} />
             </TouchableOpacity>
-          )}
-          <Text style={styles.title} numberOfLines={1}>{currentFolderName}</Text>
+          ) : null}
+          <Text style={styles.title} numberOfLines={1}>
+            {selectionMode ? `${selectedIds.size} sélectionné(s)` : currentFolderName}
+          </Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-          <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.addBtn}>
-            <Ionicons name="search-outline" size={24} color={colors.primary[600]} />
+        {!selectionMode && (
+          <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+            <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.addBtn}>
+              <Ionicons name="search-outline" size={24} color={colors.primary[600]} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowNewFolder(true)} style={styles.addBtn}>
+              <Ionicons name="add-circle-outline" size={26} color={colors.primary[600]} />
+            </TouchableOpacity>
+          </View>
+        )}
+        {selectionMode && (
+          <TouchableOpacity
+            onPress={() => {
+              const allIds = new Set(items.map((it) => it.data.id));
+              setSelectedIds(allIds);
+            }}
+            style={styles.addBtn}
+          >
+            <Text style={{ color: colors.primary[600], ...typography.caption, fontWeight: '600' }}>Tout</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowNewFolder(true)} style={styles.addBtn}>
-            <Ionicons name="add-circle-outline" size={26} color={colors.primary[600]} />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
       {/* Fil d'Ariane */}
@@ -293,36 +408,73 @@ export default function FilesScreen() {
           ) : null
         }
         renderItem={({ item }) => {
+          const isSelected = selectedIds.has(item.data.id);
           if (item.type === 'folder') {
             return (
               <FolderRow
                 folder={item.data}
-                onPress={() => navigateToFolder(item.data.id)}
-                onLongPress={() => setActionTarget({ kind: 'folder', data: item.data })}
+                selected={isSelected}
+                selectionMode={selectionMode}
+                onPress={() => {
+                  if (selectionMode) { toggleSelection(item.data.id); return; }
+                  navigateToFolder(item.data.id);
+                }}
+                onLongPress={() => {
+                  if (selectionMode) { toggleSelection(item.data.id); return; }
+                  setActionTarget({ kind: 'folder', data: item.data as Folder });
+                }}
               />
             );
           }
           return (
             <FileRow
               file={item.data}
+              selected={isSelected}
+              selectionMode={selectionMode}
               showFavorite
-              onPress={() => setPreviewFile(item.data)}
-              onLongPress={() => setActionTarget({ kind: 'file', data: item.data })}
+              onPress={() => {
+                if (selectionMode) { toggleSelection(item.data.id); return; }
+                setPreviewFile(item.data);
+              }}
+              onLongPress={() => {
+                if (selectionMode) { toggleSelection(item.data.id); return; }
+                setActionTarget({ kind: 'file', data: item.data as FileItem });
+              }}
               onToggleFavorite={() => toggleFavorite(item.data.id)}
             />
           );
         }}
       />
 
-      {/* FAB Upload */}
-      <TouchableOpacity
-        style={[styles.fab, uploading && styles.fabDisabled]}
-        onPress={handleUpload}
-        disabled={uploading}
-        activeOpacity={0.8}
-      >
-        <Ionicons name={uploading ? 'hourglass-outline' : 'cloud-upload-outline'} size={26} color={colors.white} />
-      </TouchableOpacity>
+      {/* FAB Upload — masqué en mode sélection */}
+      {!selectionMode && (
+        <TouchableOpacity
+          style={[styles.fab, uploading && styles.fabDisabled]}
+          onPress={handleUpload}
+          disabled={uploading}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={uploading ? 'hourglass-outline' : 'cloud-upload-outline'} size={26} color={colors.white} />
+        </TouchableOpacity>
+      )}
+
+      {/* Barre d'actions batch */}
+      {selectionMode && selectedIds.size > 0 && (
+        <View style={styles.batchBar}>
+          <TouchableOpacity style={styles.batchBtn} onPress={openBatchMove}>
+            <Ionicons name="move-outline" size={22} color={colors.primary[600]} />
+            <Text style={styles.batchBtnText}>Déplacer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.batchBtn} onPress={() => setShowBatchShare(true)}>
+            <Ionicons name="share-social-outline" size={22} color={colors.primary[600]} />
+            <Text style={styles.batchBtnText}>Partager</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.batchBtn} onPress={handleBatchDelete}>
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
+            <Text style={[styles.batchBtnText, { color: colors.error }]}>Supprimer</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Global search */}
       <SearchBar
@@ -331,11 +483,57 @@ export default function FilesScreen() {
         onFilePress={(f) => setPreviewFile(f)}
       />
 
-      {/* Actions sheet (long-press) */}
+      {/* Actions sheet (long-press — single item) */}
       <ItemActionsSheet
         target={actionTarget}
         onClose={() => setActionTarget(null)}
+        onSelect={() => {
+          if (actionTarget) enterSelectionWith(actionTarget.data.id);
+        }}
       />
+
+      {/* Modal déplacement batch */}
+      {showBatchMove && (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setShowBatchMove(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { padding: 0, overflow: 'hidden' }]}>
+              <View style={styles.batchMoveHeader}>
+                <Text style={styles.modalTitle}>Déplacer vers</Text>
+                <TouchableOpacity onPress={() => setShowBatchMove(false)}>
+                  <Ionicons name="close" size={22} color={colors.neutral[500]} />
+                </TouchableOpacity>
+              </View>
+              {batchMoveFoldersLoading ? (
+                <ActivityIndicator color={colors.primary[600]} style={{ padding: spacing.xl }} />
+              ) : (
+                <ScrollView style={{ maxHeight: 400 }}>
+                  <TouchableOpacity style={styles.folderItem} onPress={() => handleBatchMoveTo(undefined)}>
+                    <Ionicons name="home-outline" size={20} color={colors.primary[600]} />
+                    <Text style={styles.folderItemText}>Racine</Text>
+                  </TouchableOpacity>
+                  {batchMoveFolders.map((f) => (
+                    <TouchableOpacity key={f.id} style={styles.folderItem} onPress={() => handleBatchMoveTo(f.id)}>
+                      <Ionicons name="folder-outline" size={20} color={colors.accent.bright} />
+                      <Text style={styles.folderItemText} numberOfLines={1}>{f.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {batchMoveFolders.length === 0 && (
+                    <Text style={styles.muted}>Aucun dossier disponible</Text>
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Modal partage batch */}
+      {showBatchShare && (
+        <ShareModal
+          targets={getSelectedTargets()}
+          onClose={() => { setShowBatchShare(false); exitSelectionMode(); }}
+        />
+      )}
 
       {/* Preview modal */}
       <FilePreviewModal
@@ -542,5 +740,53 @@ const styles = StyleSheet.create({
   modalBtnConfirmText: {
     ...typography.button,
     color: colors.white,
+  },
+  batchBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: colors.white,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[100],
+    ...shadows.lg,
+  },
+  batchBtn: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  batchBtnText: {
+    ...typography.caption,
+    color: colors.primary[600],
+    fontWeight: '600',
+  },
+  batchMoveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
+  },
+  folderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
+  },
+  folderItemText: {
+    ...typography.body,
+    color: colors.neutral[800],
+    flex: 1,
+  },
+  muted: {
+    ...typography.caption,
+    color: colors.neutral[400],
+    textAlign: 'center',
+    padding: spacing.lg,
   },
 });
