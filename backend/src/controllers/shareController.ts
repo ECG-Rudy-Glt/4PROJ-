@@ -45,6 +45,18 @@ export class ShareController {
         password ? String(password) : undefined
       );
 
+      // Bundle link: no single file, multiple files zipped on download
+      if ((shareLink as any).bundleFileIds) {
+        const fileIds: string[] = JSON.parse((shareLink as any).bundleFileIds);
+        sendSuccess(res, {
+          isBundle: true,
+          fileCount: fileIds.length,
+          downloadUrl: `/share/${token}/download-bundle`,
+          sharedBy: shareLink.user,
+        });
+        return;
+      }
+
       sendSuccess(res, {
         file: {
           id: shareLink.file!.id,
