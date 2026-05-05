@@ -225,10 +225,26 @@ export class VersionService {
       throw new Error('Version introuvable');
     }
 
-    const currentVersionCount = await prisma.fileVersion.count({
-      where: { fileId },
-    });
-    await PlanService.assertLimit(userId, 'maxVersions', currentVersionCount);
+    if (version.storagePath === file.storagePath) {
+      throw new Error('Impossible de restaurer une version qui référence le fichier courant');
+    }
+
+    const quotaOwnerId = file.userId;
+    const maxVersions = await PlanService.getNumericLimit(quotaOwnerId, 'maxVersions');
+    if (maxVersions !== null) {
+      if (maxVersions < 2) {
+        throw new Error('La limite de versions ne permet pas de conserver la version restaurée et la sauvegarde courante');
+      }
+
+      await this.cleanOldVersions(fileId, quotaOwnerId, file.storagePath, maxVersions - 1, new Set([version.id]));
+
+      const currentVersionCount = await prisma.fileVersion.count({
+        where: { fileId },
+      });
+      if (currentVersionCount + 1 > maxVersions) {
+        throw new Error('Limite de versions atteinte pour votre plan');
+      }
+    }
 
     // Créer une version de l'état actuel avant de restaurer
     const lastVersion = await prisma.fileVersion.findFirst({
@@ -238,36 +254,12 @@ export class VersionService {
 
     const newVersionNumber = lastVersion ? lastVersion.versionNumber + 1 : 1;
 
-    // Copier le fichier actuel vers un nouvel emplacement pour la version
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
 
-    // Sauvegarder l'état actuel comme nouvelle version
-    let currentBackupPath: string;
-    if (StorageService.isS3Key(file.storagePath)) {
-      // Copie S3 vers S3
-      currentBackupPath = `versions/${fileId}/${newVersionNumber}-backup-${path.basename(file.storagePath)}`;
-      await StorageService.copy(file.storagePath, currentBackupPath);
-    } else {
-      // Copie locale (fichiers pré-migration)
-      currentBackupPath = path.join(uploadDir, `${Date.now()}-backup-${path.basename(file.storagePath)}`);
-      const currentFilePath = file.storagePath.startsWith('/') ? file.storagePath : path.join(uploadDir, file.storagePath);
-      if (!fs.existsSync(currentFilePath)) {
-        throw new Error(`Impossible de créer une version : fichier courant introuvable (${currentFilePath})`);
-      }
-      fs.copyFileSync(currentFilePath, currentBackupPath);
+    const hasSpace = await PlanService.checkQuota(quotaOwnerId, version.size);
+    if (!hasSpace) {
+      throw new Error('Quota exceeded');
     }
-
-    await prisma.fileVersion.create({
-      data: {
-        fileId,
-        versionNumber: newVersionNumber,
-        name: file.name,
-        size: file.size,
-        storagePath: currentBackupPath,
-        mimeType: file.mimeType,
-        createdById: userId,
-      },
-    });
 
     // Restaurer la version cible
     let restoredPath: string;
@@ -283,19 +275,49 @@ export class VersionService {
       fs.copyFileSync(versionFilePath, restoredPath);
     }
 
-    // Mettre à jour le fichier principal
-    await prisma.file.update({
-      where: { id: fileId },
-      data: {
-        name: version.name,
-        size: version.size,
-        storagePath: restoredPath,
-        mimeType: version.mimeType,
-      },
-    });
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.fileVersion.create({
+          data: {
+            fileId,
+            versionNumber: newVersionNumber,
+            name: file.name,
+            size: file.size,
+            storagePath: file.storagePath,
+            mimeType: file.mimeType,
+            createdById: userId,
+          },
+        });
 
-    // Nettoyer les anciennes versions
-    await this.cleanOldVersions(fileId, userId);
+        // Mettre à jour le fichier principal
+        await tx.file.update({
+          where: { id: fileId },
+          data: {
+            name: version.name,
+            size: version.size,
+            storagePath: restoredPath,
+            mimeType: version.mimeType,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: quotaOwnerId },
+          data: {
+            quotaUsed: {
+              increment: version.size,
+            },
+          },
+        });
+      });
+    } catch (error) {
+      try {
+        await StorageService.deleteStorageFile(restoredPath);
+      } catch (cleanupError) {
+        logger.error({ cleanupError, restoredPath }, 'Failed to cleanup restored version object after DB error');
+      }
+      throw error;
+    }
+
     FileIndexService.indexFileAsync(fileId, userId);
 
     return await prisma.file.findUnique({
@@ -368,7 +390,8 @@ export class VersionService {
     fileId: string,
     userId: string,
     currentFileStoragePath?: string,
-    keepCountOverride?: number
+    keepCountOverride?: number,
+    protectedVersionIds: Set<string> = new Set()
   ) {
     let keepCount = keepCountOverride;
     if (keepCount === undefined) {
@@ -386,8 +409,21 @@ export class VersionService {
       orderBy: { versionNumber: 'desc' },
     });
 
+    const protectedVersions = versions.filter((version) => protectedVersionIds.has(version.id));
+    if (protectedVersions.length > keepCount) {
+      throw new Error('Limite de versions insuffisante pour conserver les versions protégées');
+    }
+
     if (versions.length > keepCount) {
-      const versionsToDelete = versions.slice(keepCount);
+      const versionIdsToKeep = new Set(protectedVersions.map((version) => version.id));
+      for (const version of versions) {
+        if (versionIdsToKeep.size >= keepCount) {
+          break;
+        }
+        versionIdsToKeep.add(version.id);
+      }
+
+      const versionsToDelete = versions.filter((version) => !versionIdsToKeep.has(version.id));
 
       for (const version of versionsToDelete) {
         this.assertVersionStorageCanBeDeleted(version.storagePath, currentFileStoragePath, version.id, fileId);

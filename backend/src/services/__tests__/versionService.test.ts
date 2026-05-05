@@ -18,10 +18,12 @@ jest.mock('../../config/database', () => ({
     $transaction: jest.fn(),
     file: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     fileVersion: {
       count: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -92,6 +94,15 @@ const createdVersion = {
   versionNumber: 3,
   storagePath: currentFile.storagePath,
   size: currentFile.size,
+};
+
+const versionToRestore = {
+  id: 'version-restore',
+  fileId: 'file-1',
+  name: 'restored.docx',
+  size: BigInt(40),
+  storagePath: 'versions/file-1/1-old.docx',
+  mimeType: 'application/docx',
 };
 
 describe('VersionService share acceptance checks', () => {
@@ -192,9 +203,11 @@ describe('VersionService quota and storage ownership', () => {
     (fs.existsSync as jest.Mock).mockReturnValue(true);
     (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => callback(prisma));
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(currentFile);
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({ id: 'file-1', versions: [] });
     (prisma.file.update as jest.Mock).mockResolvedValue({});
     (prisma.fileVersion.create as jest.Mock).mockResolvedValue(createdVersion);
     (prisma.fileVersion.delete as jest.Mock).mockResolvedValue({});
+    (prisma.fileVersion.findFirst as jest.Mock).mockResolvedValue({ versionNumber: 3 });
     (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue({
       id: 'version-1',
       fileId: 'file-1',
@@ -207,6 +220,8 @@ describe('VersionService quota and storage ownership', () => {
     (PlanService.getNumericLimit as jest.Mock).mockResolvedValue(null);
     (PlanService.checkQuota as jest.Mock).mockResolvedValue(true);
     (EncryptionService.encryptFileToS3 as jest.Mock).mockResolvedValue(undefined);
+    (StorageService.isS3Key as jest.Mock).mockImplementation((storagePath: string) => storagePath.startsWith('files/') || storagePath.startsWith('versions/'));
+    (StorageService.copy as jest.Mock).mockResolvedValue(undefined);
     (StorageService.deleteStorageFile as jest.Mock).mockResolvedValue(undefined);
   });
 
@@ -359,5 +374,133 @@ describe('VersionService quota and storage ownership', () => {
     );
     expect(StorageService.deleteStorageFile).not.toHaveBeenCalled();
     expect(EncryptionService.encryptFileToS3).not.toHaveBeenCalled();
+  });
+
+  it('checks restore quota before copying the target version', async () => {
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+
+    await VersionService.restoreVersion('version-restore', 'file-1', 'owner-1');
+
+    expect(PlanService.checkQuota).toHaveBeenCalledWith('owner-1', BigInt(40));
+    expect(StorageService.copy).toHaveBeenCalledWith(
+      'versions/file-1/1-old.docx',
+      expect.stringMatching(/^versions\/file-1\/restored-\d+-1-old\.docx$/)
+    );
+    expect((PlanService.checkQuota as jest.Mock).mock.invocationCallOrder[0])
+      .toBeLessThan((StorageService.copy as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it('refuses restore quota without copying or writing database rows', async () => {
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+    (PlanService.checkQuota as jest.Mock).mockResolvedValue(false);
+
+    await expect(VersionService.restoreVersion('version-restore', 'file-1', 'owner-1'))
+      .rejects.toThrow('Quota exceeded');
+
+    expect(StorageService.copy).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.fileVersion.create).not.toHaveBeenCalled();
+    expect(prisma.file.update).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('restores S3 versions with a logical backup of the current file and quota increment', async () => {
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+
+    await VersionService.restoreVersion('version-restore', 'file-1', 'owner-1');
+
+    const restoredPath = (StorageService.copy as jest.Mock).mock.calls[0][1];
+    expect(StorageService.copy).toHaveBeenCalledWith('versions/file-1/1-old.docx', restoredPath);
+    expect(StorageService.copy).not.toHaveBeenCalledWith('files/owner-1/current.enc', expect.any(String));
+    expect(prisma.fileVersion.create).toHaveBeenCalledWith({
+      data: {
+        fileId: 'file-1',
+        versionNumber: 4,
+        name: 'old.docx',
+        size: BigInt(50),
+        storagePath: 'files/owner-1/current.enc',
+        mimeType: 'application/docx',
+        createdById: 'owner-1',
+      },
+    });
+    expect(prisma.file.update).toHaveBeenCalledWith({
+      where: { id: 'file-1' },
+      data: {
+        name: 'restored.docx',
+        size: BigInt(40),
+        storagePath: restoredPath,
+        mimeType: 'application/docx',
+      },
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'owner-1' },
+      data: {
+        quotaUsed: {
+          increment: BigInt(40),
+        },
+      },
+    });
+    expect(prisma.fileVersion.delete).not.toHaveBeenCalled();
+    expect(FileIndexService.indexFileAsync).toHaveBeenCalledWith('file-1', 'owner-1');
+  });
+
+  it('removes restoredPath if the restore database transaction fails after copy', async () => {
+    const dbError = new Error('DB failed');
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+    (prisma.$transaction as jest.Mock).mockRejectedValue(dbError);
+
+    await expect(VersionService.restoreVersion('version-restore', 'file-1', 'owner-1'))
+      .rejects.toThrow('DB failed');
+
+    const restoredPath = (StorageService.copy as jest.Mock).mock.calls[0][1];
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith(restoredPath);
+  });
+
+  it('protects the restored target version during preventive cleanup', async () => {
+    (PlanService.getNumericLimit as jest.Mock).mockResolvedValue(2);
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+    (prisma.fileVersion.findMany as jest.Mock).mockResolvedValue([
+      { id: 'version-newer', storagePath: 'versions/file-1/3-newer.docx', size: BigInt(30) },
+      versionToRestore,
+      { id: 'version-older', storagePath: 'versions/file-1/0-older.docx', size: BigInt(20) },
+    ]);
+    (prisma.fileVersion.count as jest.Mock).mockResolvedValue(1);
+
+    await VersionService.restoreVersion('version-restore', 'file-1', 'owner-1');
+
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith('versions/file-1/3-newer.docx');
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith('versions/file-1/0-older.docx');
+    expect(StorageService.deleteStorageFile).not.toHaveBeenCalledWith('versions/file-1/1-old.docx');
+    expect(prisma.fileVersion.delete).toHaveBeenCalledWith({ where: { id: 'version-newer' } });
+    expect(prisma.fileVersion.delete).toHaveBeenCalledWith({ where: { id: 'version-older' } });
+    expect(StorageService.copy).toHaveBeenCalledWith(
+      'versions/file-1/1-old.docx',
+      expect.stringMatching(/^versions\/file-1\/restored-\d+-1-old\.docx$/)
+    );
+  });
+
+  it('refuses restore before copy when maxVersions cannot keep target and backup', async () => {
+    (PlanService.getNumericLimit as jest.Mock).mockResolvedValue(1);
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+
+    await expect(VersionService.restoreVersion('version-restore', 'file-1', 'owner-1'))
+      .rejects.toThrow('La limite de versions ne permet pas de conserver la version restaurée et la sauvegarde courante');
+
+    expect(StorageService.copy).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses restore when the target version already references the current file storagePath', async () => {
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue({
+      ...versionToRestore,
+      storagePath: 'files/owner-1/current.enc',
+    });
+
+    await expect(VersionService.restoreVersion('version-restore', 'file-1', 'owner-1'))
+      .rejects.toThrow('Impossible de restaurer une version qui référence le fichier courant');
+
+    expect(PlanService.checkQuota).not.toHaveBeenCalled();
+    expect(StorageService.copy).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
