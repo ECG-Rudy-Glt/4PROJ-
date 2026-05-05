@@ -138,7 +138,7 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
   const handleDownload = async () => {
     if (!isFile) return;
     try {
-      const url = await fileService.getDownloadUrl(target.data.id);
+      const url = await fileService.downloadToCache(target.data);
       await Linking.openURL(url);
       onClose();
     } catch {

@@ -105,7 +105,7 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
     }
     setLoadingStream(true);
     setStreamUrl(null);
-    fileService.getStreamUrl(file.id)
+    fileService.streamToCache(file)
       .then((url) => setStreamUrl(url))
       .catch(() => Alert.alert('Erreur', 'Impossible de charger le fichier'))
       .finally(() => setLoadingStream(false));
@@ -118,7 +118,7 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const url = await fileService.getDownloadUrl(file.id);
+      const url = await fileService.downloadToCache(file);
       await Linking.openURL(url);
     } catch {
       Alert.alert('Erreur', 'Impossible de télécharger le fichier');
@@ -129,8 +129,8 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
 
   const handleShare = async () => {
     try {
-      const url = await fileService.getDownloadUrl(file.id);
-      await Share.share({ message: `${file.name}: ${url}` });
+      const url = await fileService.downloadToCache(file);
+      await Share.share({ url, message: file.name });
     } catch { /* cancelled */ }
   };
 
