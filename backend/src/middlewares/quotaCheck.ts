@@ -2,10 +2,25 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { PlanService } from '../services/planService';
 import logger from '../config/logger';
+import { deleteFile } from '../utils/fileUtils';
+
+type UploadRequest = AuthRequest & {
+  file?: Express.Multer.File;
+  files?: Express.Multer.File[];
+};
+
+function getUploadedFiles(req: AuthRequest): Express.Multer.File[] {
+  const uploadReq = req as UploadRequest;
+  return Array.isArray(uploadReq.files)
+    ? uploadReq.files
+    : uploadReq.file
+      ? [uploadReq.file]
+      : [];
+}
 
 /**
- * Middleware qui vérifie le quota AVANT l'upload du fichier
- * Utilise l'en-tête Content-Length pour déterminer la taille du fichier entrant
+ * Middleware qui vérifie le quota après multer, avant le traitement métier.
+ * Les remplacements délèguent leur quota à VersionService pour permettre le cleanup des versions.
  */
 export const checkQuotaBeforeUpload = async (
   req: AuthRequest,
@@ -20,19 +35,21 @@ export const checkQuotaBeforeUpload = async (
       return;
     }
 
-    // Récupérer la taille du fichier depuis l'en-tête Content-Length
-    const contentLength = req.headers['content-length'];
+    const replaceFileId = req.body?.replaceFileId;
+    const isReplacement = Array.isArray(replaceFileId)
+      ? replaceFileId.some(Boolean)
+      : Boolean(replaceFileId);
 
-    if (!contentLength) {
-      // Si pas de Content-Length, on laisse passer et la vérification se fera après
-      // (certains clients peuvent ne pas envoyer cet en-tête)
+    if (isReplacement) {
       next();
       return;
     }
 
-    const incomingSize = parseInt(contentLength, 10);
+    const uploadedFiles = getUploadedFiles(req);
 
-    if (isNaN(incomingSize) || incomingSize <= 0) {
+    const incomingSize = uploadedFiles.reduce((total, file) => total + (file.size || 0), 0);
+
+    if (incomingSize <= 0) {
       next();
       return;
     }
@@ -41,6 +58,7 @@ export const checkQuotaBeforeUpload = async (
     const hasSpace = await PlanService.checkQuota(userId, incomingSize);
 
     if (!hasSpace) {
+      await Promise.all(uploadedFiles.map((file) => deleteFile(file.path).catch(() => undefined)));
       res.status(413).json({
         error: 'Quota dépassé',
         message: 'L\'espace de stockage disponible est insuffisant pour ce fichier. Veuillez libérer de l\'espace ou passer à un plan supérieur.',
@@ -51,6 +69,8 @@ export const checkQuotaBeforeUpload = async (
 
     next();
   } catch (error) {
+    const uploadedFiles = getUploadedFiles(req);
+    await Promise.all(uploadedFiles.map((file) => deleteFile(file.path).catch(() => undefined)));
     logger.error({ err: error }, 'Erreur lors de la vérification du quota:');
     res.status(500).json({ error: 'Erreur lors de la vérification du quota' });
   }
