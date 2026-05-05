@@ -48,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setAuth: async (token, user, sessionContext = null) => {
     await SecureStore.setItemAsync('token', token);
+    await SecureStore.deleteItemAsync('tempToken');
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     set({ token, user, sessionContext, isAuthenticated: true, isLoading: false, hydrated: true });
   },
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.deleteItemAsync('token');
     await SecureStore.deleteItemAsync('refreshToken');
     await SecureStore.deleteItemAsync('switchSessionId');
+    await SecureStore.deleteItemAsync('tempToken');
     delete api.defaults.headers.common['Authorization'];
     delete api.defaults.headers.common['X-Switch-Session'];
     set({ user: null, token: null, sessionContext: null, isAuthenticated: false });

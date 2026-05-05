@@ -31,7 +31,7 @@ const CODE_LENGTH = 6;
 
 export default function MfaVerifyScreen() {
   const route = useRoute<Route>();
-  const { tempToken, userId, mfaSetupRequired } = route.params;
+  const { tempToken, mfaSetupRequired } = route.params;
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
@@ -118,15 +118,21 @@ export default function MfaVerifyScreen() {
         );
         // Récupérer le profil avec le nouveau token
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        const { user } = await authService.getProfile();
-        await setAuth(token, user);
+        const profile = await authService.getProfile();
+        await setAuth(token, profile.user, profile.session);
+        await SecureStore.deleteItemAsync('tempToken');
         Toast.show({ type: 'success', text1: 'Double authentification configurée !' });
       } else {
         // MFA déjà configuré — vérification du code
-        const { token, user } = await mfaService.verifyMFA(userId, code, false);
+        const { token } = await authService.verifyMfa({
+          tempToken,
+          code,
+          trustDevice: false,
+        });
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const profile = await authService.getProfile();
-        await setAuth(token, profile.user);
+        await setAuth(token, profile.user, profile.session);
+        await SecureStore.deleteItemAsync('tempToken');
         Toast.show({ type: 'success', text1: 'Authentification réussie' });
       }
     } catch (err: any) {

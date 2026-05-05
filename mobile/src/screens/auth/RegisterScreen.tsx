@@ -18,14 +18,12 @@ import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { authService } from '../../services/authService';
-import { useAuthStore } from '../../stores/useAuthStore';
 import { RootStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 export default function RegisterScreen() {
   const navigation = useNavigation<Nav>();
-  const setAuth = useAuthStore((s) => s.setAuth);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -51,14 +49,26 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const { token, user } = await authService.register({
+      const result = await authService.register({
         email: email.trim(),
         password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       });
-      await setAuth(token, user);
-      Toast.show({ type: 'success', text1: 'Compte créé avec succès !' });
+      if ('mfaSetupRequired' in result && result.mfaSetupRequired) {
+        navigation.navigate('MfaVerify', {
+          tempToken: result.tempToken,
+          userId: result.userId,
+          mfaSetupRequired: true,
+        });
+        return;
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Inscription incomplète',
+        text2: 'La configuration MFA est requise pour finaliser le compte.',
+      });
     } catch (err: any) {
       const msg = err.response?.data?.error || "Erreur lors de l'inscription";
       Toast.show({ type: 'error', text1: 'Erreur', text2: msg });

@@ -9,23 +9,37 @@ import {
   AuthSessionContext,
 } from '../types';
 
+type MfaSetupRequiredResponse = {
+  mfaSetupRequired: true;
+  tempToken: string;
+  userId: string;
+  user?: Pick<User, 'email' | 'firstName' | 'lastName'>;
+};
+
+type AuthStartResponse = AuthResponse | MfaRequiredResponse | MfaSetupRequiredResponse;
+
 export const authService = {
-  async login(data: LoginPayload): Promise<AuthResponse | MfaRequiredResponse> {
+  async login(data: LoginPayload): Promise<AuthStartResponse> {
     const res = await api.post('/auth/login', data);
     return res.data;
   },
 
-  async register(data: RegisterPayload): Promise<AuthResponse> {
+  async register(data: RegisterPayload): Promise<AuthStartResponse> {
     const res = await api.post('/auth/register', data);
     return res.data;
   },
 
   async verifyMfa(data: MfaVerifyPayload): Promise<AuthResponse> {
-    const res = await api.post('/mfa/verify', {
-      userId: data.tempToken,
-      token: data.code,
-      rememberDevice: data.trustDevice ?? false,
-    });
+    const res = await api.post(
+      '/mfa/verify',
+      {
+        token: data.code,
+        rememberDevice: data.trustDevice ?? false,
+      },
+      {
+        headers: { Authorization: `Bearer ${data.tempToken}` },
+      },
+    );
     return res.data;
   },
 
