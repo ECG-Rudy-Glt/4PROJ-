@@ -92,28 +92,30 @@ export class FileUploadService {
       throw new Error('Fichier trop volumineux pour votre plan. Passez à un plan supérieur.');
     }
 
+    const targetFileId = replaceFileId;
+
+    if (targetFileId) {
+      try {
+        // Replaces existing file content (creates a new version)
+        return await this.replaceFileContent(
+          targetFileId,
+          userId,
+          storagePath,
+          name,
+          size,
+          mimeType,
+          dek
+        );
+      } finally {
+        // Clean up temporary file as replaceFileContent (via createVersion) uploads it to S3
+        await deleteFile(storagePath).catch(() => undefined);
+      }
+    }
+
     const hasSpace = await PlanService.checkQuota(userId, size);
     if (!hasSpace) {
       await deleteFile(storagePath);
       throw new Error('Quota exceeded');
-    }
-
-    const targetFileId = replaceFileId;
-
-    if (targetFileId) {
-      // Replaces existing file content (creates a new version)
-      const updatedFile = await this.replaceFileContent(
-        targetFileId,
-        userId,
-        storagePath,
-        name,
-        size,
-        mimeType,
-        dek
-      );
-      // Clean up temporary file as replaceFileContent (via createVersion) uploads it to S3
-      await deleteFile(storagePath).catch(() => undefined);
-      return updatedFile;
     }
 
     const uniqueName = await getUniqueFileName(name, folderId, userId);
