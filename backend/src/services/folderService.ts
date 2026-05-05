@@ -18,6 +18,19 @@ async function deleteStorageFileBestEffort(pathOrKey: string, fileId: string): P
   }
 }
 
+async function deleteStorageFileOnceBestEffort(
+  pathOrKey: string | null | undefined,
+  fileId: string,
+  deletedStoragePaths: Set<string>
+): Promise<void> {
+  if (!pathOrKey || deletedStoragePaths.has(pathOrKey)) {
+    return;
+  }
+
+  deletedStoragePaths.add(pathOrKey);
+  await deleteStorageFileBestEffort(pathOrKey, fileId);
+}
+
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
     // Check if folder with same name exists in parent
@@ -288,15 +301,29 @@ export class FolderService {
           thumbnailPath: true,
           size: true,
           userId: true,
+          versions: {
+            select: {
+              id: true,
+              storagePath: true,
+              size: true,
+            },
+          },
         }
       });
 
       // 2. Supprimer physiquement chaque fichier et ajuster les quotas
+      const deletedStoragePaths = new Set<string>();
       for (const file of filesInFolder) {
         try {
-          await deleteStorageFileBestEffort(file.storagePath, file.id);
-          if (file.thumbnailPath) await deleteStorageFileBestEffort(file.thumbnailPath, file.id);
+          await deleteStorageFileOnceBestEffort(file.storagePath, file.id, deletedStoragePaths);
+          await deleteStorageFileOnceBestEffort(file.thumbnailPath, file.id, deletedStoragePaths);
+          for (const version of file.versions) {
+            await deleteStorageFileOnceBestEffort(version.storagePath, file.id, deletedStoragePaths);
+          }
           await PlanService.updateQuotaUsed(file.userId, -file.size);
+          for (const version of file.versions) {
+            await PlanService.updateQuotaUsed(file.userId, -version.size);
+          }
           // File record suppression is handled by the manual delete loop below 
           // to ensure consistency since File -> Folder is onDelete: SetNull
           await prisma.file.delete({ where: { id: file.id } });

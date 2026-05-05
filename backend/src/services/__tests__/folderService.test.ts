@@ -94,6 +94,7 @@ describe('FolderService.deleteFolder permanent storage cleanup', () => {
         thumbnailPath: 'thumbnails/owner-1/file.webp',
         size: BigInt(42),
         userId: 'owner-1',
+        versions: [],
       },
     ]);
 
@@ -115,6 +116,7 @@ describe('FolderService.deleteFolder permanent storage cleanup', () => {
         thumbnailPath: null,
         size: BigInt(10),
         userId: 'owner-1',
+        versions: [],
       },
     ]);
 
@@ -136,6 +138,7 @@ describe('FolderService.deleteFolder permanent storage cleanup', () => {
         thumbnailPath: null,
         size: BigInt(24),
         userId: 'owner-1',
+        versions: [],
       },
     ]);
 
@@ -147,5 +150,99 @@ describe('FolderService.deleteFolder permanent storage cleanup', () => {
     expect(prisma.file.delete).toHaveBeenCalledWith({ where: { id: 'file-1' } });
     expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(24));
     expect(prisma.folder.delete).toHaveBeenCalledWith({ where: { id: 'folder-1' } });
+  });
+
+  it('deletes version storage and decrements quota for each version during permanent folder deletion', async () => {
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'file-versioned',
+        storagePath: 'files/owner-1/current.enc',
+        thumbnailPath: null,
+        size: BigInt(100),
+        userId: 'owner-1',
+        versions: [
+          {
+            id: 'version-1',
+            storagePath: 'files/owner-1/version-1.enc',
+            size: BigInt(40),
+          },
+          {
+            id: 'version-2',
+            storagePath: 'files/owner-1/version-2.enc',
+            size: BigInt(60),
+          },
+        ],
+      },
+    ]);
+
+    await FolderService.deleteFolder('folder-1', 'owner-1', true);
+
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith('files/owner-1/current.enc');
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith('files/owner-1/version-1.enc');
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith('files/owner-1/version-2.enc');
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(100));
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(40));
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(60));
+    expect(prisma.file.delete).toHaveBeenCalledWith({ where: { id: 'file-versioned' } });
+  });
+
+  it('logs version storage deletion failures and keeps purging database records and quota', async () => {
+    const deletionError = new Error('S3 version unavailable');
+    (StorageService.deleteStorageFile as jest.Mock)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(deletionError);
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'file-versioned',
+        storagePath: 'files/owner-1/current.enc',
+        thumbnailPath: null,
+        size: BigInt(100),
+        userId: 'owner-1',
+        versions: [
+          {
+            id: 'version-1',
+            storagePath: 'files/owner-1/version-1.enc',
+            size: BigInt(40),
+          },
+        ],
+      },
+    ]);
+
+    await FolderService.deleteFolder('folder-1', 'owner-1', true);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Error deleting storage object files/owner-1/version-1.enc for file file-versioned:')
+    );
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(100));
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(40));
+    expect(prisma.file.delete).toHaveBeenCalledWith({ where: { id: 'file-versioned' } });
+    expect(prisma.folder.delete).toHaveBeenCalledWith({ where: { id: 'folder-1' } });
+  });
+
+  it('does not delete the same physical storage path twice when current file and version paths overlap', async () => {
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'file-duplicate-path',
+        storagePath: 'files/owner-1/shared.enc',
+        thumbnailPath: 'files/owner-1/shared.enc',
+        size: BigInt(100),
+        userId: 'owner-1',
+        versions: [
+          {
+            id: 'version-duplicate-path',
+            storagePath: 'files/owner-1/shared.enc',
+            size: BigInt(40),
+          },
+        ],
+      },
+    ]);
+
+    await FolderService.deleteFolder('folder-1', 'owner-1', true);
+
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledTimes(1);
+    expect(StorageService.deleteStorageFile).toHaveBeenCalledWith('files/owner-1/shared.enc');
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(100));
+    expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(40));
+    expect(prisma.file.delete).toHaveBeenCalledWith({ where: { id: 'file-duplicate-path' } });
   });
 });

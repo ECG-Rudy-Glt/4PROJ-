@@ -142,7 +142,7 @@ describe('folder permanent delete S3 integration', () => {
     expect(await userQuotaUsed(owner.id)).toBe(BigInt(0));
   });
 
-  it('documents current gap: permanent folder delete leaves version S3 objects orphaned', async () => {
+  it('permanently deletes a folder current and version S3 objects and decrements quota', async () => {
     const owner = await createIntegrationUser();
     const folder = await createFolder(owner.id, 'versioned-folder');
     const v1Content = Buffer.from('folder version v1');
@@ -172,7 +172,7 @@ describe('folder permanent delete S3 integration', () => {
     expect(await prisma.file.findUnique({ where: { id: file.id } })).toBeNull();
     expect(await prisma.fileVersion.findUnique({ where: { id: version.id } })).toBeNull();
     expect(await integrationObjectExists(currentPath)).toBe(false);
-    expect(await integrationObjectExists(versionPath)).toBe(true);
-    expect(await userQuotaUsed(owner.id)).toBe(BigInt(v1Content.length));
+    expect(await integrationObjectExists(versionPath)).toBe(false);
+    expect(await userQuotaUsed(owner.id)).toBe(BigInt(0));
   });
 });
