@@ -1,4 +1,6 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
+process.env.MFA_ENCRYPTION_KEY ||= '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
