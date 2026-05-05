@@ -25,4 +25,21 @@ export async function disconnectIntegrationDb(): Promise<void> {
   await prisma.$disconnect();
 }
 
+export async function createIntegrationUser(options: {
+  email?: string;
+  password?: string;
+  quotaLimit?: bigint;
+  quotaUsed?: bigint;
+} = {}) {
+  return prisma.user.create({
+    data: {
+      email: options.email ?? `itest-${Date.now()}-${Math.random().toString(16).slice(2)}@supfile.test`,
+      password: options.password ?? 'hashed-password',
+      mfaBackupCodes: [],
+      quotaLimit: options.quotaLimit ?? BigInt(1024 * 1024 * 1024),
+      quotaUsed: options.quotaUsed ?? BigInt(0),
+    },
+  });
+}
+
 export { prisma };
