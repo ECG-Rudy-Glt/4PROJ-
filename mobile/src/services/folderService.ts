@@ -32,8 +32,21 @@ export const folderService = {
   },
 
   async listAllFolders(): Promise<{ folders: Folder[] }> {
-    const res = await api.get('/folders', { params: { all: true } });
-    return unwrap(res.data);
+    const seen = new Set<string>();
+    const folders: Folder[] = [];
+
+    const visit = async (parentId?: string): Promise<void> => {
+      const { folders: children } = await folderService.listFolders(parentId);
+      for (const folder of children ?? []) {
+        if (seen.has(folder.id)) continue;
+        seen.add(folder.id);
+        folders.push(folder);
+        await visit(folder.id);
+      }
+    };
+
+    await visit();
+    return { folders };
   },
 
   async getBreadcrumbs(folderId: string): Promise<Breadcrumb[]> {
