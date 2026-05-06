@@ -9,6 +9,8 @@ import {
   ScrollView,
   Alert,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -151,7 +153,10 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
   if (subSheet === 'rename') {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={() => setSubSheet('none')}>
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.dialog}>
             <Text style={styles.dialogTitle}>Renommer</Text>
             <TextInput
@@ -172,7 +177,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }

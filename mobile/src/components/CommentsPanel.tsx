@@ -94,7 +94,7 @@ export default function CommentsPanel({ file, onClose }: Props) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
       >
         <View style={styles.sheet}>
@@ -107,7 +107,7 @@ export default function CommentsPanel({ file, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
             {loading && (
               <View style={styles.centered}>
                 <ActivityIndicator color={colors.primary[600]} />
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
     paddingBottom: spacing.xl,
+    maxHeight: '85%',
     ...shadows['2xl'],
   },
   grabber: {
