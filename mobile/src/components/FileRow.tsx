@@ -43,30 +43,56 @@ interface Props {
   onLongPress?: () => void;
   showFavorite?: boolean;
   onToggleFavorite?: () => void;
+  selected?: boolean;
+  selectionMode?: boolean;
+  highlightTagId?: string;
 }
 
-export default function FileRow({ file, onPress, onLongPress, showFavorite, onToggleFavorite }: Props) {
+export default function FileRow({ file, onPress, onLongPress, showFavorite, onToggleFavorite, selected, selectionMode, highlightTagId }: Props) {
   const iconColor = getCategoryColor(file.mimeType);
+  const tags = file.tags ?? [];
 
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, selected && styles.rowSelected]}
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconCircle, { backgroundColor: `${iconColor}15` }]}>
-        <Ionicons name={getCategoryIcon(file.mimeType)} size={20} color={iconColor} />
-      </View>
+      {selectionMode ? (
+        <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+          {selected && <Ionicons name="checkmark" size={14} color={colors.white} />}
+        </View>
+      ) : (
+        <View style={[styles.iconCircle, { backgroundColor: `${iconColor}15` }]}>
+          <Ionicons name={getCategoryIcon(file.mimeType)} size={20} color={iconColor} />
+        </View>
+      )}
 
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{file.name}</Text>
         <Text style={styles.meta}>
           {formatSize(file.size)} · {formatDate(file.updatedAt)}
         </Text>
+        {tags.length > 0 && (
+          <View style={styles.tagRow}>
+            {tags.map((ft) => (
+              <View
+                key={ft.tagId}
+                style={[
+                  styles.tagChip,
+                  { backgroundColor: ft.tag.color },
+                  highlightTagId === ft.tagId && styles.tagChipHighlight,
+                ]}
+              >
+                <Text style={styles.tagChipText}>{ft.tag.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
-      {showFavorite && (
+      {showFavorite && !selectionMode && (
         <TouchableOpacity onPress={onToggleFavorite} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons
             name={file.isFavorite ? 'star' : 'star-outline'}
@@ -90,6 +116,25 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     ...shadows.sm,
   },
+  rowSelected: {
+    backgroundColor: `${colors.primary[500]}10`,
+    borderWidth: 1.5,
+    borderColor: colors.primary[400],
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.neutral[300],
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary[600],
+    borderColor: colors.primary[600],
+  },
   iconCircle: {
     width: 42,
     height: 42,
@@ -109,5 +154,25 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.neutral[400],
     marginTop: 2,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  tagChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    opacity: 0.85,
+  },
+  tagChipHighlight: {
+    opacity: 1,
+  },
+  tagChipText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
   },
 });
