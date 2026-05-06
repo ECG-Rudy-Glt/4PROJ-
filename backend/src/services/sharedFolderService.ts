@@ -30,6 +30,28 @@ const sharedBySelect = { select: { id: true, email: true, firstName: true, lastN
 const sharedWithSelect = { select: { id: true, email: true, firstName: true, lastName: true } };
 
 export class SharedFolderService {
+  private static async isFolderWithinRoot(folderId: string, rootFolderId: string): Promise<boolean> {
+    if (folderId === rootFolderId) return true;
+
+    const visited = new Set<string>();
+    let current = await prisma.folder.findUnique({
+      where: { id: folderId },
+      select: { parentId: true },
+    });
+
+    while (current?.parentId) {
+      if (current.parentId === rootFolderId) return true;
+      if (visited.has(current.parentId)) return false;
+      visited.add(current.parentId);
+      current = await prisma.folder.findUnique({
+        where: { id: current.parentId },
+        select: { parentId: true },
+      });
+    }
+
+    return false;
+  }
+
   static async shareFolder(
     userId: string,
     folderId: string,
@@ -136,6 +158,29 @@ export class SharedFolderService {
     if (!sharedFolder || sharedFolder.sharedWithId !== userId) throw new Error('Shared folder not found or not shared with you');
 
     return prisma.sharedFolder.delete({ where: { id: shareId } });
+  }
+
+  static async getSharedFolderContents(folderId: string, userId: string, rootFolderId?: string) {
+    const idToCheck = rootFolderId ?? folderId;
+    const share = await prisma.sharedFolder.findFirst({
+      where: { folderId: idToCheck, sharedWithId: userId, accepted: true, canRead: true },
+    });
+    if (!share) throw new Error('Accès refusé à ce dossier');
+    const isAllowedFolder = await SharedFolderService.isFolderWithinRoot(folderId, idToCheck);
+    if (!isAllowedFolder) throw new Error('Accès refusé à ce dossier');
+
+    const [files, subfolders] = await Promise.all([
+      prisma.file.findMany({
+        where: { folderId, isDeleted: false, isVault: false },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.folder.findMany({
+        where: { parentId: folderId, isDeleted: false, isVault: false },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    return { files, folders: subfolders };
   }
 
   static async getAcceptedSharedFolders(userId: string, vaultUnlocked: boolean) {

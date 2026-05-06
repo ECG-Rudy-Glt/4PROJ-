@@ -104,18 +104,18 @@ export default function DashboardScreen() {
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Ionicons name="document-outline" size={24} color={colors.primary[500]} />
-          <Text style={styles.statValue}>{data?.fileStats.totalFiles ?? '–'}</Text>
+          <Text style={styles.statValue}>{data?.fileStats?.totalFiles ?? '–'}</Text>
           <Text style={styles.statLabel}>Fichiers</Text>
         </View>
         <View style={styles.statCard}>
           <Ionicons name="server-outline" size={24} color={colors.accent.bright} />
-          <Text style={styles.statValue}>{data ? formatSize(data.fileStats.totalSize) : '–'}</Text>
+          <Text style={styles.statValue}>{data?.fileStats ? formatSize(data.fileStats.totalSize) : '–'}</Text>
           <Text style={styles.statLabel}>Utilisé</Text>
         </View>
         <View style={styles.statCard}>
           <Ionicons name="images-outline" size={24} color={colors.accent.warm} />
           <Text style={styles.statValue}>
-            {data?.fileStats.byMimeType
+            {data?.fileStats?.byMimeType
               ? Object.keys(data.fileStats.byMimeType).length
               : '–'}
           </Text>

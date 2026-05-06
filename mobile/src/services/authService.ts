@@ -18,15 +18,19 @@ type MfaSetupRequiredResponse = {
 
 type AuthStartResponse = AuthResponse | MfaRequiredResponse | MfaSetupRequiredResponse;
 
+function unwrap<T>(data: any): T {
+  return (data?.success === true && 'data' in data) ? data.data : data;
+}
+
 export const authService = {
   async login(data: LoginPayload): Promise<AuthStartResponse> {
     const res = await api.post('/auth/login', data);
-    return res.data;
+    return unwrap(res.data);
   },
 
   async register(data: RegisterPayload): Promise<AuthStartResponse> {
     const res = await api.post('/auth/register', data);
-    return res.data;
+    return unwrap(res.data);
   },
 
   async verifyMfa(data: MfaVerifyPayload): Promise<AuthResponse> {
@@ -40,17 +44,17 @@ export const authService = {
         headers: { Authorization: `Bearer ${data.tempToken}` },
       },
     );
-    return res.data;
+    return unwrap(res.data);
   },
 
   async getProfile(): Promise<{ user: User; session?: AuthSessionContext }> {
     const res = await api.get('/auth/profile');
-    return res.data;
+    return unwrap(res.data);
   },
 
   async updateProfile(data: Partial<Pick<User, 'firstName' | 'lastName' | 'theme'>>): Promise<{ user: User }> {
     const res = await api.put('/auth/profile', data);
-    return res.data;
+    return unwrap(res.data);
   },
 
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
@@ -69,7 +73,7 @@ export const authService = {
     const res = await api.post('/auth/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return res.data;
+    return unwrap(res.data);
   },
 
   /**

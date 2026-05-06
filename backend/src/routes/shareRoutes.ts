@@ -32,6 +32,9 @@ router.get('/files/:fileId/shares', authenticate, requireDelegationPermission('r
 router.patch('/files/:shareId/permissions', authenticate, requireDelegationPermission('share'), ShareController.updateSharedFilePermissions);
 router.delete('/files/:shareId', authenticate, requireDelegationPermission('delete'), ShareController.removeSharedFile);
 
+// Shared folder contents (list files in a shared folder)
+router.get('/folders/:folderId/contents', authenticate, requireDelegationPermission('read'), ShareController.getSharedFolderContents);
+
 // Access shared file (authenticated user accessing file shared with them)
 router.get('/access/:fileId/stream', authenticate, requireDelegationPermission('read'), ShareController.streamSharedFile);
 router.get('/access/:fileId/download', authenticate, requireDelegationPermission('read'), ShareController.downloadSharedFileAuth);

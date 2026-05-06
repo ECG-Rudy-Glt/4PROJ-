@@ -35,6 +35,7 @@ jest.mock('../../controllers/shareController', () => {
       getFileShares: handler('file-shares'),
       updateSharedFilePermissions: handler('file-permissions'),
       removeSharedFile: handler('file-remove'),
+      getSharedFolderContents: handler('folder-contents'),
       streamSharedFile: handler('access-stream'),
       downloadSharedFileAuth: handler('access-download'),
       getSharedFile: handler('public-token'),
@@ -74,6 +75,11 @@ describe('shareRoutes route order', () => {
   it('does not route /access/:fileId/stream through /:token', async () => {
     expect(routeIndex('get', '/access/:fileId/stream')).toBeGreaterThanOrEqual(0);
     expect(routeIndex('get', '/access/:fileId/stream')).toBeLessThan(routeIndex('get', '/:token'));
+  });
+
+  it('does not route /folders/:folderId/contents through /:token', async () => {
+    expect(routeIndex('get', '/folders/:folderId/contents')).toBeGreaterThanOrEqual(0);
+    expect(routeIndex('get', '/folders/:folderId/contents')).toBeLessThan(routeIndex('get', '/:token'));
   });
 
   it('keeps public share links working after static routes', async () => {

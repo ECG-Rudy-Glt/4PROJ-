@@ -429,6 +429,16 @@ export class ShareController {
     } catch (error) { next(error); }
   }
 
+  static async getSharedFolderContents(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+      const rootFolderId = req.query.rootFolderId as string | undefined;
+      const contents = await ShareService.getSharedFolderContents(folderId, userId, rootFolderId);
+      res.status(200).json(contents);
+    } catch (error) { next(error); }
+  }
+
   static async getPendingShares(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;

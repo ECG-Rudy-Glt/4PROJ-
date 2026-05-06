@@ -19,6 +19,7 @@ export class ShareService {
   static listSharedByMe = SharedFolderService.listSharedByMe.bind(SharedFolderService);
   static updateSharedFolderPermissions = SharedFolderService.updatePermissions.bind(SharedFolderService);
   static removeSharedFolder = SharedFolderService.removeSharedFolder.bind(SharedFolderService);
+  static getSharedFolderContents = SharedFolderService.getSharedFolderContents.bind(SharedFolderService);
   static acceptSharedFolder = SharedFolderService.acceptSharedFolder.bind(SharedFolderService);
   static rejectSharedFolder = SharedFolderService.rejectSharedFolder.bind(SharedFolderService);
 
