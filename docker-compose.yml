@@ -100,7 +100,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+        VITE_API_URL: ${VITE_API_URL}
     container_name: supfile-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:8080"

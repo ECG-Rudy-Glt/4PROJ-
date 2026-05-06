@@ -324,6 +324,9 @@ model SharedLink {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // JSON array of file IDs for multi-file bundle links
+  bundleFileIds String?
+
   password     String?
   expiresAt    DateTime?
   downloads    Int       @default(0)

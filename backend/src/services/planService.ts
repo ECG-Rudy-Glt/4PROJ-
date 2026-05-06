@@ -8,7 +8,7 @@ export const PLAN_LIMITS = {
     [Plan.FREE]: {
         storage: BigInt(30) * GB, // 30 GB
         maxFileSize: BigInt(10) * GB, // 10 GB per file
-        maxShares: 5,
+        maxShares: 100,
         maxVersions: 3,
         maxTags: 10,
         features: {
@@ -22,7 +22,7 @@ export const PLAN_LIMITS = {
     [Plan.PRO]: {
         storage: BigInt(200) * GB, // 200 GB
         maxFileSize: BigInt(500) * MB, // 500 MB per file
-        maxShares: 50,
+        maxShares: 500,
         maxVersions: 10,
         maxTags: 50,
         features: {

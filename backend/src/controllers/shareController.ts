@@ -90,6 +90,18 @@ export class ShareController {
         password ? String(password) : undefined
       );
 
+      // Bundle link: no single file, multiple files zipped on download
+      if ((shareLink as any).bundleFileIds) {
+        const fileIds: string[] = JSON.parse((shareLink as any).bundleFileIds);
+        sendSuccess(res, {
+          isBundle: true,
+          fileCount: fileIds.length,
+          downloadUrl: `/share/${token}/download-bundle`,
+          sharedBy: shareLink.user,
+        });
+        return;
+      }
+
       sendSuccess(res, {
         file: {
           id: shareLink.file!.id,
@@ -125,7 +137,6 @@ export class ShareController {
         return;
       }
 
-      // Increment download count
       await ShareService.incrementDownloadCount(token);
 
       const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath);
@@ -212,8 +223,8 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'notifications.share.folder_received.title',
-        'notifications.share.folder_received.message',
+        'Nouveau dossier partagé',
+        `${req.user!.firstName || req.user!.email} a partagé un dossier avec vous`,
         { folderId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
@@ -307,8 +318,8 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'notifications.share.file_received.title',
-        'notifications.share.file_received.message',
+        'Nouveau fichier partagé',
+        `${req.user!.firstName || req.user!.email} a partagé un fichier avec vous`,
         { fileId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
       ).catch((e) => logger.error(e));
 
@@ -502,6 +513,66 @@ export class ShareController {
 
       await ShareService.rejectSharedFile(shareId, userId);
       sendSuccess(res, { message: 'Partage rejeté' });
+    } catch (error) { next(error); }
+  }
+
+  static async createBundleShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { fileIds, password, expiresAt, maxDownloads } = req.body;
+
+      if (!Array.isArray(fileIds) || fileIds.length === 0) {
+        sendError(res, 'fileIds must be a non-empty array', 400);
+        return;
+      }
+
+      const shareLink = await ShareService.createBundleShareLink(userId, fileIds, {
+        password,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        maxDownloads,
+      });
+
+      sendCreated(res, {
+        shareLink: {
+          id: shareLink.id,
+          token: shareLink.token,
+          fileIds,
+          expiresAt: shareLink.expiresAt,
+          maxDownloads: shareLink.maxDownloads,
+          downloads: shareLink.downloads,
+          url: `${process.env.FRONTEND_URL}/share/${shareLink.token}`,
+        },
+      });
+    } catch (error) { next(error); }
+  }
+
+  static async downloadBundleShareLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.params;
+      const { password } = req.query;
+
+      const { shareLink, files } = await ShareService.getBundleShareLink(
+        token,
+        password ? String(password) : undefined
+      );
+
+      await ShareService.incrementDownloadCount(token);
+
+      const archiver = (await import('archiver')).default;
+      const { EncryptionService } = await import('../services/encryptionService');
+
+      res.setHeader('Content-Disposition', `attachment; filename="bundle-${shareLink.token.slice(0, 8)}.zip"`);
+      res.setHeader('Content-Type', 'application/zip');
+
+      const archive = archiver('zip', { zlib: { level: 6 } });
+      archive.pipe(res);
+
+      for (const file of files) {
+        const stream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+        archive.append(stream as any, { name: file.name });
+      }
+
+      await archive.finalize();
     } catch (error) { next(error); }
   }
 }

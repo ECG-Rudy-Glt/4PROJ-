@@ -9,6 +9,8 @@ import {
   ScrollView,
   Alert,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -32,9 +34,10 @@ type Target =
 interface Props {
   target: Target | null;
   onClose: () => void;
+  onSelect?: () => void;
 }
 
-export default function ItemActionsSheet({ target, onClose }: Props) {
+export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
   const [subSheet, setSubSheet] = useState<
     'none' | 'rename' | 'move' | 'share' | 'tags' | 'versions' | 'comments'
   >('none');
@@ -164,7 +167,10 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
   if (subSheet === 'rename') {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={() => setSubSheet('none')}>
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.dialog}>
             <Text style={styles.dialogTitle}>Renommer</Text>
             <TextInput
@@ -185,7 +191,7 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }
@@ -285,6 +291,13 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
             <Text style={styles.sheetTitle} numberOfLines={1}>{name}</Text>
           </View>
 
+          {onSelect && (
+            <ActionRow
+              icon="checkmark-circle-outline"
+              label="Sélectionner"
+              onPress={() => { onSelect(); onClose(); }}
+            />
+          )}
           <ActionRow icon="create-outline" label="Renommer" onPress={() => setSubSheet('rename')} />
           <ActionRow
             icon="move-outline"

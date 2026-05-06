@@ -47,9 +47,11 @@ export default function SharedScreen() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [previewIsShared, setPreviewIsShared] = useState(false);
+  const [previewCanDelete, setPreviewCanDelete] = useState(false);
   const [folderStack, setFolderStack] = useState<{ folderId: string; name: string; rootFolderId: string }[]>([]);
   const [folderContents, setFolderContents] = useState<{ files: FileItem[]; folders: any[] } | null>(null);
   const [folderContentsLoading, setFolderContentsLoading] = useState(false);
+  const [folderPreviewFile, setFolderPreviewFile] = useState<FileItem | null>(null);
 
   const currentFolder = folderStack[folderStack.length - 1] ?? null;
 
@@ -263,9 +265,15 @@ export default function SharedScreen() {
       if (isFolder && tab === 'withMe') {
         const sf = item.data as SharedFolder;
         openSharedFolder(sf.folderId, name || 'Dossier');
-      } else if (!isFolder && fileItem) {
+      } else if (!isFolder) {
+        if (!fileItem) {
+          Toast.show({ type: 'error', text1: 'Fichier introuvable' });
+          return;
+        }
+        const isShared = tab === 'withMe';
         setPreviewFile(fileItem);
-        setPreviewIsShared(tab === 'withMe');
+        setPreviewIsShared(isShared);
+        setPreviewCanDelete(!isShared || !!(sf as SharedFile).canDelete);
       }
     };
 
@@ -391,11 +399,14 @@ export default function SharedScreen() {
         visible={previewFile !== null}
         onClose={() => setPreviewFile(null)}
         streamToCache={previewIsShared ? fileService.streamSharedToCache : undefined}
+        downloadToCache={previewIsShared ? fileService.downloadSharedToCache : undefined}
+        readOnly={previewIsShared}
+        onDelete={previewCanDelete ? async (id) => { setPreviewFile(null); } : undefined}
       />
 
       {/* Folder contents modal */}
-      <Modal
-        visible={folderStack.length > 0}
+      {folderStack.length > 0 && <Modal
+        visible={true}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => { setFolderStack([]); setFolderContents(null); }}
@@ -445,8 +456,7 @@ export default function SharedScreen() {
                     if (item.kind === 'folder') {
                       navigateIntoSubfolder(item.data.id, item.data.name);
                     } else {
-                      setPreviewFile(item.data as FileItem);
-                      setPreviewIsShared(true);
+                      setFolderPreviewFile(item.data as FileItem);
                     }
                   }}
                 >
@@ -472,8 +482,16 @@ export default function SharedScreen() {
               )}
             />
           )}
+          <FilePreviewModal
+            file={folderPreviewFile}
+            visible={folderPreviewFile !== null}
+            onClose={() => setFolderPreviewFile(null)}
+            streamToCache={fileService.streamSharedToCache}
+            downloadToCache={fileService.downloadSharedToCache}
+            readOnly={true}
+          />
         </View>
-      </Modal>
+      </Modal>}
     </View>
   );
 }

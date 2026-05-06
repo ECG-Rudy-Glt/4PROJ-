@@ -22,6 +22,7 @@ jest.mock('../../controllers/shareController', () => {
       acceptSharedFile: handler('file-accept'),
       rejectSharedFile: handler('file-reject'),
       createShareLink: handler('link-create'),
+      createBundleShareLink: handler('bundle-link-create'),
       listUserShareLinks: handler('links-list'),
       deleteShareLink: handler('link-delete'),
       shareFolder: handler('folder-share'),
@@ -40,6 +41,7 @@ jest.mock('../../controllers/shareController', () => {
       downloadSharedFileAuth: handler('access-download'),
       getSharedFile: handler('public-token'),
       downloadSharedFile: handler('public-download'),
+      downloadBundleShareLink: handler('public-bundle-download'),
     },
   };
 });
@@ -85,6 +87,8 @@ describe('shareRoutes route order', () => {
   it('keeps public share links working after static routes', async () => {
     expect(routeIndex('get', '/:token')).toBeGreaterThanOrEqual(0);
     expect(routeIndex('get', '/:token/download')).toBeGreaterThanOrEqual(0);
+    expect(routeIndex('get', '/:token/download-bundle')).toBeGreaterThanOrEqual(0);
     expect(routeIndex('get', '/:token/download')).toBeGreaterThan(routeIndex('get', '/access/:fileId/download'));
+    expect(routeIndex('get', '/:token/download-bundle')).toBeGreaterThan(routeIndex('get', '/access/:fileId/download'));
   });
 });

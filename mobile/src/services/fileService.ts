@@ -115,4 +115,8 @@ export const fileService = {
   async streamSharedToCache(file: FileReference): Promise<string> {
     return downloadProtectedEndpoint(file, `/share/access/${file.id}/stream`);
   },
+
+  async downloadSharedToCache(file: FileReference): Promise<string> {
+    return downloadProtectedEndpoint(file, `/share/access/${file.id}/download`);
+  },
 };

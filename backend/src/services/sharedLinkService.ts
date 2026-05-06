@@ -101,6 +101,72 @@ export class SharedLinkService {
     });
   }
 
+  static async createBundleShareLink(
+    userId: string,
+    fileIds: string[],
+    options?: { password?: string; expiresAt?: Date; maxDownloads?: number }
+  ) {
+    if (!fileIds || fileIds.length === 0) throw new Error('Au moins un fichier est requis');
+
+    const files = await prisma.file.findMany({
+      where: { id: { in: fileIds }, userId, isDeleted: false },
+    });
+
+    if (files.length === 0) throw new Error('Aucun fichier trouvé');
+    if (files.some((f) => f.isVault)) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+
+    await this.assertShareLimit(userId);
+
+    let hashedPassword: string | undefined;
+    if (options?.password) {
+      hashedPassword = await bcrypt.hash(options.password, 10);
+    }
+
+    const shareLink = await prisma.sharedLink.create({
+      data: {
+        token: uuidv4(),
+        bundleFileIds: JSON.stringify(fileIds),
+        userId,
+        password: hashedPassword,
+        expiresAt: options?.expiresAt,
+        maxDownloads: options?.maxDownloads,
+      },
+    });
+
+    AuditService.createLog(userId, 'SHARE', {
+      bundleFileIds: fileIds,
+      shareToken: shareLink.token,
+    }).catch((e) => logger.error(e));
+
+    return shareLink;
+  }
+
+  static async getBundleShareLink(token: string, password?: string) {
+    const shareLink = await prisma.sharedLink.findUnique({
+      where: { token },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+      },
+    });
+
+    if (!shareLink || !shareLink.bundleFileIds) throw new Error('Bundle share link not found');
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
+    if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) throw new Error('Share link download limit reached');
+
+    if (shareLink.password) {
+      if (!password) throw new Error('Password required');
+      const isValid = await bcrypt.compare(password, shareLink.password);
+      if (!isValid) throw new Error('Invalid password');
+    }
+
+    const fileIds: string[] = JSON.parse(shareLink.bundleFileIds);
+    const files = await prisma.file.findMany({
+      where: { id: { in: fileIds }, isDeleted: false },
+    });
+
+    return { shareLink, files };
+  }
+
   static async deleteShareLink(linkId: string, userId: string) {
     const shareLink = await prisma.sharedLink.findFirst({
       where: { id: linkId, userId },

@@ -54,9 +54,10 @@ describe('PlanService', () => {
   describe('limits (shares/versions/tags)', () => {
     it('should enforce maxShares for FREE plan', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ plan: Plan.FREE });
+      const maxShares = PLAN_LIMITS[Plan.FREE].maxShares;
 
-      await expect(PlanService.checkLimit('user-1', 'maxShares', 4)).resolves.toBe(true);
-      await expect(PlanService.checkLimit('user-1', 'maxShares', 5)).resolves.toBe(false);
+      await expect(PlanService.checkLimit('user-1', 'maxShares', maxShares - 1)).resolves.toBe(true);
+      await expect(PlanService.checkLimit('user-1', 'maxShares', maxShares)).resolves.toBe(false);
     });
 
     it('should enforce maxVersions for FREE plan', async () => {
@@ -84,9 +85,10 @@ describe('PlanService', () => {
 
     it('should throw clear business error when a limit is reached', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ plan: Plan.FREE });
+      const maxShares = PLAN_LIMITS[Plan.FREE].maxShares;
 
-      await expect(PlanService.assertLimit('user-1', 'maxShares', 5)).rejects.toThrow(
-        'Limite de 5 partages atteinte pour votre plan'
+      await expect(PlanService.assertLimit('user-1', 'maxShares', maxShares)).rejects.toThrow(
+        `Limite de ${maxShares} partages atteinte pour votre plan`
       );
     });
   });

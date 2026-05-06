@@ -9,7 +9,9 @@ import { SharedFileService } from './sharedFileService';
 
 export class ShareService {
   static createShareLink = SharedLinkService.createShareLink.bind(SharedLinkService);
+  static createBundleShareLink = SharedLinkService.createBundleShareLink.bind(SharedLinkService);
   static getShareLink = SharedLinkService.getShareLink.bind(SharedLinkService);
+  static getBundleShareLink = SharedLinkService.getBundleShareLink.bind(SharedLinkService);
   static incrementDownloadCount = SharedLinkService.incrementDownloadCount.bind(SharedLinkService);
   static listUserShareLinks = SharedLinkService.listUserShareLinks.bind(SharedLinkService);
   static deleteShareLink = SharedLinkService.deleteShareLink.bind(SharedLinkService);
