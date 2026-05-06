@@ -70,7 +70,8 @@ export class AuthController {
             mfaUsed: false,
             trustedDevice: true,
           });
-          sendSuccess(res, { token: result.token, user: result.user });
+          const refreshToken = await AuthService.createRefreshToken(user.id);
+          sendSuccess(res, { token: result.token, refreshToken, user: result.user });
           return;
         }
 

@@ -8,7 +8,9 @@ import { generateToken } from '../../utils/jwt';
 
 jest.mock('../../services/authService', () => ({
   AuthService: {
+    register: jest.fn(),
     login: jest.fn(),
+    createRefreshToken: jest.fn(),
     rotateRefreshToken: jest.fn(),
     revokeRefreshToken: jest.fn(),
     logoutGlobal: jest.fn(),
@@ -88,6 +90,42 @@ describe('AuthController', () => {
     jest.clearAllMocks();
   });
 
+  describe('register', () => {
+    it('should return MFA setup temp token without creating a refresh token', async () => {
+      (AuthService.register as jest.Mock).mockResolvedValue(baseLoginResult);
+      (generateTempToken as jest.Mock).mockReturnValue('temp-token-register');
+
+      const req: any = {
+        body: {
+          email: 'user@example.com',
+          password: 'Password123!',
+          firstName: 'User',
+          lastName: 'One',
+        },
+      };
+      const res = createRes();
+
+      await AuthController.register(req, res, jest.fn());
+
+      expect(generateTempToken).toHaveBeenCalledWith('user-1', 'wrapped-dek');
+      expect(AuthService.createRefreshToken).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          mfaSetupRequired: true,
+          tempToken: 'temp-token-register',
+          userId: 'user-1',
+          user: {
+            email: 'user@example.com',
+            firstName: 'User',
+            lastName: 'One',
+          },
+        },
+      });
+    });
+  });
+
   describe('login', () => {
     it('should require MFA when enabled and device is not trusted', async () => {
       (AuthService.login as jest.Mock).mockResolvedValue(baseLoginResult);
@@ -105,6 +143,7 @@ describe('AuthController', () => {
       await AuthController.login(req, res, jest.fn());
 
       expect(generateTempToken).toHaveBeenCalledWith('user-1', 'wrapped-dek');
+      expect(AuthService.createRefreshToken).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -130,6 +169,7 @@ describe('AuthController', () => {
       await AuthController.login(req, res, jest.fn());
 
       expect(generateTempToken).toHaveBeenCalledWith('user-1', 'wrapped-dek');
+      expect(AuthService.createRefreshToken).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -148,6 +188,7 @@ describe('AuthController', () => {
 
     it('should not expose wrappedDek in trusted-device login responses', async () => {
       (AuthService.login as jest.Mock).mockResolvedValue(baseLoginResult);
+      (AuthService.createRefreshToken as jest.Mock).mockResolvedValue('refresh-token');
       (mfaService.isMFAEnabled as jest.Mock).mockResolvedValue(true);
       (trustedDeviceService.isTrustedDeviceFromRequest as jest.Mock).mockResolvedValue(true);
       (AuditService.createLog as jest.Mock).mockResolvedValue(undefined);
@@ -161,10 +202,12 @@ describe('AuthController', () => {
 
       await AuthController.login(req, res, jest.fn());
 
+      expect(AuthService.createRefreshToken).toHaveBeenCalledWith('user-1');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: {
           token: 'jwt-token',
+          refreshToken: 'refresh-token',
           user: baseLoginResult.user,
         },
       });

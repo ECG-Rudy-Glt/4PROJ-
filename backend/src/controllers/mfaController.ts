@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
+import { AuthService } from '../services/authService';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import type { AuthRequest } from '../types';
@@ -87,8 +88,9 @@ export class MFAController {
 
       const wrappedDek = getWrappedDekFromRequest(req as AuthRequest);
       const authToken = generateToken(user.id, user.email, user.tokenVersion || 1, { wrappedDek });
+      const refreshToken = await AuthService.createRefreshToken(user.id);
 
-      sendSuccess(res, { message: 'MFA activé avec succès', token: authToken });
+      sendSuccess(res, { message: 'MFA activé avec succès', token: authToken, refreshToken });
     } catch (error) { next(error); }
   }
 
@@ -135,8 +137,9 @@ export class MFAController {
 
       const wrappedDek = getWrappedDekFromRequest(req as AuthRequest);
       const authToken = generateToken(user.id, user.email, user.tokenVersion || 1, { wrappedDek });
+      const refreshToken = await AuthService.createRefreshToken(user.id);
 
-      sendSuccess(res, { message: 'Authentification réussie', token: authToken, user });
+      sendSuccess(res, { message: 'Authentification réussie', token: authToken, refreshToken, user });
     } catch (error) { next(error); }
   }
 
@@ -183,12 +186,14 @@ export class MFAController {
 
       const wrappedDek = getWrappedDekFromRequest(req as AuthRequest);
       const authToken = generateToken(user.id, user.email, user.tokenVersion || 1, { wrappedDek });
+      const refreshToken = await AuthService.createRefreshToken(user.id);
 
       const remainingCodes = await mfaService.getRemainingBackupCodesCount(userId);
 
       sendSuccess(res, {
         message: 'Authentification réussie',
         token: authToken,
+        refreshToken,
         user,
         warning: remainingCodes === 0
           ? 'Vous avez utilisé votre dernier code de récupération. Veuillez en générer de nouveaux.'
