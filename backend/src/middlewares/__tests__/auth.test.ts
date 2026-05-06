@@ -65,6 +65,30 @@ describe('authenticate middleware', () => {
     (PlanService.getStorageLimit as jest.Mock).mockReturnValue(BigInt(1024));
   });
 
+  it('should reject old access tokens after global logout increments tokenVersion', async () => {
+    (jwt.verify as jest.Mock).mockReturnValue({
+      userId: 'user-1',
+      tokenVersion: 1,
+      type: 'auth',
+    });
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(baseUser);
+
+    const req: any = {
+      headers: {
+        authorization: 'Bearer old-token',
+      },
+      query: {},
+    };
+    const res = createRes();
+    const next = jest.fn();
+
+    await authenticate(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Session expired (global logout)' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('should reject contextual token when switch session cookie is invalid', async () => {
     (jwt.verify as jest.Mock).mockReturnValue({
       userId: 'user-1',

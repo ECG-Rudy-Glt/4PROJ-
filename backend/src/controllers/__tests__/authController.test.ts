@@ -9,6 +9,9 @@ import { generateToken } from '../../utils/jwt';
 jest.mock('../../services/authService', () => ({
   AuthService: {
     login: jest.fn(),
+    rotateRefreshToken: jest.fn(),
+    revokeRefreshToken: jest.fn(),
+    logoutGlobal: jest.fn(),
   },
 }));
 
@@ -182,6 +185,87 @@ describe('AuthController', () => {
       expect(next).toHaveBeenCalledWith(err);
       expect(res.status).not.toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('refresh', () => {
+    it('should rotate refresh token with optional access token context', async () => {
+      (AuthService.rotateRefreshToken as jest.Mock).mockResolvedValue({
+        token: 'new-access-token',
+        refreshToken: 'new-refresh-token',
+      });
+
+      const req: any = {
+        body: { refreshToken: 'old-refresh-token' },
+        headers: { authorization: 'Bearer old-access-token' },
+      };
+      const res = createRes();
+
+      await AuthController.refresh(req, res, jest.fn());
+
+      expect(AuthService.rotateRefreshToken).toHaveBeenCalledWith('old-refresh-token', 'old-access-token');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          token: 'new-access-token',
+          refreshToken: 'new-refresh-token',
+        },
+      });
+    });
+
+    it('should reject missing refresh token', async () => {
+      const req: any = { body: {}, headers: {} };
+      const res = createRes();
+
+      await AuthController.refresh(req, res, jest.fn());
+
+      expect(AuthService.rotateRefreshToken).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Refresh token requis',
+      });
+    });
+  });
+
+  describe('logout', () => {
+    it('should revoke only the provided refresh token', async () => {
+      (AuthService.revokeRefreshToken as jest.Mock).mockResolvedValue({ message: 'Déconnecté' });
+
+      const req: any = { body: { refreshToken: 'refresh-token' } };
+      const res = createRes();
+
+      await AuthController.logout(req, res, jest.fn());
+
+      expect(AuthService.revokeRefreshToken).toHaveBeenCalledWith('refresh-token');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { message: 'Déconnecté' },
+      });
+    });
+  });
+
+  describe('logoutAll', () => {
+    it('should globally logout and clear switch session cookie', async () => {
+      (AuthService.logoutGlobal as jest.Mock).mockResolvedValue({ message: 'Déconnecté de tous les appareils' });
+
+      const req: any = {
+        user: { id: 'user-1' },
+        ip: '127.0.0.1',
+        get: jest.fn(),
+      };
+      const res = createRes();
+
+      await AuthController.logoutAll(req, res, jest.fn());
+
+      expect(AuthService.logoutGlobal).toHaveBeenCalledWith('user-1');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { message: 'Déconnecté de tous les appareils' },
+      });
     });
   });
 

@@ -14,6 +14,11 @@ import { sendSuccess, sendCreated, sendError } from '../utils/response';
 export { UserProfileController } from './userProfileController';
 export { DataExportController } from './dataExportController';
 
+function getBearerToken(req: Request): string | undefined {
+  const authHeader = req.headers.authorization;
+  return authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+}
+
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -84,6 +89,32 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
+  }
+
+  static async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken || typeof refreshToken !== 'string') {
+        sendError(res, 'Refresh token requis', 400);
+        return;
+      }
+
+      const result = await AuthService.rotateRefreshToken(refreshToken, getBearerToken(req));
+      sendSuccess(res, result);
+    } catch (error) { next(error); }
+  }
+
+  static async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken || typeof refreshToken !== 'string') {
+        sendError(res, 'Refresh token requis', 400);
+        return;
+      }
+
+      const result = await AuthService.revokeRefreshToken(refreshToken);
+      sendSuccess(res, result);
+    } catch (error) { next(error); }
   }
 
   static async logoutAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

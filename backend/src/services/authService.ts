@@ -1,14 +1,19 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { AppError } from '../middlewares/errorHandler';
 import { Plan, SubscriptionStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt';
+import { JWTPayload } from '../types';
 import { MailService } from './mailService';
 import { PlanService } from './planService';
 import { KekService } from './kekService';
 import { mfaService } from './mfaService';
 import logger from '../config/logger';
+
+const REFRESH_TOKEN_BYTES = 48;
+const REFRESH_TOKEN_TTL_DAYS = 30;
 
 export class AuthService {
   static async register(
@@ -160,7 +165,109 @@ export class AuthService {
       where: { id: userId },
       data: { tokenVersion: { increment: 1 } }
     });
+    await this.revokeAllRefreshTokens(userId);
     return { message: 'Déconnecté de tous les appareils' };
+  }
+
+  static hashRefreshToken(refreshToken: string): string {
+    return crypto.createHash('sha256').update(refreshToken).digest('hex');
+  }
+
+  static async createRefreshToken(userId: string): Promise<string> {
+    const refreshToken = crypto.randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_TTL_DAYS);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: this.hashRefreshToken(refreshToken),
+        userId,
+        expiresAt,
+      },
+    });
+
+    return refreshToken;
+  }
+
+  private static getWrappedDekFromAccessToken(
+    accessToken: string | undefined,
+    userId: string,
+    tokenVersion: number
+  ): string | undefined {
+    if (!accessToken || !process.env.JWT_SECRET) return undefined;
+
+    try {
+      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET) as JWTPayload;
+      if (
+        decoded.type === 'auth' &&
+        decoded.userId === userId &&
+        decoded.tokenVersion === tokenVersion &&
+        typeof decoded.wrappedDek === 'string'
+      ) {
+        return decoded.wrappedDek;
+      }
+    } catch {
+      return undefined;
+    }
+
+    return undefined;
+  }
+
+  static async rotateRefreshToken(refreshToken: string, accessToken?: string) {
+    const tokenHash = this.hashRefreshToken(refreshToken);
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: tokenHash },
+      include: { user: true },
+    });
+
+    if (!storedToken || storedToken.revoked) {
+      throw new AppError(401, 'Refresh token invalide.', 'REFRESH_TOKEN_INVALID');
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+      throw new AppError(401, 'Refresh token expiré.', 'REFRESH_TOKEN_EXPIRED');
+    }
+
+    const user = storedToken.user;
+    if (user.accountStatus !== 'ACTIVE') {
+      throw new AppError(401, 'Compte inactif ou suspendu.', 'ACCOUNT_INACTIVE');
+    }
+
+    const wrappedDek = this.getWrappedDekFromAccessToken(accessToken, user.id, user.tokenVersion);
+    await prisma.refreshToken.updateMany({
+      where: { token: tokenHash, revoked: false },
+      data: { revoked: true },
+    });
+    const newRefreshToken = await this.createRefreshToken(user.id);
+
+    const token = generateToken(
+      user.id,
+      user.email,
+      user.tokenVersion,
+      wrappedDek ? { wrappedDek } : undefined
+    );
+
+    return {
+      token,
+      refreshToken: newRefreshToken,
+      ...(user.encryptedDek && !wrappedDek ? { dekUnlockRequired: true } : {}),
+    };
+  }
+
+  static async revokeRefreshToken(refreshToken: string) {
+    await prisma.refreshToken.updateMany({
+      where: { token: this.hashRefreshToken(refreshToken), revoked: false },
+      data: { revoked: true },
+    });
+
+    return { message: 'Déconnecté' };
+  }
+
+  static async revokeAllRefreshTokens(userId: string) {
+    await prisma.refreshToken.updateMany({
+      where: { userId, revoked: false },
+      data: { revoked: true },
+    });
   }
 
   static async updateProfile(
