@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 interface MFASetupModalProps {
   isOpen: boolean;
-  onComplete: (backupCodes: string[], token: string) => void;
+  onComplete: (backupCodes: string[], token: string, refreshToken?: string) => void;
   onCancel?: () => void;
 }
 
@@ -53,10 +53,10 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
         secret,
         backupCodes,
         rememberDevice
-      );
+      ) as { token: string; refreshToken?: string };
 
       toast.success(t('mfa_setup.success'));
-      onComplete(backupCodes, result.token);
+      onComplete(backupCodes, result.token, result.refreshToken);
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('mfa_setup.error_invalid'));
     } finally {

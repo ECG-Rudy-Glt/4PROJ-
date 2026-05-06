@@ -62,13 +62,16 @@ export default function LoginPage() {
     }
   };
 
-  const handleMFASetupComplete = (codes: string[], token: string) => {
+  const handleMFASetupComplete = (codes: string[], token: string, refreshToken?: string) => {
     setBackupCodes(codes);
     setShowMFASetupModal(false);
     setShowBackupCodesModal(true);
 
     // Stocker le token permanent
     localStorage.setItem('token', token);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     localStorage.removeItem('tempToken');
   };
 

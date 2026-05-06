@@ -21,6 +21,7 @@ export type AuthResponse =
   | { 
       user: User; 
       token: string; 
+      refreshToken?: string;
       mfaRequired?: false;
       mfaSetupRequired?: false;
       session?: AuthSessionContext;

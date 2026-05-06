@@ -33,10 +33,16 @@ export default function MFAVerificationPage() {
 
     setLoading(true);
     try {
-      const result = await mfaService.verifyMFA(code, rememberDevice);
+      const result = await mfaService.verifyMFA(code, rememberDevice) as {
+        token: string;
+        refreshToken?: string;
+      };
 
       // Stocker le token
       localStorage.setItem('token', result.token);
+      if (result.refreshToken) {
+        localStorage.setItem('refreshToken', result.refreshToken);
+      }
       localStorage.removeItem('tempToken');
 
       // Charger l'utilisateur dans le store
@@ -60,10 +66,17 @@ export default function MFAVerificationPage() {
 
     setLoading(true);
     try {
-      const result = await mfaService.verifyBackupCode(backupCode.toUpperCase(), rememberDevice);
+      const result = await mfaService.verifyBackupCode(backupCode.toUpperCase(), rememberDevice) as {
+        token: string;
+        refreshToken?: string;
+        warning?: string;
+      };
 
       // Stocker le token
       localStorage.setItem('token', result.token);
+      if (result.refreshToken) {
+        localStorage.setItem('refreshToken', result.refreshToken);
+      }
       localStorage.removeItem('tempToken');
 
       // Charger l'utilisateur dans le store
@@ -86,6 +99,7 @@ export default function MFAVerificationPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('tempToken');
     localStorage.removeItem('user');
     navigate('/login');

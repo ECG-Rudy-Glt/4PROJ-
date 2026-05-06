@@ -1,6 +1,13 @@
 import api from './api';
 import { AuthSessionContext, User, AuthResponse } from '@/types';
 
+function clearStoredAuth() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('switchSessionId');
+  localStorage.removeItem('tempToken');
+}
+
 export const authService = {
   async register(data: {
     email: string;
@@ -49,8 +56,17 @@ export const authService = {
     return response.data.data || response.data;
   },
 
-  async logoutAll() {
-    const response = await api.post('/auth/logout-all');
+  async logout(refreshToken: string) {
+    const response = await api.post('/auth/logout', { refreshToken });
     return response.data.data || response.data;
+  },
+
+  async logoutAll() {
+    try {
+      const response = await api.post('/auth/logout-all');
+      return response.data.data || response.data;
+    } finally {
+      clearStoredAuth();
+    }
   },
 };
