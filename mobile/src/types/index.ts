@@ -120,6 +120,8 @@ export interface Folder {
   userId: string;
   path: string;
   isVault?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
   parent?: Folder;

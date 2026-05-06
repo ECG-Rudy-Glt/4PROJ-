@@ -21,8 +21,8 @@ export const folderService = {
     return unwrap(res.data);
   },
 
-  async deleteFolder(folderId: string) {
-    const res = await api.delete(`/folders/${folderId}`);
+  async deleteFolder(folderId: string, permanent = false) {
+    const res = await api.delete(`/folders/${folderId}`, { params: { permanent } });
     return unwrap(res.data);
   },
 
@@ -53,5 +53,15 @@ export const folderService = {
     const res = await api.get(`/folders/${folderId}/breadcrumbs`);
     const unwrapped = unwrap<any>(res.data);
     return unwrapped.breadcrumbs ?? unwrapped;
+  },
+
+  async getDeletedFolders(): Promise<{ folders: Folder[] }> {
+    const res = await api.get('/folders/deleted');
+    return unwrap(res.data);
+  },
+
+  async restoreFolder(folderId: string): Promise<{ folder: Folder }> {
+    const res = await api.post(`/folders/${folderId}/restore`);
+    return unwrap(res.data);
   },
 };

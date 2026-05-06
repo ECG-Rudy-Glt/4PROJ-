@@ -17,8 +17,13 @@ import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { fileService } from '../../services/fileService';
-import { FileItem } from '../../types';
+import { folderService } from '../../services/folderService';
+import { FileItem, Folder } from '../../types';
 import EmptyState from '../../components/EmptyState';
+
+type TrashItem =
+  | { kind: 'file'; data: FileItem }
+  | { kind: 'folder'; data: Folder };
 
 const formatSize = (bytes: number): string => {
   if (bytes === 0) return '0 o';
@@ -35,14 +40,25 @@ const formatDate = (iso: string): string => {
 export default function TrashScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDeleted = useCallback(async () => {
     setLoading(true);
     try {
-      const { files } = await fileService.getDeletedFiles();
-      setFiles(files);
+      const [{ files }, { folders }] = await Promise.all([
+        fileService.getDeletedFiles(),
+        folderService.getDeletedFolders(),
+      ]);
+      const trashItems: TrashItem[] = [
+        ...(files ?? []).map((file) => ({ kind: 'file' as const, data: file })),
+        ...(folders ?? []).map((folder) => ({ kind: 'folder' as const, data: folder })),
+      ].sort((a, b) => {
+        const aDate = a.data.deletedAt ? new Date(a.data.deletedAt).getTime() : 0;
+        const bDate = b.data.deletedAt ? new Date(b.data.deletedAt).getTime() : 0;
+        return bDate - aDate;
+      });
+      setItems(trashItems);
     } catch {
       Toast.show({ type: 'error', text1: 'Erreur de chargement' });
     } finally {
@@ -52,22 +68,27 @@ export default function TrashScreen() {
 
   useEffect(() => {
     fetchDeleted();
-  }, []);
+  }, [fetchDeleted]);
 
-  const handleRestore = async (fileId: string) => {
+  const handleRestore = async (item: TrashItem) => {
     try {
-      await fileService.restoreFile(fileId);
-      setFiles((prev) => prev.filter((f) => f.id !== fileId));
-      Toast.show({ type: 'success', text1: 'Fichier restauré' });
+      if (item.kind === 'file') {
+        await fileService.restoreFile(item.data.id);
+      } else {
+        await folderService.restoreFolder(item.data.id);
+      }
+      await fetchDeleted();
+      Toast.show({ type: 'success', text1: item.kind === 'file' ? 'Fichier restauré' : 'Dossier restauré' });
     } catch {
       Toast.show({ type: 'error', text1: 'Erreur lors de la restauration' });
     }
   };
 
-  const handleDeletePermanent = (file: FileItem) => {
+  const handleDeletePermanent = (item: TrashItem) => {
+    const label = item.kind === 'file' ? 'Fichier' : 'Dossier';
     Alert.alert(
       'Supprimer définitivement',
-      `"${file.name}" sera supprimé définitivement. Cette action est irréversible.`,
+      `"${item.data.name}" sera supprimé définitivement. Cette action est irréversible.`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -75,9 +96,13 @@ export default function TrashScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await fileService.deleteFile(file.id, true);
-              setFiles((prev) => prev.filter((f) => f.id !== file.id));
-              Toast.show({ type: 'success', text1: 'Fichier supprimé définitivement' });
+              if (item.kind === 'file') {
+                await fileService.deleteFile(item.data.id, true);
+              } else {
+                await folderService.deleteFolder(item.data.id, true);
+              }
+              await fetchDeleted();
+              Toast.show({ type: 'success', text1: `${label} supprimé définitivement` });
             } catch {
               Toast.show({ type: 'error', text1: 'Erreur de suppression' });
             }
@@ -97,8 +122,8 @@ export default function TrashScreen() {
       </View>
 
       <FlatList
-        data={files}
-        keyExtractor={(f) => f.id}
+        data={items}
+        keyExtractor={(item) => `${item.kind}-${item.data.id}`}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={fetchDeleted} tintColor={colors.primary[600]} />
@@ -108,22 +133,27 @@ export default function TrashScreen() {
             <EmptyState
               icon="trash-outline"
               title="Corbeille vide"
-              subtitle="Les fichiers supprimés apparaîtront ici"
+              subtitle="Les fichiers et dossiers supprimés apparaîtront ici"
             />
           ) : null
         }
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={styles.iconCircle}>
-              <Ionicons name="document-outline" size={20} color={colors.neutral[400]} />
+              <Ionicons
+                name={item.kind === 'file' ? 'document-outline' : 'folder-outline'}
+                size={20}
+                color={colors.neutral[400]}
+              />
             </View>
             <View style={styles.info}>
-              <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.name} numberOfLines={1}>{item.data.name}</Text>
               <Text style={styles.meta}>
-                {formatSize(item.size)} · Supprimé le {item.deletedAt ? formatDate(item.deletedAt) : '–'}
+                {item.kind === 'file' ? `${formatSize(item.data.size)} · ` : 'Dossier · '}
+                Supprimé le {item.data.deletedAt ? formatDate(item.data.deletedAt) : '–'}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => handleRestore(item.id)} style={styles.actionBtn}>
+            <TouchableOpacity onPress={() => handleRestore(item)} style={styles.actionBtn}>
               <Ionicons name="arrow-undo-outline" size={20} color={colors.primary[500]} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleDeletePermanent(item)} style={styles.actionBtn}>
