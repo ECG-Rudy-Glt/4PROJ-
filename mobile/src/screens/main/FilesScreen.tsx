@@ -102,7 +102,7 @@ export default function FilesScreen() {
 
   const handleUpload = async () => {
     try {
-      const { success, count } = await uploadService.pickAndUpload(
+      const result = await uploadService.pickAndUpload(
         currentFolderId,
         () => {
           setUploading(true);
@@ -112,13 +112,24 @@ export default function FilesScreen() {
         (abort) => { cancelUpload.current = abort; },
         (pct) => setRealProgress(pct),
       );
-      if (success) {
+      if (result.success) {
         completeProgress();
         setUploadLabel('Terminé !');
         setTimeout(async () => {
           setUploading(false);
           progressAnim.setValue(0);
-          Toast.show({ type: 'success', text1: `${count} fichier(s) envoyé(s)` });
+          if (result.partial) {
+            const failed = result.failed ?? result.errors?.length ?? 0;
+            const total = result.total ?? result.count + failed;
+            const firstError = result.errors?.[0];
+            Toast.show({
+              type: 'info',
+              text1: `${result.count}/${total} fichier(s) envoyé(s), ${failed} échec(s)`,
+              text2: firstError ? `${firstError.fileName ?? 'Fichier'}: ${firstError.error}` : undefined,
+            });
+          } else {
+            Toast.show({ type: 'success', text1: `${result.count} fichier(s) envoyé(s)` });
+          }
           await fetchContents(currentFolderId);
         }, 400);
       } else {
