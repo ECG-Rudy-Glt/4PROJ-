@@ -110,28 +110,28 @@ export default function MfaVerifyScreen() {
     try {
       if (mfaSetupRequired && setupData) {
         // Valider la configuration MFA avec le code saisi
-        const { token } = await mfaService.verifySetup(
+        const { token, refreshToken } = await mfaService.verifySetup(
           code,
           setupData.secret,
           setupData.backupCodes,
           false,
-        );
+        ) as { token: string; refreshToken?: string };
         // Récupérer le profil avec le nouveau token
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const profile = await authService.getProfile();
-        await setAuth(token, profile.user, profile.session);
+        await setAuth(token, profile.user, profile.session, refreshToken);
         await SecureStore.deleteItemAsync('tempToken');
         Toast.show({ type: 'success', text1: 'Double authentification configurée !' });
       } else {
         // MFA déjà configuré — vérification du code
-        const { token } = await authService.verifyMfa({
+        const { token, refreshToken } = await authService.verifyMfa({
           tempToken,
           code,
           trustDevice: false,
         });
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const profile = await authService.getProfile();
-        await setAuth(token, profile.user, profile.session);
+        await setAuth(token, profile.user, profile.session, refreshToken);
         await SecureStore.deleteItemAsync('tempToken');
         Toast.show({ type: 'success', text1: 'Authentification réussie' });
       }
