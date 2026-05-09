@@ -209,6 +209,24 @@ services:
     networks:
       - supfile-network
 
+  # ── Pull Ollama model on first start (no-op if already present) ─────────
+  ollama-init:
+    image: ollama/ollama:0.5.4
+    container_name: supfile-ollama-init
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: >
+      /bin/sh -c "
+      until curl -sf http://ollama:11434/api/tags > /dev/null; do sleep 2; done &&
+      ollama pull ${OLLAMA_MODEL:-gemma2:2b} &&
+      echo 'Model ready.'
+      "
+    depends_on:
+      - ollama
+    restart: "no"
+    networks:
+      - supfile-network
+
   # ── RAG microservice (embeddings + ChromaDB + Ollama client) ─────────────
   brain-api:
     build: ./brain-api
