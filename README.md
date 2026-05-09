@@ -1,213 +1,320 @@
-# SUPFile - Solution de Stockage Cloud Securisee et Intelligente
+# SUPFile — Plateforme de stockage cloud souveraine & intelligente
 
-## Présentation
-SUPFile est une plateforme de stockage cloud de nouvelle génération, offrant une alternative robuste et souveraine aux services grand public. Conçue avec une architecture microservices, elle allie performance, sécurité cryptographique et intelligence artificielle pour une gestion optimale des données personnelles et professionnelles.
-
----
-
-## Architecture du Système
-
-Le projet est articulé autour de quatre piliers technologiques :
-
-1.  **Backend (API de Haute Performance)** : Node.js / TypeScript / Express.
-    - **ORM** : Prisma avec PostgreSQL.
-    - **Sécurité** : JWT, OAuth2 (Google), MFA (TOTP), et Chiffrement AES-256.
-    - **Temps Réel** : Socket.io pour les notifications et mises à jour instantanées.
-2.  **Frontend (Interface Web Premium)** : React 18 / Vite.
-    - **Styling** : TailwindCSS pour une UI moderne et responsive.
-    - **Internationalisation** : i18next (Français/Anglais).
-    - **State Management** : Zustand pour une gestion fluide de l'état (Auth, Vault, UI).
-3.  **Brain-API (Cœur IA)** : Microservice Python dédié à l'IA.
-    - **Modèle** : Intégration Google Gemini ou Ollama (local).
-    - **RAG** : Système de recherche sémantique (Retrieval-Augmented Generation) avec ChromaDB.
-4.  **Mobile (Accès Nomade)** : Application React Native (iOS/Android).
+SUPFile est une alternative française à Dropbox et Google Drive : stockage chiffré, IA documentaire embarquée (Bobby), MFA, coffre-fort, partage avancé — déployable en une commande.
 
 ---
 
-## Base de Données et Persistance
+## Démarrage rapide
 
-La persistance des données est segmentée pour garantir performance et scalabilité :
+### Prérequis
 
-### Métadonnées Relationnelles (PostgreSQL 16)
-Le cœur de l'application repose sur PostgreSQL pour la gestion des données structurées. Le schéma est orchestré par Prisma ORM :
-- **Utilisateurs** : Gestion des comptes, quotas (30 Go par défaut), sessions (Refresh Tokens) et sécurité (MFA, Vault).
-- **Arborescence** : Structure récursive pour les dossiers (`Folder`) et fichiers (`File`), incluant les chemins de navigation (Breadcrumbs).
-- **Partages** : Liens publics (`SharedLink`) avec expiration/mot de passe et partages internes (`SharedFolder`) avec permissions granulaires.
-- **Traçabilité** : Table `AuditLog` enregistre chaque action critique (upload, suppression, partage).
-- **Collaboration** : Systèmes de commentaires et de tags associés aux fichiers.
+- [Docker](https://docs.docker.com/get-docker/)  24
+- [Docker Compose](https://docs.docker.com/compose/install/)  2.20
+- 8 Go de RAM minimum (16 Go recommandé avec Ollama actif)
+- 20 Go d'espace disque libre
 
-### Stockage Vectoriel (ChromaDB)
-Utilisé par le microservice Brain-API pour le RAG :
-- Indexation du contenu textuel extrait des documents.
-- Stockage des embeddings permettant la recherche sémantique et les interactions avec l'IA Bobby.
+### Installation
 
-### Stockage d'Objets (S3 / MinIO)
-Les fichiers physiques ne sont jamais stockés en base de données :
-- **Stockage principal** : Compatible S3 (MinIO en local).
-- **Sécurité** : Chaque fichier est chiffré avant d'être persisté sur le bucket.
+```bash
+# 1. Cloner le dépôt
+git clone https://github.com/<org>/supfile.git
+cd supfile
 
----
+# 2. Copier et configurer les variables d'environnement
+cp .env.example .env
+# Éditer .env avec vos valeurs (voir section Variables d'environnement)
 
-## Fonctionnalités Majeures (Source de Vérité - Code)
+# 3. Lancer tous les services
+docker compose up -d
 
-### Gestion des Fichiers et Stockage
-- **Hybride Storage** : Support natif de S3 avec repli local pour la portabilité.
-- **Chiffrement au Repos** : Chiffrement AES-256 appliqué via EncryptionService avant le transfert.
-- **Organisation** : Favoris, Corbeille avec purge automatique (90 jours) et gestion intelligente des doublons.
+# 4. Accéder à l'application
+# Frontend : http://localhost:3000
+# Backend API : http://localhost:5001
+# Swagger UI : http://localhost:5001/api-docs
+# MinIO Console : http://localhost:9001
+```
 
-### Sécurité et Confidentialité
-- **Audit et Logs** : Historique complet pour la conformité.
-- **Sécurité Garantie** : Audit de chiffrement **réussi** (Avril 2026) confirmant l'illisibilité des documents au repos (MinIO & Postgres).
-
-### Intelligence Artificielle (Assistant Bobby)
-- **Analyse Multimodale** : OCR sur images et extraction de texte sur PDF.
-- **Recherche Sémantique** : Capacité de retrouver un document par son sens ou son contenu.
-- **Génération de Fichiers** : Créer des documents texte directement via des prompts IA.
+Le premier démarrage télécharge le modèle Ollama (~1,6 Go). L'application est disponible dès que le service `backend` est `healthy`.
 
 ---
 
-## Plans et Quotas
+## Variables d'environnement
 
-| Caractéristique | Plan FREE (Libre) | Plan PRO / Business |
-| :--- | :--- | :--- |
-| **Stockage Total** | 30 Go | 200 Go / 2 To |
-| **Taille Max Fichier** | 100 Mo | 500 Mo / 2 Go |
-| **Versions** | 3 | 10 / 25 |
-| **IA & Vault** | Non | **Inclus** |
+Copiez `.env.example` en `.env` et renseignez les valeurs obligatoires :
 
-> [!NOTE]
-> La limite de 100 Mo par fichier sur le plan FREE est une règle métier stricte définie dans le PlanService, indépendante du quota global.
+```bash
+# === OBLIGATOIRES (le backend crashe au démarrage si absent) ===
+JWT_SECRET=<chaine-aleatoire-min-32-chars>
+FILE_ENCRYPTION_KEY=<chaine-aleatoire-min-32-chars>
 
----
+# === Base de données ===
+POSTGRES_USER=supfile
+POSTGRES_PASSWORD=<mot-de-passe-bdd>
+POSTGRES_DB=supfile
 
-## Déploiement
+# === MinIO (stockage objet) ===
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=<mot-de-passe-minio>
+MINIO_APP_USER=supfile-app
+MINIO_APP_PASSWORD=<mot-de-passe-app-minio>
 
-Le projet utilise Docker Compose pour une orchestration simplifiée :
-- **Services** : backend, frontend, postgres, minio, brain-api, ollama, onlyoffice.
-- **Persistance** : Volumes Docker dédiés pour chaque service de stockage (DB, S3, Vector Store).
+# === OAuth2 (optionnel — connexion Google/GitHub) ===
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
 
----
+# === Stripe (optionnel — plans payants) ===
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_PRO_MONTHLY=
+STRIPE_PRICE_BUSINESS_MONTHLY=
 
-## Checklist de Conformité & Priorisation
+# === Email (optionnel — invitations, alertes expiration liens) ===
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
 
-Ce plan synthétise les exigences du projet SUPFile et les aligne avec l'état actuel du code source (Source de Vérité).
+# === Web Push (optionnel — notifications navigateur) ===
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
 
-###  1. Authentification & Identité (Statut : TERMINE)
-- [x] Connexion standard (Email/Mot de passe) avec hachage bcrypt.
-- [x] Inscription avec validation des champs.
-- [x] Gestion des sessions via JWT sécurisés.
-- [x] Connexion OAuth2 (Google & GitHub) fonctionnelle.
-- [x] **Bonus** : Double authentification (MFA/TOTP) implémentée.
+# === IA (configuré automatiquement en Docker) ===
+BRAIN_API_URL=http://brain-api:8001
+OLLAMA_MODEL=gemma2:2b
+```
 
-###  2. Gestionnaire de Fichiers (Statut : TERMINE)
-- [x] Navigation fluide et Fil d'Ariane (Breadcrumbs).
-- [x] Création, renommage et suppression de dossiers.
-- [x] Upload de fichiers avec barre de progression en temps réel.
-- [x] Corbeille fonctionnelle avec restauration et purge automatique (Cron).
-- [x] **Téléchargement de dossier complet en archive ZIP** : route `GET /folders/:folderId/download`, déchiffrement AES-256 à la volée, streaming via `archiver`.
-- [x] **Glisser-déposer (Drag & Drop) pour le déplacement de fichiers et dossiers** : HTML5 natif, différenciation drag interne vs upload OS, feedback visuel au survol.
-
-###  3. Prévisualisation & Média (Statut : TERMINE)
-- [x] Visionneuse PDF et documents texte (Markdown, TXT).
-- [x] Streaming fluide des fichiers audio (MP3) et vidéo (MP4) via Range Headers.
-- [x] Galerie d'images haute performance.
-- [x] Affichage des détails techniques (Taille, MIME, Dates) via le système de fichiers.
-
-###  4. Partage & Collaboration (Statut : TERMINE)
-- [x] Liens de partage publics (accessibles hors compte).
-- [x] Protection des liens par mot de passe et date d'expiration.
-- [x] Limite de téléchargements sur les liens publics.
-- [x] Partage interne entre utilisateurs avec gestion des permissions (Lecture/Écriture).
-
-###  5. Dashboard & Recherche (Statut : TERMINE)
-- [x] Recherche unifiée par nom et extension.
-- [x] Filtres dynamiques par type de fichier et date.
-- [x] Dashboard avec graphique de répartition du quota (vidéos, docs, etc.).
-- [x] Liste des activités récentes (derniers fichiers modifiés).
-- [x] **IA Bobby** : RAG Context, Chat, Recherche sémantique.
-
-###  9. Fonctionnalités Avancées (Statut : TERMINE)
-- [x] **Coffre-fort (Vault)** : Espace chiffré isolé, protégé par mot de passe bcrypt (12 rounds) + TOTP obligatoire. Dossier `isVault=true` créé à l'activation. Verrouillage automatique configurable (défaut : 10 min). Blocage après 5 tentatives échouées (15 min). Statut HTTP correct : 423 si verrouillé, 401 si mauvais identifiants. Plan PRO requis.
-- [x] **Partage de dossiers** : Invitation par email avec permissions Lecture/Écriture (`VIEWER`/`EDITOR`). Flux accept/decline via token. Liste des dossiers partagés (`sharedFolders`) et invitations en attente (`pendingFolders`).
-- [x] **Export GDPR** : Export CSV complet de toutes les données personnelles (fichiers, dossiers, partages, conversations IA, logs d'audit). Aucune donnée sensible (hash, secrets MFA) incluse.
-- [x] **OnlyOffice** : Édition en ligne de documents Word/Excel/Calc. Config JWT signée côté backend (`/api/onlyoffice/config/:fileId`). URL document proxifiée via backend pour isolation réseau.
-- [x] **Panel Admin** : KPIs globaux (utilisateurs, fichiers, stockage), gestion des utilisateurs (rôle, plan, quota), réindexation IA (HTTP 202).
-
-###  6. Paramètres & UX (Statut : TERMINE)
-- [x] Modification du profil (Avatar, Email).
-- [x] Thème Clair / Sombre persistant.
-- [x] Internationalisation (Français/Anglais).
-
-###  7. Déploiement & Architecture (Statut : TERMINE)
-- [x] Séparation stricte Backend / Frontend / Mobile.
-- [x] Conteneurisation complète avec Docker Compose (Serveur, Web, BDD, IA, Stockage).
-- [x] Persistance des données via volumes Docker.
-- [x] Abstraction du stockage (S3/MinIO/Local).
-
-###  8. Documentation & Livrables (Statut : TERMINE)
-- [x] Manuel utilisateur complet (README & BACKEND_DOC).
-- [x] Documentation technique (KEK/DEK, Architecture, API Endpoints).
-- [x] Guide de déploiement (Docker Compose & .env).
+> ~ **Note examinateur — exception pédagogique :** Le fichier `.env` est **intentionnellement commité** dans ce dépôt afin de permettre à l'examinateur de lancer le projet sans configuration supplémentaire (`docker compose up` suffit). Les secrets présents sont des valeurs de démonstration générées pour ce rendu uniquement — **ils ne sont liés à aucun service de production réel** (pas de clé Stripe active, pas de compte OAuth en production, etc.). En contexte de production, `.env` serait exclu via `.gitignore` et les secrets gérés via un vault (HashiCorp Vault, AWS Secrets Manager, etc.).
 
 ---
 
-##  Priorisation des tâches restantes
+## Architecture
 
-1.  **Documentation (CRITIQUE)** : Nécessaire pour éviter l'ajournement (Note < 30/50 requis). Rédaction du manuel utilisateur et de la documentation technique (Swagger/OpenAPI, UML, guide de déploiement).
-2.  **Audit Mobile (HAUTE)** : S'assurer que chaque fonction Web est bien disponible sur le client Mobile React Native.
-3.  **Tests (HAUTE)** : Tests unitaires et d'intégration à compléter (couverture des services critiques).
-4.  **STRIPE / Services Tiers (MOYENNE)** : Intégration du paiement pour les plans PRO/Business.
+```
+Navigateur / App mobile
+        |
+        v
+  nginx :3000
+  (frontend React)
+        | /api  proxy
+        v
+  backend :5001  (Node.js / Express / TypeScript)
+        |-- PostgreSQL :5432  (metadonnees, BDD)
+        |-- MinIO              (fichiers chiffres S3)
+        |-- OnlyOffice :8080   (edition Office)
+        +-- brain-api :8001   (IA Python / FastAPI)
+                 |-- Ollama    (LLM local gemma2:2b)
+                 +-- ChromaDB  (base vectorielle RAG)
+
+  App mobile (Expo / React Native)
+```
+
+**7 services Docker**, **1 réseau bridge interne**, base de données et MinIO non exposés à l'hôte.
 
 ---
 
-## Correctifs récents (Avril 2026)
+## Services Docker
 
-- **Fix 429 Tags** : le store Zustand `useTagStore` déclenche désormais un seul appel réseau grâce au flag `isLoaded`, éliminant le storm de requêtes sur `/api/tags` lors de l'affichage de la liste de fichiers.
-- **ZIP Download** : implémentation complète — backend `streamFolderAsZip` (archiver + déchiffrement AES-256 à la volée), route `GET /folders/:folderId/download`, bouton dans l'UI avec feedback visuel au survol.
-- **Drag & Drop Move** : déplacement de fichiers et dossiers par glisser-déposer (HTML5 natif), guard anti-conflit avec l'upload global existant.
-- **Codes HTTP corrects** : `fileActionService`, `fileQueryService`, `folderService` et `vaultService` utilisent désormais `AppError(statusCode)` au lieu de `Error` générique — les routes "not found" retournent 404, les conflits 409, le vault verrouillé 423 et les identifiants invalides 401 (plus de 500 parasite).
+| Service | Image | Rôle | Port exposé |
+|---|---|---|---|
+| `frontend` | nginx:alpine (build React) | Interface web + reverse proxy | `3000` |
+| `backend` | Node.js 20 custom | API REST + WebSocket | `5001` |
+| `postgres` | postgres:16-alpine | Base de données principale | — (interne) |
+| `minio` | minio:2025-01 | Stockage objet S3 | — (interne) |
+| `onlyoffice` | documentserver:8.2.2 | Édition collaborative Office | — (interne) |
+| `ollama` | ollama:0.5.4 | Inférence LLM locale | — (interne) |
+| `brain-api` | Python FastAPI custom | RAG + embeddings | — (interne) |
 
 ---
 
-## Tests E2E (Avril 2026)
+## Stack technique
 
-Les deux suites de tests se trouvent dans [`scripts/`](scripts/).
-
-### `scripts/test_e2e.py` — Sécurité & Infrastructure (79/80)
-Couvre les flux principaux et les vecteurs d'attaque OWASP :
-
-| Catégorie | Tests |
+| Couche | Technologies |
 |---|---|
-| Authentification & JWT | Register, login, tokens JWT (alg=none, signature invalide, payload modifié) |
-| Upload & Download | Upload chiffré, déchiffrement, vérification contenu |
-| MinIO | Vérification stockage objet (port interne, normal si non exposé) |
-| IA Bobby (RAG) | 3 questions sémantiques sur documents uploadés |
-| Sécurité sans token | 6 endpoints → 401 |
-| Injection SQL | 3 payloads login + 2 payloads recherche |
-| XSS / HTML Injection | 4 payloads dans nom de dossier |
-| Path Traversal | 9 payloads fichiers + dossiers |
-| IDOR | User2 ne peut pas accéder aux fichiers de user1 (download/delete/rename) |
-| Brute Force / Rate Limiting | Blocage 429 après seuil |
-| Mass Assignment | Modification de rôle rejetée (404) |
-| Exposition données sensibles | Hash, mfaSecret, kekSalt absents de la réponse login |
-| Upload malveillant | Noms dangereux assainis (path traversal, .php, .exe, XSS) |
-| Méthodes HTTP non autorisées | DELETE/PUT/PATCH sur mauvaises routes |
-| Injection en-têtes | Host injection, Content-Type invalide |
-
-> 1 échec attendu : Bobby refuse de répondre à la question sur la recette (comportement LLM normal).
-
-### `scripts/test_features.py` — Fonctionnalités Avancées (68/68)
-Couvre les 5 fonctionnalités avancées en flux complet :
-
-| Fonctionnalité | Points testés |
-|---|---|
-| **Coffre-fort (Vault)** | Setup (MFA + mot de passe bcrypt), unlock, lock, rotation de mot de passe, accès fichiers vault, mauvais code TOTP → 401, vault verrouillé → 423 |
-| **Partage de dossiers** | Invitation, accept, liste `sharedFolders` / `pendingFolders`, vérification permissions, révocation |
-| **Export GDPR** | CSV non vide, colonnes attendues, email présent, secrets absents (hash, mfaSecret) |
-| **OnlyOffice** | Config JWT (`config.document`, `config.editorConfig`, `token`), URL document proxifiée backend |
-| **Admin Panel** | KPIs (`kpis.totalUsers`, `kpis.totalFiles`), liste utilisateurs, mise à jour rôle/plan, réindexation IA (202) |
+| **Frontend web** | React 18, TypeScript, Vite, TailwindCSS, Zustand, Socket.IO |
+| **Backend** | Node.js 20, Express, TypeScript, Prisma, PostgreSQL, MinIO |
+| **IA (brain-api)** | Python, FastAPI, Ollama, ChromaDB, fastembed |
+| **Mobile** | React Native 0.81, Expo SDK 54, Zustand, expo-secure-store |
+| **Sécurité** | AES-256-GCM, PBKDF2 100k iter, JWT versionné, MFA TOTP, Helmet |
+| **DevOps** | Docker Compose, GitHub Actions, Semgrep, TruffleHog, Dockle |
 
 ---
-*Documentation mise à jour - 23 Avril 2026*
 
+## Fonctionnalités principales
 
+- **Stockage** : upload drag & drop, quota par plan, corbeille 90 jours, versioning fichiers
+- **Sécurité** : chiffrement AES-256 au repos (architecture KEK/DEK), MFA TOTP, coffre-fort chiffré (Vault)
+- **Partage** : liens publics (mot de passe + expiration + quota de téléchargements), partage interne avec permissions granulaires (lecture/écriture/suppression/re-partage)
+- **Prévisualisation** : images, vidéo, audio, PDF, Markdown, CSV, DOCX/XLSX/PPTX via OnlyOffice
+- **IA — Bobby** : assistant documentaire RAG (recherche sémantique, analyse, génération de fichiers) — 100% on-premise
+- **Temps réel** : notifications et partages via Socket.IO (WebSocket)
+- **Mobile** : application iOS/Android (Expo), token stocké dans le Keychain/Keystore OS
+- **Admin** : dashboard KPIs, gestion des plans, export CSV, réindexation IA
+- **RGPD** : export de toutes les données personnelles, audit log 30+ événements, purge automatique
+
+---
+
+## Documentation
+
+| Document | Contenu |
+|---|---|
+| [`doc/BACKEND_DOC.md`](doc/BACKEND_DOC.md) | Architecture backend, endpoints, sécurité, modèle de données |
+| [`doc/FRONTEND_DOC.md`](doc/FRONTEND_DOC.md) | Architecture frontend, stores Zustand, composants, mobile |
+| [`doc/BOBBY.md`](doc/BOBBY.md) | Documentation du microservice IA brain-api (RAG, ChromaDB, Ollama) |
+| [`doc/MANUEL_UTILISATEUR.md`](doc/MANUEL_UTILISATEUR.md) | Guide utilisateur complet avec emplacements captures d'écran |
+| [`doc/PRESENTATION/PRESENTATION_CICD.md`](doc/PRESENTATION/PRESENTATION_CICD.md) | Pipeline CI/CD GitHub Actions, SAST, SBOM, Dockle |
+| [`doc/PRESENTATION/`](doc/PRESENTATION/) | Supports de présentation orale (architecture, sécurité, frontend, CEO) |
+
+---
+
+## Tests
+
+```bash
+# Tests unitaires backend
+cd backend && npm test
+
+# Tests d'intégration (nécessite l'application en cours d'exécution)
+cd scripts && pip install -r requirements.txt
+python test_e2e.py        # 79/80 — sécurité & infrastructure
+python test_features.py   # 68/68 — fonctionnalités avancées
+
+# Tests E2E frontend
+cd frontend && npx cypress run
+```
+
+---
+
+## CI/CD
+
+Le pipeline GitHub Actions exécute à chaque push :
+
+1. **Validation** — vérification des secrets obligatoires
+2. **Backend** — build TypeScript + tests Jest + npm audit
+3. **Frontend** — lint ESLint + build Vite + tests Cypress E2E + npm audit
+4. **Sécurité** — Semgrep (SAST) + TruffleHog (secrets dans l'historique git)
+5. **Docker** — build images + Dockle (audit CIS) + génération SBOM (SPDX-JSON)
+6. **Push** — images taguées `:latest` + `:sha` vers GHCR (branche `main` uniquement)
+
+---
+
+## Récapitulatif des fonctionnalités implémentées
+
+> Couverture : backend API + client web (React) + client mobile (Expo/React Native)
+
+### Authentification & Identité
+
+| Fonctionnalité | Web | Mobile | Détail |
+|---|---|---|---|
+| Inscription avec validation des champs | V | V | email, mot de passe min 6 chars, confirmation |
+| Connexion email / mot de passe | V | V | JWT, bcrypt, gestion erreurs |
+| Gestion de session JWT | V | V | tokenVersion pour révocation globale |
+| Déconnexion de tous les appareils | V | V | incrémente tokenVersion côté serveur |
+| Connexion OAuth2 Google | V | — | Passport.js, création compte auto |
+| Connexion OAuth2 GitHub | V | — | Passport.js, création compte auto |
+| MFA TOTP (Google Authenticator) | V | V | speakeasy, QR code, backup codes bcrypt |
+| Appareils de confiance (skip MFA 30 j) | V | V | fingerprint SHA-256 |
+
+### Gestion des fichiers & dossiers
+
+| Fonctionnalité | Web | Mobile | Détail |
+|---|---|---|---|
+| Création de dossiers | V | V | arborescence récursive |
+| Navigation avec fil d'Ariane | V | V | breadcrumbs cliquables |
+| Upload de fichiers avec progression | V | V | barre par fichier, batch 3 simultanés |
+| Vérification quota avant upload | V | V | côté client ET côté serveur |
+| Renommage fichiers & dossiers | V | V | |
+| Déplacement (drag & drop web / menu mobile) | V | V | HTML5 natif web, menu contextuel mobile |
+| Suppression  corbeille (soft delete) | V | V | 90 jours avant purge automatique |
+| Restauration depuis la corbeille | V | V | |
+| Suppression définitive | V | V | |
+| Marquage en favori | V | V | |
+
+### Prévisualisation & téléchargement
+
+| Fonctionnalité | Web | Mobile | Détail |
+|---|---|---|---|
+| Prévisualisation images (JPG, PNG, GIF, WebP) | V | V | blob  ObjectURL |
+| Prévisualisation PDF | V | V | WebView mobile |
+| Prévisualisation Markdown avec rendu | V | — | react-markdown + coloration |
+| Prévisualisation CSV (tableau) | V | — | |
+| Streaming vidéo intégré (MP4, AVI…) | V | V | Range headers, expo-video |
+| Streaming audio intégré (MP3, WAV…) | V | V | |
+| Édition DOCX / XLSX / PPTX (OnlyOffice) | V | — | WebView lecture seule sur mobile |
+| Téléchargement fichier unitaire | V | V | |
+| Téléchargement dossier complet en ZIP | V | — | généré à la volée côté serveur |
+
+### Partage & collaboration
+
+| Fonctionnalité | Web | Mobile | Détail |
+|---|---|---|---|
+| Lien public unique | V | V | token UUID, accès sans compte |
+| Protection par mot de passe (lien public) | V | V | hashé bcrypt |
+| Date d'expiration (lien public) | V | V | |
+| Limite de téléchargements (lien public) | V | V | |
+| Partage interne entre utilisateurs | V | V | dossiers et fichiers |
+| Permissions granulaires | V | V | lecture / écriture / suppression / re-partage |
+| Invitation par email | V | — | nodemailer |
+| Acceptation / rejet du partage | V | V | |
+| Révocation d'un partage | V | V | |
+
+### Dashboard & Recherche
+
+| Fonctionnalité | Web | Mobile | Détail |
+|---|---|---|---|
+| Visualisation quota utilisé / total | V | V | barre colorée vert/orange/rouge |
+| Graphique répartition par type (PieChart) | V | — | Recharts |
+| Accès rapide aux fichiers récents | V | V | |
+| Statistiques d'activité | V | V | uploads, downloads, partages |
+| Recherche par nom / extension | V | V | |
+| Filtrage par type MIME | V | — | |
+| Filtrage par date | V | — | |
+| Recherche sémantique IA (Bobby) | V | — | RAG ChromaDB |
+
+### Bonus implémentés
+
+| Bonus | Statut | Détail |
+|---|---|---|
+| Drag & drop upload (global, dossiers entiers) | V | overlay plein écran, webkitRelativePath |
+| Déplacement par drag & drop | V | attribut custom dataTransfer |
+| Partage avancé (mot de passe + expiration + quota) | V | sur liens publics et partages internes |
+| Chiffrement fichiers côté serveur (KEK/DEK) | V | AES-256-GCM + PBKDF2 100k itérations |
+| MFA / TOTP | V | speakeasy, backup codes, appareils de confiance |
+| Coffre-fort chiffré (Vault) | V | mot de passe séparé, MFA requis, lockout 5 tentatives |
+| IA documentaire Bobby (RAG) | V | FastAPI + ChromaDB + fastembed + Ollama on-premise |
+| Versioning des fichiers | V | historique + restauration |
+| Tags personnalisés (nom + couleur) | V | filtrage par tag |
+| Commentaires & threads | V | temps réel WebSocket |
+| Notifications temps réel | V | Socket.IO + Web Push API |
+| Audit log complet | V | 30+ types d'événements, export CSV |
+| Export RGPD des données personnelles | V | CSV complet sans données sensibles |
+| Organisations multi-membres | V | rôles Owner / Admin / Member |
+| Délégation d'accès entre comptes | V | permissions granulaires, révocable |
+| Administration (KPIs, gestion plans, export) | V | dashboard admin dédié |
+| Application mobile iOS/Android | V | Expo SDK 54, expo-secure-store |
+| Internationalisation FR/EN | V | i18next, détection langue navigateur |
+| Thème clair / sombre | V | CSS variables, persisté en BDD |
+| CI/CD avec sécurité intégrée | V | Semgrep, TruffleHog, Dockle, SBOM |
+
+---
+
+## Plans
+
+| | FREE | PRO | BUSINESS | ENTERPRISE |
+|---|---|---|---|---|
+| Stockage | 30 Go | 100 Go | 500 Go | Sur devis |
+| IA Bobby | X | V | V | V |
+| Coffre-fort | X | V | V | V |
+| Organisations | X | X | V | V |
+| Versioning | X | 10 versions | 30 versions | Illimité |
+| Prix | Gratuit | 9,99 €/mois | 24,99 €/mois | Sur devis |
+
+---
+
+## Sécurité — signaler une vulnérabilité
+
+Ouvrez une issue privée ou contactez l'équipe directement. Ne publiez pas de vulnérabilité en clair dans les issues publiques.
+
+---
+
+*Dernière mise à jour : Avril 2026*
