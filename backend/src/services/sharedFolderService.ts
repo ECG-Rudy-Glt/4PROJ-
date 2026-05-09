@@ -3,6 +3,7 @@ import { MailService } from './mailService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { SharedLinkService } from './sharedLinkService';
+import { ShareKeyService } from './shareKeyService';
 import logger from '../config/logger';
 
 type Permissions = {
@@ -56,7 +57,8 @@ export class SharedFolderService {
     userId: string,
     folderId: string,
     targetUserId: string,
-    permissions: Permissions = {}
+    permissions: Permissions = {},
+    ownerWrappedDek?: string
   ) {
     const folder = await prisma.folder.findFirst({ where: { id: folderId, userId } });
     if (!folder) throw new Error('Folder not found');
@@ -71,7 +73,7 @@ export class SharedFolderService {
     await SharedLinkService.assertShareLimit(userId);
 
     const sharedFolder = await prisma.sharedFolder.create({
-      data: { folderId, sharedById: userId, sharedWithId: targetUserId, ...resolvePerms(permissions) },
+      data: { folderId, sharedById: userId, sharedWithId: targetUserId, ownerWrappedDek, ...resolvePerms(permissions) },
       include: {
         folder: true,
         sharedBy: sharedBySelect,
@@ -89,30 +91,32 @@ export class SharedFolderService {
     AuditService.createLog(userId, 'SHARE', { folderName: folder.name, folderId }).catch((e) => logger.error(e));
     SocketService.emitToUser(targetUserId, 'share_received', { type: 'folder', folderName: folder.name });
 
-    return sharedFolder;
+    return ShareKeyService.stripOwnerWrappedDek(sharedFolder);
   }
 
   static async listSharedWithMe(userId: string) {
-    return prisma.sharedFolder.findMany({
+    const sharedFolders = await prisma.sharedFolder.findMany({
       where: { sharedWithId: userId, accepted: true },
       include: { folder: true, sharedBy: sharedBySelect },
       orderBy: { createdAt: 'desc' },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(sharedFolders);
   }
 
   static async listSharedByMe(userId: string) {
-    return prisma.sharedFolder.findMany({
+    const sharedFolders = await prisma.sharedFolder.findMany({
       where: { sharedById: userId },
       include: { folder: true, sharedWith: sharedWithSelect },
       orderBy: { createdAt: 'desc' },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(sharedFolders);
   }
 
   static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
     const sharedFolder = await prisma.sharedFolder.findFirst({ where: { id: shareId, sharedById: userId } });
     if (!sharedFolder) throw new Error('Shared folder not found');
 
-    return prisma.sharedFolder.update({
+    const updatedShare = await prisma.sharedFolder.update({
       where: { id: shareId },
       data: {
         canRead: permissions.canRead ?? sharedFolder.canRead,
@@ -122,6 +126,7 @@ export class SharedFolderService {
       },
       include: { folder: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });
+    return ShareKeyService.stripOwnerWrappedDek(updatedShare);
   }
 
   static async removeSharedFolder(shareId: string, userId: string) {
@@ -133,24 +138,26 @@ export class SharedFolderService {
   }
 
   static async getPendingFolders(userId: string) {
-    return prisma.sharedFolder.findMany({
+    const pendingFolders = await prisma.sharedFolder.findMany({
       where: { sharedWithId: userId, accepted: false },
       include: {
         folder: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
         sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
       },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(pendingFolders);
   }
 
   static async acceptSharedFolder(shareId: string, userId: string) {
     const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId } });
     if (!sharedFolder || sharedFolder.sharedWithId !== userId) throw new Error('Shared folder not found or not shared with you');
 
-    return prisma.sharedFolder.update({
+    const acceptedFolder = await prisma.sharedFolder.update({
       where: { id: shareId },
       data: { accepted: true },
       include: { folder: true, sharedBy: sharedBySelect },
     });
+    return ShareKeyService.stripOwnerWrappedDek(acceptedFolder);
   }
 
   static async rejectSharedFolder(shareId: string, userId: string) {
@@ -184,7 +191,7 @@ export class SharedFolderService {
   }
 
   static async getAcceptedSharedFolders(userId: string, vaultUnlocked: boolean) {
-    return prisma.sharedFolder.findMany({
+    const sharedFolders = await prisma.sharedFolder.findMany({
       where: {
         sharedWithId: userId,
         accepted: true,
@@ -195,5 +202,6 @@ export class SharedFolderService {
         sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
       },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(sharedFolders);
   }
 }

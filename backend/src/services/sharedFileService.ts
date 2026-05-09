@@ -3,8 +3,9 @@ import { MailService } from './mailService';
 import { AuditService } from './auditService';
 import { SocketService } from './socketService';
 import { SharedLinkService } from './sharedLinkService';
+import { ShareKeyService } from './shareKeyService';
 import logger from '../config/logger';
-import { acceptedSharePermissionWhere } from '../middlewares/permissions';
+import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
 
 type Permissions = {
   canRead?: boolean;
@@ -21,7 +22,8 @@ export class SharedFileService {
     userId: string,
     fileId: string,
     targetUserId: string,
-    permissions: Permissions = {}
+    permissions: Permissions = {},
+    ownerWrappedDek?: string
   ) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
     if (!file) throw new Error('File not found');
@@ -44,6 +46,7 @@ export class SharedFileService {
         canWrite: permissions.canWrite ?? false,
         canDelete: permissions.canDelete ?? false,
         canShare: permissions.canShare ?? false,
+        ownerWrappedDek,
       },
       include: { file: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });
@@ -58,40 +61,43 @@ export class SharedFileService {
     AuditService.createLog(userId, 'SHARE', { fileName: file.name, fileId }).catch((e) => logger.error(e));
     SocketService.emitToUser(targetUserId, 'share_received', { type: 'file', fileName: file.name });
 
-    return sharedFile;
+    return ShareKeyService.stripOwnerWrappedDek(sharedFile);
   }
 
   static async listFilesSharedWithMe(userId: string) {
-    return prisma.sharedFile.findMany({
+    const sharedFiles = await prisma.sharedFile.findMany({
       where: { sharedWithId: userId, accepted: true },
       include: { file: true, sharedBy: sharedBySelect },
       orderBy: { createdAt: 'desc' },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(sharedFiles);
   }
 
   static async listFilesSharedByMe(userId: string) {
-    return prisma.sharedFile.findMany({
+    const sharedFiles = await prisma.sharedFile.findMany({
       where: { sharedById: userId },
       include: { file: true, sharedWith: sharedWithSelect },
       orderBy: { createdAt: 'desc' },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(sharedFiles);
   }
 
   static async getFileShares(fileId: string, userId: string) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
     if (!file) throw new Error('File not found');
 
-    return prisma.sharedFile.findMany({
+    const shares = await prisma.sharedFile.findMany({
       where: { fileId },
       include: { sharedWith: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(shares);
   }
 
   static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
     const sharedFile = await prisma.sharedFile.findFirst({ where: { id: shareId, sharedById: userId } });
     if (!sharedFile) throw new Error('Shared file not found');
 
-    return prisma.sharedFile.update({
+    const updatedShare = await prisma.sharedFile.update({
       where: { id: shareId },
       data: {
         canRead: permissions.canRead ?? sharedFile.canRead,
@@ -101,6 +107,7 @@ export class SharedFileService {
       },
       include: { file: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });
+    return ShareKeyService.stripOwnerWrappedDek(updatedShare);
   }
 
   static async removeSharedFile(shareId: string, userId: string) {
@@ -127,9 +134,7 @@ export class SharedFileService {
 
     if (file.folderId) {
       if (file.isVault) throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
-      const sharedFolder = await prisma.sharedFolder.findFirst({
-        where: { folderId: file.folderId, ...acceptedSharePermissionWhere(userId, 'read') },
-      });
+      const sharedFolder = await findSharedFolderAccessRoot(userId, file.folderId, 'read');
 
       if (sharedFolder) {
         return {
@@ -138,6 +143,7 @@ export class SharedFileService {
           canWrite: sharedFolder.canWrite,
           canDelete: sharedFolder.canDelete,
           canShare: sharedFolder.canShare,
+          ownerWrappedDek: sharedFolder.ownerWrappedDek,
         };
       }
     }
@@ -146,24 +152,26 @@ export class SharedFileService {
   }
 
   static async getPendingFiles(userId: string) {
-    return prisma.sharedFile.findMany({
+    const pendingFiles = await prisma.sharedFile.findMany({
       where: { sharedWithId: userId, accepted: false },
       include: {
         file: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
         sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
       },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(pendingFiles);
   }
 
   static async acceptSharedFile(shareId: string, userId: string) {
     const sharedFile = await prisma.sharedFile.findUnique({ where: { id: shareId } });
     if (!sharedFile || sharedFile.sharedWithId !== userId) throw new Error('Shared file not found or not shared with you');
 
-    return prisma.sharedFile.update({
+    const acceptedFile = await prisma.sharedFile.update({
       where: { id: shareId },
       data: { accepted: true },
       include: { file: true, sharedBy: sharedBySelect },
     });
+    return ShareKeyService.stripOwnerWrappedDek(acceptedFile);
   }
 
   static async rejectSharedFile(shareId: string, userId: string) {
@@ -174,7 +182,7 @@ export class SharedFileService {
   }
 
   static async getAcceptedSharedFiles(userId: string, vaultUnlocked: boolean) {
-    return prisma.sharedFile.findMany({
+    const sharedFiles = await prisma.sharedFile.findMany({
       where: {
         sharedWithId: userId,
         accepted: true,
@@ -190,5 +198,6 @@ export class SharedFileService {
         sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
       },
     });
+    return ShareKeyService.stripOwnerWrappedDekMany(sharedFiles);
   }
 }

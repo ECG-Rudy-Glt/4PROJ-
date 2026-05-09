@@ -326,6 +326,7 @@ model SharedLink {
 
   // JSON array of file IDs for multi-file bundle links
   bundleFileIds String?
+  ownerWrappedDek String? // DEK propriétaire enveloppée pour lire les fichiers partagés
 
   password     String?
   expiresAt    DateTime?
@@ -358,6 +359,7 @@ model SharedFolder {
 
   // Acceptation du partage
   accepted     Boolean  @default(false)  // L'utilisateur a accepté le partage
+  ownerWrappedDek String? // DEK propriétaire enveloppée pour les accès au dossier partagé
   createdAt    DateTime @default(now())
 
   @@unique([folderId, sharedWithId])
@@ -385,6 +387,7 @@ model SharedFile {
 
   // Acceptation du partage
   accepted     Boolean  @default(false)  // L'utilisateur a accepté le partage
+  ownerWrappedDek String? // DEK propriétaire enveloppée pour les accès au fichier partagé
   createdAt    DateTime @default(now())
 
   @@unique([fileId, sharedWithId])

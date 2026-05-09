@@ -26,7 +26,7 @@ export class SharedLinkService {
   static async createShareLink(
     userId: string,
     fileId: string,
-    options?: { password?: string; expiresAt?: Date; maxDownloads?: number }
+    options?: { password?: string; expiresAt?: Date; maxDownloads?: number; ownerWrappedDek?: string }
   ) {
     const file = await prisma.file.findFirst({
       where: { id: fileId, userId, isDeleted: false },
@@ -50,6 +50,7 @@ export class SharedLinkService {
         password: hashedPassword,
         expiresAt: options?.expiresAt,
         maxDownloads: options?.maxDownloads,
+        ownerWrappedDek: options?.ownerWrappedDek,
       },
       include: { file: true },
     });
@@ -104,7 +105,7 @@ export class SharedLinkService {
   static async createBundleShareLink(
     userId: string,
     fileIds: string[],
-    options?: { password?: string; expiresAt?: Date; maxDownloads?: number }
+    options?: { password?: string; expiresAt?: Date; maxDownloads?: number; ownerWrappedDek?: string }
   ) {
     if (!fileIds || fileIds.length === 0) throw new Error('Au moins un fichier est requis');
 
@@ -130,6 +131,7 @@ export class SharedLinkService {
         password: hashedPassword,
         expiresAt: options?.expiresAt,
         maxDownloads: options?.maxDownloads,
+        ownerWrappedDek: options?.ownerWrappedDek,
       },
     });
 

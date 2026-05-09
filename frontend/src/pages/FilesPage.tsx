@@ -114,6 +114,7 @@ export default function FilesPage() {
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const displayFiles = searchQuery ? searchResults : files;
+  const isSharedItem = (item: any) => Boolean(item?._isShared || item?._sharedFolderPermissions);
 
   const getSharedItemsAsDisplayFiles = useCallback(async () => {
     try {
@@ -135,6 +136,7 @@ export default function FilesPage() {
             _canWrite: sf.canWrite,
             _canDelete: sf.canDelete,
             _canShare: sf.canShare,
+            _shareId: sf.id,
           }))
         );
         setAcceptedSharedFolders(sharedFolders);
@@ -276,9 +278,13 @@ export default function FilesPage() {
     }
   };
 
-  const handleDownloadFile = async (fileId: string, fileName: string) => {
+  const handleDownloadFile = async (file: File | any) => {
     try {
-      await fileService.triggerDownload(fileId, fileName);
+      if (isSharedItem(file)) {
+        await fileService.triggerSharedFileDownload(file.id, file.name);
+      } else {
+        await fileService.triggerDownload(file.id, file.name);
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error, t('common.error')));
     }
@@ -624,7 +630,7 @@ export default function FilesPage() {
                   </div>
                 )}
                 {folder._isShared && (
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder(folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600 dark:text-red-500" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder((folder as any)._shareId || folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600 dark:text-red-500" /></button>
                 )}
               </div>
             ))}
@@ -650,6 +656,7 @@ export default function FilesPage() {
                 {[...displayFiles, ...acceptedSharedFiles].map((file) => {
                   const Icon = getMimeTypeIcon(file.mimeType);
                   const colorClass = getMimeTypeColor(file.mimeType);
+                  const isShared = isSharedItem(file);
                   return (
                     <tr
                       key={file.id}
@@ -685,16 +692,16 @@ export default function FilesPage() {
                           </button>
                         )}
                       </td>
-                      <td className="px-6 py-4">{!(file as any)._isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}</td>
+                      <td className="px-6 py-4">{!isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{formatBytes(Number(file.size))}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{format(new Date(file.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end space-x-2">
-                          <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>
-                          {!(file as any)._isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
+                          {!isShared && <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>}
+                          {!isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
                           <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.preview')}><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => handleDownloadFile(file.id, file.name)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
-                          {!(file as any)._isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
+                          <button onClick={() => handleDownloadFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
+                          {!isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
                         </div>
                       </td>
                     </tr>
@@ -718,7 +725,7 @@ export default function FilesPage() {
 
       <NewFolderModal isOpen={showNewFolderModal} folderName={newFolderName} onClose={() => setShowNewFolderModal(false)} onChange={setNewFolderName} onCreate={handleCreateFolder} />
       <ShareModal isOpen={showShareModal} file={selectedFile} shareLink={shareLink} password={sharePassword} expiry={shareExpiry} maxDownloads={shareMaxDownloads} onClose={() => setShowShareModal(false)} onPasswordChange={setSharePassword} onExpiryChange={setShareExpiry} onMaxDownloadsChange={setShareMaxDownloads} onCreateLink={handleCreateShareLink} onCopyLink={handleCopyShareLink} />
-      {showPreviewModal && previewFile && <FilePreviewModal file={previewFile} onClose={() => setShowPreviewModal(false)} isShared={(previewFile as any)._isShared} />}
+      {showPreviewModal && previewFile && <FilePreviewModal file={previewFile} onClose={() => setShowPreviewModal(false)} isShared={isSharedItem(previewFile)} />}
       <TagsManager isOpen={showTagsManager} onClose={() => setShowTagsManager(false)} />
       {selectedFolder && <ShareFolderModal folderId={selectedFolder.id} folderName={selectedFolder.name} isOpen={showShareFolderModal} onClose={() => { setShowShareFolderModal(false); setSelectedFolder(null); }} />}
       {selectedFile && showShareFileModal && <ShareFileModal file={selectedFile} onClose={() => { setShowShareFileModal(false); setSelectedFile(null); }} />}

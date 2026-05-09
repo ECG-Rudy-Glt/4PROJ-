@@ -53,6 +53,8 @@ function App() {
           <Route path="/files/:folderId" element={<FilesPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/shared" element={<SharedPage />} />
+          <Route path="/invite/folder/:folderId" element={<Navigate to="/shared" replace />} />
+          <Route path="/invite/file/:fileId" element={<Navigate to="/shared" replace />} />
           <Route path="/trash" element={<TrashPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/plans" element={<PlansPage />} />

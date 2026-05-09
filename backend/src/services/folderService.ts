@@ -9,6 +9,7 @@ import { EncryptionService } from './encryptionService';
 import { StorageService } from './storageService';
 import logger from '../config/logger';
 import { AppError } from '../middlewares/errorHandler';
+import { findSharedFolderAccessRoot } from '../middlewares/permissions';
 
 async function deleteStorageFileBestEffort(pathOrKey: string, fileId: string): Promise<void> {
   try {
@@ -121,8 +122,37 @@ export class FolderService {
   static async listFolders(userId: string, parentId?: string) {
     const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     if (parentId) {
-      const parentIsVault = await VaultService.isVaultFolder(userId, parentId);
-      await VaultService.assertUnlockedIfVault(userId, parentIsVault);
+      const parent = await prisma.folder.findUnique({
+        where: { id: parentId },
+        select: { userId: true, isVault: true },
+      });
+
+      if (!parent) {
+        throw new AppError(404, 'Parent folder not found');
+      }
+
+      if (parent.userId !== userId) {
+        const sharedRoot = await findSharedFolderAccessRoot(userId, parentId, 'read');
+        if (!sharedRoot) {
+          throw new AppError(403, 'Folder not shared with you');
+        }
+
+        return await prisma.folder.findMany({
+          where: {
+            parentId,
+            isDeleted: false,
+            isVault: false,
+          },
+          include: {
+            children: true,
+          },
+          orderBy: {
+            name: 'asc',
+          },
+        });
+      }
+
+      await VaultService.assertUnlockedIfVault(userId, parent.isVault);
     }
 
     return await prisma.folder.findMany({
@@ -356,27 +386,37 @@ export class FolderService {
   }
 
   static async getFolderBreadcrumbs(folderId: string, userId: string) {
-    const folder = await prisma.folder.findFirst({
-      where: {
-        id: folderId,
-        userId,
-      },
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
     });
 
     if (!folder) {
       throw new AppError(404, 'Folder not found');
     }
 
-    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    const isOwner = folder.userId === userId;
+    const sharedRoot = isOwner ? null : await findSharedFolderAccessRoot(userId, folderId, 'read');
 
-    const breadcrumbs: Array<{ id: string; name: string }> = [];
+    if (!isOwner && !sharedRoot) {
+      throw new AppError(403, 'Folder not shared with you');
+    }
+
+    if (isOwner) {
+      await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    }
+
+    const chain: Array<{ id: string; name: string }> = [];
     let currentFolder = folder;
 
     while (currentFolder) {
-      breadcrumbs.unshift({
+      chain.unshift({
         id: currentFolder.id,
         name: currentFolder.name,
       });
+
+      if (sharedRoot && currentFolder.id === sharedRoot.folderId) {
+        break;
+      }
 
       if (currentFolder.parentId) {
         const parent = await prisma.folder.findUnique({
@@ -388,7 +428,7 @@ export class FolderService {
       }
     }
 
-    return breadcrumbs;
+    return chain;
   }
 
   static async restoreFolder(folderId: string, userId: string) {

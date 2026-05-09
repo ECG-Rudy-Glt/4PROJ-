@@ -31,6 +31,7 @@ export class ShareInvitationService {
     ownerId: string;
     ownerName: string;
     targetEmail: string;
+    ownerWrappedDek?: string;
   }): Promise<{ token: string }> {
     const file = await prisma.file.findFirst({
       where: { id: params.fileId, userId: params.ownerId, isDeleted: false },
@@ -43,7 +44,10 @@ export class ShareInvitationService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    const shareLink = await ShareService.createShareLink(params.ownerId, params.fileId, { expiresAt });
+    const shareLink = await ShareService.createShareLink(params.ownerId, params.fileId, {
+      expiresAt,
+      ownerWrappedDek: params.ownerWrappedDek,
+    });
 
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/share/${shareLink.token}`;
 

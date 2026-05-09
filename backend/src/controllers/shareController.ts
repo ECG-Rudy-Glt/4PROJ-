@@ -6,6 +6,7 @@ import { SocketService } from '../services/socketService';
 import { NotificationService } from '../services/notificationService';
 import fs from 'fs';
 import { EncryptionService } from '../services/encryptionService';
+import { ShareKeyService } from '../services/shareKeyService';
 import { StorageService } from '../services/storageService';
 import logger from '../config/logger';
 import { sendSuccess, sendCreated, sendError } from '../utils/response';
@@ -44,7 +45,7 @@ function sendInvalidStoredFile(res: Response, storagePath: string, encryptedSize
 
 function pipeDecryptStream(decryptStream: Readable, res: Response, errorMessage: string): void {
   decryptStream.on('error', (error) => {
-    logger.error({ error }, '[shareController] decrypt stream error');
+    logger.error({ err: error }, '[shareController] decrypt stream error');
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: errorMessage });
     } else {
@@ -52,6 +53,18 @@ function pipeDecryptStream(decryptStream: Readable, res: Response, errorMessage:
     }
   });
   decryptStream.pipe(res);
+}
+
+function resolveSharedAccessDek(
+  sharedFile: { file?: { userId?: string } | null; ownerWrappedDek?: string | null },
+  userId?: string,
+  requestDek?: Buffer
+): Buffer | undefined {
+  if (sharedFile.file?.userId && userId && sharedFile.file.userId === userId) {
+    return requestDek;
+  }
+
+  return ShareKeyService.unwrapOwnerDek(sharedFile.ownerWrappedDek);
 }
 
 export class ShareController {
@@ -64,6 +77,7 @@ export class ShareController {
         password,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         maxDownloads,
+        ownerWrappedDek: ShareKeyService.wrapOwnerDek(req.dekBuffer),
       });
 
       sendCreated(res, {
@@ -139,7 +153,10 @@ export class ShareController {
 
       await ShareService.incrementDownloadCount(token);
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(
+        storagePath,
+        ShareKeyService.unwrapOwnerDek(shareLink.ownerWrappedDek)
+      );
 
       res.setHeader('Content-Disposition', `attachment; filename="${shareLink.file!.name}"`);
       res.setHeader('Content-Type', shareLink.file!.mimeType);
@@ -211,7 +228,8 @@ export class ShareController {
         userId,
         folderId,
         targetUser.id,
-        { canRead, canWrite, canDelete, canShare }
+        { canRead, canWrite, canDelete, canShare },
+        ShareKeyService.wrapOwnerDek(req.dekBuffer)
       );
 
       SocketService.emitToUser(targetUser.id, 'share_received', {
@@ -245,6 +263,7 @@ export class ShareController {
     try {
       const userId = req.user!.id;
 
+      await ShareKeyService.backfillOwnerShareKeys(userId, ShareKeyService.wrapOwnerDek(req.dekBuffer));
       const sharedFolders = await ShareService.listSharedByMe(userId);
       sendSuccess(res, { sharedFolders });
     } catch (error) { next(error); }
@@ -292,6 +311,7 @@ export class ShareController {
           ownerId: userId,
           ownerName: req.user!.firstName || req.user!.email,
           targetEmail: targetUserEmail,
+          ownerWrappedDek: ShareKeyService.wrapOwnerDek(req.dekBuffer),
         });
 
         sendSuccess(res, {
@@ -306,7 +326,8 @@ export class ShareController {
         userId,
         fileId,
         targetUser.id,
-        { canRead, canWrite, canDelete, canShare }
+        { canRead, canWrite, canDelete, canShare },
+        ShareKeyService.wrapOwnerDek(req.dekBuffer)
       );
 
       SocketService.emitToUser(targetUser.id, 'share_received', {
@@ -340,6 +361,7 @@ export class ShareController {
     try {
       const userId = req.user!.id;
 
+      await ShareKeyService.backfillOwnerShareKeys(userId, ShareKeyService.wrapOwnerDek(req.dekBuffer));
       const sharedFiles = await ShareService.listFilesSharedByMe(userId);
       sendSuccess(res, { sharedFiles });
     } catch (error) { next(error); }
@@ -402,7 +424,10 @@ export class ShareController {
 
       const fileSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, req.dekBuffer);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(
+        storagePath,
+        resolveSharedAccessDek(sharedFile, userId, req.dekBuffer)
+      );
 
       res.writeHead(200, {
         'Content-Length': fileSize,
@@ -431,7 +456,10 @@ export class ShareController {
         return;
       }
 
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, req.dekBuffer);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(
+        storagePath,
+        resolveSharedAccessDek(sharedFile, userId, req.dekBuffer)
+      );
 
       res.setHeader('Content-Disposition', `attachment; filename="${sharedFile.file!.name}"`);
       res.setHeader('Content-Type', sharedFile.file!.mimeType);
@@ -530,6 +558,7 @@ export class ShareController {
         password,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         maxDownloads,
+        ownerWrappedDek: ShareKeyService.wrapOwnerDek(req.dekBuffer),
       });
 
       sendCreated(res, {
@@ -560,6 +589,7 @@ export class ShareController {
 
       const archiver = (await import('archiver')).default;
       const { EncryptionService } = await import('../services/encryptionService');
+      const ownerDek = ShareKeyService.unwrapOwnerDek(shareLink.ownerWrappedDek);
 
       res.setHeader('Content-Disposition', `attachment; filename="bundle-${shareLink.token.slice(0, 8)}.zip"`);
       res.setHeader('Content-Type', 'application/zip');
@@ -568,7 +598,7 @@ export class ShareController {
       archive.pipe(res);
 
       for (const file of files) {
-        const stream = await EncryptionService.getDecryptStreamAuto(file.storagePath);
+        const stream = await EncryptionService.getDecryptStreamAuto(file.storagePath, ownerDek);
         archive.append(stream as any, { name: file.name });
       }
 

@@ -9,6 +9,7 @@ import { JWTPayload } from '../types';
 import { MailService } from './mailService';
 import { PlanService } from './planService';
 import { KekService } from './kekService';
+import { ShareKeyService } from './shareKeyService';
 import { mfaService } from './mfaService';
 import logger from '../config/logger';
 
@@ -132,6 +133,10 @@ export class AuthService {
         logger.warn({ err }, '[AuthService.login] Impossible de déchiffrer le DEK utilisateur');
       }
     }
+
+    ShareKeyService.backfillOwnerShareKeys(user.id, wrappedDek).catch((err) =>
+      logger.warn({ err }, '[AuthService.login] Impossible de mettre a jour les cles de partage')
+    );
 
     // Generate token
     const token = generateToken(user.id, user.email, user.tokenVersion, { wrappedDek });
