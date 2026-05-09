@@ -112,6 +112,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
+      # API MinIO accessible en dev : http://localhost:9000
+      - "127.0.0.1:9000:9000"
       # Console MinIO accessible en dev : http://localhost:9001
       - "127.0.0.1:9001:9001"
     healthcheck:

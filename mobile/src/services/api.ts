@@ -1,8 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://supfile.fr/api';
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://supfile.fr';
+const API_URL = BASE.endsWith('/api') ? BASE : `${BASE}/api`;
 
 const api = axios.create({
   baseURL: API_URL,

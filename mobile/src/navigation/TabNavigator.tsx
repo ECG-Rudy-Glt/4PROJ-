@@ -7,6 +7,7 @@ import DashboardScreen from '../screens/main/DashboardScreen';
 import FilesScreen from '../screens/main/FilesScreen';
 import FavoritesScreen from '../screens/main/FavoritesScreen';
 import SharedScreen from '../screens/main/SharedScreen';
+import AIScreen from '../screens/main/AIScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -14,8 +15,8 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const tabIcons: Record<string, { focused: keyof typeof Ionicons.glyphMap; default: keyof typeof Ionicons.glyphMap }> = {
   Dashboard: { focused: 'home', default: 'home-outline' },
   Files: { focused: 'folder', default: 'folder-outline' },
-  Favorites: { focused: 'star', default: 'star-outline' },
   Shared: { focused: 'people', default: 'people-outline' },
+  AI: { focused: 'hardware-chip', default: 'hardware-chip-outline' },
   Settings: { focused: 'settings', default: 'settings-outline' },
 };
 
@@ -46,8 +47,8 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: 'Accueil' }} />
       <Tab.Screen name="Files" component={FilesScreen} options={{ tabBarLabel: 'Fichiers' }} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: 'Favoris' }} />
       <Tab.Screen name="Shared" component={SharedScreen} options={{ tabBarLabel: 'Partages' }} />
+      <Tab.Screen name="AI" component={AIScreen} options={{ tabBarLabel: 'Bobby' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Profil' }} />
     </Tab.Navigator>
   );

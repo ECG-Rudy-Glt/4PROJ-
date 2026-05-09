@@ -127,6 +127,7 @@ model User {
   delegationsReceived Delegation[] @relation("DelegationDelegate")
   notifications      Notification[]      // Notifications de l'utilisateur
   pushSubscriptions  PushSubscription[]  // Abonnements push navigateur
+  expoPushTokens     ExpoPushToken[]     // Tokens push Expo (mobile)
   conversations      Conversation[]      // Historique des conversations Bobby
 
   @@index([email])
@@ -580,6 +581,17 @@ model PushSubscription {
   endpoint  String   @unique
   p256dh    String
   auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ExpoPushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String
   createdAt DateTime @default(now())
 
   @@index([userId])

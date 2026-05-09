@@ -290,6 +290,8 @@ export type RootStackParamList = {
   Main: undefined;
   Trash: undefined;
   Admin: undefined;
+  Vault: undefined;
+  Audit: undefined;
 };
 
 export type TabParamList = {
@@ -297,5 +299,6 @@ export type TabParamList = {
   Files: { folderId?: string } | undefined;
   Favorites: undefined;
   Shared: undefined;
+  AI: undefined;
   Settings: undefined;
 };
