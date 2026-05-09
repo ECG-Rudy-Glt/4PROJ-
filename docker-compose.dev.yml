@@ -37,9 +37,9 @@ services:
       S3_SECRET_ACCESS_KEY: ${MINIO_APP_SECRET_KEY:-supfile_app_dev_only}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      API_URL: ${API_URL:-http://localhost:5001}
-      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:5001}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      API_URL: http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}
+      API_INTERNAL_URL: http://backend:${BACKEND_PORT:-5001}
+      FRONTEND_URL: http://${HOST_IP:-localhost}:${FRONTEND_PORT:-3000}
       PORT: ${BACKEND_PORT:-5001}
       UPLOAD_DIR: /app/uploads
       NODE_ENV: development
@@ -53,7 +53,7 @@ services:
       SMTP_MOCK: ${SMTP_MOCK:-false}
       MAIL_LOGO_URL: ${MAIL_LOGO_URL:-}
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
-      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:8080}
+      ONLYOFFICE_PUBLIC_URL: http://${HOST_IP:-localhost}:${ONLYOFFICE_PORT:-8080}
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -72,7 +72,7 @@ services:
       BRAIN_API_URL: ${BRAIN_API_URL:-http://brain-api:8001}
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY:-}
       DEK_WRAP_SECRET: ${DEK_WRAP_SECRET:-}
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+      VITE_API_URL: http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}
     volumes:
       - ./backend/src:/app/src
       - ./backend/prisma:/app/prisma
@@ -161,7 +161,7 @@ services:
     image: supfile-frontend:dev
     container_name: supfile-frontend
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+      VITE_API_URL: http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
