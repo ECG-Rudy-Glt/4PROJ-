@@ -11,16 +11,16 @@ export default {
         primary: {
           // Mode clair : vert foncé sur fond blanc
           // Mode sombre : vert clair sur fond noir
-          50: '#e6f2f1',   // Très clair - parfait pour dark mode
-          100: '#b3dbd8',  // Clair - bien pour dark mode
-          200: '#80c4be',  // Moyen clair - hover en dark mode
-          300: '#5A9A94',  // Vert menthe doux - principal en dark mode
-          400: '#478078',  // Moyen
-          500: '#3A6B66',  // Vert sauge - hover en light mode
-          600: '#254441',  // Vert-bleu profond - principal en light mode
-          700: '#1d3633',  // Foncé
-          800: '#162826',  // Très foncé
-          900: '#0f1a19',  // Ultra foncé
+          50: '#ebf5eb',
+          100: '#d6ebd6',
+          200: '#adcbad',
+          300: '#84ac84',
+          400: '#679467',
+          500: '#4a7c4a',
+          600: '#2d5a27',  // Vert forêt profond
+          700: '#244820',
+          800: '#1b3618',
+          900: '#122410',
         },
         accent: {
           warm: {

@@ -5,9 +5,9 @@
 @layer base {
   :root {
     /* Mode clair - couleurs verte foncées */
-    --color-primary: #254441;
-    --color-primary-hover: #3A6B66;
-    --color-primary-light: #5A9A94;
+    --color-primary: #2d5a27;
+    --color-primary-hover: #4a7c4a;
+    --color-primary-light: #84ac84;
     --color-accent-warm: #D4785C;
     --color-accent-bright: #E8B84A;
 
