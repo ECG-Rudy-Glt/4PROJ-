@@ -12,7 +12,7 @@ echo "========================================="
 echo ""
 
 if ! docker info > /dev/null 2>&1; then
-  echo "❌ Docker is not running. Please start Docker first."
+  echo "Error: Docker is not running. Please start Docker first."
   exit 1
 fi
 
@@ -21,7 +21,7 @@ if docker compose version > /dev/null 2>&1; then
 elif command -v docker-compose > /dev/null 2>&1; then
   DOCKER_COMPOSE="docker-compose"
 else
-  echo "❌ Docker Compose is not installed."
+  echo "Error: Docker Compose is not installed."
   exit 1
 fi
 
@@ -35,13 +35,13 @@ require_env() {
   local value
   value="$(get_env_value "$key" || true)"
   if [ -z "$value" ]; then
-    echo "❌ Variable .env requise manquante ou vide: $key"
+    echo "Error: Variable .env requise manquante ou vide: $key"
     exit 1
   fi
 }
 
 if [ ! -f ".env" ]; then
-  echo "❌ Fichier .env introuvable."
+  echo "Error: Fichier .env introuvable."
   echo "   Copiez .env.example vers .env puis renseignez les secrets de production locale."
   exit 1
 fi
@@ -56,7 +56,7 @@ require_env "MFA_ENCRYPTION_KEY"
 
 MFA_ENCRYPTION_KEY="$(get_env_value "MFA_ENCRYPTION_KEY")"
 if ! [[ "$MFA_ENCRYPTION_KEY" =~ ^[0-9a-fA-F]{64}$ ]]; then
-  echo "❌ MFA_ENCRYPTION_KEY doit être une chaîne hexadécimale de 64 caractères."
+  echo "Error: MFA_ENCRYPTION_KEY doit être une chaîne hexadécimale de 64 caractères."
   echo "   Génération suggérée: openssl rand -hex 32"
   exit 1
 fi
@@ -68,31 +68,31 @@ FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 BACKEND_PORT="${BACKEND_PORT:-5001}"
 ONLYOFFICE_PORT="${ONLYOFFICE_PORT:-8080}"
 
-echo "📦 Build et démarrage avec ${COMPOSE_FILE}..."
+echo "Build et démarrage avec ${COMPOSE_FILE}..."
 echo ""
 
 if ! $DOCKER_COMPOSE -f "$COMPOSE_FILE" up -d --build; then
   echo ""
-  echo "❌ Échec du démarrage. Logs :"
+  echo "Error: Échec du démarrage. Logs :"
   echo "   $DOCKER_COMPOSE -f $COMPOSE_FILE logs --tail=200"
   exit 1
 fi
 
 echo ""
-echo "⏳ Attente courte du démarrage des services..."
+echo "Attente courte du démarrage des services..."
 sleep 10
 
 echo ""
-echo "✅ SUPFILE est démarré en production locale."
+echo "SUPFILE est démarré en production locale."
 echo ""
-echo "🌐 Accès :"
+echo "Accès :"
 echo "   Frontend   : http://localhost:${FRONTEND_PORT}"
 echo "   Backend API: http://localhost:${BACKEND_PORT}"
 echo "   OnlyOffice : http://localhost:${ONLYOFFICE_PORT}"
 echo ""
-echo "📝 Logs :"
+echo "Logs :"
 echo "   $DOCKER_COMPOSE -f $COMPOSE_FILE logs -f"
 echo ""
-echo "🛑 Arrêter :"
+echo "Arrêter :"
 echo "   $DOCKER_COMPOSE -f $COMPOSE_FILE down"
 echo ""

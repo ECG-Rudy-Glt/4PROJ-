@@ -34,7 +34,7 @@ echo "Détection de votre adresse IP..."
 DETECTED_IP="$(detect_ip || true)"
 
 if [ -n "$DETECTED_IP" ]; then
-  echo "✓ Adresse IP détectée : $DETECTED_IP"
+  echo "Adresse IP détectée : $DETECTED_IP"
   echo ""
   read -r -p "Utiliser cette adresse IP ? (O/n) : " USE_DETECTED
 
@@ -45,7 +45,7 @@ if [ -n "$DETECTED_IP" ]; then
     FINAL_IP="$DETECTED_IP"
   fi
 else
-  echo "⚠ Impossible de détecter automatiquement votre IP"
+  echo "Attention: Impossible de détecter automatiquement votre IP"
   echo ""
   read -r -p "Entrez votre adresse IP manuellement : " CUSTOM_IP
   FINAL_IP="$CUSTOM_IP"
@@ -66,9 +66,9 @@ if [ -f ".env" ]; then
   set_env_value "VITE_API_URL" "http://$FINAL_IP:5001"
 
   rm -f .env.tmp
-  echo "✓ Fichier .env mis à jour"
+  echo "Fichier .env mis à jour"
 else
-  echo "✗ Fichier .env introuvable"
+  echo "Error: Fichier .env introuvable"
   echo "  Pour le dev, lancez ./scripts/hot-start.sh pour créer .env depuis .env.example."
   exit 1
 fi

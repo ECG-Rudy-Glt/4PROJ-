@@ -4,18 +4,16 @@
 mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails
 chown -R node:node /app/uploads 2>/dev/null || true
 
-echo "[entrypoint] Applying database migrations..."
-# Retry loop: depends_on service_healthy guarantees postgres listens, but init scripts
-# (creating supfile_app user) may still be running. Retry until migrate deploy succeeds.
+echo "[entrypoint] Syncing database schema..."
 MAX_RETRIES=30
 RETRY=0
-until npx prisma migrate deploy; do
+until npx prisma db push --accept-data-loss; do
   RETRY=$((RETRY + 1))
   if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
-    echo "[entrypoint] Migrations failed after ${MAX_RETRIES} attempts, exiting."
+    echo "[entrypoint] Schema sync failed after ${MAX_RETRIES} attempts, exiting."
     exit 1
   fi
-  echo "[entrypoint] Database not ready or migrations failed, retrying in 3s... ($RETRY/$MAX_RETRIES)"
+  echo "[entrypoint] Database not ready, retrying in 3s... ($RETRY/$MAX_RETRIES)"
   sleep 3
 done
 npx prisma generate
