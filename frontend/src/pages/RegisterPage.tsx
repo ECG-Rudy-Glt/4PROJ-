@@ -7,8 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { validatePasswordStrength } from '@/utils/validators';
 import MFASetupModal from '@/components/MFASetupModal';
 import BackupCodesModal from '@/components/BackupCodesModal';
+import { useMobileRedirect } from '@/hooks/useMobileRedirect';
 
 export default function RegisterPage() {
+  useMobileRedirect();
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     email: '',

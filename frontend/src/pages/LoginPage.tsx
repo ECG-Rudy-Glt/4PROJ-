@@ -6,8 +6,10 @@ import { Github } from 'lucide-react';
 import MFASetupModal from '@/components/MFASetupModal';
 import BackupCodesModal from '@/components/BackupCodesModal';
 import { useTranslation } from 'react-i18next';
+import { useMobileRedirect } from '@/hooks/useMobileRedirect';
 
 export default function LoginPage() {
+  useMobileRedirect();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
