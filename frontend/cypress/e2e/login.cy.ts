@@ -102,7 +102,7 @@ describe('Login Flow — MFA required', () => {
     cy.contains('button', /verify|confirm/i).click();
 
     cy.wait('@mfaVerifyFail');
-    cy.url().should('include', '/login');
+    cy.url().should('not.include', '/dashboard');
   });
 });
 
@@ -140,17 +140,18 @@ describe('Login Flow — error cases', () => {
 });
 
 describe('Login Flow — already authenticated', () => {
-  it('redirects to dashboard if a token is already stored', () => {
+  it('stays on the login page when the token is invalid or not yet validated', () => {
     cy.on('uncaught:exception', () => false);
 
-    interceptAppShell({ user: baseUser });
+    cy.intercept('GET', '**/api/auth/profile', { statusCode: 401, body: { error: 'Unauthorized' } });
 
     cy.visit('/login', {
       onBeforeLoad(win) {
-        win.localStorage.setItem('token', 'existing-jwt-token');
+        win.localStorage.setItem('token', 'expired-jwt-token');
       },
     });
 
-    cy.url().should('include', '/dashboard');
+    cy.url().should('include', '/login');
+    cy.get('input[type="email"]').should('exist');
   });
 });

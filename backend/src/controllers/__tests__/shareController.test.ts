@@ -38,7 +38,11 @@ jest.mock('../../services/shareInvitationService', () => ({
 }));
 
 jest.mock('../../services/shareKeyService', () => ({
-  ShareKeyService: {},
+  ShareKeyService: {
+    unwrapOwnerDek: jest.fn().mockReturnValue(undefined),
+    wrapOwnerDek: jest.fn().mockReturnValue(undefined),
+    backfillOwnerShareKeys: jest.fn(),
+  },
 }));
 
 jest.mock('../../services/socketService', () => ({
@@ -108,7 +112,7 @@ describe('ShareController shared file storage streaming', () => {
     expect(fs.existsSync).not.toHaveBeenCalled();
     expect(fs.statSync).not.toHaveBeenCalled();
     expect(ShareService.incrementDownloadCount).toHaveBeenCalledWith('public-token');
-    expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('files/shared.enc');
+    expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('files/shared.enc', undefined);
     expect(decryptStream.pipe).toHaveBeenCalledWith(res);
   });
 
@@ -127,7 +131,7 @@ describe('ShareController shared file storage streaming', () => {
     expect(fs.existsSync).toHaveBeenCalledWith('/data/uploads/shared.enc');
     expect(fs.statSync).toHaveBeenCalledWith('/data/uploads/shared.enc');
     expect(StorageService.getObjectSize).not.toHaveBeenCalled();
-    expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('/data/uploads/shared.enc');
+    expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('/data/uploads/shared.enc', undefined);
     expect(decryptStream.pipe).toHaveBeenCalledWith(res);
   });
 
@@ -135,7 +139,7 @@ describe('ShareController shared file storage streaming', () => {
     const decryptStream = createDecryptStream();
     const dekBuffer = Buffer.from('dek');
     (ShareService.getSharedFileAccess as jest.Mock).mockResolvedValue({
-      file: createFile('files/shared.enc'),
+      file: { ...createFile('files/shared.enc'), userId: 'user-1' },
     });
     (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue(decryptStream);
 
@@ -156,7 +160,7 @@ describe('ShareController shared file storage streaming', () => {
     const dekBuffer = Buffer.from('dek');
     (StorageService.getObjectSize as jest.Mock).mockResolvedValue(132);
     (ShareService.getSharedFileAccess as jest.Mock).mockResolvedValue({
-      file: createFile('files/shared.enc'),
+      file: { ...createFile('files/shared.enc'), userId: 'user-1' },
     });
     (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue(decryptStream);
 

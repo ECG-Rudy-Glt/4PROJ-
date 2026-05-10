@@ -90,6 +90,7 @@ describe('permissions accepted shares', () => {
         folderId: 'folder-1',
         sharedWithId: 'shared-user',
         accepted: true,
+        canRead: true,
       },
     });
   });
@@ -104,6 +105,7 @@ describe('permissions accepted shares', () => {
         folderId: 'folder-1',
         sharedWithId: 'shared-user',
         accepted: true,
+        canRead: true,
       },
     });
   });
