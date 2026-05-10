@@ -9,6 +9,9 @@ jest.mock('../../config/database', () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    folder: {
+      findUnique: jest.fn(),
+    },
     sharedFolder: {
       findFirst: jest.fn(),
     },
@@ -43,6 +46,7 @@ describe('FileQueryService share acceptance checks', () => {
   });
 
   it('does not list files from pending folder shares', async () => {
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.file.findMany as jest.Mock).mockResolvedValue([]);
 
@@ -66,6 +70,7 @@ describe('FileQueryService share acceptance checks', () => {
   });
 
   it('lists files from accepted folder shares with read permission', async () => {
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue({
       canRead: true,
       canWrite: false,

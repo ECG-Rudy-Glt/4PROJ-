@@ -10,6 +10,9 @@ jest.mock('../../config/database', () => ({
     file: {
       findUnique: jest.fn(),
     },
+    folder: {
+      findUnique: jest.fn(),
+    },
     sharedFolder: {
       findFirst: jest.fn(),
     },
@@ -101,6 +104,7 @@ describe('SharedFileService.getSharedFileAccess', () => {
       folderId: 'folder-1',
       isVault: false,
     });
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
 
     await expect(SharedFileService.getSharedFileAccess('file-1', 'shared-user')).rejects.toThrow(
@@ -123,6 +127,7 @@ describe('SharedFileService.getSharedFileAccess', () => {
       folderId: 'folder-1',
       isVault: false,
     });
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue({
       canRead: true,
       canWrite: false,
@@ -143,6 +148,7 @@ describe('SharedFileService.getSharedFileAccess', () => {
       folderId: 'folder-1',
       isVault: false,
     });
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
 
     await expect(SharedFileService.getSharedFileAccess('file-1', 'other-user')).rejects.toThrow(

@@ -3,9 +3,9 @@ name: CI Pipeline
 # Déclenchement sur push et PR vers les branches principales
 on:
   push:
-    branches: [ main, claude-proto, scanning_code ]
+    branches: [ main]
   pull_request:
-    branches: [ main, claude-proto, scanning_code ]
+    branches: [ main]
 
 # Permissions globales : lecture seule par défaut (principe de moindre privilège)
 # Les jobs qui ont besoin de plus de droits les déclarent localement (ex: docker-push)
@@ -157,7 +157,41 @@ jobs:
           wait-on: 'http://localhost:4173'
 
   # ===========================
-  # [2c] SAST — ANALYSE STATIQUE DE SÉCURITÉ (Semgrep)
+  # [2c] QUALITÉ MOBILE
+  # Installe les dépendances, exécute les tests unitaires Jest
+  # sur les services React Native (auth, fichiers, etc.).
+  # ===========================
+  mobile-checks:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mobile
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: ./mobile/node_modules
+          key: ${{ runner.os }}-mobile-${{ hashFiles('./mobile/package.json') }}
+          restore-keys: ${{ runner.os }}-mobile-
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Mobile Unit Tests
+        run: npm test
+
+  # ===========================
+  # [2d] SAST — ANALYSE STATIQUE DE SÉCURITÉ (Semgrep)
   # Analyse le code source à la recherche de vulnérabilités connues
   # via les règles communautaires Semgrep (défaut, Node.js, React).
   # Bloque le pipeline sur toute finding de niveau ERROR.
@@ -215,7 +249,7 @@ jobs:
   #               conservé 90 jours comme artifact CI pour traçabilité supply chain
   # ===========================
   docker-build:
-    needs: [ backend-checks, frontend-checks, semgrep, trufflehog ]
+    needs: [ backend-checks, frontend-checks, mobile-checks, semgrep, trufflehog ]
     runs-on: ubuntu-latest
 
     steps:

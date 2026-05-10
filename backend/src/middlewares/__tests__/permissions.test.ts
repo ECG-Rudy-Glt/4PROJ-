@@ -7,6 +7,9 @@ jest.mock('../../config/database', () => ({
     file: {
       findUnique: jest.fn(),
     },
+    folder: {
+      findUnique: jest.fn(),
+    },
     sharedFile: {
       findFirst: jest.fn(),
     },
@@ -74,6 +77,7 @@ describe('permissions accepted shares', () => {
       folderId: 'folder-1',
     });
     (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue({
       id: 'folder-share-1',
       canRead: true,
@@ -91,6 +95,7 @@ describe('permissions accepted shares', () => {
   });
 
   it('refuses folder permissions before acceptance', async () => {
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({ id: 'folder-1', parentId: null });
     (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
 
     await expect(checkSharedFolderPermission('shared-user', 'folder-1', 'read')).resolves.toBe(false);

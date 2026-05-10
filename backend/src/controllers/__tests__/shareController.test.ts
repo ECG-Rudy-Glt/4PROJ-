@@ -37,6 +37,10 @@ jest.mock('../../services/shareInvitationService', () => ({
   ShareInvitationService: {},
 }));
 
+jest.mock('../../services/shareKeyService', () => ({
+  ShareKeyService: {},
+}));
+
 jest.mock('../../services/socketService', () => ({
   SocketService: {},
 }));
