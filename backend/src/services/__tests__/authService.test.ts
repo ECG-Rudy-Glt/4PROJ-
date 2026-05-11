@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
 import { AuthService } from '../authService';
 import { generateToken } from '../../utils/jwt';
+import { mfaService } from '../mfaService';
 
 jest.mock('../../config/database', () => ({
   __esModule: true,
@@ -363,6 +364,49 @@ describe('AuthService', () => {
       expect(generateToken).toHaveBeenCalledWith('user-1', 'user@example.com', 3, { wrappedDek: 'wrapped-dek' });
       expect(result).toMatchObject({ token: 'new-access-token' });
       expect(result).not.toHaveProperty('dekUnlockRequired');
+    });
+  });
+
+  describe('changePassword', () => {
+    const mfaUser = {
+      id: 'user-1',
+      email: 'secure@example.com',
+      password: 'hashed-old-password',
+      firstName: 'Secure',
+      language: 'fr',
+      mfaEnabled: true,
+      encryptedDek: null,
+      kekSalt: null,
+    };
+
+    it('should return a validation error when MFA code is missing', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mfaUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(AuthService.changePassword('user-1', 'old-password', 'new-password')).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'MFA_REQUIRED',
+        message: 'Code MFA requis.',
+      });
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+    });
+
+    it('should return a validation error when MFA code is invalid', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mfaUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (mfaService.verifyUserTOTPCode as jest.Mock).mockResolvedValue(false);
+      (mfaService.verifyBackupCode as jest.Mock).mockResolvedValue(false);
+
+      await expect(AuthService.changePassword('user-1', 'old-password', 'new-password', '000000')).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'MFA_INVALID',
+        message: 'Code MFA invalide.',
+      });
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(bcrypt.hash).not.toHaveBeenCalled();
     });
   });
 

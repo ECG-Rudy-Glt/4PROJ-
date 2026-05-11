@@ -332,7 +332,7 @@ export class AuthService {
 
     if (user.mfaEnabled) {
       if (!mfaCode) {
-        throw new AppError(401, 'Code MFA requis.');
+        throw new AppError(400, 'Code MFA requis.', 'MFA_REQUIRED');
       }
 
       const isTotpValid = await mfaService.verifyUserTOTPCode(user.id, mfaCode);
@@ -343,7 +343,7 @@ export class AuthService {
       }
 
       if (!isTotpValid && !isBackupValid) {
-        throw new AppError(401, 'Code MFA invalide.');
+        throw new AppError(400, 'Code MFA invalide.', 'MFA_INVALID');
       }
     }
 
