@@ -5,9 +5,11 @@ yarn.lock
 pnpm-lock.yaml
 
 # Environment variables (whitelist approach: ignore all, except examples)
+.env
+.env.*
+!.env.example
 env
 env.*
-!.env.example
 
 # Build outputs
 dist/
