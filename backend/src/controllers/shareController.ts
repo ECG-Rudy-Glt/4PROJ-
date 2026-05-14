@@ -1,6 +1,5 @@
 import { Response, NextFunction, Request } from 'express';
 import { ShareService } from '../services/shareService';
-import { ShareInvitationService } from '../services/shareInvitationService';
 import { AuthRequest } from '../types';
 import { SocketService } from '../services/socketService';
 import { NotificationService } from '../services/notificationService';
@@ -71,7 +70,12 @@ export class ShareController {
   static async createShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { fileId, password, expiresAt, maxDownloads } = req.body;
+      const { fileId, folderId, password, expiresAt, maxDownloads } = req.body;
+
+      if (folderId || !fileId) {
+        sendError(res, 'Le partage public de dossier n’est pas supporté', 400);
+        return;
+      }
 
       const shareLink = await ShareService.createShareLink(userId, fileId, {
         password,
@@ -209,18 +213,7 @@ export class ShareController {
       });
 
       if (!targetUser) {
-        await ShareInvitationService.inviteByEmailToFolder({
-          folderId,
-          ownerId: userId,
-          ownerName: req.user!.firstName || req.user!.email,
-          targetEmail: targetUserEmail,
-        });
-
-        sendSuccess(res, {
-          message: 'Invitation envoyée à créer un compte',
-          isNewUser: true,
-          sharedFolder: null,
-        });
+        sendError(res, 'Utilisateur destinataire introuvable', 404);
         return;
       }
 
@@ -306,19 +299,7 @@ export class ShareController {
       });
 
       if (!targetUser) {
-        await ShareInvitationService.inviteByEmailToFile({
-          fileId,
-          ownerId: userId,
-          ownerName: req.user!.firstName || req.user!.email,
-          targetEmail: targetUserEmail,
-          ownerWrappedDek: ShareKeyService.wrapOwnerDek(req.dekBuffer),
-        });
-
-        sendSuccess(res, {
-          message: 'Invitation envoyée avec succès',
-          isNewUser: true,
-          sharedFile: null,
-        });
+        sendError(res, 'Utilisateur destinataire introuvable', 404);
         return;
       }
 

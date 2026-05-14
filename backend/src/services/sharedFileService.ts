@@ -17,6 +17,11 @@ type Permissions = {
 const sharedBySelect = { select: { id: true, email: true, firstName: true, lastName: true } };
 const sharedWithSelect = { select: { id: true, email: true, firstName: true, lastName: true } };
 
+const userDisplayName = (user?: { email?: string | null; firstName?: string | null; lastName?: string | null }) => {
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  return fullName || user?.email || 'Un utilisateur';
+};
+
 export class SharedFileService {
   static async shareFile(
     userId: string,
@@ -31,6 +36,10 @@ export class SharedFileService {
 
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) throw new Error('Target user not found');
+    if (targetUser.id === userId) throw new Error('Impossible de partager un fichier avec vous-même');
+    if (targetUser.accountStatus !== 'ACTIVE') {
+      throw new Error('Le compte destinataire est inactif ou suspendu');
+    }
 
     const existing = await prisma.sharedFile.findFirst({ where: { fileId, sharedWithId: targetUserId } });
     if (existing) throw new Error('File already shared with this user');
@@ -52,8 +61,24 @@ export class SharedFileService {
     });
 
     try {
-      const owner = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      await MailService.sendShareNotification(targetUser.email, owner?.email || 'Un utilisateur', file.name, 'file');
+      const owner = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, firstName: true, lastName: true },
+      });
+      await MailService.sendShareNotification(
+        targetUser.email,
+        userDisplayName(owner),
+        file.name,
+        'file',
+        undefined,
+        targetUser.language,
+        {
+          canRead: permissions.canRead ?? true,
+          canWrite: permissions.canWrite ?? false,
+          canDelete: permissions.canDelete ?? false,
+          canShare: permissions.canShare ?? false,
+        }
+      );
     } catch (error) {
       logger.error({ err: error }, 'Error sending file share notification');
     }
@@ -66,7 +91,7 @@ export class SharedFileService {
 
   static async listFilesSharedWithMe(userId: string) {
     const sharedFiles = await prisma.sharedFile.findMany({
-      where: { sharedWithId: userId, accepted: true },
+      where: { sharedWithId: userId, accepted: true, file: { is: { isDeleted: false } } },
       include: { file: true, sharedBy: sharedBySelect },
       orderBy: { createdAt: 'desc' },
     });
@@ -75,7 +100,7 @@ export class SharedFileService {
 
   static async listFilesSharedByMe(userId: string) {
     const sharedFiles = await prisma.sharedFile.findMany({
-      where: { sharedById: userId },
+      where: { sharedById: userId, file: { is: { isDeleted: false } } },
       include: { file: true, sharedWith: sharedWithSelect },
       orderBy: { createdAt: 'desc' },
     });
@@ -94,7 +119,9 @@ export class SharedFileService {
   }
 
   static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
-    const sharedFile = await prisma.sharedFile.findFirst({ where: { id: shareId, sharedById: userId } });
+    const sharedFile = await prisma.sharedFile.findFirst({
+      where: { id: shareId, sharedById: userId, file: { is: { isDeleted: false } } },
+    });
     if (!sharedFile) throw new Error('Shared file not found');
 
     const updatedShare = await prisma.sharedFile.update({
@@ -111,7 +138,9 @@ export class SharedFileService {
   }
 
   static async removeSharedFile(shareId: string, userId: string) {
-    const sharedFile = await prisma.sharedFile.findFirst({ where: { id: shareId, sharedById: userId } });
+    const sharedFile = await prisma.sharedFile.findFirst({
+      where: { id: shareId, sharedById: userId, file: { is: { isDeleted: false } } },
+    });
     if (!sharedFile) throw new Error('Shared file not found');
 
     await prisma.sharedFile.delete({ where: { id: shareId } });
@@ -125,12 +154,14 @@ export class SharedFileService {
     });
 
     if (sharedFile) {
+      if (sharedFile.file.isDeleted) throw new Error('File not found');
       if (sharedFile.file.isVault) throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
       return sharedFile;
     }
 
     const file = await prisma.file.findUnique({ where: { id: fileId }, include: { folder: true } });
-    if (!file) throw new Error('File not found');
+    if (!file || file.isDeleted) throw new Error('File not found');
+    if (file.folder?.isDeleted) throw new Error('File not found');
 
     if (file.folderId) {
       if (file.isVault) throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
@@ -153,7 +184,7 @@ export class SharedFileService {
 
   static async getPendingFiles(userId: string) {
     const pendingFiles = await prisma.sharedFile.findMany({
-      where: { sharedWithId: userId, accepted: false },
+      where: { sharedWithId: userId, accepted: false, file: { is: { isDeleted: false } } },
       include: {
         file: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
         sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
@@ -163,8 +194,10 @@ export class SharedFileService {
   }
 
   static async acceptSharedFile(shareId: string, userId: string) {
-    const sharedFile = await prisma.sharedFile.findUnique({ where: { id: shareId } });
-    if (!sharedFile || sharedFile.sharedWithId !== userId) throw new Error('Shared file not found or not shared with you');
+    const sharedFile = await prisma.sharedFile.findUnique({ where: { id: shareId }, include: { file: true } });
+    if (!sharedFile || sharedFile.sharedWithId !== userId || sharedFile.file.isDeleted) {
+      throw new Error('Shared file not found or not shared with you');
+    }
 
     const acceptedFile = await prisma.sharedFile.update({
       where: { id: shareId },
@@ -175,8 +208,10 @@ export class SharedFileService {
   }
 
   static async rejectSharedFile(shareId: string, userId: string) {
-    const sharedFile = await prisma.sharedFile.findUnique({ where: { id: shareId } });
-    if (!sharedFile || sharedFile.sharedWithId !== userId) throw new Error('Shared file not found or not shared with you');
+    const sharedFile = await prisma.sharedFile.findUnique({ where: { id: shareId }, include: { file: true } });
+    if (!sharedFile || sharedFile.sharedWithId !== userId || sharedFile.file.isDeleted) {
+      throw new Error('Shared file not found or not shared with you');
+    }
 
     return prisma.sharedFile.delete({ where: { id: shareId } });
   }
@@ -186,7 +221,7 @@ export class SharedFileService {
       where: {
         sharedWithId: userId,
         accepted: true,
-        ...(vaultUnlocked ? {} : { file: { isVault: false } }),
+        file: { is: { isDeleted: false, ...(vaultUnlocked ? {} : { isVault: false }) } },
       },
       include: {
         file: {

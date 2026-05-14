@@ -30,23 +30,35 @@ const resolvePerms = (input: Permissions) => ({
 const sharedBySelect = { select: { id: true, email: true, firstName: true, lastName: true } };
 const sharedWithSelect = { select: { id: true, email: true, firstName: true, lastName: true } };
 
+const userDisplayName = (user?: { email?: string | null; firstName?: string | null; lastName?: string | null }) => {
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  return fullName || user?.email || 'Un utilisateur';
+};
+
 export class SharedFolderService {
   private static async isFolderWithinRoot(folderId: string, rootFolderId: string): Promise<boolean> {
-    if (folderId === rootFolderId) return true;
+    if (folderId === rootFolderId) {
+      const folder = await prisma.folder.findFirst({
+        where: { id: folderId, isDeleted: false, isVault: false },
+        select: { id: true },
+      });
+      return Boolean(folder);
+    }
 
     const visited = new Set<string>();
     let current = await prisma.folder.findUnique({
       where: { id: folderId },
-      select: { parentId: true },
+      select: { parentId: true, isDeleted: true, isVault: true },
     });
 
     while (current?.parentId) {
+      if (current.isDeleted || current.isVault) return false;
       if (current.parentId === rootFolderId) return true;
       if (visited.has(current.parentId)) return false;
       visited.add(current.parentId);
       current = await prisma.folder.findUnique({
         where: { id: current.parentId },
-        select: { parentId: true },
+        select: { parentId: true, isDeleted: true, isVault: true },
       });
     }
 
@@ -60,12 +72,16 @@ export class SharedFolderService {
     permissions: Permissions = {},
     ownerWrappedDek?: string
   ) {
-    const folder = await prisma.folder.findFirst({ where: { id: folderId, userId } });
+    const folder = await prisma.folder.findFirst({ where: { id: folderId, userId, isDeleted: false } });
     if (!folder) throw new Error('Folder not found');
     if (folder.isVault) throw new Error('Le partage est interdit pour les dossiers du coffre-fort');
 
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) throw new Error('Target user not found');
+    if (targetUser.id === userId) throw new Error('Impossible de partager un dossier avec vous-même');
+    if (targetUser.accountStatus !== 'ACTIVE') {
+      throw new Error('Le compte destinataire est inactif ou suspendu');
+    }
 
     const existing = await prisma.sharedFolder.findFirst({ where: { folderId, sharedWithId: targetUserId } });
     if (existing) throw new Error('Folder already shared with this user');
@@ -82,8 +98,19 @@ export class SharedFolderService {
     });
 
     try {
-      const owner = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      await MailService.sendShareNotification(targetUser.email, owner?.email || 'Un utilisateur', folder.name, 'folder');
+      const owner = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, firstName: true, lastName: true },
+      });
+      await MailService.sendShareNotification(
+        targetUser.email,
+        userDisplayName(owner),
+        folder.name,
+        'folder',
+        undefined,
+        targetUser.language,
+        resolvePerms(permissions)
+      );
     } catch (error) {
       logger.error({ err: error }, 'Error sending folder share notification');
     }
@@ -96,7 +123,7 @@ export class SharedFolderService {
 
   static async listSharedWithMe(userId: string) {
     const sharedFolders = await prisma.sharedFolder.findMany({
-      where: { sharedWithId: userId, accepted: true },
+      where: { sharedWithId: userId, accepted: true, folder: { is: { isDeleted: false } } },
       include: { folder: true, sharedBy: sharedBySelect },
       orderBy: { createdAt: 'desc' },
     });
@@ -105,7 +132,7 @@ export class SharedFolderService {
 
   static async listSharedByMe(userId: string) {
     const sharedFolders = await prisma.sharedFolder.findMany({
-      where: { sharedById: userId },
+      where: { sharedById: userId, folder: { is: { isDeleted: false } } },
       include: { folder: true, sharedWith: sharedWithSelect },
       orderBy: { createdAt: 'desc' },
     });
@@ -113,7 +140,9 @@ export class SharedFolderService {
   }
 
   static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
-    const sharedFolder = await prisma.sharedFolder.findFirst({ where: { id: shareId, sharedById: userId } });
+    const sharedFolder = await prisma.sharedFolder.findFirst({
+      where: { id: shareId, sharedById: userId, folder: { is: { isDeleted: false } } },
+    });
     if (!sharedFolder) throw new Error('Shared folder not found');
 
     const updatedShare = await prisma.sharedFolder.update({
@@ -130,7 +159,9 @@ export class SharedFolderService {
   }
 
   static async removeSharedFolder(shareId: string, userId: string) {
-    const sharedFolder = await prisma.sharedFolder.findFirst({ where: { id: shareId, sharedById: userId } });
+    const sharedFolder = await prisma.sharedFolder.findFirst({
+      where: { id: shareId, sharedById: userId, folder: { is: { isDeleted: false } } },
+    });
     if (!sharedFolder) throw new Error('Shared folder not found');
 
     await prisma.sharedFolder.delete({ where: { id: shareId } });
@@ -139,7 +170,7 @@ export class SharedFolderService {
 
   static async getPendingFolders(userId: string) {
     const pendingFolders = await prisma.sharedFolder.findMany({
-      where: { sharedWithId: userId, accepted: false },
+      where: { sharedWithId: userId, accepted: false, folder: { is: { isDeleted: false } } },
       include: {
         folder: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
         sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
@@ -149,8 +180,10 @@ export class SharedFolderService {
   }
 
   static async acceptSharedFolder(shareId: string, userId: string) {
-    const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId } });
-    if (!sharedFolder || sharedFolder.sharedWithId !== userId) throw new Error('Shared folder not found or not shared with you');
+    const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId }, include: { folder: true } });
+    if (!sharedFolder || sharedFolder.sharedWithId !== userId || sharedFolder.folder.isDeleted) {
+      throw new Error('Shared folder not found or not shared with you');
+    }
 
     const acceptedFolder = await prisma.sharedFolder.update({
       where: { id: shareId },
@@ -161,16 +194,30 @@ export class SharedFolderService {
   }
 
   static async rejectSharedFolder(shareId: string, userId: string) {
-    const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId } });
-    if (!sharedFolder || sharedFolder.sharedWithId !== userId) throw new Error('Shared folder not found or not shared with you');
+    const sharedFolder = await prisma.sharedFolder.findUnique({ where: { id: shareId }, include: { folder: true } });
+    if (!sharedFolder || sharedFolder.sharedWithId !== userId || sharedFolder.folder.isDeleted) {
+      throw new Error('Shared folder not found or not shared with you');
+    }
 
     return prisma.sharedFolder.delete({ where: { id: shareId } });
   }
 
   static async getSharedFolderContents(folderId: string, userId: string, rootFolderId?: string) {
     const idToCheck = rootFolderId ?? folderId;
+    const requestedFolder = await prisma.folder.findFirst({
+      where: { id: folderId, isDeleted: false, isVault: false },
+      select: { id: true },
+    });
+    if (!requestedFolder) throw new Error('Accès refusé à ce dossier');
+
     const share = await prisma.sharedFolder.findFirst({
-      where: { folderId: idToCheck, sharedWithId: userId, accepted: true, canRead: true },
+      where: {
+        folderId: idToCheck,
+        sharedWithId: userId,
+        accepted: true,
+        canRead: true,
+        folder: { is: { isDeleted: false, isVault: false } },
+      },
     });
     if (!share) throw new Error('Accès refusé à ce dossier');
     const isAllowedFolder = await SharedFolderService.isFolderWithinRoot(folderId, idToCheck);
@@ -195,7 +242,7 @@ export class SharedFolderService {
       where: {
         sharedWithId: userId,
         accepted: true,
-        ...(vaultUnlocked ? {} : { folder: { isVault: false } }),
+        folder: { is: { isDeleted: false, ...(vaultUnlocked ? {} : { isVault: false }) } },
       },
       include: {
         folder: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },

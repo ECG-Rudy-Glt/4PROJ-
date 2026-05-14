@@ -69,11 +69,16 @@ export class SharedLinkService {
       where: { token },
       include: {
         file: true,
-        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } },
       },
     });
 
     if (!shareLink) throw new Error('Share link not found');
+    if (shareLink.user.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
+    if (!shareLink.bundleFileIds) {
+      if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
+      if (shareLink.file.isDeleted) throw new Error('Share link is unavailable');
+    }
     if (shareLink.file?.isVault) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
     if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
     if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) throw new Error('Share link download limit reached');
@@ -113,7 +118,7 @@ export class SharedLinkService {
       where: { id: { in: fileIds }, userId, isDeleted: false },
     });
 
-    if (files.length === 0) throw new Error('Aucun fichier trouvé');
+    if (files.length !== fileIds.length) throw new Error('Un ou plusieurs fichiers sont introuvables');
     if (files.some((f) => f.isVault)) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
 
     await this.assertShareLimit(userId);
@@ -147,11 +152,12 @@ export class SharedLinkService {
     const shareLink = await prisma.sharedLink.findUnique({
       where: { token },
       include: {
-        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } },
       },
     });
 
     if (!shareLink || !shareLink.bundleFileIds) throw new Error('Bundle share link not found');
+    if (shareLink.user.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
     if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
     if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) throw new Error('Share link download limit reached');
 
@@ -165,6 +171,12 @@ export class SharedLinkService {
     const files = await prisma.file.findMany({
       where: { id: { in: fileIds }, isDeleted: false },
     });
+    if (files.length !== fileIds.length) {
+      throw new Error('One or more shared files are no longer available');
+    }
+    if (files.some((file) => file.isVault)) {
+      throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+    }
 
     return { shareLink, files };
   }
