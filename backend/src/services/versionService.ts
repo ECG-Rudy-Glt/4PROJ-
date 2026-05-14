@@ -7,7 +7,9 @@ import { PlanService } from './planService';
 import { EncryptionService } from './encryptionService';
 import { FileIndexService } from './fileIndexService';
 import { VaultService } from './vaultService';
-import { acceptedSharePermissionWhere } from '../middlewares/permissions';
+import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
+import { ShareKeyService } from './shareKeyService';
+import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 import logger from '../config/logger';
 
 export class VersionService {
@@ -54,6 +56,28 @@ export class VersionService {
     }
     await VaultService.assertUnlockedIfVault(userId, file.isVault && file.userId === userId);
 
+    let encryptionDek = dek;
+    if (file.userId !== userId) {
+      const sharedFile = await prisma.sharedFile.findFirst({
+        where: {
+          fileId,
+          ...acceptedSharePermissionWhere(userId, 'write'),
+        },
+        select: { ownerWrappedDek: true },
+      });
+      const sharedFolder = !sharedFile && file.folderId
+        ? await findSharedFolderAccessRoot(userId, file.folderId, 'write')
+        : null;
+
+      encryptionDek = ShareKeyService.unwrapOwnerDek(
+        sharedFile?.ownerWrappedDek || sharedFolder?.ownerWrappedDek
+      );
+
+      if (!encryptionDek) {
+        throw new Error(DEK_UNLOCK_REQUIRED);
+      }
+    }
+
     const quotaOwnerId = file.userId;
     const maxVersions = await PlanService.getNumericLimit(quotaOwnerId, 'maxVersions');
     if (maxVersions !== null) {
@@ -90,7 +114,7 @@ export class VersionService {
       throw new Error('Quota exceeded');
     }
 
-    await EncryptionService.encryptFileToS3(newFilePath, s3Key, dek);
+    await EncryptionService.encryptFileToS3(newFilePath, s3Key, encryptionDek);
 
     let version;
     try {
@@ -149,7 +173,11 @@ export class VersionService {
       throw error;
     }
 
-    FileIndexService.indexFileAsync(fileId, userId);
+    if (encryptionDek) {
+      FileIndexService.indexFileAsync(fileId, quotaOwnerId, encryptionDek);
+    } else {
+      FileIndexService.indexFileAsync(fileId, quotaOwnerId);
+    }
 
     return version;
   }
@@ -207,15 +235,25 @@ export class VersionService {
   /**
    * Restaurer une version spécifique
    */
-  static async restoreVersion(versionId: string, fileId: string, userId: string) {
+  static async restoreVersion(versionId: string, fileId: string, userId: string, dek?: Buffer) {
     const file = await prisma.file.findFirst({
       where: { id: fileId, userId, isDeleted: false },
+      include: {
+        user: {
+          select: {
+            encryptedDek: true,
+          },
+        },
+      },
     });
 
     if (!file) {
       throw new Error('Fichier introuvable');
     }
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
+    if (file.user?.encryptedDek && !dek) {
+      throw new Error(DEK_UNLOCK_REQUIRED);
+    }
 
     const version = await prisma.fileVersion.findUnique({
       where: { id: versionId },
@@ -228,6 +266,7 @@ export class VersionService {
     if (version.storagePath === file.storagePath) {
       throw new Error('Impossible de restaurer une version qui référence le fichier courant');
     }
+    await this.assertVersionReadable(version.storagePath, dek);
 
     const quotaOwnerId = file.userId;
     const maxVersions = await PlanService.getNumericLimit(quotaOwnerId, 'maxVersions');
@@ -318,7 +357,11 @@ export class VersionService {
       throw error;
     }
 
-    FileIndexService.indexFileAsync(fileId, userId);
+    if (dek) {
+      FileIndexService.indexFileAsync(fileId, userId, dek);
+    } else {
+      FileIndexService.indexFileAsync(fileId, userId);
+    }
 
     return await prisma.file.findUnique({
       where: { id: fileId },
@@ -338,6 +381,20 @@ export class VersionService {
         },
       },
     });
+  }
+
+  private static async assertVersionReadable(storagePath: string, dek?: Buffer): Promise<void> {
+    try {
+      const stream = await EncryptionService.getDecryptStreamAuto(storagePath, dek);
+      await new Promise<void>((resolve, reject) => {
+        stream.on('error', reject);
+        stream.on('end', resolve);
+        stream.resume();
+      });
+    } catch (error) {
+      logger.warn({ err: error, storagePath }, 'Refusing to restore unreadable file version');
+      throw new Error('Version illisible ou corrompue');
+    }
   }
 
   /**
