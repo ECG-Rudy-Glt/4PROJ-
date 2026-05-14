@@ -67,6 +67,13 @@ export default function MFASettingsSection() {
     }
   };
 
+  const handleRegenerateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regenerating) {
+      void handleRegenerateCodes();
+    }
+  };
+
   const handleCodeChange = (value: string) => {
     const numericValue = value.replace(/[^0-9]/g, '').slice(0, 6);
     setRegenerateCode(numericValue);
@@ -194,7 +201,7 @@ export default function MFASettingsSection() {
       {/* Modal de régénération */}
       {showRegenerateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full">
+          <form onSubmit={handleRegenerateSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {t('mfa.regenerate_modal_title')}
             </h3>
@@ -219,6 +226,7 @@ export default function MFASettingsSection() {
             </div>
             <div className="flex items-center justify-end space-x-3">
               <button
+                type="button"
                 onClick={() => {
                   setShowRegenerateModal(false);
                   setRegenerateCode('');
@@ -229,7 +237,7 @@ export default function MFASettingsSection() {
                 {t('common.cancel')}
               </button>
               <button
-                onClick={handleRegenerateCodes}
+                type="submit"
                 disabled={regenerating || regenerateCode.length !== 6}
                 className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
@@ -246,7 +254,7 @@ export default function MFASettingsSection() {
                 )}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 

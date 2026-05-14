@@ -120,7 +120,12 @@ export default function TagsManager({ isOpen, onClose }: TagsManagerProps) {
                 onChange={(e) => setNewTagName(e.target.value)}
                 placeholder={t('tags_manager.name_placeholder')}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateTag()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleCreateTag();
+                  }
+                }}
               />
               <input
                 type="color"
@@ -188,7 +193,12 @@ export default function TagsManager({ isOpen, onClose }: TagsManagerProps) {
                           value={editingTag.name}
                           onChange={(e) => setEditingTag({ ...editingTag, name: e.target.value })}
                           className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateTag()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void handleUpdateTag();
+                            }
+                          }}
                         />
                         <button
                           onClick={handleUpdateTag}
