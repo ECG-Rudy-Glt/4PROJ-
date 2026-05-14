@@ -23,6 +23,12 @@ jest.mock('../../config/database', () => ({
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
+    folder: {
+      findUnique: jest.fn(),
+    },
+    sharedFolder: {
+      findFirst: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
     },
@@ -291,7 +297,7 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
   });
 
   it('should keep owner file serving behavior', async () => {
-    const decryptStream = { pipe: jest.fn() };
+    const decryptStream = { on: jest.fn(), pipe: jest.fn() };
     (OnlyOfficeService.verifyFileAccessToken as jest.Mock).mockReturnValue({
       fileId: 'file-1',
       userId: 'owner-1',
@@ -327,11 +333,12 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
       },
     });
     expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('files/document.docx', undefined);
+    expect(decryptStream.on).toHaveBeenCalledWith('error', expect.any(Function));
     expect(decryptStream.pipe).toHaveBeenCalledWith(res);
   });
 
   it('should allow accepted read shares to serve files', async () => {
-    const decryptStream = { pipe: jest.fn() };
+    const decryptStream = { on: jest.fn(), pipe: jest.fn() };
     (OnlyOfficeService.verifyFileAccessToken as jest.Mock).mockReturnValue({
       fileId: 'file-1',
       userId: 'shared-user',
@@ -367,6 +374,7 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
       },
     });
     expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('files/document.docx', undefined);
+    expect(decryptStream.on).toHaveBeenCalledWith('error', expect.any(Function));
     expect(decryptStream.pipe).toHaveBeenCalledWith(res);
   });
 });
@@ -455,5 +463,111 @@ describe('OnlyOfficeController share acceptance checks', () => {
     );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { config: {}, token: 'token' } });
+  });
+
+  it('should open accepted read-only shares in view mode', async () => {
+    const readOnlyFile = {
+      ...file,
+      userId: 'owner-1',
+      folderId: null,
+      isDeleted: false,
+      isVault: false,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      sharedWith: [{
+        id: 'share-1',
+        sharedWithId: 'shared-user',
+        accepted: true,
+        canRead: true,
+        canWrite: false,
+        ownerWrappedDek: 'owner-wrapped-dek',
+      }],
+    };
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue(readOnlyFile);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      email: 'shared@example.com',
+      firstName: 'Shared',
+      lastName: 'User',
+    });
+    (OnlyOfficeService.canEdit as jest.Mock).mockReturnValue(true);
+    (OnlyOfficeService.generateConfig as jest.Mock).mockResolvedValue({ config: {}, token: 'token' });
+    (KekService.wrapDek as jest.Mock).mockReturnValue('wrapped-recipient-dek');
+
+    const req: any = {
+      user: { id: 'shared-user' },
+      params: { fileId: 'file-1' },
+      query: {},
+      dekBuffer: Buffer.from('dek'),
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.getEditorConfig(req, res, jest.fn());
+
+    expect(OnlyOfficeService.generateConfig).toHaveBeenCalledWith(
+      readOnlyFile,
+      'shared-user',
+      { email: 'shared@example.com', firstName: 'Shared', lastName: 'User' },
+      'view',
+      'owner-wrapped-dek'
+    );
+    expect(KekService.wrapDek).not.toHaveBeenCalled();
+  });
+
+  it('should use the shared folder owner DEK when opening a writable folder share', async () => {
+    const folderSharedFile = {
+      ...file,
+      userId: 'owner-1',
+      folderId: 'folder-1',
+      isDeleted: false,
+      isVault: false,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      sharedWith: [],
+    };
+    const folderShare = {
+      id: 'folder-share-1',
+      folderId: 'folder-1',
+      sharedWithId: 'shared-user',
+      accepted: true,
+      canRead: true,
+      canWrite: true,
+      ownerWrappedDek: 'folder-owner-wrapped-dek',
+    };
+
+    (prisma.file.findFirst as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(folderSharedFile);
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      parentId: null,
+      isDeleted: false,
+      isVault: false,
+    });
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(folderShare);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      email: 'shared@example.com',
+      firstName: 'Shared',
+      lastName: 'User',
+    });
+    (OnlyOfficeService.canEdit as jest.Mock).mockReturnValue(true);
+    (OnlyOfficeService.generateConfig as jest.Mock).mockResolvedValue({ config: {}, token: 'token' });
+    (KekService.wrapDek as jest.Mock).mockReturnValue('wrapped-recipient-dek');
+
+    const req: any = {
+      user: { id: 'shared-user' },
+      params: { fileId: 'file-1' },
+      query: {},
+      dekBuffer: Buffer.from('recipient-dek'),
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.getEditorConfig(req, res, jest.fn());
+
+    expect(OnlyOfficeService.generateConfig).toHaveBeenCalledWith(
+      folderSharedFile,
+      'shared-user',
+      { email: 'shared@example.com', firstName: 'Shared', lastName: 'User' },
+      'edit',
+      'folder-owner-wrapped-dek'
+    );
+    expect(KekService.wrapDek).not.toHaveBeenCalled();
   });
 });
