@@ -854,6 +854,7 @@
     "load_error": "Impossible de charger l'historique",
     "not_available_shared": "L'historique des versions n'est pas disponible pour ce fichier partagé",
     "read_only_warning": "Lecture seule - Vous ne pouvez pas restaurer ou supprimer des versions",
+    "shared_manage_warning": "Fichier partagé - l'historique est consultable, mais la restauration et la suppression restent réservées au propriétaire.",
     "info_title": "Info :",
     "info_auto_keep": "Les 10 dernières versions sont conservées automatiquement.",
     "info_quota": "Les versions comptent dans votre quota de stockage.",

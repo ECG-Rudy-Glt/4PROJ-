@@ -160,7 +160,7 @@ function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
   );
 }
 
-function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl: string; fileId: string; fileName: string; mimeType: string }) {
+function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite }: { downloadUrl: string; fileId: string; fileName: string; mimeType: string; canWrite: boolean }) {
   const [content, setContent] = useState<string | null>(null);
   const [edited, setEdited] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
@@ -169,7 +169,10 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
 
   useEffect(() => {
     authFetch(downloadUrl)
-      .then((r) => r.text())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
       .then((text) => { setContent(text); setEdited(text); })
       .catch(() => setError('Impossible de charger le fichier'));
   }, [downloadUrl]);
@@ -217,14 +220,14 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
                 <Save className="w-3 h-3" /> {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
               </button>
             </>
-          ) : (
+          ) : canWrite ? (
             <button
               onClick={() => setIsEditing(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
               <Pencil className="w-3 h-3" /> Modifier
             </button>
-          )}
+          ) : null}
         </div>
       </div>
       {isEditing ? (
@@ -284,8 +287,11 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
   const [commentCount, setCommentCount] = useState(0);
   const [showDocumentEditor, setShowDocumentEditor] = useState(false);
   
-  // Get actual write permissions from file object (set by parent component for shared files)
-  const canWrite = isShared && (file as any).canWrite !== undefined ? (file as any).canWrite : !isShared;
+  // Get actual write permissions from direct shares or inherited shared-folder permissions.
+  const sharedPermissions = (file as any)._sharedFolderPermissions;
+  const canWrite = isShared
+    ? Boolean((file as any).canWrite ?? (file as any)._canWrite ?? sharedPermissions?.canWrite)
+    : true;
 
   const handleDownload = useCallback(async () => {
     try {
@@ -369,7 +375,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
         if (file.mimeType === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
           return <CsvPreview downloadUrl={downloadUrl} />;
         }
-        return <TextPreview downloadUrl={downloadUrl} fileId={file.id} fileName={file.name} mimeType={file.mimeType} />;
+        return <TextPreview downloadUrl={downloadUrl} fileId={file.id} fileName={file.name} mimeType={file.mimeType} canWrite={canWrite} />;
 
       default:
         // Pour les documents Office, afficher la prévisualisation avec OnlyOffice
@@ -424,7 +430,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
             </p>
           </div>
           <div className="flex items-center space-x-2 ml-4">
-            {canEditDocument(file.mimeType) && (
+            {canWrite && canEditDocument(file.mimeType) && (
               <button
                 onClick={() => setShowDocumentEditor(true)}
                 className="p-2 text-gray-600 dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-300 rounded-lg"

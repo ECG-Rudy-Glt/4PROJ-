@@ -48,8 +48,7 @@ export default function NotificationCenter() {
     const data = notif.data;
     if (!data) return null;
     if (notif.type === 'SHARE') {
-      if (data.folderId) return `/files/${data.folderId}`;
-      if (data.fileId) return `/files?preview=${data.fileId}`;
+      if (data.folderId || data.fileId) return '/shared?tab=pending';
     }
     if (notif.type === 'COMMENT' && data.fileId) return `/files?preview=${data.fileId}`;
     return null;

@@ -29,7 +29,7 @@ export default function Sidebar() {
     const fetchPendingCount = async () => {
       try {
         const data = await shareService.getPendingShares();
-        const count = (data.pendingFiles?.length || 0) + (data.pendingFolders?.length || 0);
+        const count = (data.files?.length || 0) + (data.folders?.length || 0);
         setPendingCount(count);
       } catch (error) {
         console.error('Failed to fetch pending shares count', error);

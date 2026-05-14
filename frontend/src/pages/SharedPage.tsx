@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { shareService } from '@/services/shareService';
 import { fileService } from '@/services/fileService';
 import { SharedLink, SharedFolder, SharedFile, File } from '@/types';
@@ -65,6 +65,7 @@ export default function SharedPage() {
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === 'fr' ? fr : enUS;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabType>('shared-with-me');
   const [shareLinks, setShareLinks] = useState<SharedLink[]>([]);
   const [sharedFolders, setSharedFolders] = useState<SharedFolder[]>([]);
@@ -84,6 +85,13 @@ export default function SharedPage() {
     loadShared();
   }, []);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'shared-with-me' || tab === 'my-shares' || tab === 'pending') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   const loadShared = async () => {
     setIsLoading(true);
     try {
@@ -93,7 +101,7 @@ export default function SharedPage() {
         shareService.listFilesSharedWithMe().catch(() => ({ sharedFiles: [] })),
         shareService.listSharedByMe().catch(() => ({ sharedFolders: [] })),
         shareService.listFilesSharedByMe().catch(() => ({ sharedFiles: [] })),
-        shareService.getPendingShares().catch(() => ({ pendingFolders: [], pendingFiles: [] })),
+        shareService.getPendingShares().catch(() => ({ folders: [], files: [] })),
       ]);
       setShareLinks(linksData.shareLinks || []);
       setSharedFolders(foldersData.sharedFolders || []);
@@ -121,8 +129,8 @@ export default function SharedPage() {
       setSharedByMeFiles(sharedByMeFilesList);
 
       // Partages en attente
-      setPendingFolders(pendingData.pendingFolders || []);
-      setPendingFiles(pendingData.pendingFiles || []);
+      setPendingFolders(pendingData.folders || []);
+      setPendingFiles(pendingData.files || []);
     } catch (error) {
       toast.error(getApiErrorMessage(error, t('shared.error_loading_shared')));
     } finally {

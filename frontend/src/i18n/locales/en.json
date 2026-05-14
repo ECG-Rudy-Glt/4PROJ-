@@ -854,6 +854,7 @@
     "load_error": "Failed to load history",
     "not_available_shared": "Version history is not available for this shared file",
     "read_only_warning": "Read only - You cannot restore or delete versions",
+    "shared_manage_warning": "Shared file - history can be viewed, but restore and delete remain owner-only.",
     "info_title": "Info:",
     "info_auto_keep": "The last 10 versions are kept automatically.",
     "info_quota": "Versions count towards your storage quota.",
