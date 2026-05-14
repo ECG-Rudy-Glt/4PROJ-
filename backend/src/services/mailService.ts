@@ -1,6 +1,15 @@
 import nodemailer from 'nodemailer';
 import logger from '../config/logger';
-import { getWelcomeEmail, getPasswordChangeNotification, getPasswordResetEmail } from '../utils/mailTemplates';
+import {
+    getAccountStatusEmail,
+    getDelegationGrantedEmail,
+    getDelegationRevokedEmail,
+    getExpirationAlertEmail,
+    getPasswordChangeNotification,
+    getPasswordResetEmail,
+    getShareNotificationEmail,
+    getWelcomeEmail,
+} from '../utils/mailTemplates';
 
 interface MailOptions {
     to: string;
@@ -68,15 +77,84 @@ export class MailService {
         sharedBy: string,
         itemName: string,
         itemType: 'file' | 'folder',
-        link?: string
+        link?: string,
+        lang: string = 'fr',
+        permissions?: {
+            canRead?: boolean;
+            canWrite?: boolean;
+            canDelete?: boolean;
+            canShare?: boolean;
+        }
     ) {
-        const subject = `${sharedBy} a partagé un ${itemType === 'file' ? 'fichier' : 'dossier'} avec vous`;
-        const text = `Bonjour,\n\n${sharedBy} a partagé le ${itemType} "${itemName}" avec vous.\n\n${link ? `Vous pouvez y accéder ici : ${link}` : 'Connectez-vous à SupFile pour y accéder.'}\n\nCordialement,\nL'équipe SupFile`;
+        const template = getShareNotificationEmail(lang, {
+            sharedBy,
+            itemName,
+            itemType,
+            link,
+            permissions,
+        });
 
         return this.sendMail({
             to,
-            subject,
-            text,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
+        });
+    }
+
+    static async sendDelegationGrantedNotification(
+        to: string,
+        delegateName: string,
+        ownerName: string,
+        permissions?: {
+            canRead?: boolean;
+            canWrite?: boolean;
+            canDelete?: boolean;
+            canShare?: boolean;
+        },
+        expiresAt?: Date | null,
+        lang: string = 'fr'
+    ) {
+        const template = getDelegationGrantedEmail(lang, delegateName, ownerName, permissions, expiresAt);
+
+        return this.sendMail({
+            to,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
+        });
+    }
+
+    static async sendDelegationRevokedNotification(
+        to: string,
+        delegateName: string,
+        ownerName: string,
+        lang: string = 'fr'
+    ) {
+        const template = getDelegationRevokedEmail(lang, delegateName, ownerName);
+
+        return this.sendMail({
+            to,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
+        });
+    }
+
+    static async sendAccountStatusNotification(
+        to: string,
+        userName: string,
+        status: 'ACTIVE' | 'SUSPENDED',
+        reason?: string,
+        lang: string = 'fr'
+    ) {
+        const template = getAccountStatusEmail(lang, userName, status, reason);
+
+        return this.sendMail({
+            to,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
         });
     }
 
@@ -86,7 +164,7 @@ export class MailService {
         return this.sendMail({
             to,
             subject: template.subject,
-            text: `Bonjour ${name},\n\nBienvenue sur SupFile ! Nous sommes ravis de vous compter parmi nous.`,
+            text: template.text,
             html: template.html,
         });
     }
@@ -97,7 +175,7 @@ export class MailService {
         return this.sendMail({
             to,
             subject: template.subject,
-            text: `Bonjour ${name},\n\nLe mot de passe de votre compte SupFile a été modifié récemment. Si vous n'êtes pas à l'origine de cette action, veuillez contacter le support immédiatement.`,
+            text: template.text,
             html: template.html,
         });
     }
@@ -113,14 +191,21 @@ export class MailService {
         });
     }
 
-    static async sendExpirationAlert(to: string, name: string, itemName: string, daysLeft: number, link: string) {
-        const subject = `Attention : Votre partage "${itemName}" expire dans ${daysLeft} jour(s)`;
-        const text = `Bonjour ${name},\n\nVotre lien de partage pour "${itemName}" va expirer dans ${daysLeft} jour(s).\n\nAprès cette date, le lien ne sera plus accessible.\n\nVous pouvez gérer vos partages ici : ${link}\n\nCordialement,\nL'équipe SupFile`;
+    static async sendExpirationAlert(
+        to: string,
+        name: string,
+        itemName: string,
+        daysLeft: number,
+        link: string,
+        lang: string = 'fr'
+    ) {
+        const template = getExpirationAlertEmail(lang, name, itemName, daysLeft, link);
 
         return this.sendMail({
             to,
-            subject,
-            text,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
         });
     }
 }
