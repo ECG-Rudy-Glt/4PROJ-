@@ -9,6 +9,8 @@ import { sendCsv, csvFilename } from '../utils/csvExporter';
 import { sendSuccess, sendError } from '../utils/response';
 
 const VALID_PLANS = new Set<Plan>([Plan.FREE, Plan.PRO, Plan.BUSINESS, Plan.ENTERPRISE]);
+type AdminAccountStatus = 'ACTIVE' | 'SUSPENDED';
+const VALID_ACCOUNT_STATUSES = new Set<AdminAccountStatus>(['ACTIVE', 'SUSPENDED']);
 
 export class AdminController {
   static async getOverview(_req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -51,6 +53,25 @@ export class AdminController {
       }
 
       const updatedUser = await AdminService.updateUserPlan(adminUserId, userId, plan);
+      sendSuccess(res, { user: updatedUser });
+    } catch (error) { next(error); }
+  }
+
+  static async updateUserStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminUserId = req.user!.id;
+      const { userId } = req.params;
+      const status = typeof req.body.status === 'string'
+        ? req.body.status.toUpperCase() as AdminAccountStatus
+        : undefined;
+      const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : undefined;
+
+      if (!status || !VALID_ACCOUNT_STATUSES.has(status)) {
+        sendError(res, 'Invalid account status', 400);
+        return;
+      }
+
+      const updatedUser = await AdminService.updateUserStatus(adminUserId, userId, status, reason || undefined);
       sendSuccess(res, { user: updatedUser });
     } catch (error) { next(error); }
   }
