@@ -11,10 +11,7 @@ const VAULT_ROOT_NAME = 'Coffre-fort';
 
 export class VaultService {
   private static async assertVaultFeatureAvailable(userId: string) {
-    const available = await PlanService.checkFeature(userId, 'vault');
-    if (!available) {
-      throw new Error('Le coffre-fort est disponible à partir du plan PRO');
-    }
+    await PlanService.assertFeature(userId, 'vault');
   }
 
   private static getUnlockDurationMs() {

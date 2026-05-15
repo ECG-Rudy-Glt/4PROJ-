@@ -1,13 +1,21 @@
 export type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+export type PlanFeature = 'aiChat' | 'vault' | 'onlyoffice' | 'auditLogs';
 
 export const PLAN_STORAGE_LABELS: Record<PlanId, string> = {
   FREE: '30 Go',
-  PRO: '100 Go',
-  BUSINESS: '500 Go',
-  ENTERPRISE: 'Sur devis',
+  PRO: '200 Go',
+  BUSINESS: '2 To',
+  ENTERPRISE: '10 To',
+};
+
+export const isFeatureAvailableForPlan = (plan: PlanId | undefined | null, feature: PlanFeature): boolean => {
+  if (!plan) return false;
+  if (['aiChat', 'vault', 'onlyoffice', 'auditLogs'].includes(feature)) {
+    return plan !== 'FREE';
+  }
+  return true;
 };
 
 export const isVaultAvailableForPlan = (plan?: PlanId | null): boolean => {
-  if (!plan) return false;
-  return plan !== 'FREE';
+  return isFeatureAvailableForPlan(plan, 'vault');
 };

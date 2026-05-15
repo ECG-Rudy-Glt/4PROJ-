@@ -5,6 +5,7 @@ import { OnlyOfficeController } from '../onlyofficeController';
 import { OnlyOfficeService } from '../../services/onlyofficeService';
 import { KekService } from '../../services/kekService';
 import { EncryptionService } from '../../services/encryptionService';
+import { PlanService } from '../../services/planService';
 
 jest.mock('axios', () => ({
   get: jest.fn(),
@@ -64,6 +65,18 @@ jest.mock('../../services/kekService', () => ({
   },
 }));
 
+jest.mock('../../services/planService', () => ({
+  PLAN_UPGRADE_REQUIRED_CODE: 'PLAN_UPGRADE_REQUIRED',
+  PlanService: {
+    checkFeature: jest.fn(),
+    getUpgradeRequirement: jest.fn((feature) => ({
+      feature,
+      requiredPlan: 'PRO',
+      upgradePath: '/plans',
+    })),
+  },
+}));
+
 jest.mock('../../config/logger', () => ({
   __esModule: true,
   default: {
@@ -93,6 +106,7 @@ const file = {
 describe('OnlyOfficeController.handleCallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
     (prisma.file.findUnique as jest.Mock).mockResolvedValue(file);
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(file);
     (OnlyOfficeService.processCallback as jest.Mock).mockResolvedValue({
@@ -200,6 +214,26 @@ describe('OnlyOfficeController.handleCallback', () => {
     expect(OnlyOfficeService.createFileVersion).not.toHaveBeenCalled();
   });
 
+  it('should reject callback save when OnlyOffice is not available for the current plan', async () => {
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+
+    const req: any = {
+      params: { fileId: 'file-1' },
+      body: { status: 2 },
+      query: { userId: 'owner-1' },
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.handleCallback(req, res, jest.fn());
+
+    expect(PlanService.checkFeature).toHaveBeenCalledWith('owner-1', 'onlyoffice');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ error: 1, code: 'PLAN_UPGRADE_REQUIRED' });
+    expect(axios.get).not.toHaveBeenCalled();
+    expect(fs.writeFile).not.toHaveBeenCalled();
+    expect(OnlyOfficeService.createFileVersion).not.toHaveBeenCalled();
+  });
+
   it('should allow callback save for accepted write shares', async () => {
     const content = Buffer.from('updated document');
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({ encryptedDek: null });
@@ -253,6 +287,7 @@ describe('OnlyOfficeController.handleCallback', () => {
 describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
   });
 
   it('should reject stale or non-accepted access tokens before decryption', async () => {
@@ -293,6 +328,34 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
       success: false,
       error: 'File not found or access denied',
     });
+    expect(EncryptionService.getDecryptStreamAuto).not.toHaveBeenCalled();
+  });
+
+  it('should reject file serving when OnlyOffice is not available for the current plan', async () => {
+    (OnlyOfficeService.verifyFileAccessToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'owner-1',
+    });
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+
+    const req: any = {
+      params: { fileId: 'file-1' },
+      query: { access_token: 'token' },
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.serveFileToOnlyOffice(req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: 'Cette fonctionnalité nécessite le plan PRO ou supérieur.',
+      code: 'PLAN_UPGRADE_REQUIRED',
+      feature: 'onlyoffice',
+      requiredPlan: 'PRO',
+      upgradePath: '/plans',
+    });
+    expect(prisma.file.findFirst).not.toHaveBeenCalled();
     expect(EncryptionService.getDecryptStreamAuto).not.toHaveBeenCalled();
   });
 
@@ -382,6 +445,7 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
 describe('OnlyOfficeController share acceptance checks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
   });
 
   it('should reject pending shared files for editor config', async () => {

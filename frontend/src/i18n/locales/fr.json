@@ -392,6 +392,16 @@
     "send": "Envoyer",
     "hint": "Appuyez sur Entrée pour envoyer"
   },
+  "plan_upgrade": {
+    "required_badge": "Plan PRO requis",
+    "cta": "Voir les plans",
+    "ai_title": "Bobby est inclus à partir du plan PRO",
+    "ai_description": "Passez à un plan supérieur pour utiliser l'assistant IA, analyser vos fichiers et lancer des recherches intelligentes.",
+    "ai_message": "**Plan PRO requis**\n\nBobby est disponible à partir du plan PRO. Passez à un plan supérieur pour utiliser l'assistant IA sur vos fichiers.",
+    "ai_toast": "Bobby nécessite le plan PRO ou supérieur",
+    "audit_title": "Journal d'activité disponible en PRO",
+    "audit_description": "Passez au plan PRO ou supérieur pour consulter, filtrer et exporter l'historique détaillé de votre activité."
+  },
   "mfa": {
     "title": "Authentification à deux facteurs",
     "subtitle": "Sécurisez votre compte avec un code de vérification",

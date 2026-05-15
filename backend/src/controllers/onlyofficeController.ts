@@ -8,8 +8,10 @@ import path from 'path';
 import { EncryptionService } from '../services/encryptionService';
 import { VaultService } from '../services/vaultService';
 import { KekService } from '../services/kekService';
+import { PlanService } from '../services/planService';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
+import { sendPlanUpgradeRequired } from '../middlewares/planFeature';
 import { DEK_UNLOCK_REQUIRED, ensureDekUnlocked } from '../utils/dekGuard';
 import {
   acceptedShareBaseWhere,
@@ -96,6 +98,11 @@ export class OnlyOfficeController {
       const tokenData = OnlyOfficeService.verifyFileAccessToken(accessToken);
       if (!tokenData || tokenData.fileId !== fileId) {
         sendError(res, 'Invalid access token', 403);
+        return;
+      }
+
+      if (!(await PlanService.checkFeature(tokenData.userId, 'onlyoffice'))) {
+        sendPlanUpgradeRequired(res, 'onlyoffice');
         return;
       }
 
@@ -228,6 +235,12 @@ export class OnlyOfficeController {
           // Déchiffrer le DEK avant tout téléchargement/écriture disque.
           const dek = queryWrappedDek ? KekService.unwrapDek(queryWrappedDek) ?? undefined : undefined;
           const callbackUserId = queryUserId || file.userId;
+          if (!(await PlanService.checkFeature(callbackUserId, 'onlyoffice'))) {
+            logger.warn({ fileId, userId: callbackUserId }, 'OnlyOffice callback blocked by plan');
+            res.status(200).json({ error: 1, code: 'PLAN_UPGRADE_REQUIRED' });
+            return;
+          }
+
           const fileOwner = await prisma.user.findUnique({
             where: { id: file.userId },
             select: { encryptedDek: true },

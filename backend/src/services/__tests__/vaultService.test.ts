@@ -17,6 +17,7 @@ jest.mock('../../config/database', () => ({
 jest.mock('../planService', () => ({
   PlanService: {
     checkFeature: jest.fn(),
+    assertFeature: jest.fn(),
   },
 }));
 
@@ -27,16 +28,18 @@ describe('VaultService', () => {
 
   describe('assertUnlockedIfVault', () => {
     it('should reject access for FREE plan when vault feature is unavailable', async () => {
-      (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+      (PlanService.assertFeature as jest.Mock).mockRejectedValue(
+        new Error('Cette fonctionnalité nécessite le plan PRO ou supérieur.')
+      );
 
       await expect(VaultService.assertUnlockedIfVault('user-free', true)).rejects.toThrow(
-        'Le coffre-fort est disponible à partir du plan PRO'
+        'Cette fonctionnalité nécessite le plan PRO ou supérieur.'
       );
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
 
     it('should reject access when vault is locked', async () => {
-      (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
+      (PlanService.assertFeature as jest.Mock).mockResolvedValue(undefined);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         vaultEnabled: true,
         vaultUnlockUntil: new Date(Date.now() - 60_000),
@@ -48,7 +51,7 @@ describe('VaultService', () => {
     });
 
     it('should allow access when vault is unlocked', async () => {
-      (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
+      (PlanService.assertFeature as jest.Mock).mockResolvedValue(undefined);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         vaultEnabled: true,
         vaultUnlockUntil: new Date(Date.now() + 60_000),
