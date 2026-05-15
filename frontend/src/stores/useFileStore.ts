@@ -32,7 +32,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   currentFolderId: null,
   isLoading: false,
   isDragging: false,
-  sortBy: 'createdAt',
+  sortBy: 'updatedAt',
   sortOrder: 'desc',
 
   loadContent: async (folderId, sortBy, sortOrder, filters) => {

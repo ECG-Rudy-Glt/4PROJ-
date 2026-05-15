@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useFileStore } from '@/stores/useFileStore';
 import {
@@ -16,7 +16,6 @@ import {
   FileText,
   Archive,
   Star,
-  ArrowUpDown,
   Tag as TagIconLucide,
   Pencil,
   AlertTriangle,
@@ -42,6 +41,8 @@ import { formatBytes } from '@/utils/bytes';
 import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { FilterBar, FilterState } from '@/components/FilterBar';
 import { useTranslation } from 'react-i18next';
+import SortableTableHeader from '@/components/SortableTableHeader';
+import { sortFilesForTable } from '@/utils/fileSort';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -114,6 +115,10 @@ export default function FilesPage() {
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const displayFiles = searchQuery ? searchResults : files;
+  const tableFiles = useMemo(
+    () => sortFilesForTable([...displayFiles, ...acceptedSharedFiles] as File[], sortBy, sortOrder, i18n.language),
+    [acceptedSharedFiles, displayFiles, i18n.language, sortBy, sortOrder]
+  );
   const isSharedItem = (item: any) => Boolean(item?._isShared || item?._sharedFolderPermissions);
 
   const getSharedItemsAsDisplayFiles = useCallback(async () => {
@@ -221,7 +226,8 @@ export default function FilesPage() {
     if (searchQuery) {
       handleSearch(searchQuery);
     } else {
-      loadContent(folderId, sortBy, sortOrder, activeFilters);
+      const serverSortBy = sortBy === 'tags' ? 'updatedAt' : sortBy;
+      loadContent(folderId, serverSortBy, sortOrder, activeFilters);
       setSearchResults([]);
       if (folderId) {
         loadBreadcrumbs(folderId);
@@ -331,11 +337,8 @@ export default function FilesPage() {
     }
   };
 
-  const handleSortChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    const [field, order] = value.split('-');
-    setSorting(field as any, order as 'asc' | 'desc');
-    loadContent(folderId, field as any, order as 'asc' | 'desc', activeFilters);
+  const handleColumnSort = (field: string, order: 'asc' | 'desc') => {
+    setSorting(field, order);
   };
 
   const handleFilterChange = (filters: FilterState) => {
@@ -549,25 +552,6 @@ export default function FilesPage() {
       {!searchQuery && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <FilterBar onFilterChange={handleFilterChange} onClearFilters={handleClearFilters} />
-          {files.length > 0 && (
-            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shrink-0">
-              <ArrowUpDown className="w-4 h-4 text-gray-400" />
-              <label htmlFor="sort-select" className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"> {t('common.sort_by')} : </label>
-              <select
-                id="sort-select"
-                value={`${sortBy}-${sortOrder}`}
-                onChange={handleSortChange}
-                className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
-              >
-                <option value="name-asc">{t('files.sort.name_asc')}</option>
-                <option value="name-desc">{t('files.sort.name_desc')}</option>
-                <option value="createdAt-desc">{t('files.sort.date_desc')}</option>
-                <option value="createdAt-asc">{t('files.sort.date_asc')}</option>
-                <option value="size-desc">{t('files.sort.size_desc')}</option>
-                <option value="size-asc">{t('files.sort.size_asc')}</option>
-              </select>
-            </div>
-          )}
         </div>
       )}
 
@@ -645,15 +629,15 @@ export default function FilesPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700/50 [&>tr>th:first-child]:rounded-tl-xl [&>tr>th:last-child]:rounded-tr-xl">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.size')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.modified')}</th>
+                  <SortableTableHeader field="name" label={t('common.name')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" />
+                  <SortableTableHeader field="tags" label={t('common.tags')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" />
+                  <SortableTableHeader field="size" label={t('common.size')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="desc" />
+                  <SortableTableHeader field="updatedAt" label={t('common.modified')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="desc" />
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {[...displayFiles, ...acceptedSharedFiles].map((file) => {
+                {tableFiles.map((file) => {
                   const Icon = getMimeTypeIcon(file.mimeType);
                   const colorClass = getMimeTypeColor(file.mimeType);
                   const isShared = isSharedItem(file);
