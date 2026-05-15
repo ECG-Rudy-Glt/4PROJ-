@@ -1,15 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Home, SearchX } from 'lucide-react';
 import Seo from '@/components/Seo';
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white flex items-center justify-center px-4 py-10">
       <Seo
-        title="Page introuvable - SUPFILE"
-        description="La page demandée est introuvable. Retournez à l'accueil SUPFILE ou à votre espace de stockage sécurisé."
+        title={t('not_found.seo_title')}
+        description={t('not_found.seo_description')}
         canonicalPath="/404"
         robots="noindex, follow"
       />
@@ -20,14 +22,13 @@ export default function NotFoundPage() {
         </div>
 
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary-600 dark:text-primary-300">
-          Erreur 404
+          {t('not_found.eyebrow')}
         </p>
         <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-          Page introuvable
+          {t('not_found.title')}
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Cette adresse ne correspond à aucune page SUPFILE. Le lien peut avoir expiré,
-          avoir été déplacé ou contenir une erreur.
+          {t('not_found.description')}
         </p>
 
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -36,7 +37,7 @@ export default function NotFoundPage() {
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/20 transition-colors hover:bg-primary-700"
           >
             <Home className="h-4 w-4" />
-            Retour à l'accueil
+            {t('not_found.home')}
           </Link>
           <button
             type="button"
@@ -44,7 +45,7 @@ export default function NotFoundPage() {
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
           >
             <ArrowLeft className="h-4 w-4" />
-            Page précédente
+            {t('not_found.previous')}
           </button>
         </div>
       </section>

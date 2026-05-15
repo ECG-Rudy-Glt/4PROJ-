@@ -82,15 +82,45 @@
     <main>
       <div class="mark">404</div>
       <p class="eyebrow">SUPFILE</p>
-      <h1>Page introuvable</h1>
-      <p>
+      <h1 data-i18n="title">Page introuvable</h1>
+      <p data-i18n="description">
         Cette adresse ne correspond à aucune page publique. Le lien peut avoir expiré,
         avoir été déplacé ou contenir une erreur.
       </p>
       <div class="actions">
-        <a class="primary" href="/">Retour à l'accueil</a>
-        <a class="secondary" href="/login">Se connecter</a>
+        <a class="primary" href="/" data-i18n="home">Retour à l'accueil</a>
+        <a class="secondary" href="/login" data-i18n="login">Se connecter</a>
       </div>
     </main>
+    <script>
+      const messages = {
+        fr: {
+          seoTitle: 'Page introuvable - SUPFILE',
+          seoDescription: "La page demandée est introuvable. Retournez à l'accueil SUPFILE ou à votre espace cloud sécurisé.",
+          title: 'Page introuvable',
+          description: "Cette adresse ne correspond à aucune page publique. Le lien peut avoir expiré, avoir été déplacé ou contenir une erreur.",
+          home: "Retour à l'accueil",
+          login: 'Se connecter'
+        },
+        en: {
+          seoTitle: 'Page not found - SUPFILE',
+          seoDescription: 'The requested page could not be found. Return to the SUPFILE homepage or to your secure cloud space.',
+          title: 'Page not found',
+          description: 'This address does not match any public page. The link may have expired, moved, or contain a typo.',
+          home: 'Back to homepage',
+          login: 'Sign in'
+        }
+      };
+
+      const lang = navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'fr';
+      const dictionary = messages[lang];
+      document.documentElement.lang = lang;
+      document.title = dictionary.seoTitle;
+      document.querySelector('meta[name="description"]')?.setAttribute('content', dictionary.seoDescription);
+      document.querySelectorAll('[data-i18n]').forEach((element) => {
+        const key = element.getAttribute('data-i18n');
+        if (key && dictionary[key]) element.textContent = dictionary[key];
+      });
+    </script>
   </body>
 </html>
