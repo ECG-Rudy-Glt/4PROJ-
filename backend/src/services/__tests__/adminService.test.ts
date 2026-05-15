@@ -10,6 +10,7 @@ jest.mock('../../config/database', () => ({
     user: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
     refreshToken: {
       updateMany: jest.fn(),
@@ -153,5 +154,61 @@ describe('AdminService.updateUserStatus', () => {
       undefined,
       'fr'
     );
+  });
+});
+
+describe('AdminService.updateUserRole', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (AuditService.createLog as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it('promotes a user to admin and audits the change', async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'target-user',
+      role: 'USER',
+    });
+    (prisma.user.update as jest.Mock).mockResolvedValue({
+      ...updatedUser,
+      role: 'ADMIN',
+      accountStatus: 'ACTIVE',
+    });
+
+    const result = await AdminService.updateUserRole('admin-user', 'target-user', 'ADMIN');
+
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'target-user' },
+        data: { role: 'ADMIN' },
+      })
+    );
+    expect(AuditService.createLog).toHaveBeenCalledWith('admin-user', 'ADMIN_ROLE_CHANGE', {
+      targetUserId: 'target-user',
+      previousRole: 'USER',
+      newRole: 'ADMIN',
+    });
+    expect(result.role).toBe('ADMIN');
+  });
+
+  it('refuses admin self role changes', async () => {
+    await expect(
+      AdminService.updateUserRole('admin-user', 'admin-user', 'USER')
+    ).rejects.toThrow('Un administrateur ne peut pas modifier son propre rôle');
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses removing the last admin', async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'target-user',
+      role: 'ADMIN',
+    });
+    (prisma.user.count as jest.Mock).mockResolvedValue(1);
+
+    await expect(
+      AdminService.updateUserRole('admin-user', 'target-user', 'USER')
+    ).rejects.toThrow('Impossible de retirer le dernier administrateur');
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });

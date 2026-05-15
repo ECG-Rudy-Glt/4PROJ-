@@ -3,12 +3,15 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { AdminOverview, AdminUserRow } from '@/types';
 import { adminService } from '@/services/adminService';
-import { Users, HardDrive, FolderOpen, Upload } from 'lucide-react';
+import { Users, HardDrive, FolderOpen, Upload, Shield, Ban, RotateCcw } from 'lucide-react';
 import { formatBytes } from '@/utils/bytes';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const PLAN_OPTIONS: Array<'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE'> = ['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'];
+const ROLE_OPTIONS: Array<'USER' | 'ADMIN'> = ['USER', 'ADMIN'];
 
 export default function AdminPage() {
+  const currentUser = useAuthStore((state) => state.user);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [page, setPage] = useState(1);
@@ -86,6 +89,74 @@ export default function AdminPage() {
     } finally {
       setUpdatingUsers((prev) => ({ ...prev, [userId]: false }));
     }
+  };
+
+  const handleRoleChange = async (userId: string, nextRole: 'USER' | 'ADMIN') => {
+    setUpdatingUsers((prev) => ({ ...prev, [userId]: true }));
+    try {
+      const { user } = await adminService.updateUserRole(userId, nextRole);
+      setUsers((prev) =>
+        prev.map((entry) =>
+          entry.id === userId
+            ? { ...entry, role: user.role }
+            : entry
+        )
+      );
+      toast.success(nextRole === 'ADMIN' ? 'Administrateur ajouté' : 'Administrateur retiré');
+      await loadOverview();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Échec de mise à jour du rôle');
+    } finally {
+      setUpdatingUsers((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleStatusChange = async (user: AdminUserRow) => {
+    const nextStatus = user.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    const reason = nextStatus === 'SUSPENDED'
+      ? window.prompt(`Raison de la suspension de ${user.email} ?`)?.trim()
+      : undefined;
+
+    if (nextStatus === 'SUSPENDED' && reason === undefined) return;
+    if (!window.confirm(nextStatus === 'SUSPENDED'
+      ? `Suspendre le compte ${user.email} ? Ses sessions seront révoquées.`
+      : `Réactiver le compte ${user.email} ?`)) {
+      return;
+    }
+
+    setUpdatingUsers((prev) => ({ ...prev, [user.id]: true }));
+    try {
+      const { user: updatedUser } = await adminService.updateUserStatus(user.id, nextStatus, reason || undefined);
+      setUsers((prev) =>
+        prev.map((entry) =>
+          entry.id === user.id
+            ? { ...entry, accountStatus: updatedUser.accountStatus }
+            : entry
+        )
+      );
+      toast.success(nextStatus === 'SUSPENDED' ? 'Compte suspendu' : 'Compte réactivé');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Échec de mise à jour du statut');
+    } finally {
+      setUpdatingUsers((prev) => ({ ...prev, [user.id]: false }));
+    }
+  };
+
+  const renderStatusBadge = (status: AdminUserRow['accountStatus']) => {
+    const isActive = status === 'ACTIVE';
+    const isSuspended = status === 'SUSPENDED';
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+        isActive
+          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+          : isSuspended
+            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+      }`}>
+        <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : isSuspended ? 'bg-red-500' : 'bg-gray-400'}`} />
+        {isActive ? 'Actif' : isSuspended ? 'Suspendu' : 'Inactif'}
+      </span>
+    );
   };
 
   const planSummary = useMemo(() => {
@@ -245,62 +316,104 @@ export default function AdminPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Utilisateur</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Rôle</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Statut</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Plan</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Stockage</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Fichiers</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Dernière activité</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {isLoadingUsers ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                     Chargement des utilisateurs...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                     Aucun utilisateur trouvé
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user.firstName || user.lastName
-                          ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-                          : user.email}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{user.role}</td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={user.plan}
-                        disabled={!!updatingUsers[user.id]}
-                        onChange={(e) => handlePlanChange(user.id, e.target.value as typeof PLAN_OPTIONS[number])}
-                        className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white disabled:opacity-60"
-                      >
-                        {PLAN_OPTIONS.map((plan) => (
-                          <option key={plan} value={plan}>
-                            {plan}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                      {formatBytes(user.quotaUsed)} / {formatBytes(user.quotaLimit)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                      {user._count.files} fichiers, {user._count.folders} dossiers
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                      {format(new Date(user.lastActiveAt), 'dd/MM/yyyy HH:mm')}
-                    </td>
-                  </tr>
-                ))
+                users.map((user) => {
+                  const isSelf = currentUser?.id === user.id;
+                  const isSuspended = user.accountStatus === 'SUSPENDED';
+
+                  return (
+                    <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {user.firstName || user.lastName
+                            ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                            : user.email}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={user.role}
+                            disabled={!!updatingUsers[user.id] || isSelf}
+                            onChange={(e) => handleRoleChange(user.id, e.target.value as typeof ROLE_OPTIONS[number])}
+                            className="w-24 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white disabled:opacity-60"
+                            title={isSelf ? 'Vous ne pouvez pas modifier votre propre rôle' : 'Modifier le rôle'}
+                          >
+                            {ROLE_OPTIONS.map((role) => (
+                              <option key={role} value={role}>
+                                {role}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="flex w-4 shrink-0 justify-center">
+                            {user.role === 'ADMIN' && <Shield className="w-4 h-4 text-primary-600 dark:text-primary-300" />}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{renderStatusBadge(user.accountStatus)}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={user.plan}
+                          disabled={!!updatingUsers[user.id]}
+                          onChange={(e) => handlePlanChange(user.id, e.target.value as typeof PLAN_OPTIONS[number])}
+                          className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white disabled:opacity-60"
+                        >
+                          {PLAN_OPTIONS.map((plan) => (
+                            <option key={plan} value={plan}>
+                              {plan}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        {formatBytes(user.quotaUsed)} / {formatBytes(user.quotaLimit)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        {user._count.files} fichiers, {user._count.folders} dossiers
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        {format(new Date(user.lastActiveAt), 'dd/MM/yyyy HH:mm')}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleStatusChange(user)}
+                          disabled={!!updatingUsers[user.id] || isSelf}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
+                            isSuspended
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
+                          }`}
+                          title={isSelf ? 'Vous ne pouvez pas suspendre votre propre compte' : undefined}
+                        >
+                          {isSuspended ? <RotateCcw className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                          {isSuspended ? 'Réactiver' : 'Suspendre'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

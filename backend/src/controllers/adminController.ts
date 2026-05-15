@@ -9,6 +9,8 @@ import { sendCsv, csvFilename } from '../utils/csvExporter';
 import { sendSuccess, sendError } from '../utils/response';
 
 const VALID_PLANS = new Set<Plan>([Plan.FREE, Plan.PRO, Plan.BUSINESS, Plan.ENTERPRISE]);
+type AdminUserRole = 'USER' | 'ADMIN';
+const VALID_USER_ROLES = new Set<AdminUserRole>(['USER', 'ADMIN']);
 type AdminAccountStatus = 'ACTIVE' | 'SUSPENDED';
 const VALID_ACCOUNT_STATUSES = new Set<AdminAccountStatus>(['ACTIVE', 'SUSPENDED']);
 
@@ -53,6 +55,24 @@ export class AdminController {
       }
 
       const updatedUser = await AdminService.updateUserPlan(adminUserId, userId, plan);
+      sendSuccess(res, { user: updatedUser });
+    } catch (error) { next(error); }
+  }
+
+  static async updateUserRole(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminUserId = req.user!.id;
+      const { userId } = req.params;
+      const role = typeof req.body.role === 'string'
+        ? req.body.role.toUpperCase() as AdminUserRole
+        : undefined;
+
+      if (!role || !VALID_USER_ROLES.has(role)) {
+        sendError(res, 'Invalid role', 400);
+        return;
+      }
+
+      const updatedUser = await AdminService.updateUserRole(adminUserId, userId, role);
       sendSuccess(res, { user: updatedUser });
     } catch (error) { next(error); }
   }

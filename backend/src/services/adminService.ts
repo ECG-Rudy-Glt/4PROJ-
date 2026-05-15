@@ -8,6 +8,7 @@ import logger from '../config/logger';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 type AdminAccountStatus = 'ACTIVE' | 'SUSPENDED';
+type AdminUserRole = 'USER' | 'ADMIN';
 
 const adminUserSelect = {
   id: true,
@@ -240,6 +241,42 @@ export class AdminService {
     });
 
     return mapAdminUser(refreshedUser || updatedUser);
+  }
+
+  static async updateUserRole(adminUserId: string, targetUserId: string, role: AdminUserRole) {
+    if (adminUserId === targetUserId) {
+      throw Object.assign(new Error('Un administrateur ne peut pas modifier son propre rôle'), { status: 400 });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, role: true },
+    });
+
+    if (!existingUser) {
+      throw Object.assign(new Error('User not found'), { status: 404 });
+    }
+
+    if (existingUser.role === Role.ADMIN && role === 'USER') {
+      const adminCount = await prisma.user.count({ where: { role: Role.ADMIN } });
+      if (adminCount <= 1) {
+        throw Object.assign(new Error('Impossible de retirer le dernier administrateur'), { status: 400 });
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId },
+      data: { role },
+      select: adminUserSelect,
+    });
+
+    await AuditService.createLog(adminUserId, 'ADMIN_ROLE_CHANGE', {
+      targetUserId,
+      previousRole: existingUser.role,
+      newRole: role,
+    });
+
+    return mapAdminUser(updatedUser);
   }
 
   static async updateUserStatus(

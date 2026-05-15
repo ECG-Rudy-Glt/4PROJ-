@@ -274,6 +274,7 @@ export interface AdminUserRow {
   firstName?: string;
   lastName?: string;
   role: 'USER' | 'ADMIN';
+  accountStatus: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   plan: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
   subscriptionStatus: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
   quotaUsed: number;
