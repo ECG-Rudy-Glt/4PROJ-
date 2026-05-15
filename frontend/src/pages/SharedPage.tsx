@@ -25,12 +25,15 @@ import {
   Clock,
   Shield,
   Share2,
-  FolderOpen
+  FolderOpen,
+  Settings
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import FilePreviewModal from '@/components/FilePreviewModal';
+import ShareFolderModal from '@/components/ShareFolderModal';
+import { ShareFileModal } from '@/components/ShareFileModal';
 import { formatBytes } from '@/utils/bytes';
 import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
@@ -76,6 +79,8 @@ export default function SharedPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [managedShareFile, setManagedShareFile] = useState<File | null>(null);
+  const [managedShareFolder, setManagedShareFolder] = useState<SharedFolder | null>(null);
 
   // Partages en attente
   const [pendingFolders, setPendingFolders] = useState<SharedFolder[]>([]);
@@ -574,6 +579,14 @@ export default function SharedPage() {
                               </p>
                             </div>
                           </div>
+                          <button
+                            onClick={() => setManagedShareFile(file)}
+                            className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                            title={t('common.settings')}
+                            aria-label={t('common.settings')}
+                          >
+                            <Settings className="w-5 h-5" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -597,7 +610,7 @@ export default function SharedPage() {
                         className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                         onClick={() => navigate(`/files/${folder.folderId}`)}
                       >
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start justify-between gap-4 flex-1 min-w-0">
                           <div className="flex items-start gap-4 flex-1 min-w-0">
                             <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
                               <FolderOpen className="w-5 h-5" />
@@ -611,7 +624,20 @@ export default function SharedPage() {
                               </p>
                             </div>
                           </div>
-                          <ExternalLink className="w-5 h-5 text-gray-400" />
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setManagedShareFolder(folder);
+                              }}
+                              className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                              title={t('common.settings')}
+                              aria-label={t('common.settings')}
+                            >
+                              <Settings className="w-5 h-5" />
+                            </button>
+                            <ExternalLink className="w-5 h-5 text-gray-400" />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -651,6 +677,28 @@ export default function SharedPage() {
           onClose={() => {
             setShowPreviewModal(false);
             setPreviewFile(null);
+          }}
+        />
+      )}
+
+      {managedShareFile && (
+        <ShareFileModal
+          file={managedShareFile}
+          onClose={() => {
+            setManagedShareFile(null);
+            loadShared();
+          }}
+        />
+      )}
+
+      {managedShareFolder && (
+        <ShareFolderModal
+          folderId={managedShareFolder.folderId}
+          folderName={managedShareFolder.folder?.name || t('shared.my_shares.shared_folder')}
+          isOpen={true}
+          onClose={() => {
+            setManagedShareFolder(null);
+            loadShared();
           }}
         />
       )}
