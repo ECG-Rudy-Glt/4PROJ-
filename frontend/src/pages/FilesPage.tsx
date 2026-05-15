@@ -167,6 +167,7 @@ export default function FilesPage() {
             _sharedBy: sf.sharedBy,
             _canWrite: sf.canWrite,
             _canDelete: sf.canDelete,
+            _canShare: sf.canShare,
           }))
         );
       }
@@ -221,6 +222,9 @@ export default function FilesPage() {
       setAcceptedSharedFolders([]);
     }
   }, [folderId, searchQuery, getSharedItemsAsDisplayFiles, loadPendingSharesCount]);
+
+  const canShareItem = (item: any) => !isSharedItem(item) || Boolean(item?._canShare || item?._sharedFolderPermissions?.canShare);
+  const canDeleteItem = (item: any) => !isSharedItem(item) || Boolean(item?._canDelete || item?._sharedFolderPermissions?.canDelete);
 
   useEffect(() => {
     if (searchQuery) {
@@ -301,16 +305,22 @@ export default function FilesPage() {
     try {
       await deleteFile(fileId);
       toast.success(t('trash.delete_success', { type: t('common.file') }));
+      if (!folderId) {
+        getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
-  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+  const handleDeleteFolder = async (targetFolderId: string, folderName: string) => {
     if (!confirm(t('files.delete_folder_confirm', { name: folderName }))) return;
     try {
-      await deleteFolder(folderId);
+      await deleteFolder(targetFolderId);
       toast.success(t('trash.delete_success', { type: t('common.folder') }));
+      if (!folderId) {
+        getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error, t('common.error')));
     }
@@ -566,58 +576,72 @@ export default function FilesPage() {
         <div className="mb-8">
           <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">{t('files.folders')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => (
-              <div
-                key={folder.id}
-                draggable={!folder._isShared && renamingFolderId !== folder.id}
-                onDragStart={(e) => handleItemDragStart(folder.id, 'folder', e)}
-                onDragOver={(e) => handleFolderDragOver(folder.id, e)}
-                onDragLeave={handleFolderDragLeave}
-                onDrop={(e) => void handleFolderDrop(folder.id, e)}
-                className={`group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border rounded-xl hover:shadow-md transition-all duration-200 ${
-                  dropTargetFolderId === folder.id
-                    ? 'border-primary-500 dark:border-primary-400 ring-2 ring-primary-300 dark:ring-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600'
-                } ${draggedItem?.id === folder.id ? 'opacity-50' : ''}`}
-              >
-                {renamingFolderId === folder.id ? (
-                  <div className="flex flex-col items-center w-full">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3">
-                      <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => {
+              const folderIsShared = isSharedItem(folder);
+              const folderCanShare = canShareItem(folder);
+              const folderCanDelete = canDeleteItem(folder);
+
+              return (
+                <div
+                  key={folder.id}
+                  draggable={!folderIsShared && renamingFolderId !== folder.id}
+                  onDragStart={(e) => handleItemDragStart(folder.id, 'folder', e)}
+                  onDragOver={(e) => handleFolderDragOver(folder.id, e)}
+                  onDragLeave={handleFolderDragLeave}
+                  onDrop={(e) => void handleFolderDrop(folder.id, e)}
+                  className={`group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border rounded-xl hover:shadow-md transition-all duration-200 ${
+                    dropTargetFolderId === folder.id
+                      ? 'border-primary-500 dark:border-primary-400 ring-2 ring-primary-300 dark:ring-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600'
+                  } ${draggedItem?.id === folder.id ? 'opacity-50' : ''}`}
+                >
+                  {renamingFolderId === folder.id ? (
+                    <div className="flex flex-col items-center w-full">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3">
+                        <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => handleRenameKeyDown(e, 'folder')}
+                        onBlur={confirmRenameFolder}
+                        className="text-sm font-medium text-center border border-primary-400 dark:border-primary-500 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
+                        autoFocus
+                      />
                     </div>
-                    <input
-                      ref={renameInputRef}
-                      type="text"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => handleRenameKeyDown(e, 'folder')}
-                      onBlur={confirmRenameFolder}
-                      className="text-sm font-medium text-center border border-primary-400 dark:border-primary-500 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
-                      autoFocus
-                    />
-                  </div>
-                ) : (
-                  <button onClick={() => navigate(`/files/${folder.id}`)} className="flex flex-col items-center w-full">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
-                      <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  ) : (
+                    <button onClick={() => navigate(`/files/${folder.id}`)} className="flex flex-col items-center w-full">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
+                        <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">{folder.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</span>
+                    </button>
+                  )}
+                  {(!folderIsShared || folderCanShare || folderCanDelete || folder._isShared) && (
+                    <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {!folderIsShared && (
+                        <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                      )}
+                      {folderCanShare && (
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                      )}
+                      {!folderIsShared && (
+                        <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch((error) => toast.error(getApiErrorMessage(error, t('common.download_error')))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                      )}
+                      {folderCanDelete && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 hover:border-red-300 dark:hover:border-red-800 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
+                      )}
+                      {folder._isShared && !folderCanDelete && (
+                        <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder((folder as any)._shareId || folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
+                      )}
                     </div>
-                    <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">{folder.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</span>
-                  </button>
-                )}
-                {!folder._isShared && (
-                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch((error) => toast.error(getApiErrorMessage(error, t('common.download_error')))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 hover:border-red-300 dark:hover:border-red-800 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
-                  </div>
-                )}
-                {folder._isShared && (
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder((folder as any)._shareId || folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600 dark:text-red-500" /></button>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -641,6 +665,8 @@ export default function FilesPage() {
                   const Icon = getMimeTypeIcon(file.mimeType);
                   const colorClass = getMimeTypeColor(file.mimeType);
                   const isShared = isSharedItem(file);
+                  const fileCanShare = canShareItem(file);
+                  const fileCanDelete = canDeleteItem(file);
                   return (
                     <tr
                       key={file.id}
@@ -685,7 +711,8 @@ export default function FilesPage() {
                           {!isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
                           <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.preview')}><Eye className="w-4 h-4" /></button>
                           <button onClick={() => handleDownloadFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
-                          {!isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
+                          {fileCanShare && <button onClick={() => { setSelectedFile(file); setShowShareFileModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.share')}><Share2 className="w-4 h-4" /></button>}
+                          {fileCanDelete && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
                         </div>
                       </td>
                     </tr>

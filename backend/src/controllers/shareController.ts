@@ -236,7 +236,12 @@ export class ShareController {
         'SHARE',
         'Nouveau dossier partagé',
         `${req.user!.firstName || req.user!.email} a partagé un dossier avec vous`,
-        { folderId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
+        {
+          folderId,
+          sharedById: userId,
+          userName: req.user!.firstName || req.user!.email,
+          dedupeKey: `share:folder:${folderId}:${userId}`,
+        }
       ).catch((e) => logger.error(e));
 
       sendCreated(res, { sharedFolder });
@@ -322,7 +327,12 @@ export class ShareController {
         'SHARE',
         'Nouveau fichier partagé',
         `${req.user!.firstName || req.user!.email} a partagé un fichier avec vous`,
-        { fileId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
+        {
+          fileId,
+          sharedById: userId,
+          userName: req.user!.firstName || req.user!.email,
+          dedupeKey: `share:file:${fileId}:${userId}`,
+        }
       ).catch((e) => logger.error(e));
 
       sendCreated(res, { sharedFile, isNewUser: false });

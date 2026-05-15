@@ -1,9 +1,10 @@
 import prisma from '../config/database';
 import { MailService } from './mailService';
 import { AuditService } from './auditService';
-import { SocketService } from './socketService';
 import { SharedLinkService } from './sharedLinkService';
 import { ShareKeyService } from './shareKeyService';
+import { findSharedFolderAccessRoot } from '../middlewares/permissions';
+import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 import logger from '../config/logger';
 
 type Permissions = {
@@ -72,13 +73,20 @@ export class SharedFolderService {
     permissions: Permissions = {},
     ownerWrappedDek?: string
   ) {
-    const folder = await prisma.folder.findFirst({ where: { id: folderId, userId, isDeleted: false } });
+    const folder = await prisma.folder.findFirst({ where: { id: folderId, isDeleted: false } });
     if (!folder) throw new Error('Folder not found');
     if (folder.isVault) throw new Error('Le partage est interdit pour les dossiers du coffre-fort');
+
+    const isOwner = folder.userId === userId;
+    const sourceShare = isOwner ? null : await findSharedFolderAccessRoot(userId, folderId, 'share');
+    if (!isOwner && !sourceShare) {
+      throw new Error("Vous n'avez pas la permission de partager ce dossier");
+    }
 
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) throw new Error('Target user not found');
     if (targetUser.id === userId) throw new Error('Impossible de partager un dossier avec vous-même');
+    if (targetUser.id === folder.userId) throw new Error('Le propriétaire a déjà accès à ce dossier');
     if (targetUser.accountStatus !== 'ACTIVE') {
       throw new Error('Le compte destinataire est inactif ou suspendu');
     }
@@ -87,9 +95,11 @@ export class SharedFolderService {
     if (existing) throw new Error('Folder already shared with this user');
 
     await SharedLinkService.assertShareLimit(userId);
+    const shareWrappedDek = isOwner ? ownerWrappedDek : sourceShare?.ownerWrappedDek;
+    if (!isOwner && !shareWrappedDek) throw new Error(DEK_UNLOCK_REQUIRED);
 
     const sharedFolder = await prisma.sharedFolder.create({
-      data: { folderId, sharedById: userId, sharedWithId: targetUserId, ownerWrappedDek, ...resolvePerms(permissions) },
+      data: { folderId, sharedById: userId, sharedWithId: targetUserId, ownerWrappedDek: shareWrappedDek, ...resolvePerms(permissions) },
       include: {
         folder: true,
         sharedBy: sharedBySelect,
@@ -116,7 +126,6 @@ export class SharedFolderService {
     }
 
     AuditService.createLog(userId, 'SHARE', { folderName: folder.name, folderId }).catch((e) => logger.error(e));
-    SocketService.emitToUser(targetUserId, 'share_received', { type: 'folder', folderName: folder.name });
 
     return ShareKeyService.stripOwnerWrappedDek(sharedFolder);
   }

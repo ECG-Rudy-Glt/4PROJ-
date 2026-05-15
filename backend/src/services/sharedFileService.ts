@@ -1,11 +1,11 @@
 import prisma from '../config/database';
 import { MailService } from './mailService';
 import { AuditService } from './auditService';
-import { SocketService } from './socketService';
 import { SharedLinkService } from './sharedLinkService';
 import { ShareKeyService } from './shareKeyService';
 import logger from '../config/logger';
 import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
+import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 
 type Permissions = {
   canRead?: boolean;
@@ -30,13 +30,27 @@ export class SharedFileService {
     permissions: Permissions = {},
     ownerWrappedDek?: string
   ) {
-    const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
+    const file = await prisma.file.findFirst({ where: { id: fileId, isDeleted: false } });
     if (!file) throw new Error('File not found');
     if (file.isVault) throw new Error('Le partage est interdit pour les fichiers du coffre-fort');
+
+    const isOwner = file.userId === userId;
+    const directShare = isOwner
+      ? null
+      : await prisma.sharedFile.findFirst({
+          where: { fileId, ...acceptedSharePermissionWhere(userId, 'share') },
+        });
+    const folderShare = !isOwner && !directShare && file.folderId
+      ? await findSharedFolderAccessRoot(userId, file.folderId, 'share')
+      : null;
+    if (!isOwner && !directShare && !folderShare) {
+      throw new Error("Vous n'avez pas la permission de partager ce fichier");
+    }
 
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) throw new Error('Target user not found');
     if (targetUser.id === userId) throw new Error('Impossible de partager un fichier avec vous-même');
+    if (targetUser.id === file.userId) throw new Error('Le propriétaire a déjà accès à ce fichier');
     if (targetUser.accountStatus !== 'ACTIVE') {
       throw new Error('Le compte destinataire est inactif ou suspendu');
     }
@@ -45,6 +59,8 @@ export class SharedFileService {
     if (existing) throw new Error('File already shared with this user');
 
     await SharedLinkService.assertShareLimit(userId);
+    const shareWrappedDek = isOwner ? ownerWrappedDek : directShare?.ownerWrappedDek || folderShare?.ownerWrappedDek;
+    if (!isOwner && !shareWrappedDek) throw new Error(DEK_UNLOCK_REQUIRED);
 
     const sharedFile = await prisma.sharedFile.create({
       data: {
@@ -55,7 +71,7 @@ export class SharedFileService {
         canWrite: permissions.canWrite ?? false,
         canDelete: permissions.canDelete ?? false,
         canShare: permissions.canShare ?? false,
-        ownerWrappedDek,
+        ownerWrappedDek: shareWrappedDek,
       },
       include: { file: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });
@@ -84,7 +100,6 @@ export class SharedFileService {
     }
 
     AuditService.createLog(userId, 'SHARE', { fileName: file.name, fileId }).catch((e) => logger.error(e));
-    SocketService.emitToUser(targetUserId, 'share_received', { type: 'file', fileName: file.name });
 
     return ShareKeyService.stripOwnerWrappedDek(sharedFile);
   }
