@@ -20,6 +20,7 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import AdminPage from './pages/AdminPage';
 import OrganizationAdminPage from './pages/OrganizationAdminPage';
 import AuditPage from './pages/AuditPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // Components
 import Layout from './components/Layout';
@@ -65,6 +66,8 @@ function App() {
           </Route>
         </Route>
       </Route>
+
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
