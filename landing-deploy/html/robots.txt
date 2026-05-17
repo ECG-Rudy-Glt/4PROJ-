@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /files
+Disallow: /favorites
+Disallow: /shared
+Disallow: /trash
+Disallow: /settings
+Disallow: /admin
+Disallow: /organization-admin
+Disallow: /audit
+Disallow: /mfa-verify
+Disallow: /reset-password
+Disallow: /share/
+Disallow: /invite/
+
+Sitemap: https://supfile.tech/sitemap.xml
