@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ShareController } from '../controllers/shareController';
 import { authenticate } from '../middlewares/auth';
 import { requireDelegationPermission } from '../middlewares/delegation';
+import { verifyDirectSharePassword } from '../middlewares/sharePasswordMiddleware';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.get('/folders/with-me', authenticate, requireDelegationPermission('read')
 router.get('/folders/by-me', authenticate, requireDelegationPermission('read'), ShareController.listSharedByMe);
 router.patch('/folders/:shareId/permissions', authenticate, requireDelegationPermission('share'), ShareController.updateSharedFolderPermissions);
 router.delete('/folders/:shareId', authenticate, requireDelegationPermission('delete'), ShareController.removeSharedFolder);
+router.post('/folders/:shareId/unlock', authenticate, requireDelegationPermission('read'), ShareController.unlockDirectFolderShare);
 
 // File sharing (internal between users)
 router.post('/files', authenticate, requireDelegationPermission('share'), ShareController.shareFile);
@@ -32,15 +34,17 @@ router.get('/files/by-me', authenticate, requireDelegationPermission('read'), Sh
 router.get('/files/:fileId/shares', authenticate, requireDelegationPermission('read'), ShareController.getFileShares);
 router.patch('/files/:shareId/permissions', authenticate, requireDelegationPermission('share'), ShareController.updateSharedFilePermissions);
 router.delete('/files/:shareId', authenticate, requireDelegationPermission('delete'), ShareController.removeSharedFile);
+router.post('/files/:shareId/unlock', authenticate, requireDelegationPermission('read'), ShareController.unlockDirectShare);
 
 // Shared folder contents (list files in a shared folder)
-router.get('/folders/:folderId/contents', authenticate, requireDelegationPermission('read'), ShareController.getSharedFolderContents);
+router.get('/folders/:folderId/contents', authenticate, requireDelegationPermission('read'), verifyDirectSharePassword, ShareController.getSharedFolderContents);
 
 // Access shared file (authenticated user accessing file shared with them)
-router.get('/access/:fileId/stream', authenticate, requireDelegationPermission('read'), ShareController.streamSharedFile);
-router.get('/access/:fileId/download', authenticate, requireDelegationPermission('read'), ShareController.downloadSharedFileAuth);
+router.get('/access/:fileId/stream', authenticate, requireDelegationPermission('read'), verifyDirectSharePassword, ShareController.streamSharedFile);
+router.get('/access/:fileId/download', authenticate, requireDelegationPermission('read'), verifyDirectSharePassword, ShareController.downloadSharedFileAuth);
 
 // Public access to shared files (keep after static/authenticated routes)
+router.post('/:token/unlock', ShareController.unlockPublicShare);
 router.get('/:token', ShareController.getSharedFile);
 router.get('/:token/download', ShareController.downloadSharedFile);
 router.get('/:token/download-bundle', ShareController.downloadBundleShareLink);

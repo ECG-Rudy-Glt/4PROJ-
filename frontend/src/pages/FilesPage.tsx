@@ -20,6 +20,7 @@ import {
   Pencil,
   AlertTriangle,
   FolderDown,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fileService } from '@/services/fileService';
@@ -35,10 +36,12 @@ import TagSelector from '@/components/TagSelector';
 import ShareFolderModal from '@/components/ShareFolderModal';
 import { ShareFileModal } from '@/components/ShareFileModal';
 import PendingSharesModal from '@/components/PendingSharesModal';
+import ShareUnlockModal from '@/components/ShareUnlockModal';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { formatBytes } from '@/utils/bytes';
 import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
+import { getFolderShareAccessToken, getSharePasswordAccessError, setFolderShareAccessToken } from '@/utils/shareAccessTokens';
 import { FilterBar, FilterState } from '@/components/FilterBar';
 import { useTranslation } from 'react-i18next';
 import SortableTableHeader from '@/components/SortableTableHeader';
@@ -107,6 +110,13 @@ export default function FilesPage() {
   const [pendingSharesCount, setPendingSharesCount] = useState(0);
   const [acceptedSharedFiles, setAcceptedSharedFiles] = useState<any[]>([]);
   const [acceptedSharedFolders, setAcceptedSharedFolders] = useState<any[]>([]);
+  const [acceptedSharedItemsLoaded, setAcceptedSharedItemsLoaded] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<
+    | { type: 'file'; file: File | any; action: 'preview' | 'download' }
+    | { type: 'folder'; folder: FolderType | any; action: 'open-folder' }
+    | null
+  >(null);
+  const [shareAccessTokens, setShareAccessTokens] = useState<Record<string, string>>({});
 
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -120,6 +130,100 @@ export default function FilesPage() {
     [acceptedSharedFiles, displayFiles, i18n.language, sortBy, sortOrder]
   );
   const isSharedItem = (item: any) => Boolean(item?._isShared || item?._sharedFolderPermissions);
+  const isPasswordProtectedSharedFile = (item: any) => Boolean(isSharedItem(item) && item?.passwordProtected);
+  const getSharedFolderRootId = (item: any) => item?._sharedRootFolderId || item?.folderId || item?.id;
+  const getSharedFolderToken = useCallback((item: any) => {
+    const rootId = getSharedFolderRootId(item);
+    return getFolderShareAccessToken(rootId) || getFolderShareAccessToken(item?.id);
+  }, []);
+  const getFileShareAccessToken = useCallback((file: File | any) => (
+    shareAccessTokens[file.id]
+      || getFolderShareAccessToken(file?._sharedRootFolderId)
+      || getFolderShareAccessToken(file?.folderId)
+  ), [shareAccessTokens]);
+
+  const handleSharePasswordAccessError = useCallback((
+    error: unknown,
+    options: {
+      file?: File | any;
+      folder?: FolderType | any;
+      folderId?: string;
+      action?: 'preview' | 'download';
+    } = {}
+  ) => {
+    const shareError = getSharePasswordAccessError(error);
+    if (!shareError) return false;
+
+    const shareId = shareError.shareId
+      || options.folder?._shareId
+      || options.folder?.shareId
+      || options.file?._shareId
+      || options.file?.shareId;
+    const rootFolderId = shareError.folderId
+      || options.folder?._sharedRootFolderId
+      || options.file?._sharedRootFolderId;
+
+    if (rootFolderId) setFolderShareAccessToken(rootFolderId, null);
+    if (options.folderId) setFolderShareAccessToken(options.folderId, null);
+    if (options.folder?.id) setFolderShareAccessToken(options.folder.id, null);
+    if (options.file?.folderId) setFolderShareAccessToken(options.file.folderId, null);
+
+    if (options.file && shareId) {
+      setShareAccessTokens((prev) => {
+        const next = { ...prev };
+        delete next[options.file.id];
+        return next;
+      });
+      setUnlockTarget({
+        type: 'file',
+        file: {
+          ...options.file,
+          _shareId: shareId,
+          shareId,
+          _sharedRootFolderId: rootFolderId || options.file._sharedRootFolderId,
+          passwordProtected: true,
+        },
+        action: options.action || 'preview',
+      });
+      return true;
+    }
+
+    const targetFolderId = options.folderId || options.folder?.id || rootFolderId;
+    if (shareId && targetFolderId) {
+      setUnlockTarget({
+        type: 'folder',
+        folder: {
+          ...(options.folder || {}),
+          id: targetFolderId,
+          name: options.folder?.name || t('files.folders'),
+          _shareId: shareId,
+          shareId,
+          _sharedRootFolderId: rootFolderId || targetFolderId,
+          passwordProtected: true,
+        },
+        action: 'open-folder',
+      });
+      return true;
+    }
+
+    return false;
+  }, [t]);
+
+  const requireSharedFileUnlock = useCallback((file: File | any, action: 'preview' | 'download') => {
+    if (isPasswordProtectedSharedFile(file) && !getFileShareAccessToken(file)) {
+      setUnlockTarget({ type: 'file', file, action });
+      return true;
+    }
+
+    return false;
+  }, [getFileShareAccessToken]);
+
+  const openPreviewFile = useCallback((file: File | any) => {
+    if (requireSharedFileUnlock(file, 'preview')) return;
+
+    setPreviewFile(file);
+    setShowPreviewModal(true);
+  }, [requireSharedFileUnlock]);
 
   const getSharedItemsAsDisplayFiles = useCallback(async () => {
     try {
@@ -142,6 +246,9 @@ export default function FilesPage() {
             _canDelete: sf.canDelete,
             _canShare: sf.canShare,
             _shareId: sf.id,
+            shareId: sf.id,
+            _sharedRootFolderId: sf.folder.id,
+            passwordProtected: sf.passwordProtected,
           }))
         );
         setAcceptedSharedFolders(sharedFolders);
@@ -168,6 +275,9 @@ export default function FilesPage() {
             _canWrite: sf.canWrite,
             _canDelete: sf.canDelete,
             _canShare: sf.canShare,
+            _shareId: sf.id,
+            shareId: sf.id,
+            passwordProtected: sf.passwordProtected,
           }))
         );
       }
@@ -215,11 +325,15 @@ export default function FilesPage() {
 
   useEffect(() => {
     if (!folderId && !searchQuery) {
-      getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+      setAcceptedSharedItemsLoaded(false);
+      getSharedItemsAsDisplayFiles()
+        .then(setAcceptedSharedFiles)
+        .finally(() => setAcceptedSharedItemsLoaded(true));
       loadPendingSharesCount();
     } else {
       setAcceptedSharedFiles([]);
       setAcceptedSharedFolders([]);
+      setAcceptedSharedItemsLoaded(true);
     }
   }, [folderId, searchQuery, getSharedItemsAsDisplayFiles, loadPendingSharesCount]);
 
@@ -231,7 +345,10 @@ export default function FilesPage() {
       handleSearch(searchQuery);
     } else {
       const serverSortBy = sortBy === 'tags' ? 'updatedAt' : sortBy;
-      loadContent(folderId, serverSortBy, sortOrder, activeFilters);
+      loadContent(folderId, serverSortBy, sortOrder, activeFilters).catch((error) => {
+        if (folderId && handleSharePasswordAccessError(error, { folderId })) return;
+        toast.error(getApiErrorMessage(error, t('common.error_loading')));
+      });
       setSearchResults([]);
       if (folderId) {
         loadBreadcrumbs(folderId);
@@ -239,7 +356,7 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-  }, [folderId, searchQuery, activeFilters, sortBy, sortOrder, handleSearch, loadContent, loadBreadcrumbs]);
+  }, [folderId, searchQuery, activeFilters, sortBy, sortOrder, handleSearch, loadContent, loadBreadcrumbs, handleSharePasswordAccessError, t]);
 
   useEffect(() => {
     const previewId = searchParams.get('preview');
@@ -247,18 +364,18 @@ export default function FilesPage() {
 
     const local = [...files, ...acceptedSharedFiles].find(f => f.id === previewId);
     if (local) {
-      setPreviewFile(local);
-      setShowPreviewModal(true);
+      openPreviewFile(local);
       return;
     }
 
+    if (!folderId && !searchQuery && !acceptedSharedItemsLoaded) return;
+
     fileService.getFile(previewId).then(({ file }) => {
-      setPreviewFile(file);
-      setShowPreviewModal(true);
+      openPreviewFile(file);
     }).catch((error) => {
       toast.error(getApiErrorMessage(error, t('common.error_loading')));
     });
-  }, [searchParams, files, acceptedSharedFiles, t]);
+  }, [searchParams, files, acceptedSharedFiles, acceptedSharedItemsLoaded, folderId, searchQuery, openPreviewFile, t]);
 
 
 
@@ -291,13 +408,88 @@ export default function FilesPage() {
   const handleDownloadFile = async (file: File | any) => {
     try {
       if (isSharedItem(file)) {
-        await fileService.triggerSharedFileDownload(file.id, file.name);
+        if (requireSharedFileUnlock(file, 'download')) return;
+        await fileService.triggerSharedFileDownload(file.id, file.name, getFileShareAccessToken(file));
       } else {
         await fileService.triggerDownload(file.id, file.name);
       }
     } catch (error) {
+      if (handleSharePasswordAccessError(error, { file, action: 'download' })) return;
       toast.error(getApiErrorMessage(error, t('common.error')));
     }
+  };
+
+  const handleOpenFolder = useCallback((folder: FolderType | any) => {
+    const rootId = getSharedFolderRootId(folder);
+    const token = getSharedFolderToken(folder);
+    if (folder?.passwordProtected && !token) {
+      setUnlockTarget({ type: 'folder', folder, action: 'open-folder' });
+      return;
+    }
+
+    if (folder?._sharedRootFolderId && token) {
+      setFolderShareAccessToken(folder.id, token);
+    }
+    if (rootId && token) {
+      setFolderShareAccessToken(rootId, token);
+    }
+    navigate(`/files/${folder.id}`);
+  }, [getSharedFolderToken, navigate]);
+
+  const handleUnlockSharedItem = async (password: string) => {
+    if (!unlockTarget) return;
+
+    if (unlockTarget.type === 'folder') {
+      const shareId = unlockTarget.folder._shareId || unlockTarget.folder.shareId || unlockTarget.folder.id;
+      if (!shareId) {
+        throw new Error(t('common.error'));
+      }
+
+      const result = await shareService.unlockDirectFolderShare(shareId, password);
+      const token = result?.shareAccessToken || '';
+      const target = unlockTarget.folder;
+      const rootId = getSharedFolderRootId(target);
+
+      if (rootId) setFolderShareAccessToken(rootId, token);
+      setFolderShareAccessToken(target.id, token);
+      setUnlockTarget(null);
+      if (target.id === folderId) {
+        const serverSortBy = sortBy === 'tags' ? 'updatedAt' : sortBy;
+        await loadContent(target.id, serverSortBy, sortOrder, activeFilters);
+        await loadBreadcrumbs(target.id);
+      } else {
+        navigate(`/files/${target.id}`);
+      }
+      return;
+    }
+
+    const shareId = unlockTarget.file._shareId || unlockTarget.file.shareId;
+    if (!shareId) {
+      throw new Error(t('common.error'));
+    }
+
+    const isFolderShare = Boolean(unlockTarget.file._sharedFolderPermissions || unlockTarget.file._sharedRootFolderId);
+    const result = isFolderShare
+      ? await shareService.unlockDirectFolderShare(shareId, password)
+      : await shareService.unlockDirectShare(shareId, password);
+    const token = result?.shareAccessToken || '';
+    const target = unlockTarget;
+
+    if (isFolderShare) {
+      if (target.file._sharedRootFolderId) setFolderShareAccessToken(target.file._sharedRootFolderId, token);
+      if (target.file.folderId) setFolderShareAccessToken(target.file.folderId, token);
+    }
+    setShareAccessTokens(prev => ({ ...prev, [target.file.id]: token }));
+    setUnlockTarget(null);
+
+    if (target.action === 'preview') {
+      setPreviewFile(target.file);
+      setShowPreviewModal(true);
+      return;
+    }
+
+    await fileService.triggerSharedFileDownload(target.file.id, target.file.name, token || undefined);
+    toast.success(t('shared.download_started'));
   };
 
   const handleDelete = async (fileId: string) => {
@@ -580,6 +772,7 @@ export default function FilesPage() {
               const folderIsShared = isSharedItem(folder);
               const folderCanShare = canShareItem(folder);
               const folderCanDelete = canDeleteItem(folder);
+              const folderIsLocked = Boolean(folder.passwordProtected && !getSharedFolderToken(folder));
 
               return (
                 <div
@@ -612,11 +805,20 @@ export default function FilesPage() {
                       />
                     </div>
                   ) : (
-                    <button onClick={() => navigate(`/files/${folder.id}`)} className="flex flex-col items-center w-full">
-                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
-                        <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    <button onClick={() => handleOpenFolder(folder)} className="flex flex-col items-center w-full">
+                      <div className={`p-3 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200 ${folderIsLocked ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
+                        {folderIsLocked ? (
+                          <Lock className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        )}
                       </div>
                       <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">{folder.name}</span>
+                      {folderIsLocked && (
+                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-1">
+                          {t('shared.password_protected')}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</span>
                     </button>
                   )}
@@ -667,6 +869,7 @@ export default function FilesPage() {
                   const isShared = isSharedItem(file);
                   const fileCanShare = canShareItem(file);
                   const fileCanDelete = canDeleteItem(file);
+                  const isLocked = isPasswordProtectedSharedFile(file) && !shareAccessTokens[file.id];
                   return (
                     <tr
                       key={file.id}
@@ -691,9 +894,16 @@ export default function FilesPage() {
                             {renameExtension && <span className="text-sm text-gray-400">{renameExtension}</span>}
                           </div>
                         ) : (
-                          <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-                            <div className={`p-2 rounded-lg ${colorClass}`}><Icon className="w-5 h-5" /></div>
+                          <button onClick={() => openPreviewFile(file)} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+                            <div className={`p-2 rounded-lg ${isLocked ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : colorClass}`}>
+                              {isLocked ? <Lock className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                            </div>
                             <span className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</span>
+                            {isLocked && (
+                              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                                {t('shared.password_protected')}
+                              </span>
+                            )}
                             {['.exe', '.msi', '.bat', '.sh', '.cmd', '.com', '.bin', '.app', '.run'].some(ext => file.name.toLowerCase().endsWith(ext)) && (
                               <span title={t('common.dangerous_file')}>
                                 <AlertTriangle className="w-4 h-4 text-amber-500" />
@@ -709,7 +919,7 @@ export default function FilesPage() {
                         <div className="flex items-center justify-end space-x-2">
                           {!isShared && <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>}
                           {!isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
-                          <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.preview')}><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => openPreviewFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={isLocked ? t('shared.unlock') : t('common.preview')}>{isLocked ? <Lock className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                           <button onClick={() => handleDownloadFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
                           {fileCanShare && <button onClick={() => { setSelectedFile(file); setShowShareFileModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.share')}><Share2 className="w-4 h-4" /></button>}
                           {fileCanDelete && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
@@ -736,11 +946,18 @@ export default function FilesPage() {
 
       <NewFolderModal isOpen={showNewFolderModal} folderName={newFolderName} onClose={() => setShowNewFolderModal(false)} onChange={setNewFolderName} onCreate={handleCreateFolder} />
       <ShareModal isOpen={showShareModal} file={selectedFile} shareLink={shareLink} password={sharePassword} expiry={shareExpiry} maxDownloads={shareMaxDownloads} onClose={() => setShowShareModal(false)} onPasswordChange={setSharePassword} onExpiryChange={setShareExpiry} onMaxDownloadsChange={setShareMaxDownloads} onCreateLink={handleCreateShareLink} onCopyLink={handleCopyShareLink} />
-      {showPreviewModal && previewFile && <FilePreviewModal file={previewFile} onClose={() => setShowPreviewModal(false)} isShared={isSharedItem(previewFile)} />}
+      {showPreviewModal && previewFile && <FilePreviewModal file={previewFile} onClose={() => setShowPreviewModal(false)} isShared={isSharedItem(previewFile)} shareAccessToken={getFileShareAccessToken(previewFile) || null} />}
       <TagsManager isOpen={showTagsManager} onClose={() => setShowTagsManager(false)} />
       {selectedFolder && <ShareFolderModal folderId={selectedFolder.id} folderName={selectedFolder.name} isOpen={showShareFolderModal} onClose={() => { setShowShareFolderModal(false); setSelectedFolder(null); }} />}
       {selectedFile && showShareFileModal && <ShareFileModal file={selectedFile} onClose={() => { setShowShareFileModal(false); setSelectedFile(null); }} />}
       <PendingSharesModal isOpen={showPendingShares} onClose={() => setShowPendingShares(false)} onAccept={() => { if (!folderId) { loadContent(folderId); getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles); } loadPendingSharesCount(); }} />
+      {unlockTarget && (
+        <ShareUnlockModal
+          fileName={unlockTarget.type === 'folder' ? unlockTarget.folder.name : unlockTarget.file.name}
+          onUnlock={handleUnlockSharedItem}
+          onClose={() => setUnlockTarget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,8 @@
 import api from './api';
 
+const shareAccessHeaders = (shareAccessToken?: string | null) =>
+  shareAccessToken ? { headers: { 'X-Share-Access-Token': shareAccessToken } } : undefined;
+
 export interface Comment {
   id: string;
   content: string;
@@ -22,19 +25,19 @@ export const commentService = {
   /**
    * Créer un nouveau commentaire
    */
-  async createComment(fileId: string, content: string, parentId?: string) {
+  async createComment(fileId: string, content: string, parentId?: string, shareAccessToken?: string | null) {
     const { data } = await api.post(`/files/${fileId}/comments`, {
       content,
       parentId,
-    });
+    }, shareAccessHeaders(shareAccessToken));
     return data;
   },
 
   /**
    * Récupérer tous les commentaires d'un fichier
    */
-  async getFileComments(fileId: string) {
-    const { data } = await api.get(`/files/${fileId}/comments`);
+  async getFileComments(fileId: string, shareAccessToken?: string | null) {
+    const { data } = await api.get(`/files/${fileId}/comments`, shareAccessHeaders(shareAccessToken));
     return data;
   },
 
@@ -57,8 +60,8 @@ export const commentService = {
   /**
    * Compter les commentaires d'un fichier
    */
-  async countFileComments(fileId: string) {
-    const { data } = await api.get(`/files/${fileId}/comments/count`);
+  async countFileComments(fileId: string, shareAccessToken?: string | null) {
+    const { data } = await api.get(`/files/${fileId}/comments/count`, shareAccessHeaders(shareAccessToken));
     return data;
   },
 };

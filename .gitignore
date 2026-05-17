@@ -34,8 +34,7 @@ backend/uploads/
 *.sqlite
 *.db
 
-# Prisma
-backend/prisma/migrations/
+# Prisma migrations are versioned.
 
 # Testing
 coverage/

@@ -138,6 +138,7 @@ export interface SharedFolder {
   canWrite: boolean;
   canDelete: boolean;
   canShare: boolean;
+  passwordProtected?: boolean;
   createdAt: string;
   folder?: Folder;
   sharedBy?: {
@@ -164,6 +165,7 @@ export interface SharedFile {
   canWrite: boolean;
   canDelete: boolean;
   canShare: boolean;
+  passwordProtected?: boolean;
   createdAt: string;
   file?: File;
   sharedBy?: {

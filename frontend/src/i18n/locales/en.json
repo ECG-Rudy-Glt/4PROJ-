@@ -244,6 +244,10 @@
       "no_shares_desc": "Create a share link or share a file with other users from your files page.",
       "go_to_files": "Go to my files"
     }
+,
+    "password_protected": "Password protected",
+    "unlock": "Unlock",
+    "unlock_to_access": "This file is protected by a password"
   },
   "settings": {
     "title": "Settings",
@@ -618,7 +622,30 @@
     "remove_success": "Access removed",
     "error_email": "Please enter an email",
     "error_sharing": "Sharing failed",
-    "error_removing": "Removal failed"
+    "error_removing": "Removal failed",
+    "password_title": "Password Protection",
+    "password_placeholder": "Password to unlock share",
+    "password_new_placeholder": "New password",
+    "password_enabled": "Password enabled",
+    "password_disabled": "No password",
+    "password_save": "Save",
+    "password_clear": "Remove",
+    "password_required": "Please enter a password",
+    "password_update_success": "Share password updated",
+    "password_clear_success": "Share password removed",
+    "password_update_error": "Failed to update share password",
+    "password_clear_confirm": "Remove the password from this share?",
+    "password_upgrade_title": "Password Protection \u2014 PRO Feature",
+    "password_upgrade_desc": "Upgrade to PRO to protect your shares with a password.",
+    "upgrade_cta": "Upgrade to PRO"
+  },
+  "share_unlock": {
+    "title": "Protected share",
+    "description": "This file is protected by a password. Enter it to access.",
+    "password_placeholder": "Password",
+    "error_invalid": "Incorrect password",
+    "unlock_button": "Unlock",
+    "unlocking": "Verifying..."
   },
   "pending_shares": {
     "title": "Pending shares",

@@ -1,5 +1,8 @@
 import api from './api';
 
+const shareAccessHeaders = (shareAccessToken?: string | null) =>
+  shareAccessToken ? { headers: { 'X-Share-Access-Token': shareAccessToken } } : undefined;
+
 export interface FileVersion {
   id: string;
   fileId: string;
@@ -22,24 +25,24 @@ export const versionService = {
   /**
    * Récupérer toutes les versions d'un fichier
    */
-  async getFileVersions(fileId: string) {
-    const { data } = await api.get(`/files/${fileId}/versions`);
+  async getFileVersions(fileId: string, shareAccessToken?: string | null) {
+    const { data } = await api.get(`/files/${fileId}/versions`, shareAccessHeaders(shareAccessToken));
     return data;
   },
 
   /**
    * Restaurer une version spécifique
    */
-  async restoreVersion(fileId: string, versionId: string) {
-    const { data } = await api.post(`/files/${fileId}/versions/${versionId}/restore`);
+  async restoreVersion(fileId: string, versionId: string, shareAccessToken?: string | null) {
+    const { data } = await api.post(`/files/${fileId}/versions/${versionId}/restore`, undefined, shareAccessHeaders(shareAccessToken));
     return data;
   },
 
   /**
    * Supprimer une version
    */
-  async deleteVersion(fileId: string, versionId: string) {
-    const { data } = await api.delete(`/files/${fileId}/versions/${versionId}`);
+  async deleteVersion(fileId: string, versionId: string, shareAccessToken?: string | null) {
+    const { data } = await api.delete(`/files/${fileId}/versions/${versionId}`, shareAccessHeaders(shareAccessToken));
     return data;
   },
 };

@@ -12,9 +12,10 @@ interface VersionHistoryProps {
   onVersionRestored?: () => void;
   isShared?: boolean;
   canWrite?: boolean;
+  shareAccessToken?: string | null;
 }
 
-export default function VersionHistory({ fileId, onVersionRestored, isShared = false, canWrite = true }: VersionHistoryProps) {
+export default function VersionHistory({ fileId, onVersionRestored, isShared = false, canWrite = true, shareAccessToken }: VersionHistoryProps) {
   const { t, i18n } = useTranslation();
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,13 +27,13 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
   useEffect(() => {
     loadVersions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileId]);
+  }, [fileId, shareAccessToken]);
 
   const loadVersions = async () => {
     setIsLoading(true);
     setHasError(false);
     try {
-      const { versions } = await versionService.getFileVersions(fileId);
+      const { versions } = await versionService.getFileVersions(fileId, shareAccessToken);
       setVersions(versions);
     } catch (error: any) {
       console.error('Erreur chargement versions:', error);
@@ -52,7 +53,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
     }
 
     try {
-      await versionService.restoreVersion(fileId, versionId);
+      await versionService.restoreVersion(fileId, versionId, shareAccessToken);
       toast.success(t('versions.restore_success'));
       loadVersions();
       if (onVersionRestored) {
@@ -69,7 +70,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
     }
 
     try {
-      await versionService.deleteVersion(fileId, versionId);
+      await versionService.deleteVersion(fileId, versionId, shareAccessToken);
       toast.success(t('versions.delete_success'));
       loadVersions();
     } catch (error: any) {

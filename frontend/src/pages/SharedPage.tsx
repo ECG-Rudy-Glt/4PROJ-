@@ -34,8 +34,10 @@ import { fr, enUS } from 'date-fns/locale';
 import FilePreviewModal from '@/components/FilePreviewModal';
 import ShareFolderModal from '@/components/ShareFolderModal';
 import { ShareFileModal } from '@/components/ShareFileModal';
+import ShareUnlockModal from '@/components/ShareUnlockModal';
 import { formatBytes } from '@/utils/bytes';
 import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
+import { getFolderShareAccessToken, setFolderShareAccessToken } from '@/utils/shareAccessTokens';
 import { useTranslation } from 'react-i18next';
 
 const getMimeTypeIcon = (mimeType: string) => {
@@ -81,6 +83,13 @@ export default function SharedPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [managedShareFile, setManagedShareFile] = useState<File | null>(null);
   const [managedShareFolder, setManagedShareFolder] = useState<SharedFolder | null>(null);
+  // State for password-unlock flow
+  const [unlockTarget, setUnlockTarget] = useState<
+    | { type: 'file'; file: File; action: 'preview' | 'download' }
+    | { type: 'folder'; folder: SharedFolder; action: 'open-folder' }
+    | null
+  >(null);
+  const [shareAccessTokens, setShareAccessTokens] = useState<Record<string, string>>({});
 
   // Partages en attente
   const [pendingFolders, setPendingFolders] = useState<SharedFolder[]>([]);
@@ -118,6 +127,8 @@ export default function SharedPage() {
         canWrite: sf.canWrite,
         canDelete: sf.canDelete,
         canShare: sf.canShare,
+        shareId: sf.id,
+        passwordProtected: sf.passwordProtected,
       })).filter((f: any) => f && f.id);
       setSharedFiles(files);
       
@@ -130,6 +141,8 @@ export default function SharedPage() {
         canWrite: sf.canWrite,
         canDelete: sf.canDelete,
         canShare: sf.canShare,
+        shareId: sf.id,
+        passwordProtected: sf.passwordProtected,
       })).filter((f: any) => f && f.id);
       setSharedByMeFiles(sharedByMeFilesList);
 
@@ -194,19 +207,66 @@ export default function SharedPage() {
   };
 
   const handlePreviewFile = (file: File) => {
+    if ((file as any).passwordProtected && !(shareAccessTokens[file.id])) {
+      setUnlockTarget({ type: 'file', file, action: 'preview' });
+      return;
+    }
     setPreviewFile(file);
     setShowPreviewModal(true);
   };
 
   const handleDownloadFile = async (file: File) => {
+    if ((file as any).passwordProtected && !(shareAccessTokens[file.id])) {
+      setUnlockTarget({ type: 'file', file, action: 'download' });
+      return;
+    }
     try {
-      await fileService.triggerSharedFileDownload(file.id, file.name);
+      await fileService.triggerSharedFileDownload(file.id, file.name, shareAccessTokens[file.id]);
       toast.success(t('shared.download_started'));
     } catch (error) {
       toast.error(getApiErrorMessage(error, t('shared.error_download')));
     }
   };
 
+  const handleOpenSharedFolder = (folder: SharedFolder) => {
+    const token = getFolderShareAccessToken(folder.folderId);
+    if (folder.passwordProtected && !token) {
+      setUnlockTarget({ type: 'folder', folder, action: 'open-folder' });
+      return;
+    }
+
+    navigate(`/files/${folder.folderId}`);
+  };
+
+  const handleUnlock = async (password: string) => {
+    if (!unlockTarget) return;
+
+    if (unlockTarget.type === 'folder') {
+      const result = await shareService.unlockDirectFolderShare(unlockTarget.folder.id, password);
+      const token = result?.shareAccessToken || '';
+      setFolderShareAccessToken(unlockTarget.folder.folderId, token);
+      const folderId = unlockTarget.folder.folderId;
+      setUnlockTarget(null);
+      navigate(`/files/${folderId}`);
+      return;
+    }
+
+    const result = await shareService.unlockDirectShare((unlockTarget.file as any).shareId, password);
+    const token = result?.shareAccessToken || '';
+    setShareAccessTokens(prev => ({ ...prev, [unlockTarget.file.id]: token }));
+    setUnlockTarget(null);
+    if (unlockTarget.action === 'preview') {
+      setPreviewFile(unlockTarget.file);
+      setShowPreviewModal(true);
+    } else {
+      try {
+        await fileService.triggerSharedFileDownload(unlockTarget.file.id, unlockTarget.file.name, token || undefined);
+        toast.success(t('shared.download_started'));
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, t('shared.error_download')));
+      }
+    }
+  };
   const tabs = [
     { id: 'shared-with-me' as TabType, label: t('shared.tabs.with_me'), icon: Users, count: sharedFiles.length + sharedFolders.length },
     { id: 'pending' as TabType, label: t('shared.tabs.pending'), icon: Clock, count: pendingFiles.length + pendingFolders.length, highlight: true },
@@ -280,13 +340,14 @@ export default function SharedPage() {
                     {sharedFiles.map((file) => {
                       const Icon = getMimeTypeIcon(file.mimeType);
                       const colorClass = getMimeTypeColor(file.mimeType);
+                      const isLocked = (file as any).passwordProtected && !shareAccessTokens[file.id];
                       return (
                         <div
                           key={file.id}
                           className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                         >
-                          <div className={`p-2.5 rounded-lg ${colorClass}`}>
-                            <Icon className="w-5 h-5" />
+                          <div className={`p-2.5 rounded-lg ${isLocked ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-500' : colorClass}`}>
+                            {isLocked ? <Lock className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 dark:text-white truncate">
@@ -296,23 +357,38 @@ export default function SharedPage() {
                               <span>{formatBytes(Number(file.size))}</span>
                               <span>•</span>
                               <span>{t('shared.shared_by', { name: (file as any).sharedBy?.email || file.user?.email || t('common.others') })}</span>
+                              {isLocked && (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">{t('shared.password_protected')}</span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handlePreviewFile(file)}
-                              className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-                              title={t('common.preview')}
-                            >
-                              <Eye className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleDownloadFile(file)}
-                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                              title={t('common.download')}
-                            >
-                              <Download className="w-5 h-5" />
-                            </button>
+                            {isLocked ? (
+                              <button
+                                onClick={() => setUnlockTarget({ type: 'file', file, action: 'preview' })}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg transition-colors"
+                              >
+                                <Lock className="w-4 h-4" />
+                                {t('shared.unlock')}
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handlePreviewFile(file)}
+                                  className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                                  title={t('common.preview')}
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDownloadFile(file)}
+                                  className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                                  title={t('common.download')}
+                                >
+                                  <Download className="w-5 h-5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -331,40 +407,46 @@ export default function SharedPage() {
                     </h2>
                   </div>
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {sharedFolders.map((folder) => (
-                      <div
-                        key={folder.id}
-                        className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/files/${folder.folderId}`)}
-                      >
-                        <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
-                          <FolderOpen className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {folder.folder?.name || t('shared.my_shares.shared_folder')}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            <span>{t('shared.shared_by', { name: folder.sharedBy?.email || t('common.others') })}</span>
-                            <span>•</span>
-                            <span className={`flex items-center gap-1 ${folder.canWrite ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`}>
-                              {folder.canWrite ? (
-                                <>
-                                  <Unlock className="w-3 h-3" />
-                                  {t('shared.permissions.write')}
-                                </>
-                              ) : (
-                                <>
-                                  <Lock className="w-3 h-3" />
-                                  {t('shared.permissions.read_only')}
-                                </>
-                              )}
-                            </span>
+                    {sharedFolders.map((folder) => {
+                      const isLocked = Boolean(folder.passwordProtected && !getFolderShareAccessToken(folder.folderId));
+                      return (
+                        <div
+                          key={folder.id}
+                          className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                          onClick={() => handleOpenSharedFolder(folder)}
+                        >
+                          <div className={`p-2.5 rounded-lg ${isLocked ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-500' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'}`}>
+                            {isLocked ? <Lock className="w-5 h-5" /> : <FolderOpen className="w-5 h-5" />}
                           </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">
+                              {folder.folder?.name || t('shared.my_shares.shared_folder')}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <span>{t('shared.shared_by', { name: folder.sharedBy?.email || t('common.others') })}</span>
+                              <span>•</span>
+                              <span className={`flex items-center gap-1 ${folder.canWrite ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`}>
+                                {folder.canWrite ? (
+                                  <>
+                                    <Unlock className="w-3 h-3" />
+                                    {t('shared.permissions.write')}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="w-3 h-3" />
+                                    {t('shared.permissions.read_only')}
+                                  </>
+                                )}
+                              </span>
+                              {isLocked && (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">{t('shared.password_protected')}</span>
+                              )}
+                            </div>
+                          </div>
+                          <ExternalLink className="w-5 h-5 text-gray-400" />
                         </div>
-                        <ExternalLink className="w-5 h-5 text-gray-400" />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -674,6 +756,7 @@ export default function SharedPage() {
         <FilePreviewModal
           file={previewFile}
           isShared={true}
+          shareAccessToken={shareAccessTokens[previewFile.id] || null}
           onClose={() => {
             setShowPreviewModal(false);
             setPreviewFile(null);
@@ -700,6 +783,16 @@ export default function SharedPage() {
             setManagedShareFolder(null);
             loadShared();
           }}
+        />
+      )}
+
+      {unlockTarget && (
+        <ShareUnlockModal
+          fileName={unlockTarget.type === 'folder'
+            ? (unlockTarget.folder.folder?.name || t('shared.my_shares.shared_folder'))
+            : unlockTarget.file.name}
+          onUnlock={handleUnlock}
+          onClose={() => setUnlockTarget(null)}
         />
       )}
     </div>

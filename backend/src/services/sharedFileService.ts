@@ -3,6 +3,8 @@ import { MailService } from './mailService';
 import { AuditService } from './auditService';
 import { SharedLinkService } from './sharedLinkService';
 import { ShareKeyService } from './shareKeyService';
+import { PlanService } from './planService';
+import bcrypt from 'bcryptjs';
 import logger from '../config/logger';
 import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
 import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
@@ -28,7 +30,8 @@ export class SharedFileService {
     fileId: string,
     targetUserId: string,
     permissions: Permissions = {},
-    ownerWrappedDek?: string
+    ownerWrappedDek?: string,
+    password?: string
   ) {
     const file = await prisma.file.findFirst({ where: { id: fileId, isDeleted: false } });
     if (!file) throw new Error('File not found');
@@ -62,6 +65,12 @@ export class SharedFileService {
     const shareWrappedDek = isOwner ? ownerWrappedDek : directShare?.ownerWrappedDek || folderShare?.ownerWrappedDek;
     if (!isOwner && !shareWrappedDek) throw new Error(DEK_UNLOCK_REQUIRED);
 
+    let passwordHash: string | undefined;
+    if (password) {
+      await PlanService.assertFeature(userId, 'sharePassword');
+      passwordHash = await bcrypt.hash(password, 10);
+    }
+
     const sharedFile = await prisma.sharedFile.create({
       data: {
         fileId,
@@ -72,6 +81,7 @@ export class SharedFileService {
         canDelete: permissions.canDelete ?? false,
         canShare: permissions.canShare ?? false,
         ownerWrappedDek: shareWrappedDek,
+        passwordHash,
       },
       include: { file: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });
@@ -133,11 +143,19 @@ export class SharedFileService {
     return ShareKeyService.stripOwnerWrappedDekMany(shares);
   }
 
-  static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
+  static async updatePermissions(shareId: string, userId: string, permissions: Permissions, options?: { password?: string, clearPassword?: boolean }) {
     const sharedFile = await prisma.sharedFile.findFirst({
       where: { id: shareId, sharedById: userId, file: { is: { isDeleted: false } } },
     });
     if (!sharedFile) throw new Error('Shared file not found');
+
+    let passwordHashUpdate: string | null | undefined = undefined;
+    if (options?.clearPassword) {
+      passwordHashUpdate = null;
+    } else if (options?.password) {
+      await PlanService.assertFeature(userId, 'sharePassword');
+      passwordHashUpdate = await bcrypt.hash(options.password, 10);
+    }
 
     const updatedShare = await prisma.sharedFile.update({
       where: { id: shareId },
@@ -146,6 +164,7 @@ export class SharedFileService {
         canWrite: permissions.canWrite ?? sharedFile.canWrite,
         canDelete: permissions.canDelete ?? sharedFile.canDelete,
         canShare: permissions.canShare ?? sharedFile.canShare,
+        ...(passwordHashUpdate !== undefined && { passwordHash: passwordHashUpdate })
       },
       include: { file: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });

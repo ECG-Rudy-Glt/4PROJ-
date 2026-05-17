@@ -2,6 +2,7 @@ import prisma from '../../config/database';
 import { SharedFileService } from '../sharedFileService';
 import { MailService } from '../mailService';
 import { SharedLinkService } from '../sharedLinkService';
+import { PlanService } from '../planService';
 
 jest.mock('../../config/database', () => ({
   __esModule: true,
@@ -38,7 +39,7 @@ jest.mock('../mailService', () => ({
 
 jest.mock('../auditService', () => ({
   AuditService: {
-    createLog: jest.fn(),
+    createLog: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -51,6 +52,12 @@ jest.mock('../socketService', () => ({
 jest.mock('../sharedLinkService', () => ({
   SharedLinkService: {
     assertShareLimit: jest.fn(),
+  },
+}));
+
+jest.mock('../planService', () => ({
+  PlanService: {
+    assertFeature: jest.fn(),
   },
 }));
 
@@ -182,6 +189,7 @@ describe('SharedFileService.shareFile', () => {
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(ownerFile);
     (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue(null);
     (SharedLinkService.assertShareLimit as jest.Mock).mockResolvedValue(undefined);
+    (PlanService.assertFeature as jest.Mock).mockResolvedValue(undefined);
   });
 
   it('refuses self-share before creating a share or sending email', async () => {
@@ -231,5 +239,48 @@ describe('SharedFileService.shareFile', () => {
 
     expect(prisma.sharedFile.create).not.toHaveBeenCalled();
     expect(MailService.sendShareNotification).not.toHaveBeenCalled();
+  });
+
+  it('stores a hash and never exposes passwordHash for protected direct file shares', async () => {
+    (prisma.user.findUnique as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'target-user',
+        email: 'target@example.com',
+        accountStatus: 'ACTIVE',
+        language: 'fr',
+      })
+      .mockResolvedValueOnce({
+        id: 'owner-user',
+        email: 'owner@example.com',
+        firstName: 'Owner',
+        lastName: 'User',
+      });
+    (prisma.sharedFile.create as jest.Mock).mockImplementation(({ data }) => Promise.resolve({
+      id: 'share-file-1',
+      ...data,
+      file: ownerFile,
+      sharedBy: { id: 'owner-user', email: 'owner@example.com' },
+      sharedWith: { id: 'target-user', email: 'target@example.com' },
+    }));
+
+    const result = await SharedFileService.shareFile(
+      'owner-user',
+      'file-1',
+      'target-user',
+      { canRead: true },
+      undefined,
+      'secret-password'
+    );
+
+    expect(PlanService.assertFeature).toHaveBeenCalledWith('owner-user', 'sharePassword');
+    expect(prisma.sharedFile.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        passwordHash: expect.any(String),
+      }),
+    }));
+    const createArg = (prisma.sharedFile.create as jest.Mock).mock.calls[0][0];
+    expect(createArg.data.passwordHash).not.toBe('secret-password');
+    expect((result as any).passwordHash).toBeUndefined();
+    expect((result as any).passwordProtected).toBe(true);
   });
 });

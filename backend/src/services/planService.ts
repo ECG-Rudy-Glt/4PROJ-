@@ -4,7 +4,7 @@ import prisma from '../config/database';
 const GB = BigInt(1024 * 1024 * 1024);
 const MB = BigInt(1024 * 1024);
 export const PLAN_UPGRADE_REQUIRED_CODE = 'PLAN_UPGRADE_REQUIRED';
-export type PlanFeature = 'mfa' | 'prioritySupport' | 'auditLogs' | 'aiChat' | 'vault' | 'onlyoffice';
+export type PlanFeature = 'mfa' | 'prioritySupport' | 'auditLogs' | 'aiChat' | 'vault' | 'onlyoffice' | 'sharePassword';
 
 export class PlanUpgradeRequiredError extends Error {
     statusCode = 403;
@@ -32,6 +32,7 @@ export const PLAN_LIMITS = {
             aiChat: false,
             vault: false,
             onlyoffice: false,
+            sharePassword: false,
         },
     },
     [Plan.PRO]: {
@@ -47,6 +48,7 @@ export const PLAN_LIMITS = {
             aiChat: true,
             vault: true,
             onlyoffice: true,
+            sharePassword: true,
         },
     },
     [Plan.BUSINESS]: {
@@ -62,6 +64,7 @@ export const PLAN_LIMITS = {
             aiChat: true,
             vault: true,
             onlyoffice: true,
+            sharePassword: true,
         },
     },
     [Plan.ENTERPRISE]: {
@@ -77,6 +80,7 @@ export const PLAN_LIMITS = {
             aiChat: true,
             vault: true,
             onlyoffice: true,
+            sharePassword: true,
         },
     },
 };

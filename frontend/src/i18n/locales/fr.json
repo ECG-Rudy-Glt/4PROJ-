@@ -244,6 +244,10 @@
       "no_shares_desc": "Créez un lien de partage ou partagez un fichier avec d'autres utilisateurs depuis la page de vos fichiers.",
       "go_to_files": "Aller à mes fichiers"
     }
+,
+    "password_protected": "Prot\u00e9g\u00e9 par mot de passe",
+    "unlock": "D\u00e9verrouiller",
+    "unlock_to_access": "Ce fichier est prot\u00e9g\u00e9 par un mot de passe"
   },
   "settings": {
     "title": "Paramètres",
@@ -618,7 +622,30 @@
     "remove_success": "Accès retiré",
     "error_email": "Veuillez entrer un email",
     "error_sharing": "Échec du partage",
-    "error_removing": "Échec de la suppression"
+    "error_removing": "Échec de la suppression",
+    "password_title": "Protection par mot de passe",
+    "password_placeholder": "Mot de passe pour déverrouiller le partage",
+    "password_new_placeholder": "Nouveau mot de passe",
+    "password_enabled": "Mot de passe actif",
+    "password_disabled": "Sans mot de passe",
+    "password_save": "Enregistrer",
+    "password_clear": "Retirer",
+    "password_required": "Veuillez entrer un mot de passe",
+    "password_update_success": "Mot de passe du partage mis à jour",
+    "password_clear_success": "Mot de passe du partage retiré",
+    "password_update_error": "Échec de la mise à jour du mot de passe",
+    "password_clear_confirm": "Retirer le mot de passe de ce partage ?",
+    "password_upgrade_title": "Protection par mot de passe — Fonctionnalité PRO",
+    "password_upgrade_desc": "Passez au plan PRO pour protéger vos partages par mot de passe.",
+    "upgrade_cta": "Passer à PRO"
+  },
+  "share_unlock": {
+    "title": "Partage prot\u00e9g\u00e9",
+    "description": "Ce fichier est prot\u00e9g\u00e9 par un mot de passe. Entrez-le pour y acc\u00e9der.",
+    "password_placeholder": "Mot de passe",
+    "error_invalid": "Mot de passe incorrect",
+    "unlock_button": "D\u00e9verrouiller",
+    "unlocking": "V\u00e9rification en cours..."
   },
   "pending_shares": {
     "title": "Partages en attente",

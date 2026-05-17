@@ -39,6 +39,7 @@ export class SharedLinkService {
 
     let hashedPassword: string | undefined;
     if (options?.password) {
+      await PlanService.assertFeature(userId, 'sharePassword');
       hashedPassword = await bcrypt.hash(options.password, 10);
     }
 
@@ -125,6 +126,7 @@ export class SharedLinkService {
 
     let hashedPassword: string | undefined;
     if (options?.password) {
+      await PlanService.assertFeature(userId, 'sharePassword');
       hashedPassword = await bcrypt.hash(options.password, 10);
     }
 

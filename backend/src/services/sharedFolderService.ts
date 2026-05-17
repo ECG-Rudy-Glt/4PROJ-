@@ -3,8 +3,10 @@ import { MailService } from './mailService';
 import { AuditService } from './auditService';
 import { SharedLinkService } from './sharedLinkService';
 import { ShareKeyService } from './shareKeyService';
+import { PlanService } from './planService';
 import { findSharedFolderAccessRoot } from '../middlewares/permissions';
 import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
+import bcrypt from 'bcryptjs';
 import logger from '../config/logger';
 
 type Permissions = {
@@ -71,7 +73,8 @@ export class SharedFolderService {
     folderId: string,
     targetUserId: string,
     permissions: Permissions = {},
-    ownerWrappedDek?: string
+    ownerWrappedDek?: string,
+    password?: string
   ) {
     const folder = await prisma.folder.findFirst({ where: { id: folderId, isDeleted: false } });
     if (!folder) throw new Error('Folder not found');
@@ -98,8 +101,21 @@ export class SharedFolderService {
     const shareWrappedDek = isOwner ? ownerWrappedDek : sourceShare?.ownerWrappedDek;
     if (!isOwner && !shareWrappedDek) throw new Error(DEK_UNLOCK_REQUIRED);
 
+    let passwordHash: string | undefined;
+    if (password) {
+      await PlanService.assertFeature(userId, 'sharePassword');
+      passwordHash = await bcrypt.hash(password, 10);
+    }
+
     const sharedFolder = await prisma.sharedFolder.create({
-      data: { folderId, sharedById: userId, sharedWithId: targetUserId, ownerWrappedDek: shareWrappedDek, ...resolvePerms(permissions) },
+      data: {
+        folderId,
+        sharedById: userId,
+        sharedWithId: targetUserId,
+        ownerWrappedDek: shareWrappedDek,
+        passwordHash,
+        ...resolvePerms(permissions),
+      },
       include: {
         folder: true,
         sharedBy: sharedBySelect,
@@ -148,11 +164,24 @@ export class SharedFolderService {
     return ShareKeyService.stripOwnerWrappedDekMany(sharedFolders);
   }
 
-  static async updatePermissions(shareId: string, userId: string, permissions: Permissions) {
+  static async updatePermissions(
+    shareId: string,
+    userId: string,
+    permissions: Permissions,
+    options?: { password?: string, clearPassword?: boolean }
+  ) {
     const sharedFolder = await prisma.sharedFolder.findFirst({
       where: { id: shareId, sharedById: userId, folder: { is: { isDeleted: false } } },
     });
     if (!sharedFolder) throw new Error('Shared folder not found');
+
+    let passwordHashUpdate: string | null | undefined = undefined;
+    if (options?.clearPassword) {
+      passwordHashUpdate = null;
+    } else if (options?.password) {
+      await PlanService.assertFeature(userId, 'sharePassword');
+      passwordHashUpdate = await bcrypt.hash(options.password, 10);
+    }
 
     const updatedShare = await prisma.sharedFolder.update({
       where: { id: shareId },
@@ -161,6 +190,7 @@ export class SharedFolderService {
         canWrite: permissions.canWrite ?? sharedFolder.canWrite,
         canDelete: permissions.canDelete ?? sharedFolder.canDelete,
         canShare: permissions.canShare ?? sharedFolder.canShare,
+        ...(passwordHashUpdate !== undefined && { passwordHash: passwordHashUpdate }),
       },
       include: { folder: true, sharedBy: sharedBySelect, sharedWith: sharedWithSelect },
     });

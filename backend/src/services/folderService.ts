@@ -159,6 +159,9 @@ export class FolderService {
             canDelete: sharedRoot.canDelete,
             canShare: sharedRoot.canShare,
           },
+          _shareId: sharedRoot.id,
+          _sharedRootFolderId: sharedRoot.folderId,
+          passwordProtected: Boolean(sharedRoot.passwordHash),
         }));
       }
 
