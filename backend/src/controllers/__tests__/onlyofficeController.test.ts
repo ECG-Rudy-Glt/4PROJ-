@@ -39,6 +39,9 @@ jest.mock('../../config/database', () => ({
 jest.mock('../../services/onlyofficeService', () => ({
   OnlyOfficeService: {
     verifyFileAccessToken: jest.fn(),
+    verifyCallbackRequest: jest.fn(),
+    verifyCallbackToken: jest.fn(),
+    assertSafeDownloadUrl: jest.fn((url) => url),
     processCallback: jest.fn(),
     createFileVersion: jest.fn(),
     canEdit: jest.fn(),
@@ -109,6 +112,12 @@ describe('OnlyOfficeController.handleCallback', () => {
     (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
     (prisma.file.findUnique as jest.Mock).mockResolvedValue(file);
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(file);
+    (OnlyOfficeService.verifyCallbackRequest as jest.Mock).mockReturnValue(true);
+    (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'owner-1',
+    });
+    (OnlyOfficeService.assertSafeDownloadUrl as jest.Mock).mockImplementation((url) => url);
     (OnlyOfficeService.processCallback as jest.Mock).mockResolvedValue({
       shouldSave: true,
       downloadUrl: 'http://onlyoffice/download',
@@ -122,16 +131,18 @@ describe('OnlyOfficeController.handleCallback', () => {
   ])(
     'should reject encrypted accounts before download when wrappedDek is %s',
     async (_caseName, wrappedDek, unwrappedDek) => {
+      (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+        fileId: 'file-1',
+        userId: 'user-1',
+        ...(wrappedDek ? { wrappedDek } : {}),
+      });
       (KekService.unwrapDek as jest.Mock).mockReturnValue(unwrappedDek);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ encryptedDek: 'encrypted-dek' });
 
       const req: any = {
-        params: { fileId: 'file-1' },
+        params: { fileId: 'file-1', callbackToken: 'callback-token' },
         body: { status: 2 },
-        query: {
-          userId: 'user-1',
-          ...(wrappedDek ? { wrappedDek } : {}),
-        },
+        query: {},
       };
       const res = createRes();
 
@@ -153,15 +164,19 @@ describe('OnlyOfficeController.handleCallback', () => {
     (OnlyOfficeService.createFileVersion as jest.Mock).mockResolvedValue(undefined);
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'owner-1' },
+      query: {},
     };
     const res = createRes();
 
     await OnlyOfficeController.handleCallback(req, res, jest.fn());
 
-    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', { responseType: 'arraybuffer' });
+    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', {
+      responseType: 'arraybuffer',
+      maxRedirects: 0,
+      timeout: 30000,
+    });
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), content);
     expect(OnlyOfficeService.createFileVersion).toHaveBeenCalledWith(
       'file-1',
@@ -179,11 +194,15 @@ describe('OnlyOfficeController.handleCallback', () => {
   it('should reject callback before download when current write access is not accepted', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({ encryptedDek: null });
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(null);
+    (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'shared-user',
+    });
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'shared-user' },
+      query: {},
     };
     const res = createRes();
 
@@ -218,9 +237,9 @@ describe('OnlyOfficeController.handleCallback', () => {
     (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'owner-1' },
+      query: {},
     };
     const res = createRes();
 
@@ -241,11 +260,15 @@ describe('OnlyOfficeController.handleCallback', () => {
     (axios.get as jest.Mock).mockResolvedValue({ data: content });
     (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
     (OnlyOfficeService.createFileVersion as jest.Mock).mockResolvedValue(undefined);
+    (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'shared-user',
+    });
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'shared-user' },
+      query: {},
     };
     const res = createRes();
 
@@ -269,7 +292,11 @@ describe('OnlyOfficeController.handleCallback', () => {
         ],
       },
     });
-    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', { responseType: 'arraybuffer' });
+    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', {
+      responseType: 'arraybuffer',
+      maxRedirects: 0,
+      timeout: 30000,
+    });
     expect(OnlyOfficeService.createFileVersion).toHaveBeenCalledWith(
       'file-1',
       'shared-user',

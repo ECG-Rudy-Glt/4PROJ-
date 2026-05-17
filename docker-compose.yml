@@ -30,7 +30,8 @@ services:
     container_name: supfile-backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_APP_USER:-supfile_app}:${POSTGRES_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-supfile}
-      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production-12345}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET est requis}
+      JWT_MFA_SECRET: ${JWT_MFA_SECRET:?JWT_MFA_SECRET est requis}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       API_URL: http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}
       API_INTERNAL_URL: http://backend:${BACKEND_PORT:-5001}
@@ -50,7 +51,7 @@ services:
       # OnlyOffice configuration
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
       ONLYOFFICE_PUBLIC_URL: http://${HOST_IP:-localhost}:${ONLYOFFICE_PORT:-8080}
-      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET est requis}
       # Optional OAuth2 credentials (leave empty if not configured)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -66,9 +67,10 @@ services:
       # AI - Bobby le robot (local RAG)
       BRAIN_API_URL: http://brain-api:8001
       # MFA (Multi-Factor Authentication)
-      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY est requis}
       # Chiffrement par utilisateur (KEK/DEK)
-      DEK_WRAP_SECRET: ${DEK_WRAP_SECRET:-}
+      DEK_WRAP_SECRET: ${DEK_WRAP_SECRET:?DEK_WRAP_SECRET est requis}
+      FILE_ENCRYPTION_KEY: ${FILE_ENCRYPTION_KEY:?FILE_ENCRYPTION_KEY est requis}
       # Stripe Billing
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
@@ -112,8 +114,8 @@ services:
     image: onlyoffice/documentserver:8.2.2
     container_name: supfile-onlyoffice
     environment:
-      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:-your-secret-key-change-in-production}
-      - JWT_ENABLED=false
+      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET est requis}
+      - JWT_ENABLED=true
       - JWT_HEADER=Authorization
       # Autoriser les callbacks vers des IPs privées (Docker network)
       - ALLOW_PRIVATE_IP_ADDRESS=true

@@ -1,46 +1,140 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { File } from '@prisma/client';
-import prisma from '../config/database';
 import { VersionService } from './versionService';
 import logger from '../config/logger';
+import { getOnlyOfficeJwtSecret } from '../config/secrets';
 
 // URL interne Docker pour la communication backend -> OnlyOffice
 const ONLYOFFICE_INTERNAL_URL = process.env.ONLYOFFICE_URL || 'http://onlyoffice:80';
 // URL publique accessible depuis le navigateur
 const ONLYOFFICE_PUBLIC_URL = process.env.ONLYOFFICE_PUBLIC_URL || 'http://localhost:8080';
-const ONLYOFFICE_JWT_SECRET = process.env.ONLYOFFICE_JWT_SECRET || 'your-secret-key-change-in-production';
-// URL publique de l'API accessible depuis le navigateur et depuis OnlyOffice
-const API_URL = process.env.API_URL || 'http://localhost:5001';
 // URL interne de l'API pour le callback OnlyOffice -> Backend (dans Docker)
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://backend:5001';
-// Secret pour les tokens d'accès fichier OnlyOffice
-const FILE_ACCESS_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const ONLYOFFICE_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+
+type OnlyOfficeSession = {
+  fileId: string;
+  userId: string;
+  wrappedDek?: string;
+  mode: 'view' | 'edit';
+  expiresAt: number;
+};
+
+type CallbackResult = {
+  error: number;
+  shouldSave?: boolean;
+  downloadUrl?: string;
+};
+
+function allowedOnlyOfficeOrigins(): Set<string> {
+  return new Set([
+    new URL(ONLYOFFICE_INTERNAL_URL).origin,
+    new URL(ONLYOFFICE_PUBLIC_URL).origin,
+  ]);
+}
 
 export class OnlyOfficeService {
-  /**
-   * Génère un token d'accès temporaire pour un fichier (pour OnlyOffice)
-   */
-  static generateFileAccessToken(fileId: string, userId: string, wrappedDek?: string): string {
-    return jwt.sign(
-      { fileId, userId, purpose: 'onlyoffice-access', ...(wrappedDek ? { wrappedDek } : {}) },
-      FILE_ACCESS_SECRET,
-      { expiresIn: '2h' }
-    );
+  private static sessions = new Map<string, OnlyOfficeSession>();
+
+  private static cleanupExpiredSessions(): void {
+    const now = Date.now();
+    for (const [token, session] of this.sessions.entries()) {
+      if (session.expiresAt <= now) {
+        this.sessions.delete(token);
+      }
+    }
+  }
+
+  private static createSession(
+    fileId: string,
+    userId: string,
+    wrappedDek: string | undefined,
+    mode: 'view' | 'edit'
+  ): string {
+    this.cleanupExpiredSessions();
+    const token = crypto.randomBytes(32).toString('base64url');
+    this.sessions.set(token, {
+      fileId,
+      userId,
+      wrappedDek,
+      mode,
+      expiresAt: Date.now() + ONLYOFFICE_SESSION_TTL_MS,
+    });
+    return token;
+  }
+
+  private static getSession(token: string | undefined): OnlyOfficeSession | null {
+    if (!token) return null;
+
+    this.cleanupExpiredSessions();
+    const session = this.sessions.get(token);
+    if (!session || session.expiresAt <= Date.now()) {
+      if (token) this.sessions.delete(token);
+      return null;
+    }
+
+    return session;
   }
 
   /**
-   * Vérifie un token d'accès fichier
+   * Genere un token opaque temporaire pour un fichier OnlyOffice.
+   * Il ne contient plus de userId ni de wrappedDek decodable dans l'URL.
+   */
+  static generateFileAccessToken(
+    fileId: string,
+    userId: string,
+    wrappedDek?: string,
+    mode: 'view' | 'edit' = 'view'
+  ): string {
+    return this.createSession(fileId, userId, wrappedDek, mode);
+  }
+
+  /**
+   * Verifie un token d'acces fichier opaque.
    */
   static verifyFileAccessToken(token: string): { fileId: string; userId: string; wrappedDek?: string } | null {
+    const session = this.getSession(token);
+    return session
+      ? { fileId: session.fileId, userId: session.userId, wrappedDek: session.wrappedDek }
+      : null;
+  }
+
+  static verifyCallbackToken(token: string | undefined): { fileId: string; userId: string; wrappedDek?: string } | null {
+    const session = this.getSession(token);
+    return session && session.mode === 'edit'
+      ? { fileId: session.fileId, userId: session.userId, wrappedDek: session.wrappedDek }
+      : null;
+  }
+
+  static verifyCallbackRequest(callbackData: any, authorizationHeader?: string): boolean {
+    const bearerToken = authorizationHeader?.startsWith('Bearer ')
+      ? authorizationHeader.substring(7)
+      : undefined;
+    const callbackToken = typeof callbackData?.token === 'string' ? callbackData.token : undefined;
+    const token = bearerToken || callbackToken;
+
+    if (!token) return false;
+
     try {
-      const decoded = jwt.verify(token, FILE_ACCESS_SECRET) as any;
-      if (decoded.purpose === 'onlyoffice-access') {
-        return { fileId: decoded.fileId, userId: decoded.userId, wrappedDek: decoded.wrappedDek };
-      }
-      return null;
+      jwt.verify(token, getOnlyOfficeJwtSecret());
+      return true;
     } catch {
-      return null;
+      return false;
     }
+  }
+
+  static assertSafeDownloadUrl(downloadUrl: string): string {
+    const parsed = new URL(downloadUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('OnlyOffice download URL protocol is not allowed');
+    }
+
+    if (!allowedOnlyOfficeOrigins().has(parsed.origin)) {
+      throw new Error('OnlyOffice download URL origin is not allowed');
+    }
+
+    return parsed.toString();
   }
 
   /**
@@ -93,22 +187,17 @@ export class OnlyOfficeService {
   static async generateConfig(
     file: File,
     userId: string,
-    user: { email: string; firstName?: string; lastName?: string },
+    user: { email: string; firstName?: string | null; lastName?: string | null },
     mode: 'view' | 'edit' = 'edit',
     wrappedDek?: string
   ) {
     const fileExtension = file.name.split('.').pop() || '';
     const documentType = this.getDocumentType(file.mimeType);
+    const sessionToken = this.generateFileAccessToken(file.id, userId, wrappedDek, mode);
 
-    // Générer un token d'accès temporaire pour le fichier (inclut le wrappedDek pour le déchiffrement)
-    const fileAccessToken = this.generateFileAccessToken(file.id, userId, wrappedDek);
-
-    // URL pour télécharger le fichier - avec token d'accès pour OnlyOffice
-    const fileUrl = `${API_INTERNAL_URL}/api/onlyoffice/file/${file.id}?access_token=${fileAccessToken}`;
-
-    // URL de callback pour sauvegarder les modifications - OnlyOffice appelle le backend en interne
-    // On passe le wrappedDek et le userId dans l'URL pour pouvoir chiffrer la nouvelle version avec la bonne clé
-    const callbackUrl = `${API_INTERNAL_URL}/api/onlyoffice/callback/${file.id}?userId=${userId}${wrappedDek ? `&wrappedDek=${encodeURIComponent(wrappedDek)}` : ''}`;
+    // URLs internes appelees par OnlyOffice. Le token est opaque et redige dans les logs.
+    const fileUrl = `${API_INTERNAL_URL}/api/onlyoffice/file/${file.id}/${sessionToken}`;
+    const callbackUrl = `${API_INTERNAL_URL}/api/onlyoffice/callback/${file.id}/${sessionToken}`;
 
     const config: any = {
       document: {
@@ -129,7 +218,7 @@ export class OnlyOfficeService {
       },
       documentType,
       editorConfig: {
-        mode: mode,
+        mode,
         lang: 'fr',
         user: {
           id: userId,
@@ -150,18 +239,15 @@ export class OnlyOfficeService {
       type: 'desktop',
     };
 
-    // Ajouter le callback uniquement en mode edit
     if (mode === 'edit') {
       config.editorConfig.callbackUrl = callbackUrl;
     }
 
-    // Signer la configuration avec JWT
-    const token = jwt.sign(config, ONLYOFFICE_JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(config, getOnlyOfficeJwtSecret(), { expiresIn: '1h' });
 
     return {
       config,
       token,
-      // URL publique pour le navigateur (pas l'URL interne Docker)
       onlyofficeUrl: `${ONLYOFFICE_PUBLIC_URL}/web-apps/apps/api/documents/api.js`,
     };
   }
@@ -169,7 +255,7 @@ export class OnlyOfficeService {
   /**
    * Traite le callback d'OnlyOffice après une édition
    */
-  static async processCallback(fileId: string, callbackData: any) {
+  static async processCallback(fileId: string, callbackData: any): Promise<CallbackResult> {
     const { status, url, users, key } = callbackData;
 
     // Status codes from OnlyOffice:
@@ -182,8 +268,6 @@ export class OnlyOfficeService {
     // 7 - Error has occurred while force saving the document
 
     if (status === 2 || status === 6) {
-      // Document is ready to be saved
-      // Télécharger le fichier modifié depuis l'URL fournie
       return {
         error: 0,
         shouldSave: true,
@@ -191,19 +275,15 @@ export class OnlyOfficeService {
       };
     }
 
-    if (status === 1) {
-      // Document is being edited - nothing to do
-      return { error: 0 };
-    }
-
-    if (status === 4) {
-      // Document closed with no changes
+    if (status === 1 || status === 4) {
       return { error: 0 };
     }
 
     if (status === 3 || status === 7) {
-      // Error occurred
-      logger.error({ callbackData }, 'OnlyOffice callback error:');
+      logger.error(
+        { fileId, status, key, usersCount: Array.isArray(users) ? users.length : undefined },
+        'OnlyOffice callback error'
+      );
       return { error: 1 };
     }
 

@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './config/environment';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,6 +14,7 @@ import { buildAllowedOrigins, isOriginAllowed } from './utils/cors';
 import { errorHandler } from './middlewares/errorHandler';
 import { CronService } from './services/cronService';
 import { startCleanupJob } from './jobs/cleanupJob';
+import { redactUrl } from './utils/redaction';
 
 import authRoutes from './routes/authRoutes';
 import fileRoutes from './routes/fileRoutes';
@@ -65,7 +66,7 @@ if (ENFORCE_HTTPS) {
 
 // Request logging
 app.use((req, _res, next) => {
-  logger.info({ method: req.method, url: req.originalUrl });
+  logger.info({ method: req.method, url: redactUrl(req.originalUrl) });
   next();
 });
 
@@ -110,16 +111,42 @@ app.use(['/api/auth/login', '/api/auth/register'], rateLimit({
   message: { error: 'Too many authentication attempts, please try again later.' },
 }));
 
-// Body parsing — large limits for file uploads
+app.use([
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/reset-password-info',
+  '/api/mfa/verify',
+  '/api/mfa/verify-backup-code',
+], rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many sensitive requests, please try again later.' },
+}));
+
+app.use([
+  '/api/share/:token/unlock',
+  '/api/share/files/:shareId/unlock',
+  '/api/share/folders/:shareId/unlock',
+], rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many unlock attempts, please try again later.' },
+}));
+
+// Body parsing. File uploads are multipart and handled by multer on the upload route.
 app.use(express.json({
-  limit: '5gb',
+  limit: process.env.JSON_BODY_LIMIT || '1mb',
   verify: (req: any, _res, buf) => {
     if (req.originalUrl.includes('/api/billing/webhook')) {
       req.rawBody = Buffer.from(buf);
     }
   },
 }));
-app.use(express.urlencoded({ extended: true, limit: '5gb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_BODY_LIMIT || '100kb' }));
 
 // Passport
 app.use(passport.initialize());

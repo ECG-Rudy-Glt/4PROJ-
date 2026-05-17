@@ -6,9 +6,8 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import type { AuthRequest } from '../types';
 import { KekService } from '../services/kekService';
+import { getJwtMfaSecret } from '../config/secrets';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_MFA_SECRET = process.env.JWT_MFA_SECRET || (JWT_SECRET + '_mfa');
 const TEMP_TOKEN_EXPIRY = '5m'; // Token temporaire valide 5 minutes
 
 /**
@@ -17,7 +16,7 @@ const TEMP_TOKEN_EXPIRY = '5m'; // Token temporaire valide 5 minutes
 function generateTempToken(userId: string, wrappedDek?: string): string {
   return jwt.sign(
     { userId, type: 'mfa', ...(wrappedDek ? { wrappedDek } : {}) },
-    JWT_MFA_SECRET,
+    getJwtMfaSecret(),
     { expiresIn: TEMP_TOKEN_EXPIRY }
   );
 }

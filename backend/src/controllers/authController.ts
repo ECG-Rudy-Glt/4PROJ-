@@ -139,7 +139,7 @@ export class AuthController {
       const user = req.user!;
       const token = generateToken(user.id, user.email, user.tokenVersion || 1);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+      res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(token)}`);
     } catch (error) {
       const msg = encodeURIComponent(error instanceof Error ? error.message : 'Unknown error');
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -164,7 +164,7 @@ export class AuthController {
 
   static async getResetTokenInfo(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { token } = req.query;
+      const token = typeof req.body?.token === 'string' ? req.body.token : req.query.token;
       if (!token || typeof token !== 'string') {
         sendError(res, 'Token manquant ou invalide', 400);
         return;
@@ -184,8 +184,9 @@ export class AuthController {
         sendError(res, 'Token et nouveau mot de passe requis', 400);
         return;
       }
-      if (newPassword.length < 6) {
-        sendError(res, 'Le mot de passe doit contenir au moins 6 caractères', 400);
+      const pwdCheck = validatePasswordStrength(newPassword);
+      if (!pwdCheck.valid) {
+        sendError(res, pwdCheck.error!, 400);
         return;
       }
 

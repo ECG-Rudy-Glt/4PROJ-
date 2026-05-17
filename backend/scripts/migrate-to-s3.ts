@@ -16,7 +16,7 @@
  *   - Continue en cas d'erreur sur un fichier (log + compteur)
  */
 
-import 'dotenv/config';
+import '../src/config/environment';
 import path from 'path';
 import fs from 'fs';
 // Run from backend/: cd backend && npx tsx scripts/migrate-to-s3.ts

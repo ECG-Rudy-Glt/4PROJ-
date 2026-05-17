@@ -7,6 +7,7 @@ import { PlanService } from '../services/planService';
 import { KekService } from '../services/kekService';
 import { getCookieValue, SWITCH_SESSION_COOKIE } from '../utils/cookies';
 import logger from '../config/logger';
+import { getJwtMfaSecret, getJwtSecret } from '../config/secrets';
 
 export { AuthRequest };
 
@@ -15,11 +16,7 @@ export const authenticate = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const JWT_SECRET = process.env.JWT_SECRET;
-  if (!JWT_SECRET) {
-    logger.error('[FATAL] JWT_SECRET environment variable is not set. Refusing to start.');
-    process.exit(1);
-  }
+  const JWT_SECRET = getJwtSecret();
   try {
     const authHeader = req.headers.authorization;
     let token: string | undefined;
@@ -174,7 +171,7 @@ export const optionalAuth = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const JWT_SECRET = process.env.JWT_SECRET || '';
+  const JWT_SECRET = getJwtSecret();
   try {
     const authHeader = req.headers.authorization;
 
@@ -205,13 +202,8 @@ export const authenticateMfa = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const JWT_SECRET = process.env.JWT_SECRET;
-  const JWT_MFA_SECRET = process.env.JWT_MFA_SECRET || (JWT_SECRET + '_mfa');
-
-  if (!JWT_SECRET) {
-    logger.error('[FATAL] JWT_SECRET is not set.');
-    process.exit(1);
-  }
+  const JWT_SECRET = getJwtSecret();
+  const JWT_MFA_SECRET = getJwtMfaSecret();
 
   try {
     const authHeader = req.headers.authorization;

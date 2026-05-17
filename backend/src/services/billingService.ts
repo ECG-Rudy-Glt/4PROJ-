@@ -168,16 +168,15 @@ export class BillingService {
     const stripe = this.getStripeClient();
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    if (webhookSecret) {
-      if (!signature) {
-        throw new Error('Missing Stripe signature');
-      }
-      return stripe.webhooks.constructEvent(rawPayload, signature, webhookSecret);
+    if (!webhookSecret) {
+      throw new Error('Stripe webhook is not configured: STRIPE_WEBHOOK_SECRET is missing');
     }
 
-    const jsonPayload =
-      typeof rawPayload === 'string' ? rawPayload : rawPayload.toString('utf8');
-    return JSON.parse(jsonPayload) as Stripe.Event;
+    if (!signature) {
+      throw new Error('Missing Stripe signature');
+    }
+
+    return stripe.webhooks.constructEvent(rawPayload, signature, webhookSecret);
   }
 
   private static async applyPlanAndStatusByCustomerId(

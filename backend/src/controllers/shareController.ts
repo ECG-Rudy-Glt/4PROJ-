@@ -12,10 +12,10 @@ import { sendSuccess, sendCreated, sendError } from '../utils/response';
 import { Readable } from 'stream';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { getShareAccessSecret } from '../config/secrets';
 
 const ENCRYPTION_OVERHEAD_BYTES = 32;
 const SHARE_ACCESS_HEADER = 'x-share-access-token';
-const SHARE_ACCESS_SECRET = `${process.env.JWT_SECRET || 'secret'}:share-access`;
 const SHARE_ACCESS_PURPOSE = 'share-password-access';
 
 function getShareAccessToken(req: Request): string | undefined {
@@ -30,7 +30,7 @@ function getPasswordFingerprint(passwordHash: string): string {
 }
 
 function verifyPublicShareAccessToken(accessToken: string, shareLink: any, token: string): void {
-  const decoded = jwt.verify(accessToken, SHARE_ACCESS_SECRET) as any;
+  const decoded = jwt.verify(accessToken, getShareAccessSecret()) as any;
   if (
     decoded.purpose !== SHARE_ACCESS_PURPOSE ||
     decoded.kind !== 'public-link' ||
@@ -156,12 +156,11 @@ export class ShareController {
   static async getSharedFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params;
-      const password = req.query.password as string | undefined;
       const accessToken = getShareAccessToken(req);
 
       let shareLink;
       try {
-        shareLink = await ShareService.getShareLink(token, password);
+        shareLink = await ShareService.getShareLink(token);
       } catch (err: any) {
         if (err.message === 'Password required' && accessToken) {
           const prisma = (await import('../config/database')).default;
@@ -216,12 +215,11 @@ export class ShareController {
   static async downloadSharedFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params;
-      const password = req.query.password as string | undefined;
       const accessToken = getShareAccessToken(req);
 
       let shareLink;
       try {
-        shareLink = await ShareService.getShareLink(token, password);
+        shareLink = await ShareService.getShareLink(token);
       } catch (err: any) {
         if (err.message === 'Password required' && accessToken) {
           const prisma = (await import('../config/database')).default;
@@ -678,12 +676,11 @@ export class ShareController {
   static async downloadBundleShareLink(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params;
-      const password = req.query.password as string | undefined;
       const accessToken = getShareAccessToken(req);
 
       let shareLinkResult;
       try {
-        shareLinkResult = await ShareService.getBundleShareLink(token, password);
+        shareLinkResult = await ShareService.getBundleShareLink(token);
       } catch (err: any) {
         if (err.message === 'Password required' && accessToken) {
           const prisma = (await import('../config/database')).default;
@@ -785,7 +782,7 @@ export class ShareController {
           userId,
           fingerprint,
         },
-        SHARE_ACCESS_SECRET,
+        getShareAccessSecret(),
         { expiresIn: '1h' }
       );
 
@@ -840,7 +837,7 @@ export class ShareController {
           userId,
           fingerprint,
         },
-        SHARE_ACCESS_SECRET,
+        getShareAccessSecret(),
         { expiresIn: '1h' }
       );
 
@@ -890,7 +887,7 @@ export class ShareController {
           token: shareToken,
           fingerprint,
         },
-        SHARE_ACCESS_SECRET,
+        getShareAccessSecret(),
         { expiresIn: '1h' }
       );
 

@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
       }
 
       try {
-        const response = await api.get(`/auth/reset-password-info?token=${token}`);
+        const response = await api.post('/auth/reset-password-info', { token });
         setMfaRequired(response.data.mfaEnabled);
       } catch (err: any) {
         setError(err.response?.data?.error || t('login.reset_password_invalid_link', 'Le lien de réinitialisation est invalide ou a expiré.'));

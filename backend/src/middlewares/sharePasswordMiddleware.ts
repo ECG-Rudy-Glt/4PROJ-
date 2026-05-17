@@ -2,9 +2,13 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import prisma from '../config/database';
 import jwt from 'jsonwebtoken';
-import { findSharedFolderAccessRoot } from './permissions';
+import {
+  acceptedSharePermissionWhere,
+  findSharedFolderAccessRoot,
+  Permission,
+} from './permissions';
+import { getShareAccessSecret } from '../config/secrets';
 
-const SHARE_ACCESS_SECRET = `${process.env.JWT_SECRET || 'secret'}:share-access`;
 const SHARE_ACCESS_PURPOSE = 'share-password-access';
 const SHARE_ACCESS_HEADER = 'x-share-access-token';
 
@@ -22,7 +26,9 @@ function getPasswordFingerprint(passwordHash: string): string {
 function getRequestedFolderId(req: AuthRequest): string | undefined {
   const queryFolderId = typeof req.query.folderId === 'string' ? req.query.folderId : undefined;
   const queryParentId = typeof req.query.parentId === 'string' ? req.query.parentId : undefined;
-  return req.params.folderId || queryFolderId || queryParentId;
+  const bodyFolderId = typeof req.body?.folderId === 'string' ? req.body.folderId : undefined;
+  const bodyParentId = typeof req.body?.parentId === 'string' ? req.body.parentId : undefined;
+  return req.params.folderId || bodyFolderId || bodyParentId || queryFolderId || queryParentId;
 }
 
 type ProtectedShareContext = {
@@ -80,7 +86,7 @@ function verifyTokenContext(
 ): boolean {
   if (!token) return false;
 
-  const decoded = jwt.verify(token, SHARE_ACCESS_SECRET) as any;
+  const decoded = jwt.verify(token, getShareAccessSecret()) as any;
   if (
     decoded.purpose !== SHARE_ACCESS_PURPOSE ||
     decoded.kind !== expected.kind ||
@@ -121,47 +127,64 @@ function validateProtectedShare(
   return true;
 }
 
-export const verifyDirectSharePassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.id;
-    const fileId = req.params.fileId || req.params.id;
-    const folderId = getRequestedFolderId(req);
+export function verifyDirectSharePasswordFor(permission: Permission = 'read') {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const fileId = req.params.fileId || req.params.id;
+      const folderId = getRequestedFolderId(req);
 
-    if (!fileId && !folderId) return next();
+      if (!fileId && !folderId) return next();
 
-    if (fileId) {
-      const file = await prisma.file.findUnique({ where: { id: fileId } });
-      if (!file || file.userId === userId) {
-        // Not found or owner: leave the normal permission/controller flow unchanged.
-        return next();
-      }
-
-      const sharedFile = await prisma.sharedFile.findFirst({
-        where: {
-          fileId,
-          sharedWithId: userId,
-          accepted: true,
-          file: { is: { isDeleted: false } },
-        },
-      });
-
-      if (sharedFile) {
-        if (sharedFile.passwordHash && !validateProtectedShare(req, res, {
-          kind: 'shared-file',
-          shareId: sharedFile.id,
-          userId,
-          passwordHash: sharedFile.passwordHash,
-          fileId,
-        })) {
-          return;
+      if (fileId) {
+        const file = await prisma.file.findUnique({ where: { id: fileId } });
+        if (!file || file.userId === userId) {
+          // Not found or owner: leave the normal permission/controller flow unchanged.
+          return next();
         }
 
-        // Direct file shares are independent from folder shares.
-        return next();
-      }
+        const sharedFile = await prisma.sharedFile.findFirst({
+          where: {
+            fileId,
+            ...acceptedSharePermissionWhere(userId, permission),
+            file: { is: { isDeleted: false } },
+          },
+        });
 
-      if (file.folderId) {
-        const sharedFolder = await findSharedFolderAccessRoot(userId, file.folderId, 'read');
+        if (sharedFile) {
+          if (sharedFile.passwordHash && !validateProtectedShare(req, res, {
+            kind: 'shared-file',
+            shareId: sharedFile.id,
+            userId,
+            passwordHash: sharedFile.passwordHash,
+            fileId,
+          })) {
+            return;
+          }
+
+          // Direct file shares are independent from folder shares.
+          return next();
+        }
+
+        if (file.folderId) {
+          const sharedFolder = await findSharedFolderAccessRoot(userId, file.folderId, permission);
+          if (sharedFolder?.passwordHash && !validateProtectedShare(req, res, {
+            kind: 'shared-folder',
+            shareId: sharedFolder.id,
+            userId,
+            passwordHash: sharedFolder.passwordHash,
+            folderId: sharedFolder.folderId,
+          })) {
+            return;
+          }
+        }
+      } else if (folderId) {
+        const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+        if (!folder || folder.userId === userId) {
+          return next();
+        }
+
+        const sharedFolder = await findSharedFolderAccessRoot(userId, folderId, permission);
         if (sharedFolder?.passwordHash && !validateProtectedShare(req, res, {
           kind: 'shared-folder',
           shareId: sharedFolder.id,
@@ -172,26 +195,12 @@ export const verifyDirectSharePassword = async (req: AuthRequest, res: Response,
           return;
         }
       }
-    } else if (folderId) {
-      const folder = await prisma.folder.findUnique({ where: { id: folderId } });
-      if (!folder || folder.userId === userId) {
-        return next();
-      }
 
-      const sharedFolder = await findSharedFolderAccessRoot(userId, folderId, 'read');
-      if (sharedFolder?.passwordHash && !validateProtectedShare(req, res, {
-        kind: 'shared-folder',
-        shareId: sharedFolder.id,
-        userId,
-        passwordHash: sharedFolder.passwordHash,
-        folderId: sharedFolder.folderId,
-      })) {
-        return;
-      }
+      next();
+    } catch (error) {
+      next(error);
     }
+  };
+}
 
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
+export const verifyDirectSharePassword = verifyDirectSharePasswordFor('read');

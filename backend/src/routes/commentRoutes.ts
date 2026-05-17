@@ -8,10 +8,10 @@ const router = express.Router();
 // Toutes les routes nécessitent une authentification
 router.use(authenticate);
 
-import { verifyDirectSharePassword } from '../middlewares/sharePasswordMiddleware';
+import { verifyDirectSharePassword, verifyDirectSharePasswordFor } from '../middlewares/sharePasswordMiddleware';
 
 // Routes pour les commentaires d'un fichier
-router.post('/files/:fileId/comments', requireDelegationPermission('write'), verifyDirectSharePassword, CommentController.createComment);
+router.post('/files/:fileId/comments', requireDelegationPermission('write'), verifyDirectSharePasswordFor('write'), CommentController.createComment);
 router.get('/files/:fileId/comments', requireDelegationPermission('read'), verifyDirectSharePassword, CommentController.getFileComments);
 router.get('/files/:fileId/comments/count', requireDelegationPermission('read'), verifyDirectSharePassword, CommentController.countFileComments);
 

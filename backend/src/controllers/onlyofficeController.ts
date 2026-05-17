@@ -88,7 +88,7 @@ export class OnlyOfficeController {
   static async serveFileToOnlyOffice(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { fileId } = req.params;
-      const accessToken = req.query.access_token as string;
+      const accessToken = req.params.accessToken || (req.query.access_token as string | undefined);
 
       if (!accessToken) {
         sendError(res, 'Access token required', 401);
@@ -216,10 +216,25 @@ export class OnlyOfficeController {
     try {
       const { fileId } = req.params;
       const callbackData = req.body;
-      const queryUserId = req.query.userId as string;
-      const queryWrappedDek = req.query.wrappedDek as string;
 
-      logger.info({ fileId, status: callbackData.status, userId: queryUserId }, 'OnlyOffice callback received:');
+      const authorizationHeader = typeof req.get === 'function'
+        ? req.get('authorization')
+        : (req.headers?.authorization as string | undefined);
+      if (!OnlyOfficeService.verifyCallbackRequest(callbackData, authorizationHeader)) {
+        logger.warn({ fileId, status: callbackData.status }, 'OnlyOffice callback rejected: invalid signature');
+        res.status(200).json({ error: 1, code: 'INVALID_CALLBACK_SIGNATURE' });
+        return;
+      }
+
+      const callbackToken = req.params.callbackToken || (req.query.callbackToken as string | undefined);
+      const session = OnlyOfficeService.verifyCallbackToken(callbackToken);
+      if (!session || session.fileId !== fileId) {
+        logger.warn({ fileId, status: callbackData.status }, 'OnlyOffice callback rejected: invalid session');
+        res.status(200).json({ error: 1, code: 'INVALID_CALLBACK_SESSION' });
+        return;
+      }
+
+      logger.info({ fileId, status: callbackData.status, userId: session.userId }, 'OnlyOffice callback received:');
 
       const file = await prisma.file.findUnique({ where: { id: fileId } });
 
@@ -233,8 +248,8 @@ export class OnlyOfficeController {
       if (result.shouldSave && result.downloadUrl) {
         try {
           // Déchiffrer le DEK avant tout téléchargement/écriture disque.
-          const dek = queryWrappedDek ? KekService.unwrapDek(queryWrappedDek) ?? undefined : undefined;
-          const callbackUserId = queryUserId || file.userId;
+          const dek = session.wrappedDek ? KekService.unwrapDek(session.wrappedDek) ?? undefined : undefined;
+          const callbackUserId = session.userId;
           if (!(await PlanService.checkFeature(callbackUserId, 'onlyoffice'))) {
             logger.warn({ fileId, userId: callbackUserId }, 'OnlyOffice callback blocked by plan');
             res.status(200).json({ error: 1, code: 'PLAN_UPGRADE_REQUIRED' });
@@ -260,7 +275,12 @@ export class OnlyOfficeController {
             return;
           }
 
-          const response = await axios.get(result.downloadUrl, { responseType: 'arraybuffer' });
+          const downloadUrl = OnlyOfficeService.assertSafeDownloadUrl(result.downloadUrl);
+          const response = await axios.get(downloadUrl, {
+            responseType: 'arraybuffer',
+            maxRedirects: 0,
+            timeout: 30_000,
+          });
 
           const uploadDir = process.env.UPLOAD_DIR || './uploads';
           const filename = `${Date.now()}-${file.name}`;

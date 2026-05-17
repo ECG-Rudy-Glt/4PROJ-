@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 import { PlanService, PlanUpgradeRequiredError } from '../services/planService';
+import { redactUrl } from '../utils/redaction';
 
 export class AppError extends Error {
   constructor(
@@ -40,8 +41,8 @@ export function errorHandler(
   const status = err.status || err.statusCode || 500;
 
   if (status >= 500) {
-    logger.error({ err, method: req.method, url: req.originalUrl }, message);
+    logger.error({ err, method: req.method, url: redactUrl(req.originalUrl) }, message);
   }
 
-  res.status(status).json({ error: message });
+  res.status(status).json({ error: status >= 500 ? 'Internal server error' : message });
 }
