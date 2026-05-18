@@ -14,6 +14,7 @@ import { useVaultStore } from '@/stores/useVaultStore';
 import ActivityLog from '@/components/ActivityLog';
 import AccountSwitcherModal from '@/components/AccountSwitcherModal';
 import { validatePasswordStrength } from '@/utils/validators';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     oldPassword: '',
     newPassword: '',
     confirmPassword: '',
+    mfaCode: '',
   });
   const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null);
   const [vaultSetup, setVaultSetup] = useState({ password: '', totpCode: '' });
@@ -82,8 +84,8 @@ export default function SettingsPage() {
     try {
       await updateProfile({ theme: newTheme });
       toast.success(t('settings.theme_success', { theme: t(`settings.theme_${newTheme}`) }));
-    } catch {
-      toast.error(t('settings.theme_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('settings.theme_error')));
       setIsDark(isDark); // Revert on error
       // Revert DOM class on error
       if (isDark) {
@@ -99,8 +101,8 @@ export default function SettingsPage() {
     try {
       await updateProfile(profile);
       toast.success(t('profile.update_success'));
-    } catch {
-      toast.error(t('profile.update_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('profile.update_error')));
     }
   };
 
@@ -119,11 +121,15 @@ export default function SettingsPage() {
     }
 
     try {
-      await authService.changePassword(password.oldPassword, password.newPassword);
-      toast.success(t('settings.change_password')); 
-      setPassword({ oldPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+      await authService.changePassword(
+        password.oldPassword,
+        password.newPassword,
+        password.mfaCode.trim() || undefined
+      );
+      toast.success(t('settings.change_password')); // Simplified
+      setPassword({ oldPassword: '', newPassword: '', confirmPassword: '', mfaCode: '' });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -164,8 +170,8 @@ export default function SettingsPage() {
       setVaultSetup({ password: '', totpCode: '' });
       toast.success(t('settings.vault.activate')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -176,8 +182,8 @@ export default function SettingsPage() {
       setVaultUnlock({ password: '', totpCode: '' });
       toast.success(t('settings.vault.unlocked')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -186,8 +192,8 @@ export default function SettingsPage() {
       await vaultService.lock();
       toast.success(t('settings.vault.locked')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -207,8 +213,8 @@ export default function SettingsPage() {
       setVaultRotate({ oldPassword: '', newPassword: '', totpCode: '' });
       toast.success(t('settings.vault.update_password')); 
       await refreshVaultStatus();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -244,7 +250,10 @@ export default function SettingsPage() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => i18n.changeLanguage('fr')}
+              onClick={() => {
+                i18n.changeLanguage('fr');
+                updateProfile({ language: 'fr' }).catch(console.error);
+              }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 i18n.language.startsWith('fr')
                   ? 'bg-primary-500 text-white shadow-md'
@@ -254,7 +263,10 @@ export default function SettingsPage() {
                Français
             </button>
             <button
-              onClick={() => i18n.changeLanguage('en')}
+              onClick={() => {
+                i18n.changeLanguage('en');
+                updateProfile({ language: 'en' }).catch(console.error);
+              }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 i18n.language.startsWith('en')
                   ? 'bg-primary-500 text-white shadow-md'
@@ -495,6 +507,19 @@ export default function SettingsPage() {
               {t('settings.password_hint')}
             </p>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('settings.mfa_code')}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={password.mfaCode}
+              onChange={(e) => setPassword({ ...password, mfaCode: e.target.value.trim() })}
+              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+              placeholder={t('settings.mfa_code_placeholder')}
+            />
+          </div>
           <button
             type="submit"
             className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium"
@@ -529,8 +554,8 @@ export default function SettingsPage() {
                     setTimeout(() => {
                       window.location.href = '/login';
                     }, 1000);
-                  } catch {
-                    toast.error(t('common.error'));
+                  } catch (error) {
+                    toast.error(getApiErrorMessage(error, t('common.error')));
                   }
                 }
               }}

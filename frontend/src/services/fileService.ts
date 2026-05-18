@@ -1,5 +1,6 @@
 import api from './api';
 import { File } from '@/types';
+import { folderShareAccessHeaders } from '@/utils/shareAccessTokens';
 
 export const fileService = {
   async uploadFiles(
@@ -54,6 +55,7 @@ export const fileService = {
     const response = await api.get('/files', {
       //@ts-ignore - params handling
       params: { folderId, sortBy, sortOrder, ...filters },
+      headers: folderShareAccessHeaders(folderId),
     });
     return response.data;
   },
@@ -109,13 +111,15 @@ export const fileService = {
   },
 
   // For files shared with you
-  getSharedFileStreamUrl(fileId: string): string {
+  getSharedFileStreamUrl(fileId: string, _shareAccessToken?: string): string {
     return `${api.defaults.baseURL}/share/access/${fileId}/stream`;
+    // Note: shareAccessToken is passed via header X-Share-Access-Token in actual requests
   },
 
   // For files shared with you
-  getSharedFileDownloadUrl(fileId: string): string {
+  getSharedFileDownloadUrl(fileId: string, _shareAccessToken?: string): string {
     return `${api.defaults.baseURL}/share/access/${fileId}/download`;
+    // Note: shareAccessToken is passed via header X-Share-Access-Token in actual requests
   },
 
   async triggerDownload(fileId: string, fileName: string): Promise<void> {
@@ -130,8 +134,15 @@ export const fileService = {
     URL.revokeObjectURL(url);
   },
 
-  async triggerSharedFileDownload(fileId: string, fileName: string): Promise<void> {
-    const response = await api.get(`/share/access/${fileId}/download`, { responseType: 'blob' });
+  async triggerSharedFileDownload(fileId: string, fileName: string, shareAccessToken?: string): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (shareAccessToken) {
+      headers['X-Share-Access-Token'] = shareAccessToken;
+    }
+    const response = await api.get(`/share/access/${fileId}/download`, {
+      responseType: 'blob',
+      headers,
+    });
     const url = URL.createObjectURL(response.data);
     const a = document.createElement('a');
     a.href = url;

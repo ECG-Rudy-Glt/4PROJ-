@@ -15,11 +15,35 @@ interface AuthState {
     firstName?: string;
     lastName?: string;
   }) => Promise<AuthResponse>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   refreshProfile: () => Promise<void>;
-  setAuthToken: (token: string, user?: User, sessionContext?: AuthSessionContext | null) => Promise<void>;
+  deleteAccount: (data: {
+    confirmationEmail: string;
+    currentPassword?: string;
+    mfaCode?: string;
+  }) => Promise<void>;
+  setAuthToken: (
+    token: string,
+    user?: User,
+    sessionContext?: AuthSessionContext | null,
+    refreshToken?: string
+  ) => Promise<void>;
+}
+
+function storeAuthTokens(token: string, refreshToken?: string) {
+  localStorage.setItem('token', token);
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+}
+
+function clearAuthStorage() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('switchSessionId');
+  localStorage.removeItem('tempToken');
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -42,15 +66,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       // Connexion normale (appareil de confiance)
       if ('token' in response) {
-        localStorage.setItem('token', response.token);
+        storeAuthTokens(response.token, response.refreshToken);
         set({ user: response.user, token: response.token, sessionContext: response.session || null, isAuthenticated: true, isLoading: false });
       } else {
         set({ isLoading: false });
       }
       return response;
-    } catch {
+    } catch (error) {
       set({ isLoading: false });
-      throw new Error('Login failed');
+      throw error;
     }
   },
 
@@ -65,27 +89,34 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       // Connexion normale (ne devrait pas arriver si MFA est obligatoire, mais pour le typage)
       if ('token' in response) {
-        localStorage.setItem('token', response.token);
+        storeAuthTokens(response.token, response.refreshToken);
         set({ user: response.user, token: response.token, sessionContext: response.session || null, isAuthenticated: true, isLoading: false });
       } else {
         set({ isLoading: false });
       }
       return response;
-    } catch {
+    } catch (error) {
       set({ isLoading: false });
-      throw new Error('Registration failed');
+      throw error;
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('switchSessionId');
-    set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
+  logout: async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    try {
+      if (refreshToken) {
+        await authService.logout(refreshToken);
+      }
+    } finally {
+      clearAuthStorage();
+      set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
+    }
   },
 
   loadUser: async () => {
     const token = localStorage.getItem('token');
     if (!token) {
+      clearAuthStorage();
       set({ isAuthenticated: false });
       return;
     }
@@ -95,7 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { user, session } = await authService.getProfile();
       set({ user, sessionContext: session || null, isAuthenticated: true, isLoading: false });
     } catch {
-      localStorage.removeItem('token');
+      clearAuthStorage();
       set({ user: null, token: null, sessionContext: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -104,16 +135,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { user } = await authService.updateProfile(data);
       set({ user });
-    } catch {
-      throw new Error('Update profile failed');
+    } catch (error) {
+      throw error;
     }
   },
   refreshProfile: async () => {
     const { user, session } = await authService.getProfile();
     set({ user, sessionContext: session || null });
   },
-  setAuthToken: async (token, user, sessionContext) => {
-    localStorage.setItem('token', token);
+  deleteAccount: async (data) => {
+    await authService.deleteAccount(data);
+    clearAuthStorage();
+    set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
+    window.location.href = '/login?accountDeleted=true';
+  },
+  setAuthToken: async (token, user, sessionContext, refreshToken) => {
+    storeAuthTokens(token, refreshToken);
     if (user) {
       set({ token, user, sessionContext: sessionContext || null, isAuthenticated: true });
       return;

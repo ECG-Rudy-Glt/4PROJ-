@@ -1,5 +1,4 @@
 import prisma from '../config/database';
-import fs from 'fs/promises';
 import archiver from 'archiver';
 import { Response } from 'express';
 import { AuditService } from './auditService';
@@ -7,8 +6,31 @@ import { SocketService } from './socketService';
 import { VaultService } from './vaultService';
 import { PlanService } from './planService';
 import { EncryptionService } from './encryptionService';
+import { StorageService } from './storageService';
 import logger from '../config/logger';
 import { AppError } from '../middlewares/errorHandler';
+import { findSharedFolderAccessRoot } from '../middlewares/permissions';
+
+async function deleteStorageFileBestEffort(pathOrKey: string, fileId: string): Promise<void> {
+  try {
+    await StorageService.deleteStorageFile(pathOrKey);
+  } catch (err) {
+    logger.error(`Error deleting storage object ${pathOrKey} for file ${fileId}: ${err}`);
+  }
+}
+
+async function deleteStorageFileOnceBestEffort(
+  pathOrKey: string | null | undefined,
+  fileId: string,
+  deletedStoragePaths: Set<string>
+): Promise<void> {
+  if (!pathOrKey || deletedStoragePaths.has(pathOrKey)) {
+    return;
+  }
+
+  deletedStoragePaths.add(pathOrKey);
+  await deleteStorageFileBestEffort(pathOrKey, fileId);
+}
 
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
@@ -100,8 +122,50 @@ export class FolderService {
   static async listFolders(userId: string, parentId?: string) {
     const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     if (parentId) {
-      const parentIsVault = await VaultService.isVaultFolder(userId, parentId);
-      await VaultService.assertUnlockedIfVault(userId, parentIsVault);
+      const parent = await prisma.folder.findUnique({
+        where: { id: parentId },
+        select: { userId: true, isVault: true },
+      });
+
+      if (!parent) {
+        throw new AppError(404, 'Parent folder not found');
+      }
+
+      if (parent.userId !== userId) {
+        const sharedRoot = await findSharedFolderAccessRoot(userId, parentId, 'read');
+        if (!sharedRoot) {
+          throw new AppError(403, 'Folder not shared with you');
+        }
+
+        const folders = await prisma.folder.findMany({
+          where: {
+            parentId,
+            isDeleted: false,
+            isVault: false,
+          },
+          include: {
+            children: true,
+          },
+          orderBy: {
+            name: 'asc',
+          },
+        });
+
+        return folders.map((folder: any) => ({
+          ...folder,
+          _sharedFolderPermissions: {
+            canRead: sharedRoot.canRead,
+            canWrite: sharedRoot.canWrite,
+            canDelete: sharedRoot.canDelete,
+            canShare: sharedRoot.canShare,
+          },
+          _shareId: sharedRoot.id,
+          _sharedRootFolderId: sharedRoot.folderId,
+          passwordProtected: Boolean(sharedRoot.passwordHash),
+        }));
+      }
+
+      await VaultService.assertUnlockedIfVault(userId, parent.isVault);
     }
 
     return await prisma.folder.findMany({
@@ -255,7 +319,6 @@ export class FolderService {
     const folder = await prisma.folder.findFirst({
       where: {
         id: folderId,
-        userId,
       },
     });
 
@@ -263,7 +326,19 @@ export class FolderService {
       throw new AppError(404, 'Folder not found');
     }
 
-    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    const isOwner = folder.userId === userId;
+    if (isOwner) {
+      await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    } else {
+      if (permanent || folder.isDeleted) {
+        throw new AppError(403, 'Only the owner can permanently delete this folder');
+      }
+
+      const sharedRoot = await findSharedFolderAccessRoot(userId, folderId, 'delete');
+      if (!sharedRoot) {
+        throw new AppError(403, "Vous n'avez pas la permission de supprimer ce dossier");
+      }
+    }
 
     if (permanent || folder.isDeleted) {
       // 1. Trouver tous les fichiers dans ce dossier et ses sous-dossiers pour suppression physique
@@ -280,15 +355,29 @@ export class FolderService {
           thumbnailPath: true,
           size: true,
           userId: true,
+          versions: {
+            select: {
+              id: true,
+              storagePath: true,
+              size: true,
+            },
+          },
         }
       });
 
       // 2. Supprimer physiquement chaque fichier et ajuster les quotas
+      const deletedStoragePaths = new Set<string>();
       for (const file of filesInFolder) {
         try {
-          await fs.unlink(file.storagePath).catch(() => {});
-          if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
+          await deleteStorageFileOnceBestEffort(file.storagePath, file.id, deletedStoragePaths);
+          await deleteStorageFileOnceBestEffort(file.thumbnailPath, file.id, deletedStoragePaths);
+          for (const version of file.versions) {
+            await deleteStorageFileOnceBestEffort(version.storagePath, file.id, deletedStoragePaths);
+          }
           await PlanService.updateQuotaUsed(file.userId, -file.size);
+          for (const version of file.versions) {
+            await PlanService.updateQuotaUsed(file.userId, -version.size);
+          }
           // File record suppression is handled by the manual delete loop below 
           // to ensure consistency since File -> Folder is onDelete: SetNull
           await prisma.file.delete({ where: { id: file.id } });
@@ -315,33 +404,43 @@ export class FolderService {
     }).catch((e) => logger.error(e));
 
     // Socket event
-    SocketService.emitToUser(userId, 'folder_deleted', { folderId });
+    SocketService.emitToUser(folder.userId, 'folder_deleted', { folderId });
 
     return { message: 'Folder deleted successfully' };
   }
 
   static async getFolderBreadcrumbs(folderId: string, userId: string) {
-    const folder = await prisma.folder.findFirst({
-      where: {
-        id: folderId,
-        userId,
-      },
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
     });
 
     if (!folder) {
       throw new AppError(404, 'Folder not found');
     }
 
-    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    const isOwner = folder.userId === userId;
+    const sharedRoot = isOwner ? null : await findSharedFolderAccessRoot(userId, folderId, 'read');
 
-    const breadcrumbs: Array<{ id: string; name: string }> = [];
+    if (!isOwner && !sharedRoot) {
+      throw new AppError(403, 'Folder not shared with you');
+    }
+
+    if (isOwner) {
+      await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    }
+
+    const chain: Array<{ id: string; name: string }> = [];
     let currentFolder = folder;
 
     while (currentFolder) {
-      breadcrumbs.unshift({
+      chain.unshift({
         id: currentFolder.id,
         name: currentFolder.name,
       });
+
+      if (sharedRoot && currentFolder.id === sharedRoot.folderId) {
+        break;
+      }
 
       if (currentFolder.parentId) {
         const parent = await prisma.folder.findUnique({
@@ -353,7 +452,7 @@ export class FolderService {
       }
     }
 
-    return breadcrumbs;
+    return chain;
   }
 
   static async restoreFolder(folderId: string, userId: string) {

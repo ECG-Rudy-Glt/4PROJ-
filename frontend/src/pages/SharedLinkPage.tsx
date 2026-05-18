@@ -48,8 +48,10 @@ export default function SharedLinkPage() {
   const { token } = useParams<{ token: string }>();
   const [file, setFile] = useState<any>(null);
   const [sharedBy, setSharedBy] = useState<any>(null);
+  const [bundleInfo, setBundleInfo] = useState<{ fileCount: number } | null>(null);
   const [password, setPassword] = useState('');
   const [needsPassword, setNeedsPassword] = useState(false);
+  const [shareAccessToken, setShareAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -61,19 +63,39 @@ export default function SharedLinkPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const loadSharedFile = async (pwd?: string) => {
+  useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const loadSharedFile = async (accessToken?: string | null) => {
     try {
-      const data = await shareService.getSharedFile(token!, pwd);
+      const data = await shareService.getSharedFile(token!, accessToken);
+      setNeedsPassword(false);
+
+      if (data.isBundle) {
+        setBundleInfo({ fileCount: data.fileCount });
+        setSharedBy(data.sharedBy);
+        return;
+      }
+
       setFile(data.file);
       setSharedBy(data.sharedBy);
-      setNeedsPassword(false);
-      
-      // Générer l'URL de prévisualisation pour les images
-      if (data.file.mimeType.startsWith('image/')) {
-        setPreviewUrl(shareService.getSharedFileDownloadUrl(token!, pwd));
+
+      if (data.file?.mimeType?.startsWith('image/')) {
+        if (accessToken) {
+          const blob = await shareService.downloadSharedFile(token!, accessToken);
+          setPreviewUrl(URL.createObjectURL(blob));
+        } else {
+          setPreviewUrl(shareService.getSharedFileDownloadUrl(token!));
+        }
       }
     } catch (error: any) {
-      if (error.response?.data?.error === 'Password required') {
+      const errorCode = error.response?.data?.error || error.response?.data?.code;
+      if (error.response?.status === 423 || errorCode === 'SHARE_PASSWORD_REQUIRED' || errorCode === 'Password required') {
         setNeedsPassword(true);
       } else {
         toast.error(error.response?.data?.error || 'Échec du chargement du fichier');
@@ -83,19 +105,45 @@ export default function SharedLinkPage() {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    loadSharedFile(password);
+    try {
+      const result = await shareService.unlockPublicShare(token!, password);
+      setShareAccessToken(result.shareAccessToken);
+      await loadSharedFile(result.shareAccessToken);
+    } catch (error: any) {
+      setIsLoading(false);
+      toast.error(error.response?.data?.message || 'Mot de passe invalide');
+    }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setIsDownloading(true);
-    window.location.href = shareService.getSharedFileDownloadUrl(
-      token!,
-      needsPassword ? password : undefined
-    );
-    setTimeout(() => setIsDownloading(false), 2000);
+    try {
+      const blob = bundleInfo
+        ? await shareService.downloadBundleShareLink(token!, shareAccessToken)
+        : await shareService.downloadSharedFile(token!, shareAccessToken);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = bundleInfo ? `supfile-${token}.zip` : file?.name || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      const errorCode = error.response?.data?.error || error.response?.data?.code;
+      if (error.response?.status === 423 || errorCode === 'SHARE_PASSWORD_REQUIRED') {
+        setNeedsPassword(true);
+        setFile(null);
+        setBundleInfo(null);
+      } else {
+        toast.error(error.response?.data?.message || 'Échec du téléchargement');
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isLoading) {
@@ -143,6 +191,46 @@ export default function SharedLinkPage() {
                 Accéder au fichier
               </button>
             </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (bundleInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-8 text-center">
+            <div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Archive className="w-12 h-12 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white">Archive ZIP</h1>
+            <p className="text-white/80 mt-2 text-sm">{bundleInfo.fileCount} fichier{bundleInfo.fileCount > 1 ? 's' : ''}</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {sharedBy && (
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <User className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Partagé par</p>
+                  <p className="font-semibold text-gray-900 dark:text-white truncate">
+                    {sharedBy.firstName || sharedBy.email?.split('@')[0]}
+                  </p>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex items-center justify-center space-x-3 w-full py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+            >
+              <Download className="w-5 h-5" />
+              <span>{isDownloading ? 'Téléchargement...' : "Télécharger l'archive"}</span>
+            </button>
           </div>
         </div>
       </div>

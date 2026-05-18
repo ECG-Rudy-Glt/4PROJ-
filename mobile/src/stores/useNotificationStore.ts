@@ -26,10 +26,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   fetch: async () => {
     set({ loading: true });
     try {
-      const { notifications } = await notificationService.getNotifications();
+      const { notifications, unreadCount } = await notificationService.getNotifications();
       set({
         notifications,
-        unreadCount: notifications.filter((n) => !n.read).length,
+        unreadCount: typeof unreadCount === 'number'
+          ? unreadCount
+          : notifications.filter((n) => !n.read).length,
         loading: false,
       });
     } catch {
@@ -39,10 +41,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markAsRead: async (id) => {
     await notificationService.markAsRead(id);
-    set((s) => ({
-      notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
-      unreadCount: Math.max(0, s.unreadCount - 1),
-    }));
+    set((s) => {
+      const wasUnread = s.notifications.some((n) => n.id === id && !n.read);
+      return {
+        notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        unreadCount: wasUnread ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
+      };
+    });
   },
 
   markAllAsRead: async () => {
@@ -59,7 +64,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const removed = s.notifications.find((n) => n.id === id);
       return {
         notifications: s.notifications.filter((n) => n.id !== id),
-        unreadCount: removed && !removed.read ? s.unreadCount - 1 : s.unreadCount,
+        unreadCount: removed && !removed.read ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
       };
     });
   },

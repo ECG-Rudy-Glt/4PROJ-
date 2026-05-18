@@ -23,7 +23,7 @@ export const useSocket = () => {
     const s = io(baseUrl, {
       auth: { token },
       path: '/socket.io',
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       forceNew: true,
     });
 

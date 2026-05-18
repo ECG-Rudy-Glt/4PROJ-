@@ -10,6 +10,8 @@ import prisma from '../config/database';
 import { sendCsv, csvFilename } from '../utils/csvExporter';
 import logger from '../config/logger';
 import { sendSuccess, sendError, sendMultiStatus } from '../utils/response';
+import { ensureDekUnlocked } from '../utils/dekGuard';
+import { deleteFile as deleteLocalFile } from '../utils/fileUtils';
 
 export class FileController {
   static async uploadFile(req: FileUploadRequest, res: Response, next: NextFunction): Promise<void> {
@@ -24,6 +26,11 @@ export class FileController {
 
       if (files.length === 0) {
         sendError(res, 'No file provided', 400);
+        return;
+      }
+
+      if (!ensureDekUnlocked(req, res)) {
+        await Promise.all(files.map((file) => deleteLocalFile(file.path).catch(() => undefined)));
         return;
       }
 
@@ -181,6 +188,8 @@ export class FileController {
 
       const file = await FileService.getFile(fileId, userId);
 
+      if (!ensureDekUnlocked(req, res)) return;
+
       if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         sendError(res, 'File not found on disk', 404);
         return;
@@ -221,6 +230,8 @@ export class FileController {
       const { fileId } = req.params;
 
       const file = await FileService.getFile(fileId, userId);
+
+      if (!ensureDekUnlocked(req, res)) return;
 
       if (!StorageService.isS3Key(file.storagePath) && !fs.existsSync(file.storagePath)) {
         sendError(res, 'File not found on disk', 404);

@@ -14,7 +14,9 @@ const UserSchema: Record<string, any> = {
     plan: { type: 'string', enum: ['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'] },
     quotaUsed: { type: 'integer' },
     quotaLimit: { type: 'integer' },
+    hasPassword: { type: 'boolean' },
     mfaEnabled: { type: 'boolean' },
+    authProvider: { type: 'string', enum: ['local', 'google', 'github', 'deleted'] },
     vaultEnabled: { type: 'boolean' },
     createdAt: { type: 'string', format: 'date-time' },
   },
@@ -217,6 +219,36 @@ Obtenez un token via **POST /api/auth/login**.
       },
     },
 
+    '/auth/providers': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Disponibilite des providers OAuth',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Providers OAuth configures',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        google: { type: 'boolean' },
+                        github: { type: 'boolean' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
     '/auth/profile': {
       get: {
         tags: ['Auth'],
@@ -283,6 +315,7 @@ Obtenez un token via **POST /api/auth/login**.
                 properties: {
                   oldPassword: { type: 'string' },
                   newPassword: { type: 'string', minLength: 6 },
+                  mfaCode: { type: 'string', description: 'Code MFA (TOTP ou code de secours) requis si MFA activé' },
                 },
               },
             },
@@ -309,6 +342,36 @@ Obtenez un token via **POST /api/auth/login**.
         summary: 'Export RGPD des données personnelles',
         responses: {
           '200': { description: 'Archive ZIP des données utilisateur', content: { 'application/zip': {} } },
+        },
+      },
+    },
+
+    '/auth/account': {
+      delete: {
+        tags: ['Auth'],
+        summary: 'Supprimer et anonymiser le compte connecté',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['confirmationEmail'],
+                properties: {
+                  confirmationEmail: { type: 'string', format: 'email' },
+                  currentPassword: { type: 'string', description: 'Requis si le compte possède un mot de passe local' },
+                  mfaCode: { type: 'string', description: 'Requis si le MFA est actif' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Compte supprimé et anonymisé' },
+          '400': { description: 'Confirmation invalide' },
+          '401': { description: 'Réauthentification invalide' },
+          '403': { description: 'Session directe requise' },
+          '409': { description: 'Suppression bloquée par une contrainte admin ou organisation' },
         },
       },
     },

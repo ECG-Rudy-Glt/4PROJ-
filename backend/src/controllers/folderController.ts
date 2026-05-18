@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { FolderService } from '../services/folderService';
 import { AuthRequest } from '../types';
 import { sendSuccess, sendCreated } from '../utils/response';
+import { ensureDekUnlocked } from '../utils/dekGuard';
 
 export class FolderController {
   static async createFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -116,6 +117,8 @@ export class FolderController {
       const { folderId } = req.params;
 
       const folder = await FolderService.getFolder(folderId, userId);
+
+      if (!ensureDekUnlocked(req, res)) return;
 
       const safeName = folder.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       res.setHeader('Content-Type', 'application/zip');

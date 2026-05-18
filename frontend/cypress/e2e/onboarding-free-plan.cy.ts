@@ -89,7 +89,7 @@ describe('Onboarding FREE plan', () => {
     cy.contains('h3', 'Free')
       .closest('div.relative')
       .within(() => {
-        cy.contains('Current plan').should('be.visible');
+        cy.contains('Current plan').scrollIntoView().should('be.visible');
       });
   });
 });

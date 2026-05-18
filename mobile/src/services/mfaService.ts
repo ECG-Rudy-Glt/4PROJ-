@@ -1,6 +1,10 @@
 import api from './api';
 import * as SecureStore from 'expo-secure-store';
 
+function unwrap<T>(data: any): T {
+  return (data?.success === true && 'data' in data) ? data.data : data;
+}
+
 export interface MFASetupResponse {
   secret: string;
   otpauthUrl: string;
@@ -44,7 +48,7 @@ export const mfaService = {
   async setupMFA(): Promise<MFASetupResponse> {
     const headers = await tempAuthHeader();
     const res = await api.post('/mfa/setup', {}, { headers });
-    return res.data;
+    return unwrap(res.data);
   },
 
   async verifySetup(
@@ -59,27 +63,28 @@ export const mfaService = {
       { token, secret, backupCodes, rememberDevice },
       { headers },
     );
-    return res.data;
+    return unwrap(res.data);
   },
 
   async verifyMFA(userId: string, token: string, rememberDevice: boolean): Promise<MFAVerifyResponse> {
     const res = await api.post('/mfa/verify', { userId, token, rememberDevice });
-    return res.data;
+    return unwrap(res.data);
   },
 
   async verifyBackupCode(userId: string, backupCode: string, rememberDevice: boolean): Promise<MFAVerifyResponse> {
     const res = await api.post('/mfa/verify-backup-code', { userId, backupCode, rememberDevice });
-    return res.data;
+    return unwrap(res.data);
   },
 
   async regenerateBackupCodes(token: string): Promise<{ backupCodes: string[] }> {
     const res = await api.post('/mfa/regenerate-codes', { token });
-    return res.data;
+    return unwrap(res.data);
   },
 
   async getTrustedDevices(): Promise<TrustedDevice[]> {
     const res = await api.get('/mfa/trusted-devices');
-    return res.data.devices;
+    const data = unwrap<any>(res.data);
+    return data.devices ?? data;
   },
 
   async revokeTrustedDevice(deviceId: string): Promise<void> {
@@ -92,6 +97,6 @@ export const mfaService = {
 
   async getMFAStatus(): Promise<MFAStatusResponse> {
     const res = await api.get('/mfa/status');
-    return res.data;
+    return unwrap(res.data);
   },
 };

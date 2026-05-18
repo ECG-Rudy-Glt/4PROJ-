@@ -32,6 +32,51 @@ const timeAgo = (iso: string): string => {
   return `Il y a ${days}j`;
 };
 
+const getDataString = (data: Record<string, unknown> | undefined, key: string): string | undefined => {
+  const value = data?.[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const formatNotification = (notification: Notification) => {
+  const data = notification.data;
+  const usage = typeof data?.usage === 'number' ? data.usage : undefined;
+
+  if (notification.title === 'notifications.share.file_received.title') {
+    return {
+      title: 'Nouveau fichier partagé',
+      message: `${getDataString(data, 'userName') ?? 'Quelqu\'un'} vous a partagé un fichier.`,
+    };
+  }
+
+  if (notification.title === 'notifications.share.folder_received.title') {
+    return {
+      title: 'Nouveau dossier partagé',
+      message: `${getDataString(data, 'userName') ?? 'Quelqu\'un'} vous a partagé un dossier.`,
+    };
+  }
+
+  if (notification.title.startsWith('notifications.comment.')) {
+    return {
+      title: 'Nouveau commentaire',
+      message: `${getDataString(data, 'userName') ?? 'Quelqu\'un'} a commenté ${getDataString(data, 'fileName') ?? 'un fichier'}.`,
+    };
+  }
+
+  if (notification.title.startsWith('notifications.quota.')) {
+    return {
+      title: 'Quota presque atteint',
+      message: typeof usage === 'number'
+        ? `Votre quota est utilisé à ${usage}%.`
+        : 'Votre espace de stockage approche de sa limite.',
+    };
+  }
+
+  return {
+    title: notification.title,
+    message: notification.message,
+  };
+};
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -48,6 +93,7 @@ export default function NotificationCenter({ visible, onClose, onNavigateToShare
 
   const renderItem = ({ item }: { item: Notification }) => {
     const cfg = typeConfig[item.type] || typeConfig.SHARE;
+    const display = formatNotification(item);
 
     return (
       <TouchableOpacity
@@ -65,8 +111,8 @@ export default function NotificationCenter({ visible, onClose, onNavigateToShare
           <Ionicons name={cfg.icon} size={20} color={cfg.color} />
         </View>
         <View style={styles.notifContent}>
-          <Text style={styles.notifTitle}>{item.title}</Text>
-          <Text style={styles.notifMessage} numberOfLines={2}>{item.message}</Text>
+          <Text style={styles.notifTitle}>{display.title}</Text>
+          <Text style={styles.notifMessage} numberOfLines={2}>{display.message}</Text>
           <Text style={styles.notifTime}>{timeAgo(item.createdAt)}</Text>
         </View>
         <TouchableOpacity onPress={() => remove(item.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

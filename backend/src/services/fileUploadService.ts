@@ -9,6 +9,9 @@ import { EncryptionService } from './encryptionService';
 import { PlanService } from './planService';
 import { VaultService } from './vaultService';
 import { FileIndexService } from './fileIndexService';
+import { findSharedFolderAccessRoot } from '../middlewares/permissions';
+import { ShareKeyService } from './shareKeyService';
+import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 
 function getCategoryFromMimeType(mimeType: string): string {
   if (mimeType.startsWith('image/')) return 'image';
@@ -39,6 +42,51 @@ async function getUniqueFileName(name: string, folderId: string | undefined, use
 
   if (!exists) return name;
   return `${baseName} (${Date.now().toString(36)})${extension}`;
+}
+
+async function resolveUploadTarget(userId: string, folderId?: string, requestDek?: Buffer) {
+  if (!folderId) {
+    return {
+      ownerId: userId,
+      encryptionDek: requestDek,
+      isVault: false,
+    };
+  }
+
+  const folder = await prisma.folder.findUnique({
+    where: { id: folderId },
+    select: { id: true, userId: true, isDeleted: true },
+  });
+
+  if (!folder || folder.isDeleted) {
+    throw new Error('Dossier introuvable');
+  }
+
+  if (folder.userId === userId) {
+    const isVault = await VaultService.isVaultFolder(userId, folderId);
+    await VaultService.assertUnlockedIfVault(userId, isVault);
+    return {
+      ownerId: userId,
+      encryptionDek: requestDek,
+      isVault,
+    };
+  }
+
+  const folderShare = await findSharedFolderAccessRoot(userId, folderId, 'write');
+  if (!folderShare) {
+    throw new Error("Vous n'avez pas la permission d'écrire dans ce dossier");
+  }
+
+  const ownerDek = ShareKeyService.unwrapOwnerDek(folderShare.ownerWrappedDek);
+  if (!ownerDek) {
+    throw new Error(DEK_UNLOCK_REQUIRED);
+  }
+
+  return {
+    ownerId: folder.userId,
+    encryptionDek: ownerDek,
+    isVault: false,
+  };
 }
 
 export class FileUploadService {
@@ -83,58 +131,90 @@ export class FileUploadService {
     dek?: Buffer,
     replaceFileId?: string
   ) {
-    const isVault = await VaultService.isVaultFolder(userId, folderId || null);
-    await VaultService.assertUnlockedIfVault(userId, isVault);
+    const targetFileId = replaceFileId;
 
-    const fileSizeAllowed = await PlanService.checkFileSize(userId, size);
+    if (targetFileId) {
+      const targetFile = await prisma.file.findUnique({
+        where: { id: targetFileId },
+        select: { userId: true, isDeleted: true },
+      });
+      if (!targetFile || targetFile.isDeleted) {
+        await deleteFile(storagePath);
+        throw new Error('Fichier introuvable');
+      }
+
+      const fileSizeAllowed = await PlanService.checkFileSize(targetFile.userId, size);
+      if (!fileSizeAllowed) {
+        await deleteFile(storagePath);
+        throw new Error('Fichier trop volumineux pour votre plan. Passez à un plan supérieur.');
+      }
+
+      try {
+        // Replaces existing file content (creates a new version)
+        return await this.replaceFileContent(
+          targetFileId,
+          userId,
+          storagePath,
+          name,
+          size,
+          mimeType,
+          dek
+        );
+      } finally {
+        // Clean up temporary file as replaceFileContent (via createVersion) uploads it to S3
+        await deleteFile(storagePath).catch(() => undefined);
+      }
+    }
+
+    const uploadTarget = await resolveUploadTarget(userId, folderId, dek);
+
+    const fileSizeAllowed = await PlanService.checkFileSize(uploadTarget.ownerId, size);
     if (!fileSizeAllowed) {
       await deleteFile(storagePath);
       throw new Error('Fichier trop volumineux pour votre plan. Passez à un plan supérieur.');
     }
 
-    const hasSpace = await PlanService.checkQuota(userId, size);
+    const hasSpace = await PlanService.checkQuota(uploadTarget.ownerId, size);
     if (!hasSpace) {
       await deleteFile(storagePath);
       throw new Error('Quota exceeded');
     }
 
-    const targetFileId = replaceFileId;
-
-    if (targetFileId) {
-      // Replaces existing file content (creates a new version)
-      const updatedFile = await this.replaceFileContent(
-        targetFileId,
-        userId,
-        storagePath,
-        name,
-        size,
-        mimeType,
-        dek
-      );
-      // Clean up temporary file as replaceFileContent (via createVersion) uploads it to S3
-      await deleteFile(storagePath).catch(() => undefined);
-      return updatedFile;
-    }
-
-    const uniqueName = await getUniqueFileName(name, folderId, userId);
+    const uniqueName = await getUniqueFileName(name, folderId, uploadTarget.ownerId);
     const category = getCategoryFromMimeType(mimeType);
 
-    // Chiffrer et uploader vers S3 avec le DEK utilisateur (ou clé globale en fallback)
-    const s3Key = `files/${userId}/${path.basename(storagePath)}`;
-    await EncryptionService.encryptFileToS3(storagePath, s3Key, dek);
+    // In a shared folder, files are owned and encrypted with the folder owner's DEK.
+    const s3Key = `files/${uploadTarget.ownerId}/${path.basename(storagePath)}`;
+    await EncryptionService.encryptFileToS3(storagePath, s3Key, uploadTarget.encryptionDek);
 
     const file = await prisma.file.create({
-      data: { name: uniqueName, originalName, mimeType, size: BigInt(size), storagePath: s3Key, userId, folderId, category, isVault },
+      data: {
+        name: uniqueName,
+        originalName,
+        mimeType,
+        size: BigInt(size),
+        storagePath: s3Key,
+        userId: uploadTarget.ownerId,
+        folderId,
+        category,
+        isVault: uploadTarget.isVault,
+      },
       include: { folder: true },
     });
 
-    await PlanService.updateQuotaUsed(userId, size);
-    await AuditService.createLog(userId, 'UPLOAD', { fileName: uniqueName, fileId: file.id, folderId });
+    await PlanService.updateQuotaUsed(uploadTarget.ownerId, size);
+    await AuditService.createLog(userId, 'UPLOAD', {
+      fileName: uniqueName,
+      fileId: file.id,
+      folderId,
+      ownerId: uploadTarget.ownerId,
+    });
 
     SocketService.emitToUser(userId, 'file_uploaded', file);
+    if (uploadTarget.ownerId !== userId) SocketService.emitToUser(uploadTarget.ownerId, 'file_uploaded', file);
     if (folderId) SocketService.emitToUser(userId, 'folder_updated', { folderId });
 
-    FileIndexService.indexFileAsync(file.id, userId);
+    FileIndexService.indexFileAsync(file.id, uploadTarget.ownerId);
 
     return file;
   }
@@ -151,8 +231,8 @@ export class FileUploadService {
     await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType, dek);
     FileIndexService.indexFileAsync(fileId, userId);
 
-    return prisma.file.findFirst({
-      where: { id: fileId, userId, isDeleted: false },
+    return prisma.file.findUnique({
+      where: { id: fileId },
       include: { folder: true, tags: { include: { tag: true } } },
     });
   }

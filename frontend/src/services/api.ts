@@ -14,6 +14,113 @@ const api = axios.create({
   },
 });
 
+type RefreshResult = {
+  token: string;
+  refreshToken: string;
+};
+
+type RetriableRequestConfig = NonNullable<Parameters<typeof api>[0]> & {
+  _retry?: boolean;
+  headers?: any;
+  url?: string;
+};
+
+let refreshPromise: Promise<RefreshResult> | null = null;
+
+function clearStoredAuth() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('switchSessionId');
+  localStorage.removeItem('tempToken');
+}
+
+function isAuthPage() {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return path.startsWith('/login')
+    || path.startsWith('/register')
+    || path.startsWith('/mfa-verify')
+    || path.startsWith('/auth/callback');
+}
+
+function redirectToLogin(expired = false) {
+  if (typeof window === 'undefined' || isAuthPage()) return;
+  window.location.href = expired ? '/login?expired=true' : '/login';
+}
+
+function requestUrl(config?: RetriableRequestConfig) {
+  return config?.url || '';
+}
+
+function isRefreshRequest(config?: RetriableRequestConfig) {
+  return requestUrl(config).includes('/auth/refresh');
+}
+
+function isLogoutRequest(config?: RetriableRequestConfig) {
+  return requestUrl(config).includes('/auth/logout');
+}
+
+function getHeader(headers: any, name: string): unknown {
+  if (!headers) return undefined;
+  if (typeof headers.get === 'function') return headers.get(name);
+  return headers[name] || headers[name.toLowerCase()];
+}
+
+function hasSwitchSession(config?: RetriableRequestConfig) {
+  return Boolean(
+    localStorage.getItem('switchSessionId')
+      || getHeader(config?.headers, 'x-switch-session')
+      || getHeader(config?.headers, 'X-Switch-Session')
+  );
+}
+
+function setAuthorizationHeader(config: RetriableRequestConfig, token: string) {
+  config.headers = config.headers || {};
+  if (typeof config.headers.set === 'function') {
+    config.headers.set('Authorization', `Bearer ${token}`);
+    return;
+  }
+  config.headers.Authorization = `Bearer ${token}`;
+}
+
+function unwrapRefreshResponse(data: unknown): RefreshResult {
+  let body = data;
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const responseBody = body as Record<string, unknown>;
+    if (responseBody.success === true && 'data' in responseBody) {
+      body = responseBody.data;
+    }
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('Réponse de rafraîchissement invalide');
+  }
+
+  const refreshBody = body as Record<string, unknown>;
+  if (typeof refreshBody.token !== 'string' || typeof refreshBody.refreshToken !== 'string') {
+    throw new Error('Réponse de rafraîchissement invalide');
+  }
+
+  return {
+    token: refreshBody.token,
+    refreshToken: refreshBody.refreshToken,
+  };
+}
+
+function refreshAccessToken(refreshToken: string, oldToken: string | null) {
+  if (!refreshPromise) {
+    refreshPromise = axios.post(`${baseURL}/auth/refresh`, { refreshToken }, {
+      withCredentials: true,
+      headers: oldToken ? { Authorization: `Bearer ${oldToken}` } : undefined,
+    })
+      .then((response) => unwrapRefreshResponse(response.data))
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 // Add auth token to requests
 api.interceptors.request.use((config) => {
   const requireHttps = import.meta.env.VITE_REQUIRE_HTTPS === 'true';
@@ -50,23 +157,47 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       if (error.response?.data?.code === 'REAUTH_REQUIRED') {
         return Promise.reject(error);
       }
 
-      localStorage.removeItem('token');
+      const originalRequest = error.config as RetriableRequestConfig | undefined;
+      const expired = error.response?.data?.code === 'SESSION_EXPIRED';
 
-      // Ne pas rediriger si on est déjà sur les pages d'auth
-      const path = window.location.pathname;
-      if (!path.startsWith('/login') && !path.startsWith('/register') && !path.startsWith('/mfa-verify') && !path.startsWith('/auth/callback')) {
-        // Check if session expired
-        if (error.response?.data?.code === 'SESSION_EXPIRED') {
-          window.location.href = '/login?expired=true';
-        } else {
-          window.location.href = '/login';
-        }
+      if (!originalRequest
+        || originalRequest._retry
+        || isRefreshRequest(originalRequest)
+        || isLogoutRequest(originalRequest)
+        || hasSwitchSession(originalRequest)
+      ) {
+        clearStoredAuth();
+        redirectToLogin(expired);
+        return Promise.reject(error);
+      }
+
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        clearStoredAuth();
+        redirectToLogin(expired);
+        return Promise.reject(error);
+      }
+
+      try {
+        const oldToken = localStorage.getItem('token');
+        const refreshed = await refreshAccessToken(refreshToken, oldToken);
+
+        localStorage.setItem('token', refreshed.token);
+        localStorage.setItem('refreshToken', refreshed.refreshToken);
+        originalRequest._retry = true;
+        setAuthorizationHeader(originalRequest, refreshed.token);
+
+        return api(originalRequest);
+      } catch (refreshError) {
+        clearStoredAuth();
+        redirectToLogin(true);
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);

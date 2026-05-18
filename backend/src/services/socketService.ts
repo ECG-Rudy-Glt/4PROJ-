@@ -3,6 +3,7 @@ import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { buildAllowedOrigins, isOriginAllowed } from '../utils/cors';
 import logger from '../config/logger';
+import { getJwtSecret } from '../config/secrets';
 
 interface AuthenticatedSocket extends Socket {
     user?: {
@@ -50,7 +51,7 @@ export class SocketService {
 
             jwt.verify(
                 token,
-                process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production-12345',
+                getJwtSecret(),
                 (err: any, decoded: any) => {
                     if (err) {
                         return next(new Error('Authentication error'));

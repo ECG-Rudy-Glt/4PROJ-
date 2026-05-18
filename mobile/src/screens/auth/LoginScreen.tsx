@@ -60,7 +60,7 @@ export default function LoginScreen() {
 
       // Connexion directe
       if ('token' in result && 'user' in result) {
-        await setAuth(result.token, result.user, result.authContext);
+        await setAuth(result.token, result.user, result.authContext, result.refreshToken);
       }
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.message || 'Identifiants incorrects';

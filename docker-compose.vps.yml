@@ -1,0 +1,36 @@
+# Override VPS pour une preproduction exposee via HTTPS.
+#
+# Usage recommande:
+#   PUBLIC_BASE_URL=https://supfile.tech BIND_ADDRESS=127.0.0.1: \
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+#
+# Le reverse proxy publie uniquement 80/443. Les ports applicatifs du compose
+# principal restent bindes en localhost via BIND_ADDRESS=127.0.0.1:.
+
+services:
+  backend:
+    environment:
+      API_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}
+      FRONTEND_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}
+      ONLYOFFICE_PUBLIC_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}/onlyoffice
+
+  frontend:
+    build:
+      args:
+        VITE_API_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    container_name: supfile-vps-proxy
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/nginx.vps.conf:/etc/nginx/nginx.conf:ro
+      - ${SSL_FULLCHAIN_PATH:-/etc/letsencrypt/live/supfile.tech/fullchain.pem}:/etc/ssl/certs/fullchain.pem:ro
+      - ${SSL_PRIVKEY_PATH:-/etc/letsencrypt/live/supfile.tech/privkey.pem}:/etc/ssl/certs/privkey.pem:ro
+    restart: unless-stopped
+    networks:
+      - supfile-network

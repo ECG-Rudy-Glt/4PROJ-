@@ -1,6 +1,8 @@
 import prisma from '../config/database';
 import { VaultService } from './vaultService';
 import { AppError } from '../middlewares/errorHandler';
+import { acceptedShareBaseWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
+import { ShareKeyService } from './shareKeyService';
 
 const fileInclude = {
   folder: true,
@@ -54,14 +56,12 @@ export class FileQueryService {
     }
 
     if (folderId) {
-      const sharedFolderPerms = await prisma.sharedFolder.findFirst({
-        where: { folderId, sharedWithId: userId },
-      });
+      const sharedFolderPerms = await findSharedFolderAccessRoot(userId, folderId, 'read');
 
       if (sharedFolderPerms) {
         const files = await prisma.file.findMany({
           where: { folderId, isDeleted: false, ...(vaultUnlocked ? {} : { isVault: false }) },
-          include: { ...fileInclude, sharedWith: { where: { sharedWithId: userId } } },
+          include: { ...fileInclude, sharedWith: { where: acceptedShareBaseWhere(userId) } },
           orderBy: { [safeSortBy]: sortOrder },
           take,
           skip,
@@ -75,6 +75,9 @@ export class FileQueryService {
             canDelete: sharedFolderPerms.canDelete,
             canShare: sharedFolderPerms.canShare,
           },
+          _shareId: sharedFolderPerms.id,
+          _sharedRootFolderId: sharedFolderPerms.folderId,
+          passwordProtected: Boolean(sharedFolderPerms.passwordHash),
         }));
       }
     }
@@ -163,6 +166,9 @@ export class FileQueryService {
         },
       }),
     ]);
-    return { folders: sharedFolders, files: sharedFiles };
+    return {
+      folders: ShareKeyService.stripOwnerWrappedDekMany(sharedFolders),
+      files: ShareKeyService.stripOwnerWrappedDekMany(sharedFiles),
+    };
   }
 }

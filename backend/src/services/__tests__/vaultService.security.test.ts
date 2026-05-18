@@ -38,6 +38,7 @@ jest.mock('../../config/database', () => ({
 jest.mock('../planService', () => ({
   PlanService: {
     checkFeature: jest.fn(),
+    assertFeature: jest.fn(),
   },
 }));
 
@@ -58,10 +59,18 @@ import bcrypt from 'bcryptjs';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const mockVaultAvailable = () =>
-  (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
+  {
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
+    (PlanService.assertFeature as jest.Mock).mockResolvedValue(undefined);
+  };
 
 const mockVaultUnavailable = () =>
-  (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+  {
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+    (PlanService.assertFeature as jest.Mock).mockRejectedValue(
+      new Error('Cette fonctionnalité nécessite le plan PRO ou supérieur.')
+    );
+  };
 
 function makeVaultUser(overrides: Record<string, unknown> = {}) {
   return {

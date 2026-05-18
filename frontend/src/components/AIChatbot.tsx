@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Minimize2 } from 'lucide-react';
+import { X, Send, Minimize2, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { aiService } from '@/services/aiService';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { isFeatureAvailableForPlan } from '@/constants/plans';
 
 interface Message {
   id: string;
@@ -15,6 +18,8 @@ interface Message {
 
 export default function AIChatbot() {
   const { t, i18n } = useTranslation();
+  const userPlan = useAuthStore((state) => state.user?.plan);
+  const canUseAi = isFeatureAvailableForPlan(userPlan, 'aiChat');
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -92,6 +97,10 @@ export default function AIChatbot() {
 
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
+    if (!canUseAi) {
+      toast.error(t('plan_upgrade.ai_toast'));
+      return;
+    }
 
     // Ajouter le message de l'utilisateur
     const userMessage: Message = {
@@ -132,7 +141,10 @@ export default function AIChatbot() {
       let errorText = t('chatbot.error_general');
 
       // Gérer les erreurs de rate limit spécifiquement
-      if (error.response?.status === 429 || error.response?.data?.error === 'RATE_LIMIT_EXCEEDED') {
+      if (error.response?.data?.code === 'PLAN_UPGRADE_REQUIRED') {
+        errorText = t('plan_upgrade.ai_message');
+        toast.error(t('plan_upgrade.ai_toast'));
+      } else if (error.response?.status === 429 || error.response?.data?.error === 'RATE_LIMIT_EXCEEDED') {
         errorText = t('chatbot.quota_exceeded');
         toast.error(t('chatbot.quota_toast'));
       } else {
@@ -152,10 +164,10 @@ export default function AIChatbot() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      void handleSendMessage();
     }
   };
 
@@ -239,7 +251,7 @@ export default function AIChatbot() {
                   {t('chatbot.name')}
                 </h3>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {isTyping ? t('chatbot.typing') : t('chatbot.online')}
+                  {!canUseAi ? t('plan_upgrade.required_badge') : isTyping ? t('chatbot.typing') : t('chatbot.online')}
                 </p>
               </div>
             </div>
@@ -262,7 +274,28 @@ export default function AIChatbot() {
           </div>
 
           {/* Messages */}
-          {!isMinimized && (
+          {!isMinimized && !canUseAi && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
+              <div className="w-14 h-14 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-4">
+                <Sparkles className="w-7 h-7 text-primary-600 dark:text-primary-300" />
+              </div>
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                {t('plan_upgrade.ai_title')}
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+                {t('plan_upgrade.ai_description')}
+              </p>
+              <Link
+                to="/plans"
+                onClick={() => setIsOpen(false)}
+                className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+              >
+                {t('plan_upgrade.cta')}
+              </Link>
+            </div>
+          )}
+
+          {!isMinimized && canUseAi && (
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
                 {messages.map((message) => (
@@ -328,7 +361,7 @@ export default function AIChatbot() {
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyDown}
                     placeholder={t('chatbot.placeholder')}
                     rows={1}
                     className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"

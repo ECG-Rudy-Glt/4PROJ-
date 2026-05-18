@@ -1,4 +1,5 @@
 export type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+export type PlanFeature = 'aiChat' | 'vault' | 'onlyoffice' | 'auditLogs';
 
 export const PLAN_STORAGE_LABELS: Record<PlanId, string> = {
   FREE: '30 Go',
@@ -7,7 +8,14 @@ export const PLAN_STORAGE_LABELS: Record<PlanId, string> = {
   ENTERPRISE: '10 To',
 };
 
-export const isVaultAvailableForPlan = (plan?: PlanId | null): boolean => {
+export const isFeatureAvailableForPlan = (plan: PlanId | undefined | null, feature: PlanFeature): boolean => {
   if (!plan) return false;
-  return plan !== 'FREE';
+  if (['aiChat', 'vault', 'onlyoffice', 'auditLogs'].includes(feature)) {
+    return plan !== 'FREE';
+  }
+  return true;
+};
+
+export const isVaultAvailableForPlan = (plan?: PlanId | null): boolean => {
+  return isFeatureAvailableForPlan(plan, 'vault');
 };

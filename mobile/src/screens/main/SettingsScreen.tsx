@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import NotificationCenter from '../../components/NotificationCenter';
 import MfaSetupModal from '../../components/MfaSetupModal';
 import AccountSwitcherModal from '../../components/AccountSwitcherModal';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { pushService } from '../../services/pushService';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type TabNav = BottomTabNavigationProp<TabParamList>;
@@ -63,6 +64,14 @@ export default function SettingsScreen() {
   const [changingPwd, setChangingPwd] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    pushService.getPermissionStatus().then((status) => {
+      setPushEnabled(status === 'granted');
+    });
+  }, []);
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -139,6 +148,26 @@ export default function SettingsScreen() {
       Toast.show({ type: 'error', text1: err.response?.data?.error || 'Erreur' });
     } finally {
       setChangingPwd(false);
+    }
+  };
+
+  const handleTogglePush = async () => {
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await pushService.unsubscribe();
+        setPushEnabled(false);
+        Toast.show({ type: 'success', text1: 'Notifications désactivées' });
+      } else {
+        await pushService.subscribe();
+        setPushEnabled(true);
+        Toast.show({ type: 'success', text1: 'Notifications activées' });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erreur';
+      Toast.show({ type: 'error', text1: message });
+    } finally {
+      setPushLoading(false);
     }
   };
 
@@ -236,6 +265,20 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Raccourcis</Text>
 
+        <TouchableOpacity style={styles.menuRow} onPress={handleTogglePush} disabled={pushLoading}>
+          <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Notifications push</Text>
+          {pushLoading ? (
+            <ActivityIndicator size="small" color={colors.primary[600]} />
+          ) : (
+            <View style={[styles.statusPill, pushEnabled ? styles.statusPillOn : styles.statusPillOff]}>
+              <Text style={[styles.statusPillText, pushEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
+                {pushEnabled ? 'Actif' : 'Inactif'}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowNotifs(true)}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
           <Text style={styles.menuLabel}>Notifications</Text>
@@ -274,10 +317,18 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowMfa(true)}>
           <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Authentification à deux facteurs</Text>
-          <Text style={[styles.infoValue, { marginRight: spacing.sm }]}>
-            {user?.mfaEnabled ? 'Activé' : 'Désactivé'}
-          </Text>
+          <Text style={styles.menuLabel}>Double authentification (MFA)</Text>
+          <View style={[styles.statusPill, user?.mfaEnabled ? styles.statusPillOn : styles.statusPillOff]}>
+            <Text style={[styles.statusPillText, user?.mfaEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
+              {user?.mfaEnabled ? 'Actif' : 'Inactif'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Vault')}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Coffre-fort chiffré</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
@@ -353,6 +404,12 @@ export default function SettingsScreen() {
       {/* RGPD */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Confidentialité (RGPD)</Text>
+        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Audit')}>
+          <Ionicons name="list-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>Journal d'activité</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuRow} onPress={handleExportData} disabled={exporting}>
           <Ionicons name="download-outline" size={20} color={colors.primary[600]} />
           <Text style={styles.menuLabel}>Exporter mes données</Text>
@@ -584,5 +641,27 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  statusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    marginRight: spacing.xs,
+  },
+  statusPillOn: {
+    backgroundColor: '#D1FAE5',
+  },
+  statusPillOff: {
+    backgroundColor: colors.neutral[100],
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusPillTextOn: {
+    color: '#065F46',
+  },
+  statusPillTextOff: {
+    color: colors.neutral[500],
   },
 });

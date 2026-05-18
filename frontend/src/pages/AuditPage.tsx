@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { auditService, AuditLog, AuditAction, ActivityStats } from '@/services/auditService';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -15,6 +16,9 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { isFeatureAvailableForPlan } from '@/constants/plans';
 
 // ── Action metadata ───────────────────────────────────────────────────────────
 
@@ -125,6 +129,8 @@ function getHeatmapLevel(count: number): number {
 export default function AuditPage() {
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === 'fr' ? fr : enUS;
+  const userPlan = useAuthStore((state) => state.user?.plan);
+  const auditAvailable = isFeatureAvailableForPlan(userPlan, 'auditLogs');
 
   // Stats & heatmap (365 days)
   const [yearStats, setYearStats] = useState<ActivityStats | null>(null);
@@ -146,13 +152,15 @@ export default function AuditPage() {
   const [hoveredDay, setHoveredDay] = useState<{ date: string; count: number } | null>(null);
 
   useEffect(() => {
+    if (!auditAvailable) return;
     void loadYearStats();
     void loadMonthStats();
-  }, []);
+  }, [auditAvailable]);
 
   useEffect(() => {
+    if (!auditAvailable) return;
     void loadLogs();
-  }, [page, filterAction, filterDays]);
+  }, [auditAvailable, page, filterAction, filterDays]);
 
   const loadYearStats = async () => {
     try {
@@ -185,8 +193,8 @@ export default function AuditPage() {
       });
       setLogs(result.logs);
       setTotal(result.total);
-    } catch {
-      toast.error(t('common.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     } finally {
       setIsLoading(false);
     }
@@ -201,8 +209,8 @@ export default function AuditPage() {
       a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -268,6 +276,30 @@ export default function AuditPage() {
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
   const stats = yearStats;
+
+  if (!auditAvailable) {
+    return (
+      <div className="max-w-3xl mx-auto py-16">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 text-center shadow-sm">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+            <Activity className="w-7 h-7 text-primary-600 dark:text-primary-300" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+            {t('plan_upgrade.audit_title')}
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            {t('plan_upgrade.audit_description')}
+          </p>
+          <Link
+            to="/plans"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+          >
+            {t('plan_upgrade.cta')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

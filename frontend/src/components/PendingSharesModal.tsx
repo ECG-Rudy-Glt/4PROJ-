@@ -3,6 +3,7 @@ import { X, Check, XCircle, File, Folder } from 'lucide-react';
 import { shareService } from '@/services/shareService';
 import toast from 'react-hot-toast';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
 
 interface PendingShare {
@@ -76,8 +77,8 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       }
 
       setPendingShares(shares);
-    } catch {
-      toast.error(t('pending_shares.error_loading'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('pending_shares.error_loading')));
     } finally {
       setLoading(false);
     }
@@ -94,8 +95,8 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       toast.success(t('pending_shares.accept_success'));
       setPendingShares(pendingShares.filter((s) => s.id !== share.id));
       onAccept?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('pending_shares.error_accepting'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('pending_shares.error_accepting')));
     } finally {
       setAccepting(null);
     }
@@ -110,8 +111,8 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       }
       toast.success(t('pending_shares.reject_success'));
       setPendingShares(pendingShares.filter((s) => s.id !== share.id));
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('pending_shares.error_rejecting'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('pending_shares.error_rejecting')));
     }
   };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useFileStore } from '@/stores/useFileStore';
 import {
@@ -16,11 +16,11 @@ import {
   FileText,
   Archive,
   Star,
-  ArrowUpDown,
   Tag as TagIconLucide,
   Pencil,
   AlertTriangle,
   FolderDown,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fileService } from '@/services/fileService';
@@ -36,11 +36,16 @@ import TagSelector from '@/components/TagSelector';
 import ShareFolderModal from '@/components/ShareFolderModal';
 import { ShareFileModal } from '@/components/ShareFileModal';
 import PendingSharesModal from '@/components/PendingSharesModal';
+import ShareUnlockModal from '@/components/ShareUnlockModal';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { formatBytes } from '@/utils/bytes';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
+import { getFolderShareAccessToken, getSharePasswordAccessError, setFolderShareAccessToken } from '@/utils/shareAccessTokens';
 import { FilterBar, FilterState } from '@/components/FilterBar';
 import { useTranslation } from 'react-i18next';
+import SortableTableHeader from '@/components/SortableTableHeader';
+import { sortFilesForTable } from '@/utils/fileSort';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -105,6 +110,13 @@ export default function FilesPage() {
   const [pendingSharesCount, setPendingSharesCount] = useState(0);
   const [acceptedSharedFiles, setAcceptedSharedFiles] = useState<any[]>([]);
   const [acceptedSharedFolders, setAcceptedSharedFolders] = useState<any[]>([]);
+  const [acceptedSharedItemsLoaded, setAcceptedSharedItemsLoaded] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<
+    | { type: 'file'; file: File | any; action: 'preview' | 'download' }
+    | { type: 'folder'; folder: FolderType | any; action: 'open-folder' }
+    | null
+  >(null);
+  const [shareAccessTokens, setShareAccessTokens] = useState<Record<string, string>>({});
 
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -113,6 +125,105 @@ export default function FilesPage() {
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const displayFiles = searchQuery ? searchResults : files;
+  const tableFiles = useMemo(
+    () => sortFilesForTable([...displayFiles, ...acceptedSharedFiles] as File[], sortBy, sortOrder, i18n.language),
+    [acceptedSharedFiles, displayFiles, i18n.language, sortBy, sortOrder]
+  );
+  const isSharedItem = (item: any) => Boolean(item?._isShared || item?._sharedFolderPermissions);
+  const isPasswordProtectedSharedFile = (item: any) => Boolean(isSharedItem(item) && item?.passwordProtected);
+  const getSharedFolderRootId = (item: any) => item?._sharedRootFolderId || item?.folderId || item?.id;
+  const getSharedFolderToken = useCallback((item: any) => {
+    const rootId = getSharedFolderRootId(item);
+    return getFolderShareAccessToken(rootId) || getFolderShareAccessToken(item?.id);
+  }, []);
+  const getFileShareAccessToken = useCallback((file: File | any) => (
+    shareAccessTokens[file.id]
+      || getFolderShareAccessToken(file?._sharedRootFolderId)
+      || getFolderShareAccessToken(file?.folderId)
+  ), [shareAccessTokens]);
+
+  const handleSharePasswordAccessError = useCallback((
+    error: unknown,
+    options: {
+      file?: File | any;
+      folder?: FolderType | any;
+      folderId?: string;
+      action?: 'preview' | 'download';
+    } = {}
+  ) => {
+    const shareError = getSharePasswordAccessError(error);
+    if (!shareError) return false;
+
+    const shareId = shareError.shareId
+      || options.folder?._shareId
+      || options.folder?.shareId
+      || options.file?._shareId
+      || options.file?.shareId;
+    const rootFolderId = shareError.folderId
+      || options.folder?._sharedRootFolderId
+      || options.file?._sharedRootFolderId;
+
+    if (rootFolderId) setFolderShareAccessToken(rootFolderId, null);
+    if (options.folderId) setFolderShareAccessToken(options.folderId, null);
+    if (options.folder?.id) setFolderShareAccessToken(options.folder.id, null);
+    if (options.file?.folderId) setFolderShareAccessToken(options.file.folderId, null);
+
+    if (options.file && shareId) {
+      setShareAccessTokens((prev) => {
+        const next = { ...prev };
+        delete next[options.file.id];
+        return next;
+      });
+      setUnlockTarget({
+        type: 'file',
+        file: {
+          ...options.file,
+          _shareId: shareId,
+          shareId,
+          _sharedRootFolderId: rootFolderId || options.file._sharedRootFolderId,
+          passwordProtected: true,
+        },
+        action: options.action || 'preview',
+      });
+      return true;
+    }
+
+    const targetFolderId = options.folderId || options.folder?.id || rootFolderId;
+    if (shareId && targetFolderId) {
+      setUnlockTarget({
+        type: 'folder',
+        folder: {
+          ...(options.folder || {}),
+          id: targetFolderId,
+          name: options.folder?.name || t('files.folders'),
+          _shareId: shareId,
+          shareId,
+          _sharedRootFolderId: rootFolderId || targetFolderId,
+          passwordProtected: true,
+        },
+        action: 'open-folder',
+      });
+      return true;
+    }
+
+    return false;
+  }, [t]);
+
+  const requireSharedFileUnlock = useCallback((file: File | any, action: 'preview' | 'download') => {
+    if (isPasswordProtectedSharedFile(file) && !getFileShareAccessToken(file)) {
+      setUnlockTarget({ type: 'file', file, action });
+      return true;
+    }
+
+    return false;
+  }, [getFileShareAccessToken]);
+
+  const openPreviewFile = useCallback((file: File | any) => {
+    if (requireSharedFileUnlock(file, 'preview')) return;
+
+    setPreviewFile(file);
+    setShowPreviewModal(true);
+  }, [requireSharedFileUnlock]);
 
   const getSharedItemsAsDisplayFiles = useCallback(async () => {
     try {
@@ -134,6 +245,10 @@ export default function FilesPage() {
             _canWrite: sf.canWrite,
             _canDelete: sf.canDelete,
             _canShare: sf.canShare,
+            _shareId: sf.id,
+            shareId: sf.id,
+            _sharedRootFolderId: sf.folder.id,
+            passwordProtected: sf.passwordProtected,
           }))
         );
         setAcceptedSharedFolders(sharedFolders);
@@ -159,6 +274,10 @@ export default function FilesPage() {
             _sharedBy: sf.sharedBy,
             _canWrite: sf.canWrite,
             _canDelete: sf.canDelete,
+            _canShare: sf.canShare,
+            _shareId: sf.id,
+            shareId: sf.id,
+            passwordProtected: sf.passwordProtected,
           }))
         );
       }
@@ -193,8 +312,8 @@ export default function FilesPage() {
     try {
       const result = await fileService.searchFiles(query);
       setSearchResults(result.files);
-    } catch {
-      toast.error(t('files.error_search'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.error_search')));
     } finally {
       setIsSearching(false);
     }
@@ -206,19 +325,30 @@ export default function FilesPage() {
 
   useEffect(() => {
     if (!folderId && !searchQuery) {
-      getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+      setAcceptedSharedItemsLoaded(false);
+      getSharedItemsAsDisplayFiles()
+        .then(setAcceptedSharedFiles)
+        .finally(() => setAcceptedSharedItemsLoaded(true));
       loadPendingSharesCount();
     } else {
       setAcceptedSharedFiles([]);
       setAcceptedSharedFolders([]);
+      setAcceptedSharedItemsLoaded(true);
     }
   }, [folderId, searchQuery, getSharedItemsAsDisplayFiles, loadPendingSharesCount]);
+
+  const canShareItem = (item: any) => !isSharedItem(item) || Boolean(item?._canShare || item?._sharedFolderPermissions?.canShare);
+  const canDeleteItem = (item: any) => !isSharedItem(item) || Boolean(item?._canDelete || item?._sharedFolderPermissions?.canDelete);
 
   useEffect(() => {
     if (searchQuery) {
       handleSearch(searchQuery);
     } else {
-      loadContent(folderId, sortBy, sortOrder, activeFilters);
+      const serverSortBy = sortBy === 'tags' ? 'updatedAt' : sortBy;
+      loadContent(folderId, serverSortBy, sortOrder, activeFilters).catch((error) => {
+        if (folderId && handleSharePasswordAccessError(error, { folderId })) return;
+        toast.error(getApiErrorMessage(error, t('common.error_loading')));
+      });
       setSearchResults([]);
       if (folderId) {
         loadBreadcrumbs(folderId);
@@ -226,7 +356,7 @@ export default function FilesPage() {
         setBreadcrumbs([]);
       }
     }
-  }, [folderId, searchQuery, activeFilters, sortBy, sortOrder, handleSearch, loadContent, loadBreadcrumbs]);
+  }, [folderId, searchQuery, activeFilters, sortBy, sortOrder, handleSearch, loadContent, loadBreadcrumbs, handleSharePasswordAccessError, t]);
 
   useEffect(() => {
     const previewId = searchParams.get('preview');
@@ -234,18 +364,18 @@ export default function FilesPage() {
 
     const local = [...files, ...acceptedSharedFiles].find(f => f.id === previewId);
     if (local) {
-      setPreviewFile(local);
-      setShowPreviewModal(true);
+      openPreviewFile(local);
       return;
     }
 
+    if (!folderId && !searchQuery && !acceptedSharedItemsLoaded) return;
+
     fileService.getFile(previewId).then(({ file }) => {
-      setPreviewFile(file);
-      setShowPreviewModal(true);
-    }).catch(() => {
-      toast.error(t('common.error_loading'));
+      openPreviewFile(file);
+    }).catch((error) => {
+      toast.error(getApiErrorMessage(error, t('common.error_loading')));
     });
-  }, [searchParams, files, acceptedSharedFiles, t]);
+  }, [searchParams, files, acceptedSharedFiles, acceptedSharedItemsLoaded, folderId, searchQuery, openPreviewFile, t]);
 
 
 
@@ -270,17 +400,96 @@ export default function FilesPage() {
       toast.success(t('files.create_folder_success'));
       setShowNewFolderModal(false);
       setNewFolderName('');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
-  const handleDownloadFile = async (fileId: string, fileName: string) => {
+  const handleDownloadFile = async (file: File | any) => {
     try {
-      await fileService.triggerDownload(fileId, fileName);
-    } catch {
-      toast.error(t('common.error'));
+      if (isSharedItem(file)) {
+        if (requireSharedFileUnlock(file, 'download')) return;
+        await fileService.triggerSharedFileDownload(file.id, file.name, getFileShareAccessToken(file));
+      } else {
+        await fileService.triggerDownload(file.id, file.name);
+      }
+    } catch (error) {
+      if (handleSharePasswordAccessError(error, { file, action: 'download' })) return;
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
+  };
+
+  const handleOpenFolder = useCallback((folder: FolderType | any) => {
+    const rootId = getSharedFolderRootId(folder);
+    const token = getSharedFolderToken(folder);
+    if (folder?.passwordProtected && !token) {
+      setUnlockTarget({ type: 'folder', folder, action: 'open-folder' });
+      return;
+    }
+
+    if (folder?._sharedRootFolderId && token) {
+      setFolderShareAccessToken(folder.id, token);
+    }
+    if (rootId && token) {
+      setFolderShareAccessToken(rootId, token);
+    }
+    navigate(`/files/${folder.id}`);
+  }, [getSharedFolderToken, navigate]);
+
+  const handleUnlockSharedItem = async (password: string) => {
+    if (!unlockTarget) return;
+
+    if (unlockTarget.type === 'folder') {
+      const shareId = unlockTarget.folder._shareId || unlockTarget.folder.shareId || unlockTarget.folder.id;
+      if (!shareId) {
+        throw new Error(t('common.error'));
+      }
+
+      const result = await shareService.unlockDirectFolderShare(shareId, password);
+      const token = result?.shareAccessToken || '';
+      const target = unlockTarget.folder;
+      const rootId = getSharedFolderRootId(target);
+
+      if (rootId) setFolderShareAccessToken(rootId, token);
+      setFolderShareAccessToken(target.id, token);
+      setUnlockTarget(null);
+      if (target.id === folderId) {
+        const serverSortBy = sortBy === 'tags' ? 'updatedAt' : sortBy;
+        await loadContent(target.id, serverSortBy, sortOrder, activeFilters);
+        await loadBreadcrumbs(target.id);
+      } else {
+        navigate(`/files/${target.id}`);
+      }
+      return;
+    }
+
+    const shareId = unlockTarget.file._shareId || unlockTarget.file.shareId;
+    if (!shareId) {
+      throw new Error(t('common.error'));
+    }
+
+    const isFolderShare = Boolean(unlockTarget.file._sharedFolderPermissions || unlockTarget.file._sharedRootFolderId);
+    const result = isFolderShare
+      ? await shareService.unlockDirectFolderShare(shareId, password)
+      : await shareService.unlockDirectShare(shareId, password);
+    const token = result?.shareAccessToken || '';
+    const target = unlockTarget;
+
+    if (isFolderShare) {
+      if (target.file._sharedRootFolderId) setFolderShareAccessToken(target.file._sharedRootFolderId, token);
+      if (target.file.folderId) setFolderShareAccessToken(target.file.folderId, token);
+    }
+    setShareAccessTokens(prev => ({ ...prev, [target.file.id]: token }));
+    setUnlockTarget(null);
+
+    if (target.action === 'preview') {
+      setPreviewFile(target.file);
+      setShowPreviewModal(true);
+      return;
+    }
+
+    await fileService.triggerSharedFileDownload(target.file.id, target.file.name, token || undefined);
+    toast.success(t('shared.download_started'));
   };
 
   const handleDelete = async (fileId: string) => {
@@ -288,18 +497,24 @@ export default function FilesPage() {
     try {
       await deleteFile(fileId);
       toast.success(t('trash.delete_success', { type: t('common.file') }));
-    } catch {
-      toast.error(t('common.error'));
+      if (!folderId) {
+        getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+      }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
-  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+  const handleDeleteFolder = async (targetFolderId: string, folderName: string) => {
     if (!confirm(t('files.delete_folder_confirm', { name: folderName }))) return;
     try {
-      await deleteFolder(folderId);
+      await deleteFolder(targetFolderId);
       toast.success(t('trash.delete_success', { type: t('common.folder') }));
-    } catch {
-      toast.error(t('common.error'));
+      if (!folderId) {
+        getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+      }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -309,8 +524,8 @@ export default function FilesPage() {
       await shareService.rejectSharedFolder(sharedFolderId);
       toast.success(t('files.stop_sharing_success'));
       getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -319,16 +534,13 @@ export default function FilesPage() {
       await fileService.toggleFavorite(fileId);
       toast.success(currentStatus ? t('files.favorites_removed') : t('files.favorites_added'));
       loadContent(folderId, sortBy, sortOrder, activeFilters);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
-  const handleSortChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    const [field, order] = value.split('-');
-    setSorting(field as any, order as 'asc' | 'desc');
-    loadContent(folderId, field as any, order as 'asc' | 'desc', activeFilters);
+  const handleColumnSort = (field: string, order: 'asc' | 'desc') => {
+    setSorting(field, order);
   };
 
   const handleFilterChange = (filters: FilterState) => {
@@ -349,8 +561,8 @@ export default function FilesPage() {
       const result = await shareService.createShareLink(selectedFile.id, options);
       setShareLink(result.shareLink.url);
       toast.success(t('files.share_link_created'));
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('common.error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
     }
   };
 
@@ -393,8 +605,8 @@ export default function FilesPage() {
       await fileService.updateFile(renamingFileId, renameValue.trim() + renameExtension);
       toast.success(t('files.rename_success', { type: t('common.file') }));
       loadContent(folderId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('files.rename_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.rename_error')));
     } finally {
       cancelRename();
     }
@@ -406,8 +618,8 @@ export default function FilesPage() {
       await folderService.updateFolder(renamingFolderId, renameValue.trim());
       toast.success(t('files.rename_success', { type: t('common.folder') }));
       loadContent(folderId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('files.rename_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.rename_error')));
     } finally {
       cancelRename();
     }
@@ -459,8 +671,8 @@ export default function FilesPage() {
       }
       toast.success(t('files.move_success'));
       loadContent(folderId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('files.move_error'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('files.move_error')));
     } finally {
       setDraggedItem(null);
     }
@@ -542,25 +754,6 @@ export default function FilesPage() {
       {!searchQuery && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <FilterBar onFilterChange={handleFilterChange} onClearFilters={handleClearFilters} />
-          {files.length > 0 && (
-            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shrink-0">
-              <ArrowUpDown className="w-4 h-4 text-gray-400" />
-              <label htmlFor="sort-select" className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"> {t('common.sort_by')} : </label>
-              <select
-                id="sort-select"
-                value={`${sortBy}-${sortOrder}`}
-                onChange={handleSortChange}
-                className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
-              >
-                <option value="name-asc">{t('files.sort.name_asc')}</option>
-                <option value="name-desc">{t('files.sort.name_desc')}</option>
-                <option value="createdAt-desc">{t('files.sort.date_desc')}</option>
-                <option value="createdAt-asc">{t('files.sort.date_asc')}</option>
-                <option value="size-desc">{t('files.sort.size_desc')}</option>
-                <option value="size-asc">{t('files.sort.size_asc')}</option>
-              </select>
-            </div>
-          )}
         </div>
       )}
 
@@ -575,58 +768,82 @@ export default function FilesPage() {
         <div className="mb-8">
           <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">{t('files.folders')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => (
-              <div
-                key={folder.id}
-                draggable={!folder._isShared && renamingFolderId !== folder.id}
-                onDragStart={(e) => handleItemDragStart(folder.id, 'folder', e)}
-                onDragOver={(e) => handleFolderDragOver(folder.id, e)}
-                onDragLeave={handleFolderDragLeave}
-                onDrop={(e) => void handleFolderDrop(folder.id, e)}
-                className={`group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border rounded-xl hover:shadow-md transition-all duration-200 ${
-                  dropTargetFolderId === folder.id
-                    ? 'border-primary-500 dark:border-primary-400 ring-2 ring-primary-300 dark:ring-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600'
-                } ${draggedItem?.id === folder.id ? 'opacity-50' : ''}`}
-              >
-                {renamingFolderId === folder.id ? (
-                  <div className="flex flex-col items-center w-full">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3">
-                      <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            {[...folders, ...acceptedSharedFolders].map((folder: FolderType | any) => {
+              const folderIsShared = isSharedItem(folder);
+              const folderCanShare = canShareItem(folder);
+              const folderCanDelete = canDeleteItem(folder);
+              const folderIsLocked = Boolean(folder.passwordProtected && !getSharedFolderToken(folder));
+
+              return (
+                <div
+                  key={folder.id}
+                  draggable={!folderIsShared && renamingFolderId !== folder.id}
+                  onDragStart={(e) => handleItemDragStart(folder.id, 'folder', e)}
+                  onDragOver={(e) => handleFolderDragOver(folder.id, e)}
+                  onDragLeave={handleFolderDragLeave}
+                  onDrop={(e) => void handleFolderDrop(folder.id, e)}
+                  className={`group relative flex flex-col items-center p-4 bg-white dark:bg-gray-800 border rounded-xl hover:shadow-md transition-all duration-200 ${
+                    dropTargetFolderId === folder.id
+                      ? 'border-primary-500 dark:border-primary-400 ring-2 ring-primary-300 dark:ring-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600'
+                  } ${draggedItem?.id === folder.id ? 'opacity-50' : ''}`}
+                >
+                  {renamingFolderId === folder.id ? (
+                    <div className="flex flex-col items-center w-full">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3">
+                        <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => handleRenameKeyDown(e, 'folder')}
+                        onBlur={confirmRenameFolder}
+                        className="text-sm font-medium text-center border border-primary-400 dark:border-primary-500 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
+                        autoFocus
+                      />
                     </div>
-                    <input
-                      ref={renameInputRef}
-                      type="text"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => handleRenameKeyDown(e, 'folder')}
-                      onBlur={confirmRenameFolder}
-                      className="text-sm font-medium text-center border border-primary-400 dark:border-primary-500 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
-                      autoFocus
-                    />
-                  </div>
-                ) : (
-                  <button onClick={() => navigate(`/files/${folder.id}`)} className="flex flex-col items-center w-full">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200">
-                      <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  ) : (
+                    <button onClick={() => handleOpenFolder(folder)} className="flex flex-col items-center w-full">
+                      <div className={`p-3 rounded-lg mb-3 group-hover:scale-110 transition-transform duration-200 ${folderIsLocked ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
+                        {folderIsLocked ? (
+                          <Lock className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <Folder className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        )}
+                      </div>
+                      <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">{folder.name}</span>
+                      {folderIsLocked && (
+                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-1">
+                          {t('shared.password_protected')}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</span>
+                    </button>
+                  )}
+                  {(!folderIsShared || folderCanShare || folderCanDelete || folder._isShared) && (
+                    <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {!folderIsShared && (
+                        <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                      )}
+                      {folderCanShare && (
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                      )}
+                      {!folderIsShared && (
+                        <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch((error) => toast.error(getApiErrorMessage(error, t('common.download_error')))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
+                      )}
+                      {folderCanDelete && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 hover:border-red-300 dark:hover:border-red-800 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
+                      )}
+                      {folder._isShared && !folderCanDelete && (
+                        <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder((folder as any)._shareId || folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
+                      )}
                     </div>
-                    <span className="text-sm text-center text-gray-900 dark:text-white font-medium truncate w-full">{folder.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{format(new Date(folder.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</span>
-                  </button>
-                )}
-                {!folder._isShared && (
-                  <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    <button onClick={(e) => { e.stopPropagation(); startRenameFolder(folder); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.rename')}><Pencil className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder); setShowShareFolderModal(true); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.share')}><Share2 className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); void folderService.downloadFolderAsZip(folder.id, folder.name).catch(() => toast.error(t('common.download_error'))); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-primary-50 dark:hover:bg-gray-600 hover:border-primary-300 dark:hover:border-gray-500 transition-all" title={t('common.download_zip')}><FolderDown className="w-3.5 h-3.5 text-primary-600 dark:text-white" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id, folder.name); }} className="p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 hover:border-red-300 dark:hover:border-red-800 transition-all" title={t('common.delete')}><Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-500" /></button>
-                  </div>
-                )}
-                {folder._isShared && (
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveSharedFolder(folder.id, folder.name); }} className="absolute top-2 right-2 p-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/40 transition-all" title={t('common.delete')}><Trash2 className="w-4 h-4 text-red-600 dark:text-red-500" /></button>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -638,17 +855,21 @@ export default function FilesPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700/50 [&>tr>th:first-child]:rounded-tl-xl [&>tr>th:last-child]:rounded-tr-xl">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.size')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.modified')}</th>
+                  <SortableTableHeader field="name" label={t('common.name')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" />
+                  <SortableTableHeader field="tags" label={t('common.tags')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" />
+                  <SortableTableHeader field="size" label={t('common.size')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="desc" />
+                  <SortableTableHeader field="updatedAt" label={t('common.modified')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="desc" />
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {[...displayFiles, ...acceptedSharedFiles].map((file) => {
+                {tableFiles.map((file) => {
                   const Icon = getMimeTypeIcon(file.mimeType);
                   const colorClass = getMimeTypeColor(file.mimeType);
+                  const isShared = isSharedItem(file);
+                  const fileCanShare = canShareItem(file);
+                  const fileCanDelete = canDeleteItem(file);
+                  const isLocked = isPasswordProtectedSharedFile(file) && !shareAccessTokens[file.id];
                   return (
                     <tr
                       key={file.id}
@@ -673,9 +894,16 @@ export default function FilesPage() {
                             {renameExtension && <span className="text-sm text-gray-400">{renameExtension}</span>}
                           </div>
                         ) : (
-                          <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-                            <div className={`p-2 rounded-lg ${colorClass}`}><Icon className="w-5 h-5" /></div>
+                          <button onClick={() => openPreviewFile(file)} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+                            <div className={`p-2 rounded-lg ${isLocked ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' : colorClass}`}>
+                              {isLocked ? <Lock className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                            </div>
                             <span className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</span>
+                            {isLocked && (
+                              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                                {t('shared.password_protected')}
+                              </span>
+                            )}
                             {['.exe', '.msi', '.bat', '.sh', '.cmd', '.com', '.bin', '.app', '.run'].some(ext => file.name.toLowerCase().endsWith(ext)) && (
                               <span title={t('common.dangerous_file')}>
                                 <AlertTriangle className="w-4 h-4 text-amber-500" />
@@ -684,16 +912,17 @@ export default function FilesPage() {
                           </button>
                         )}
                       </td>
-                      <td className="px-6 py-4">{!(file as any)._isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}</td>
+                      <td className="px-6 py-4">{!isShared && <TagSelector file={file} onTagsChanged={() => loadContent(folderId)} />}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{formatBytes(Number(file.size))}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{format(new Date(file.updatedAt), 'dd MMM yyyy', { locale: dateLocale })}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end space-x-2">
-                          <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>
-                          {!(file as any)._isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
-                          <button onClick={() => { setPreviewFile(file); setShowPreviewModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.preview')}><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => handleDownloadFile(file.id, file.name)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
-                          {!(file as any)._isShared && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
+                          {!isShared && <button onClick={() => handleToggleFavorite(file.id, file.isFavorite)} className={`p-2 rounded-lg ${file.isFavorite ? 'text-yellow-500' : 'text-gray-400'}`} title={file.isFavorite ? t('favorites.remove') : t('common.share')}><Star className="w-4 h-4" fill={file.isFavorite ? 'currentColor' : 'none'} /></button>}
+                          {!isShared && <button onClick={() => startRenameFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.rename')}><Pencil className="w-4 h-4" /></button>}
+                          <button onClick={() => openPreviewFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={isLocked ? t('shared.unlock') : t('common.preview')}>{isLocked ? <Lock className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                          <button onClick={() => handleDownloadFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
+                          {fileCanShare && <button onClick={() => { setSelectedFile(file); setShowShareFileModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.share')}><Share2 className="w-4 h-4" /></button>}
+                          {fileCanDelete && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
                         </div>
                       </td>
                     </tr>
@@ -717,11 +946,18 @@ export default function FilesPage() {
 
       <NewFolderModal isOpen={showNewFolderModal} folderName={newFolderName} onClose={() => setShowNewFolderModal(false)} onChange={setNewFolderName} onCreate={handleCreateFolder} />
       <ShareModal isOpen={showShareModal} file={selectedFile} shareLink={shareLink} password={sharePassword} expiry={shareExpiry} maxDownloads={shareMaxDownloads} onClose={() => setShowShareModal(false)} onPasswordChange={setSharePassword} onExpiryChange={setShareExpiry} onMaxDownloadsChange={setShareMaxDownloads} onCreateLink={handleCreateShareLink} onCopyLink={handleCopyShareLink} />
-      {showPreviewModal && previewFile && <FilePreviewModal file={previewFile} onClose={() => setShowPreviewModal(false)} isShared={(previewFile as any)._isShared} />}
+      {showPreviewModal && previewFile && <FilePreviewModal file={previewFile} onClose={() => setShowPreviewModal(false)} isShared={isSharedItem(previewFile)} shareAccessToken={getFileShareAccessToken(previewFile) || null} />}
       <TagsManager isOpen={showTagsManager} onClose={() => setShowTagsManager(false)} />
       {selectedFolder && <ShareFolderModal folderId={selectedFolder.id} folderName={selectedFolder.name} isOpen={showShareFolderModal} onClose={() => { setShowShareFolderModal(false); setSelectedFolder(null); }} />}
       {selectedFile && showShareFileModal && <ShareFileModal file={selectedFile} onClose={() => { setShowShareFileModal(false); setSelectedFile(null); }} />}
       <PendingSharesModal isOpen={showPendingShares} onClose={() => setShowPendingShares(false)} onAccept={() => { if (!folderId) { loadContent(folderId); getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles); } loadPendingSharesCount(); }} />
+      {unlockTarget && (
+        <ShareUnlockModal
+          fileName={unlockTarget.type === 'folder' ? unlockTarget.folder.name : unlockTarget.file.name}
+          onUnlock={handleUnlockSharedItem}
+          onClose={() => setUnlockTarget(null)}
+        />
+      )}
     </div>
   );
 }

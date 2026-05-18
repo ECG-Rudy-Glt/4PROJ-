@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { User, AuthSessionContext } from '../types';
 import api from '../services/api';
+import { authService } from '../services/authService';
 
 interface AuthState {
   user: User | null;
@@ -12,7 +13,12 @@ interface AuthState {
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
-  setAuth: (token: string, user: User, sessionContext?: AuthSessionContext | null) => Promise<void>;
+  setAuth: (
+    token: string,
+    user: User,
+    sessionContext?: AuthSessionContext | null,
+    refreshToken?: string
+  ) => Promise<void>;
   setUser: (user: User) => void;
   setSessionContext: (ctx: AuthSessionContext | null) => void;
   logout: () => Promise<void>;
@@ -46,8 +52,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  setAuth: async (token, user, sessionContext = null) => {
+  setAuth: async (token, user, sessionContext = null, refreshToken) => {
     await SecureStore.setItemAsync('token', token);
+    if (refreshToken) {
+      await SecureStore.setItemAsync('refreshToken', refreshToken);
+    }
+    await SecureStore.deleteItemAsync('tempToken');
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     set({ token, user, sessionContext, isAuthenticated: true, isLoading: false, hydrated: true });
   },
@@ -57,12 +67,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSessionContext: (ctx) => set({ sessionContext: ctx }),
 
   logout: async () => {
-    await SecureStore.deleteItemAsync('token');
-    await SecureStore.deleteItemAsync('refreshToken');
-    await SecureStore.deleteItemAsync('switchSessionId');
-    delete api.defaults.headers.common['Authorization'];
-    delete api.defaults.headers.common['X-Switch-Session'];
-    set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
+    const refreshToken = await SecureStore.getItemAsync('refreshToken');
+    try {
+      if (refreshToken) {
+        await authService.logout(refreshToken);
+      }
+    } catch (error) {
+      console.warn('Failed to revoke refresh token during logout', error);
+    } finally {
+      await SecureStore.deleteItemAsync('token');
+      await SecureStore.deleteItemAsync('refreshToken');
+      await SecureStore.deleteItemAsync('switchSessionId');
+      await SecureStore.deleteItemAsync('tempToken');
+      delete api.defaults.headers.common['Authorization'];
+      delete api.defaults.headers.common['X-Switch-Session'];
+      set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
+    }
   },
 
   setLoading: (v) => set({ isLoading: v }),

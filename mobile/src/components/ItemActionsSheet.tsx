@@ -9,6 +9,8 @@ import {
   ScrollView,
   Alert,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -32,9 +34,10 @@ type Target =
 interface Props {
   target: Target | null;
   onClose: () => void;
+  onSelect?: () => void;
 }
 
-export default function ItemActionsSheet({ target, onClose }: Props) {
+export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
   const [subSheet, setSubSheet] = useState<
     'none' | 'rename' | 'move' | 'share' | 'tags' | 'versions' | 'comments'
   >('none');
@@ -58,12 +61,25 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
   const isFile = target.kind === 'file';
   const name = target.data.name;
 
+  const isInvalidFolderDestination = (folder: Folder) => {
+    if (isFile) return false;
+    const targetFolder = target.data as Folder;
+    return (
+      folder.id === targetFolder.id ||
+      folder.path === targetFolder.path ||
+      folder.path.startsWith(`${targetFolder.path}/`)
+    );
+  };
+
+  const formatFolderDestination = (folder: Folder) =>
+    folder.path?.replace(/^\//, '').replace(/\//g, ' / ') || folder.name;
+
+  const availableMoveFolders = allFolders.filter((folder) => !isInvalidFolderDestination(folder));
+
   const loadFolders = async () => {
     setLoadingFolders(true);
     try {
-      // Use listFolders without parentId to get root; we'll fetch all via a simple recursion-less flat list.
-      // Backend `listAllFolders` with all=true — fallback: fetch root-only if unsupported.
-      const res = await folderService.listAllFolders().catch(() => folderService.listFolders());
+      const res = await folderService.listAllFolders();
       setAllFolders(res.folders ?? []);
     } catch {
       Toast.show({ type: 'error', text1: 'Impossible de charger les dossiers' });
@@ -93,7 +109,8 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
       if (isFile) {
         await store.moveFile(target.data.id, folderId);
       } else {
-        if (folderId === target.data.id) {
+        const destination = folderId ? allFolders.find((folder) => folder.id === folderId) : undefined;
+        if (destination && isInvalidFolderDestination(destination)) {
           Toast.show({ type: 'error', text1: 'Destination invalide' });
           return;
         }
@@ -138,7 +155,7 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
   const handleDownload = async () => {
     if (!isFile) return;
     try {
-      const url = await fileService.getDownloadUrl(target.data.id);
+      const url = await fileService.downloadToCache(target.data);
       await Linking.openURL(url);
       onClose();
     } catch {
@@ -150,7 +167,10 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
   if (subSheet === 'rename') {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={() => setSubSheet('none')}>
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.dialog}>
             <Text style={styles.dialogTitle}>Renommer</Text>
             <TextInput
@@ -171,7 +191,7 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }
@@ -235,8 +255,7 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
                 <Text style={styles.folderItemText}>Racine</Text>
               </TouchableOpacity>
               {loadingFolders && <Text style={styles.muted}>Chargement…</Text>}
-              {allFolders
-                .filter((f) => !isFile ? f.id !== target.data.id : true)
+              {availableMoveFolders
                 .map((f) => (
                   <TouchableOpacity
                     key={f.id}
@@ -244,10 +263,10 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
                     onPress={() => handleMoveTo(f.id)}
                   >
                     <Ionicons name="folder-outline" size={20} color={colors.accent.bright} />
-                    <Text style={styles.folderItemText} numberOfLines={1}>{f.name}</Text>
+                    <Text style={styles.folderItemText} numberOfLines={1}>{formatFolderDestination(f)}</Text>
                   </TouchableOpacity>
                 ))}
-              {!loadingFolders && allFolders.length === 0 && (
+              {!loadingFolders && availableMoveFolders.length === 0 && (
                 <Text style={styles.muted}>Aucun autre dossier</Text>
               )}
             </ScrollView>
@@ -272,6 +291,13 @@ export default function ItemActionsSheet({ target, onClose }: Props) {
             <Text style={styles.sheetTitle} numberOfLines={1}>{name}</Text>
           </View>
 
+          {onSelect && (
+            <ActionRow
+              icon="checkmark-circle-outline"
+              label="Sélectionner"
+              onPress={() => { onSelect(); onClose(); }}
+            />
+          )}
           <ActionRow icon="create-outline" label="Renommer" onPress={() => setSubSheet('rename')} />
           <ActionRow
             icon="move-outline"

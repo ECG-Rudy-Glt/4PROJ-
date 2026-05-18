@@ -9,7 +9,9 @@ import { SharedFileService } from './sharedFileService';
 
 export class ShareService {
   static createShareLink = SharedLinkService.createShareLink.bind(SharedLinkService);
+  static createBundleShareLink = SharedLinkService.createBundleShareLink.bind(SharedLinkService);
   static getShareLink = SharedLinkService.getShareLink.bind(SharedLinkService);
+  static getBundleShareLink = SharedLinkService.getBundleShareLink.bind(SharedLinkService);
   static incrementDownloadCount = SharedLinkService.incrementDownloadCount.bind(SharedLinkService);
   static listUserShareLinks = SharedLinkService.listUserShareLinks.bind(SharedLinkService);
   static deleteShareLink = SharedLinkService.deleteShareLink.bind(SharedLinkService);
@@ -19,6 +21,7 @@ export class ShareService {
   static listSharedByMe = SharedFolderService.listSharedByMe.bind(SharedFolderService);
   static updateSharedFolderPermissions = SharedFolderService.updatePermissions.bind(SharedFolderService);
   static removeSharedFolder = SharedFolderService.removeSharedFolder.bind(SharedFolderService);
+  static getSharedFolderContents = SharedFolderService.getSharedFolderContents.bind(SharedFolderService);
   static acceptSharedFolder = SharedFolderService.acceptSharedFolder.bind(SharedFolderService);
   static rejectSharedFolder = SharedFolderService.rejectSharedFolder.bind(SharedFolderService);
 

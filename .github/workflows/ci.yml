@@ -3,9 +3,9 @@ name: CI Pipeline
 # Déclenchement sur push et PR vers les branches principales
 on:
   push:
-    branches: [ main, claude-proto, scanning_code ]
+    branches: [ main]
   pull_request:
-    branches: [ main, claude-proto, scanning_code ]
+    branches: [ main]
 
 # Permissions globales : lecture seule par défaut (principe de moindre privilège)
 # Les jobs qui ont besoin de plus de droits les déclarent localement (ex: docker-push)
@@ -43,13 +43,21 @@ jobs:
         run: |
           echo "Checking required CI environment variables..."
           : "${JWT_SECRET:?JWT_SECRET secret is not set in GitHub Actions}"
+          : "${JWT_MFA_SECRET:?JWT_MFA_SECRET secret is not set in GitHub Actions}"
           : "${FILE_ENCRYPTION_KEY:?FILE_ENCRYPTION_KEY secret is not set in GitHub Actions}"
+          : "${DEK_WRAP_SECRET:?DEK_WRAP_SECRET secret is not set in GitHub Actions}"
+          : "${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY secret is not set in GitHub Actions}"
+          : "${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET secret is not set in GitHub Actions}"
           echo "Optional secrets present: DATABASE_URL=${DATABASE_URL:+set}"
           echo "All required environment variables are set."
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_MFA_SECRET: ${{ secrets.JWT_MFA_SECRET }}
           DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
           FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
+          DEK_WRAP_SECRET: ${{ secrets.DEK_WRAP_SECRET }}
+          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
+          ONLYOFFICE_JWT_SECRET: ${{ secrets.ONLYOFFICE_JWT_SECRET }}
 
   # ===========================
   # [2a] QUALITÉ BACKEND
@@ -65,11 +73,13 @@ jobs:
     env:
       NODE_ENV: test
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_MFA_SECRET: ${{ secrets.JWT_MFA_SECRET }}
       JWT_EXPIRES_IN: '7d'
       DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL }}
       FILE_ENCRYPTION_KEY: ${{ secrets.FILE_ENCRYPTION_KEY }}
-      DEK_WRAP_SECRET: ${{ secrets.DEK_WRAP_SECRET || 'ci-test-dek-wrap-secret-32chars!!' }}
+      DEK_WRAP_SECRET: ${{ secrets.DEK_WRAP_SECRET }}
       MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
+      ONLYOFFICE_JWT_SECRET: ${{ secrets.ONLYOFFICE_JWT_SECRET }}
       PORT: '5001'
       FRONTEND_URL: 'http://localhost:3000'
 

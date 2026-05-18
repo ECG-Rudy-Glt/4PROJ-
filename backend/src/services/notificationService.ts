@@ -12,9 +12,25 @@ export class NotificationService {
     message: string,
     data?: Record<string, any>
   ) {
-    const notification = await prisma.notification.create({
-      data: { userId, type, title, message, data },
-    });
+    const dedupeKey = typeof data?.dedupeKey === 'string' ? data.dedupeKey : null;
+    const existing = dedupeKey
+      ? await prisma.notification.findFirst({
+          where: {
+            userId,
+            type,
+            data: { path: ['dedupeKey'], equals: dedupeKey },
+          },
+        })
+      : null;
+
+    const notification = existing
+      ? await prisma.notification.update({
+          where: { id: existing.id },
+          data: { title, message, data, read: false, createdAt: new Date() },
+        })
+      : await prisma.notification.create({
+          data: { userId, type, title, message, data },
+        });
 
     SocketService.emitToUser(userId, 'notification_new', notification);
 

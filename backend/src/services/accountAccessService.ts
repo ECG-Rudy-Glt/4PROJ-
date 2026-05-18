@@ -2,6 +2,9 @@ import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
 import { mfaService } from './mfaService';
 import { generateToken } from '../utils/jwt';
+import { MailService } from './mailService';
+import { NotificationService } from './notificationService';
+import logger from '../config/logger';
 
 type DelegationPermissionsInput = {
   canRead?: boolean;
@@ -11,6 +14,11 @@ type DelegationPermissionsInput = {
 };
 
 const nowPlusHours = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000);
+
+const displayName = (user?: { email?: string | null; firstName?: string | null; lastName?: string | null }) => {
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  return fullName || user?.email || 'Utilisateur';
+};
 
 export class AccountAccessService {
   private static getSwitchLinkTtlHours() {
@@ -349,19 +357,34 @@ export class AccountAccessService {
       expiresAt?: string | null;
     }
   ) {
-    const delegate = await prisma.user.findUnique({
-      where: { email: payload.delegateEmail.toLowerCase() },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        accountStatus: true,
-      },
-    });
+    const [delegate, owner] = await Promise.all([
+      prisma.user.findUnique({
+        where: { email: payload.delegateEmail.toLowerCase() },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          accountStatus: true,
+          language: true,
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: ownerUserId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      }),
+    ]);
 
     if (!delegate) {
       throw new Error('Utilisateur délégataire introuvable');
+    }
+    if (!owner) {
+      throw new Error('Compte propriétaire introuvable');
     }
     if (delegate.accountStatus !== 'ACTIVE') {
       throw new Error('Le compte délégataire est inactif ou suspendu');
@@ -409,6 +432,32 @@ export class AccountAccessService {
           ...permissions,
         },
       });
+
+    NotificationService.create(
+      delegate.id,
+      'SHARE',
+      'Délégation accordée',
+      `${displayName(owner)} vous a accordé une délégation de compte`,
+      {
+        delegationId: delegation.id,
+        ownerUserId,
+        permissions,
+        expiresAt,
+      }
+    ).catch((error) => logger.error({ err: error }, 'Failed to create delegation notification'));
+
+    try {
+      await MailService.sendDelegationGrantedNotification(
+        delegate.email,
+        displayName(delegate),
+        displayName(owner),
+        permissions,
+        expiresAt,
+        delegate.language
+      );
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to send delegation granted email');
+    }
 
     return {
       id: delegation.id,
@@ -477,18 +526,61 @@ export class AccountAccessService {
         ownerUserId,
         revokedAt: null,
       },
+      include: {
+        delegateUser: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            language: true,
+          },
+        },
+        ownerUser: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
     });
     if (!delegation) {
       throw new Error('Délégation introuvable');
     }
 
-    return prisma.delegation.update({
+    const revoked = await prisma.delegation.update({
       where: { id: delegation.id },
       data: {
         status: 'REVOKED',
         revokedAt: new Date(),
       },
     });
+
+    NotificationService.create(
+      delegation.delegateUser.id,
+      'SHARE',
+      'Délégation révoquée',
+      `${displayName(delegation.ownerUser)} a révoqué votre délégation de compte`,
+      {
+        delegationId: delegation.id,
+        ownerUserId,
+      }
+    ).catch((error) => logger.error({ err: error }, 'Failed to create delegation revoked notification'));
+
+    try {
+      await MailService.sendDelegationRevokedNotification(
+        delegation.delegateUser.email,
+        displayName(delegation.delegateUser),
+        displayName(delegation.ownerUser),
+        delegation.delegateUser.language
+      );
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to send delegation revoked email');
+    }
+
+    return revoked;
   }
 
   static async assumeDelegation(

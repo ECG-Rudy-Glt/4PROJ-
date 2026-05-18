@@ -3,12 +3,13 @@ import fs from 'fs';
 import { PassThrough, Readable, Transform } from 'stream';
 import { StorageService } from './storageService';
 import { deleteFile } from '../utils/fileUtils';
+import { getFileEncryptionSecret } from '../config/secrets';
 
 const ALGORITHM = 'aes-256-gcm';
 
 export class EncryptionService {
   private static getKey(): Buffer {
-    const secret = process.env.FILE_ENCRYPTION_KEY || 'default-secret-key-32-chars-long!!';
+    const secret = getFileEncryptionSecret();
     return crypto.createHash('sha256').update(secret).digest();
   }
 

@@ -4,6 +4,74 @@ import prisma from '../config/database';
 
 export type Permission = 'read' | 'write' | 'delete' | 'share';
 
+function permissionWhere(requiredPermission: Permission) {
+  switch (requiredPermission) {
+    case 'read':
+      return { canRead: true };
+    case 'write':
+      return { canWrite: true };
+    case 'delete':
+      return { canDelete: true };
+    case 'share':
+      return { canShare: true };
+    default:
+      return {};
+  }
+}
+
+export function acceptedShareBaseWhere(userId: string) {
+  return {
+    sharedWithId: userId,
+    accepted: true,
+  };
+}
+
+export function acceptedSharePermissionWhere(userId: string, requiredPermission: Permission) {
+  return {
+    ...acceptedShareBaseWhere(userId),
+    ...permissionWhere(requiredPermission),
+  };
+}
+
+export async function findSharedFolderAccessRoot(
+  userId: string,
+  folderId: string,
+  requiredPermission: Permission
+) {
+  let current = await prisma.folder.findUnique({
+    where: { id: folderId },
+    select: { id: true, parentId: true, isDeleted: true, isVault: true },
+  });
+
+  while (current) {
+    if (current.isDeleted || current.isVault) {
+      return null;
+    }
+
+    const sharedFolder = await prisma.sharedFolder.findFirst({
+      where: {
+        folderId: current.id,
+        ...acceptedSharePermissionWhere(userId, requiredPermission),
+      },
+    });
+
+    if (sharedFolder) {
+      return sharedFolder;
+    }
+
+    if (!current.parentId) {
+      break;
+    }
+
+    current = await prisma.folder.findUnique({
+      where: { id: current.parentId },
+      select: { id: true, parentId: true, isDeleted: true, isVault: true },
+    });
+  }
+
+  return null;
+}
+
 /**
  * Vérifie si l'utilisateur a la permission requise sur un dossier partagé
  */
@@ -12,29 +80,7 @@ export async function checkSharedFolderPermission(
   folderId: string,
   requiredPermission: Permission
 ): Promise<boolean> {
-  const sharedFolder = await prisma.sharedFolder.findFirst({
-    where: {
-      folderId,
-      sharedWithId: userId,
-    },
-  });
-
-  if (!sharedFolder) {
-    return false;
-  }
-
-  switch (requiredPermission) {
-    case 'read':
-      return sharedFolder.canRead;
-    case 'write':
-      return sharedFolder.canWrite;
-    case 'delete':
-      return sharedFolder.canDelete;
-    case 'share':
-      return sharedFolder.canShare;
-    default:
-      return false;
-  }
+  return Boolean(await findSharedFolderAccessRoot(userId, folderId, requiredPermission));
 }
 
 /**
@@ -51,12 +97,24 @@ export async function checkFilePermission(
     include: { folder: true },
   });
 
-  if (!file) {
+  if (!file || file.isDeleted || file.folder?.isDeleted) {
     throw new Error('Fichier non trouvé');
   }
 
   // Si l'utilisateur est propriétaire, il a tous les droits
   if (file.userId === userId) {
+    return true;
+  }
+
+  const sharedFile = await prisma.sharedFile.findFirst({
+    where: {
+      fileId,
+      ...acceptedSharePermissionWhere(userId, requiredPermission),
+      file: { is: { isDeleted: false } },
+    },
+  });
+
+  if (sharedFile) {
     return true;
   }
 
@@ -118,7 +176,7 @@ export function requireFolderPermission(permission: Permission) {
         where: { id: folderId },
       });
 
-      if (!folder) {
+      if (!folder || folder.isDeleted) {
         res.status(404).json({ error: 'Dossier non trouvé' });
         return;
       }
@@ -164,7 +222,7 @@ export async function getFolderPermissions(
     where: { id: folderId },
   });
 
-  if (!folder) {
+  if (!folder || folder.isDeleted) {
     throw new Error('Dossier non trouvé');
   }
 
@@ -183,7 +241,7 @@ export async function getFolderPermissions(
   const sharedFolder = await prisma.sharedFolder.findFirst({
     where: {
       folderId,
-      sharedWithId: userId,
+      ...acceptedShareBaseWhere(userId),
     },
   });
 

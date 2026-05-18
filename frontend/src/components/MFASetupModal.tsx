@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 interface MFASetupModalProps {
   isOpen: boolean;
-  onComplete: (backupCodes: string[], token: string) => void;
+  onComplete: (backupCodes: string[], token: string, refreshToken?: string) => void;
   onCancel?: () => void;
 }
 
@@ -53,14 +53,21 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
         secret,
         backupCodes,
         rememberDevice
-      );
+      ) as { token: string; refreshToken?: string };
 
       toast.success(t('mfa_setup.success'));
-      onComplete(backupCodes, result.token);
+      onComplete(backupCodes, result.token, result.refreshToken);
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('mfa_setup.error_invalid'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loading) {
+      void handleVerify();
     }
   };
 
@@ -110,7 +117,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
               <span className="ml-3 text-gray-600 dark:text-gray-400">{t('mfa_setup.loading')}</span>
             </div>
           ) : (
-            <div className="space-y-6">
+            <form onSubmit={handleVerifySubmit} className="space-y-6">
               {/* Étape 1 : Scanner le QR code */}
               <div>
                 <div className="flex items-center space-x-2 mb-3">
@@ -146,6 +153,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                     {secret}
                   </code>
                   <button
+                    type="button"
                     onClick={handleCopySecret}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     title={t('mfa_setup.copy')}
@@ -208,6 +216,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {onCancel && (
                   <button
+                    type="button"
                     onClick={onCancel}
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                   >
@@ -215,7 +224,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                   </button>
                 )}
                 <button
-                  onClick={handleVerify}
+                  type="submit"
                   disabled={loading || verificationCode.length !== 6}
                   className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
@@ -232,7 +241,7 @@ export default function MFASetupModal({ isOpen, onComplete, onCancel }: MFASetup
                   )}
                 </button>
               </div>
-            </div>
+            </form>
           )}
         </div>
       </div>

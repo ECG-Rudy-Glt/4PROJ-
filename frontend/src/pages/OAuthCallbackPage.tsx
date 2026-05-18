@@ -9,7 +9,8 @@ export default function OAuthCallbackPage() {
   const { loadUser } = useAuthStore();
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const token = hashParams.get('token') || searchParams.get('token');
     const error = searchParams.get('error');
 
     if (error) {

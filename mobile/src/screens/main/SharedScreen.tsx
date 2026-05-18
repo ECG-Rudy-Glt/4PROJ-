@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import Toast from 'react-native-toast-message';
 import { shareService } from '../../services/shareService';
+import { fileService } from '../../services/fileService';
 import { SharedFile, SharedFolder, FileItem } from '../../types';
 import EmptyState from '../../components/EmptyState';
 import FilePreviewModal from '../../components/FilePreviewModal';
@@ -44,6 +46,14 @@ export default function SharedScreen() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [previewIsShared, setPreviewIsShared] = useState(false);
+  const [previewCanDelete, setPreviewCanDelete] = useState(false);
+  const [folderStack, setFolderStack] = useState<{ folderId: string; name: string; rootFolderId: string }[]>([]);
+  const [folderContents, setFolderContents] = useState<{ files: FileItem[]; folders: any[] } | null>(null);
+  const [folderContentsLoading, setFolderContentsLoading] = useState(false);
+  const [folderPreviewFile, setFolderPreviewFile] = useState<FileItem | null>(null);
+
+  const currentFolder = folderStack[folderStack.length - 1] ?? null;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -149,6 +159,46 @@ export default function SharedScreen() {
     ]);
   };
 
+  const loadFolderContents = async (folderId: string, rootFolderId: string) => {
+    setFolderContentsLoading(true);
+    try {
+      const data = await shareService.getSharedFolderContents(folderId, rootFolderId);
+      setFolderContents(data);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Impossible de charger le contenu du dossier' });
+    } finally {
+      setFolderContentsLoading(false);
+    }
+  };
+
+  const openSharedFolder = (folderId: string, name: string) => {
+    const newStack = [{ folderId, name, rootFolderId: folderId }];
+    setFolderStack(newStack);
+    setFolderContents(null);
+    loadFolderContents(folderId, folderId);
+  };
+
+  const navigateIntoSubfolder = (folderId: string, name: string) => {
+    const rootFolderId = folderStack[0]?.rootFolderId ?? folderId;
+    const newStack = [...folderStack, { folderId, name, rootFolderId }];
+    setFolderStack(newStack);
+    setFolderContents(null);
+    loadFolderContents(folderId, rootFolderId);
+  };
+
+  const navigateBack = () => {
+    if (folderStack.length <= 1) {
+      setFolderStack([]);
+      setFolderContents(null);
+      return;
+    }
+    const newStack = folderStack.slice(0, -1);
+    setFolderStack(newStack);
+    const parent = newStack[newStack.length - 1];
+    setFolderContents(null);
+    loadFolderContents(parent.folderId, parent.rootFolderId);
+  };
+
   const getUserName = (user?: { email: string; firstName?: string; lastName?: string }) => {
     if (!user) return 'Inconnu';
     if (user.firstName) return `${user.firstName} ${user.lastName || ''}`.trim();
@@ -212,8 +262,18 @@ export default function SharedScreen() {
     const fileItem = !isFolder ? (sf as SharedFile).file : null;
 
     const handlePress = () => {
-      if (!isFolder && fileItem) {
+      if (isFolder && tab === 'withMe') {
+        const sf = item.data as SharedFolder;
+        openSharedFolder(sf.folderId, name || 'Dossier');
+      } else if (!isFolder) {
+        if (!fileItem) {
+          Toast.show({ type: 'error', text1: 'Fichier introuvable' });
+          return;
+        }
+        const isShared = tab === 'withMe';
         setPreviewFile(fileItem);
+        setPreviewIsShared(isShared);
+        setPreviewCanDelete(!isShared || !!(sf as SharedFile).canDelete);
       }
     };
 
@@ -221,7 +281,7 @@ export default function SharedScreen() {
       <TouchableOpacity
         style={styles.shareRow}
         onPress={handlePress}
-        activeOpacity={isFolder ? 1 : 0.7}
+        activeOpacity={0.7}
       >
         <View style={[styles.shareIconCircle, isFolder && styles.folderIconBg]}>
           <Ionicons
@@ -338,7 +398,100 @@ export default function SharedScreen() {
         file={previewFile}
         visible={previewFile !== null}
         onClose={() => setPreviewFile(null)}
+        streamToCache={previewIsShared ? fileService.streamSharedToCache : undefined}
+        downloadToCache={previewIsShared ? fileService.downloadSharedToCache : undefined}
+        readOnly={previewIsShared}
+        onDelete={previewCanDelete ? async (id) => { setPreviewFile(null); } : undefined}
       />
+
+      {/* Folder contents modal */}
+      {folderStack.length > 0 && <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setFolderStack([]); setFolderContents(null); }}
+      >
+        <View style={styles.folderModal}>
+          <View style={styles.folderModalHeader}>
+            <TouchableOpacity onPress={navigateBack} style={styles.folderModalClose}>
+              <Ionicons
+                name={folderStack.length <= 1 ? 'close' : 'chevron-back'}
+                size={24}
+                color={colors.neutral[600]}
+              />
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+              <Ionicons name="folder" size={20} color={colors.accent.bright} />
+              <Text style={styles.folderModalTitle} numberOfLines={1}>
+                {currentFolder?.name ?? ''}
+              </Text>
+            </View>
+            {folderStack.length > 1 && (
+              <TouchableOpacity onPress={() => { setFolderStack([]); setFolderContents(null); }}>
+                <Ionicons name="close" size={22} color={colors.neutral[400]} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {folderContentsLoading || folderContents === null ? (
+            <View style={styles.folderModalLoader}>
+              <ActivityIndicator color={colors.primary[600]} size="large" />
+            </View>
+          ) : (
+            <FlatList
+              data={[
+                ...(folderContents?.folders ?? []).map((f: any) => ({ kind: 'folder' as const, data: f })),
+                ...(folderContents?.files ?? []).map((f: any) => ({ kind: 'file' as const, data: f })),
+              ]}
+              keyExtractor={(item) => `${item.kind}-${item.data.id}`}
+              contentContainerStyle={styles.list}
+              ListEmptyComponent={
+                <EmptyState icon="folder-open-outline" title="Dossier vide" subtitle="Ce dossier ne contient aucun fichier" />
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.shareRow}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (item.kind === 'folder') {
+                      navigateIntoSubfolder(item.data.id, item.data.name);
+                    } else {
+                      setFolderPreviewFile(item.data as FileItem);
+                    }
+                  }}
+                >
+                  <View style={[styles.shareIconCircle, item.kind === 'folder' && styles.folderIconBg]}>
+                    <Ionicons
+                      name={item.kind === 'folder' ? 'folder' : 'document-outline'}
+                      size={20}
+                      color={item.kind === 'folder' ? colors.accent.bright : colors.primary[500]}
+                    />
+                  </View>
+                  <View style={styles.shareInfo}>
+                    <Text style={styles.shareName} numberOfLines={1}>{item.data.name}</Text>
+                    {item.kind === 'file' && item.data.mimeType && (
+                      <Text style={styles.shareMeta}>{item.data.mimeType.split('/')[1]?.toUpperCase()}</Text>
+                    )}
+                  </View>
+                  <Ionicons
+                    name={item.kind === 'folder' ? 'chevron-forward' : 'eye-outline'}
+                    size={16}
+                    color={colors.neutral[300]}
+                  />
+                </TouchableOpacity>
+              )}
+            />
+          )}
+          <FilePreviewModal
+            file={folderPreviewFile}
+            visible={folderPreviewFile !== null}
+            onClose={() => setFolderPreviewFile(null)}
+            streamToCache={fileService.streamSharedToCache}
+            downloadToCache={fileService.downloadSharedToCache}
+            readOnly={true}
+          />
+        </View>
+      </Modal>}
     </View>
   );
 }
@@ -478,6 +631,33 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: borderRadius.full,
     backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  folderModal: {
+    flex: 1,
+    backgroundColor: colors.bg.secondary,
+  },
+  folderModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[200],
+    gap: spacing.md,
+  },
+  folderModalClose: {
+    padding: spacing.xs,
+  },
+  folderModalTitle: {
+    ...typography.h4,
+    color: colors.neutral[800],
+    flex: 1,
+  },
+  folderModalLoader: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -20,6 +20,9 @@ export class UserProfileController {
           avatar: user.avatar,
           role: user.role,
           accountStatus: user.accountStatus,
+          hasPassword: Boolean(user.password),
+          mfaEnabled: user.mfaEnabled,
+          authProvider: user.provider || 'local',
           plan: user.plan,
           subscriptionStatus: user.subscriptionStatus,
           vaultEnabled: user.vaultEnabled,
@@ -27,6 +30,7 @@ export class UserProfileController {
           quotaUsed: Number(user.quotaUsed),
           quotaLimit: Number(user.quotaLimit),
           theme: user.theme,
+          language: user.language,
           createdAt: user.createdAt,
         },
         session: {
@@ -42,9 +46,9 @@ export class UserProfileController {
   static async updateProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { firstName, lastName, avatar, theme } = req.body;
+      const { firstName, lastName, avatar, theme, language } = req.body;
 
-      const user = await AuthService.updateProfile(userId, { firstName, lastName, avatar, theme });
+      const user = await AuthService.updateProfile(userId, { firstName, lastName, avatar, theme, language });
       sendSuccess(res, { user });
     } catch (error) { next(error); }
   }
@@ -52,7 +56,7 @@ export class UserProfileController {
   static async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { oldPassword, newPassword } = req.body;
+      const { oldPassword, newPassword, mfaCode } = req.body;
 
       const pwdCheck = validatePasswordStrength(newPassword);
       if (!pwdCheck.valid) {
@@ -60,7 +64,7 @@ export class UserProfileController {
         return;
       }
 
-      const result = await AuthService.changePassword(userId, oldPassword, newPassword);
+      const result = await AuthService.changePassword(userId, oldPassword, newPassword, mfaCode);
 
       AuditService.createLog(userId, 'PASSWORD_CHANGE', {
         ipAddress: req.ip,

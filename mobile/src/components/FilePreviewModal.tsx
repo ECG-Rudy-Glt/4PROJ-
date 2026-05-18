@@ -46,6 +46,9 @@ interface Props {
   onClose: () => void;
   onDelete?: (fileId: string) => void;
   onToggleFavorite?: (fileId: string) => void;
+  streamToCache?: (file: FileItem) => Promise<string>;
+  downloadToCache?: (file: FileItem) => Promise<string>;
+  readOnly?: boolean;
 }
 
 // ── Player vidéo/audio (expo-video gère les deux) ─────────────────────────────
@@ -88,14 +91,23 @@ function PdfViewer({ uri }: { uri: string }) {
 }
 
 // ── Composant principal ────────────────────────────────────────────────────────
-export default function FilePreviewModal({ file, visible, onClose, onDelete, onToggleFavorite }: Props) {
+export default function FilePreviewModal({
+  file,
+  visible,
+  onClose,
+  onDelete,
+  onToggleFavorite,
+  streamToCache,
+  downloadToCache,
+  readOnly = false,
+}: Props) {
   const [downloading, setDownloading] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
 
-  const isImage = !!file && file.mimeType.startsWith('image/');
-  const isVideo = !!file && file.mimeType.startsWith('video/');
-  const isAudio = !!file && file.mimeType.startsWith('audio/');
+  const isImage = !!file && (file.mimeType?.startsWith('image/') ?? false);
+  const isVideo = !!file && (file.mimeType?.startsWith('video/') ?? false);
+  const isAudio = !!file && (file.mimeType?.startsWith('audio/') ?? false);
   const isPdf   = !!file && file.mimeType === 'application/pdf';
 
   useEffect(() => {
@@ -105,11 +117,11 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
     }
     setLoadingStream(true);
     setStreamUrl(null);
-    fileService.getStreamUrl(file.id)
+    (streamToCache ?? fileService.streamToCache)(file)
       .then((url) => setStreamUrl(url))
       .catch(() => Alert.alert('Erreur', 'Impossible de charger le fichier'))
       .finally(() => setLoadingStream(false));
-  }, [file?.id, visible]);
+  }, [file?.id, visible, streamToCache]);
 
   if (!file) return null;
 
@@ -118,7 +130,7 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const url = await fileService.getDownloadUrl(file.id);
+      const url = await (downloadToCache ?? fileService.downloadToCache)(file);
       await Linking.openURL(url);
     } catch {
       Alert.alert('Erreur', 'Impossible de télécharger le fichier');
@@ -129,8 +141,8 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
 
   const handleShare = async () => {
     try {
-      const url = await fileService.getDownloadUrl(file.id);
-      await Share.share({ message: `${file.name}: ${url}` });
+      const url = await (downloadToCache ?? fileService.downloadToCache)(file);
+      await Share.share({ url, message: file.name });
     } catch { /* cancelled */ }
   };
 
@@ -227,14 +239,18 @@ export default function FilePreviewModal({ file, visible, onClose, onDelete, onT
 
           <View style={[styles.actions, isFullscreen && styles.actionsCompact]}>
             <ActionButton icon="download-outline" label="Télécharger" onPress={handleDownload} loading={downloading} />
-            <ActionButton
-              icon={file.isFavorite ? 'star' : 'star-outline'}
-              label="Favori"
-              onPress={() => onToggleFavorite?.(file.id)}
-              color={file.isFavorite ? colors.accent.bright : undefined}
-            />
-            <ActionButton icon="share-outline" label="Partager" onPress={handleShare} />
-            <ActionButton icon="trash-outline" label="Supprimer" onPress={handleDelete} color={colors.error} />
+            {!readOnly && onToggleFavorite && (
+              <ActionButton
+                icon={file.isFavorite ? 'star' : 'star-outline'}
+                label="Favori"
+                onPress={() => onToggleFavorite(file.id)}
+                color={file.isFavorite ? colors.accent.bright : undefined}
+              />
+            )}
+            {!readOnly && <ActionButton icon="share-outline" label="Partager" onPress={handleShare} />}
+            {!readOnly && onDelete && (
+              <ActionButton icon="trash-outline" label="Supprimer" onPress={handleDelete} color={colors.error} />
+            )}
           </View>
         </ScrollView>
       </View>

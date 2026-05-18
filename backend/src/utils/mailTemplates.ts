@@ -1,3 +1,94 @@
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const appLink = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+const mailLogoUrl = () => {
+  const url = (process.env.MAIL_LOGO_URL || '').trim();
+  if (!/^https?:\/\//i.test(url)) {
+    return '';
+  }
+
+  // SVG and local frontend URLs are poorly supported by email clients like Gmail.
+  return /\.svg(?:[?#].*)?$/i.test(url) ? '' : url;
+};
+
+const permissionLabels = (permissions?: {
+  canRead?: boolean;
+  canWrite?: boolean;
+  canDelete?: boolean;
+  canShare?: boolean;
+}) => {
+  const labels: string[] = [];
+  if (permissions?.canRead) labels.push('lecture');
+  if (permissions?.canWrite) labels.push('écriture');
+  if (permissions?.canDelete) labels.push('suppression');
+  if (permissions?.canShare) labels.push('partage');
+  return labels.length ? labels.join(', ') : 'lecture';
+};
+
+const renderTransactionalEmail = (params: {
+  lang: string;
+  subject: string;
+  preheader: string;
+  title: string;
+  paragraphs: string[];
+  ctaLink?: string;
+  ctaText?: string;
+  footerNote?: string;
+}) => {
+  const isEn = params.lang.startsWith('en');
+  const logoUrl = mailLogoUrl();
+  const currentYear = new Date().getFullYear();
+  const safeCtaLink = params.ctaLink ? escapeHtml(params.ctaLink) : undefined;
+  const text = [
+    params.title,
+    '',
+    ...params.paragraphs,
+    ...(params.ctaLink ? ['', `${params.ctaText || (isEn ? 'Open SupFile' : 'Ouvrir SupFile')} : ${params.ctaLink}`] : []),
+    ...(params.footerNote ? ['', params.footerNote] : []),
+  ].join('\n');
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="${isEn ? 'en' : 'fr'}">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${escapeHtml(params.subject)}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#1f2937;">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(params.preheader)}</div>
+      <div style="max-width:620px;margin:0 auto;padding:24px 16px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="SupFile" style="width:180px;max-width:100%;height:auto;">` : '<h1 style="margin:0;color:#4f46e5;">SupFile</h1>'}
+        </div>
+        <div style="background:#ffffff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,0.08);padding:28px;">
+          <h2 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#4f46e5;text-align:center;">${escapeHtml(params.title)}</h2>
+          ${params.paragraphs.map((paragraph) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#4b5563;">${escapeHtml(paragraph)}</p>`).join('')}
+          ${safeCtaLink && params.ctaText ? `
+            <div style="text-align:center;margin:24px 0;">
+              <a href="${safeCtaLink}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">${escapeHtml(params.ctaText)}</a>
+            </div>
+          ` : ''}
+          ${params.footerNote ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;"><p style="margin:0;font-size:14px;color:#6b7280;">${escapeHtml(params.footerNote)}</p></div>` : ''}
+        </div>
+        <div style="text-align:center;margin-top:18px;color:#6b7280;font-size:12px;line-height:1.6;">
+          <p style="margin:0;">© ${currentYear} SupFile. ${isEn ? 'All rights reserved.' : 'Tous droits réservés.'}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return { subject: params.subject, html, text };
+};
+
 export const generateHtmlTemplate = (title: string, bodyText: string, ctaLink?: string, ctaText?: string, footerText?: string) => {
   return `
     <!DOCTYPE html>
@@ -89,51 +180,325 @@ export const generateHtmlTemplate = (title: string, bodyText: string, ctaLink?: 
   `;
 };
 
+export const getShareNotificationEmail = (
+  lang: string,
+  input: {
+    sharedBy: string;
+    itemName: string;
+    itemType: 'file' | 'folder';
+    link?: string;
+    permissions?: {
+      canRead?: boolean;
+      canWrite?: boolean;
+      canDelete?: boolean;
+      canShare?: boolean;
+    };
+  }
+) => {
+  const isEn = lang.startsWith('en');
+  const itemLabel = input.itemType === 'file'
+    ? (isEn ? 'file' : 'fichier')
+    : (isEn ? 'folder' : 'dossier');
+  const permissions = permissionLabels(input.permissions);
+  const link = input.link || `${appLink()}/shared?tab=pending`;
+
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn
+      ? `${input.sharedBy} shared a ${itemLabel} with you`
+      : `${input.sharedBy} a partagé un ${itemLabel} avec vous`,
+    preheader: isEn
+      ? `A SupFile ${itemLabel} is waiting for you.`
+      : `Un ${itemLabel} SupFile vous attend.`,
+    title: isEn ? 'New share on SupFile' : 'Nouveau partage SupFile',
+    paragraphs: isEn
+      ? [
+        `${input.sharedBy} shared the ${itemLabel} "${input.itemName}" with you.`,
+        `Permissions: ${permissions}.`,
+        'Sign in to SupFile to review and accept the share if needed.',
+      ]
+      : [
+        `${input.sharedBy} a partagé le ${itemLabel} "${input.itemName}" avec vous.`,
+        `Permissions : ${permissions}.`,
+        'Connectez-vous à SupFile pour consulter et accepter le partage si nécessaire.',
+      ],
+    ctaLink: link,
+    ctaText: isEn ? 'Open SupFile' : 'Ouvrir SupFile',
+    footerNote: isEn
+      ? 'This email does not contain any private access token.'
+      : 'Cet email ne contient aucun jeton d’accès privé.',
+  });
+};
+
+export const getDelegationGrantedEmail = (
+  lang: string,
+  delegateName: string,
+  ownerName: string,
+  permissions?: {
+    canRead?: boolean;
+    canWrite?: boolean;
+    canDelete?: boolean;
+    canShare?: boolean;
+  },
+  expiresAt?: Date | null
+) => {
+  const isEn = lang.startsWith('en');
+  const expiry = expiresAt
+    ? (isEn ? `Expires on ${expiresAt.toISOString()}.` : `Expire le ${expiresAt.toISOString()}.`)
+    : (isEn ? 'No expiration date is configured.' : 'Aucune date d’expiration n’est configurée.');
+
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn ? 'SupFile account delegation granted' : 'Délégation de compte SupFile accordée',
+    preheader: isEn ? 'A SupFile account delegation is available.' : 'Une délégation de compte SupFile est disponible.',
+    title: isEn ? 'Account delegation granted' : 'Délégation de compte accordée',
+    paragraphs: isEn
+      ? [
+        `Hello ${delegateName},`,
+        `${ownerName} granted you delegated access to their SupFile account.`,
+        `Permissions: ${permissionLabels(permissions)}. ${expiry}`,
+      ]
+      : [
+        `Bonjour ${delegateName},`,
+        `${ownerName} vous a accordé une délégation d’accès à son compte SupFile.`,
+        `Permissions : ${permissionLabels(permissions)}. ${expiry}`,
+      ],
+    ctaLink: appLink() || undefined,
+    ctaText: isEn ? 'Open SupFile' : 'Ouvrir SupFile',
+    footerNote: isEn
+      ? 'Only use delegation for actions authorized by the account owner.'
+      : 'Utilisez la délégation uniquement pour les actions autorisées par le propriétaire du compte.',
+  });
+};
+
+export const getDelegationRevokedEmail = (lang: string, delegateName: string, ownerName: string) => {
+  const isEn = lang.startsWith('en');
+
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn ? 'SupFile account delegation revoked' : 'Délégation de compte SupFile révoquée',
+    preheader: isEn ? 'A SupFile account delegation has been revoked.' : 'Une délégation de compte SupFile a été révoquée.',
+    title: isEn ? 'Account delegation revoked' : 'Délégation de compte révoquée',
+    paragraphs: isEn
+      ? [
+        `Hello ${delegateName},`,
+        `${ownerName} revoked your delegated access to their SupFile account.`,
+        'The delegation can no longer be used.',
+      ]
+      : [
+        `Bonjour ${delegateName},`,
+        `${ownerName} a révoqué votre délégation d’accès à son compte SupFile.`,
+        'La délégation ne peut plus être utilisée.',
+      ],
+    ctaLink: appLink() || undefined,
+    ctaText: isEn ? 'Open SupFile' : 'Ouvrir SupFile',
+  });
+};
+
+export const getAccountStatusEmail = (
+  lang: string,
+  userName: string,
+  status: 'ACTIVE' | 'SUSPENDED',
+  reason?: string
+) => {
+  const isEn = lang.startsWith('en');
+  const isSuspended = status === 'SUSPENDED';
+
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn
+      ? `SupFile account ${isSuspended ? 'suspended' : 'reactivated'}`
+      : `Compte SupFile ${isSuspended ? 'suspendu' : 'réactivé'}`,
+    preheader: isEn
+      ? `Your SupFile account has been ${isSuspended ? 'suspended' : 'reactivated'}.`
+      : `Votre compte SupFile a été ${isSuspended ? 'suspendu' : 'réactivé'}.`,
+    title: isEn
+      ? `Account ${isSuspended ? 'suspended' : 'reactivated'}`
+      : `Compte ${isSuspended ? 'suspendu' : 'réactivé'}`,
+    paragraphs: isEn
+      ? [
+        `Hello ${userName},`,
+        isSuspended
+          ? 'Your SupFile account has been suspended by an administrator.'
+          : 'Your SupFile account has been reactivated by an administrator.',
+        reason ? `Reason: ${reason}` : 'No reason was provided.',
+      ]
+      : [
+        `Bonjour ${userName},`,
+        isSuspended
+          ? 'Votre compte SupFile a été suspendu par un administrateur.'
+          : 'Votre compte SupFile a été réactivé par un administrateur.',
+        reason ? `Raison : ${reason}` : 'Aucune raison n’a été renseignée.',
+      ],
+    ctaLink: !isSuspended ? appLink() || undefined : undefined,
+    ctaText: isEn ? 'Open SupFile' : 'Ouvrir SupFile',
+    footerNote: isSuspended
+      ? (isEn
+        ? 'Existing sessions have been revoked for security.'
+        : 'Les sessions existantes ont été révoquées par sécurité.')
+      : undefined,
+  });
+};
+
 export const getPasswordResetEmail = (lang: string, userName: string, resetLink: string) => {
   const isEn = lang.startsWith('en');
-  const subject = isEn ? 'Password Reset Request' : 'Réinitialisation de votre mot de passe';
-  const title = isEn ? 'Reset Password' : 'Mot de passe oublié';
-  const bodyText = `
-    <p>${isEn ? `Hello ${userName},` : `Bonjour ${userName},`}</p>
-    <p>${isEn ? 'You requested a password reset. Click the button below to create a new password. This link will expire in 1 hour.' : 'Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe. Ce lien expire dans 1 heure.'}</p>
-  `;
+  const logoUrl = mailLogoUrl();
+  const currentYear = new Date().getFullYear();
+  const subject = isEn ? 'Reset your SupFile password' : 'Réinitialisation de votre mot de passe SupFile';
+  const preheader = isEn
+    ? 'Use this secure link to reset your password. Link valid for 1 hour.'
+    : 'Utilisez ce lien sécurisé pour réinitialiser votre mot de passe. Lien valable 1 heure.';
+  const greeting = isEn ? `Hello ${userName},` : `Bonjour ${userName},`;
+  const title = isEn ? 'Password reset request' : 'Réinitialisation de votre mot de passe';
+  const description = isEn
+    ? 'We received a request to reset your SupFile password. Click the button below to create a new one.'
+    : 'Nous avons reçu une demande de réinitialisation de votre mot de passe SupFile. Cliquez sur le bouton ci-dessous pour en créer un nouveau.';
+  const warning = isEn
+    ? 'This link will expire in 1 hour.'
+    : 'Ce lien expirera dans 1 heure.';
   const ctaText = isEn ? 'Reset my password' : 'Réinitialiser mon mot de passe';
-  const footerText = isEn ? 'If you did not make this request, you can safely ignore this email.' : 'Si vous n\'avez pas fait cette demande, vous pouvez ignorer cet email en toute sécurité.';
+  const ignoreText = isEn
+    ? 'If you did not request this reset, you can safely ignore this email.'
+    : 'Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet email.';
+  const footer = isEn
+    ? `© ${currentYear} SupFile. All rights reserved.`
+    : `© ${currentYear} SupFile. Tous droits réservés.`;
+  const text = isEn
+    ? `Password reset request for your SupFile account.\n\n${warning}\n\nReset link: ${resetLink}\n\n${ignoreText}`
+    : `Demande de réinitialisation de mot de passe pour votre compte SupFile.\n\n${warning}\n\nLien de réinitialisation : ${resetLink}\n\n${ignoreText}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="${isEn ? 'en' : 'fr'}">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#1f2937;">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>
+      <div style="max-width:620px;margin:0 auto;padding:24px 16px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          ${logoUrl ? `<img src="${logoUrl}" alt="SupFile Logo" style="width:180px;max-width:100%;height:auto;">` : '<h1 style="margin:0;color:#4f46e5;">SupFile</h1>'}
+        </div>
+        <div style="background:#ffffff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,0.08);padding:28px;">
+          <h2 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#4f46e5;text-align:center;">${title}</h2>
+          <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#4b5563;">${greeting}</p>
+          <p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#4b5563;">${description}</p>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="${resetLink}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">${ctaText}</a>
+          </div>
+          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;text-align:center;">
+            <p style="margin:0;font-size:14px;color:#9a3412;">⚠️ ${warning}</p>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:18px;color:#6b7280;font-size:12px;line-height:1.6;">
+          <p style="margin:0 0 8px;">${ignoreText}</p>
+          <p style="margin:0;">${footer}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
 
   return {
     subject,
-    html: generateHtmlTemplate(title, bodyText, resetLink, ctaText, footerText)
+    html,
+    text,
   };
 };
 
 export const getWelcomeEmail = (lang: string, userName: string) => {
   const isEn = lang.startsWith('en');
-  const subject = isEn ? 'Welcome to SupFile!' : 'Bienvenue sur SupFile !';
-  const title = isEn ? 'Welcome!' : 'Bienvenue !';
-  const bodyText = `
-    <p>${isEn ? `Hello ${userName},` : `Bonjour ${userName},`}</p>
-    <p>${isEn ? 'Welcome to SupFile! We are thrilled to have you on board.' : 'Bienvenue sur SupFile ! Nous sommes ravis de vous compter parmi nous.'}</p>
-    <p>${isEn ? 'You can now securely store, share, and manage your files.' : 'Vous pouvez maintenant stocker, partager et gérer vos fichiers en toute sécurité.'}</p>
-  `;
 
-  return {
-    subject,
-    html: generateHtmlTemplate(title, bodyText)
-  };
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn ? 'Welcome to SupFile!' : 'Bienvenue sur SupFile !',
+    preheader: isEn
+      ? 'Your secure SupFile workspace is ready.'
+      : 'Votre espace SupFile sécurisé est prêt.',
+    title: isEn ? 'Welcome to SupFile' : 'Bienvenue sur SupFile',
+    paragraphs: isEn
+      ? [
+        `Hello ${userName},`,
+        'Your SupFile account is ready. You can now store, preview, edit and share your files securely.',
+        'Open SupFile to start managing your documents.',
+      ]
+      : [
+        `Bonjour ${userName},`,
+        'Votre compte SupFile est prêt. Vous pouvez maintenant stocker, prévisualiser, modifier et partager vos fichiers en toute sécurité.',
+        'Ouvrez SupFile pour commencer à gérer vos documents.',
+      ],
+    ctaLink: appLink() || undefined,
+    ctaText: isEn ? 'Open SupFile' : 'Ouvrir SupFile',
+    footerNote: isEn
+      ? 'Keep this email for information only. SupFile will never ask for your password by email.'
+      : 'Conservez cet email à titre informatif. SupFile ne vous demandera jamais votre mot de passe par email.',
+  });
 };
 
 export const getPasswordChangeNotification = (lang: string, userName: string) => {
   const isEn = lang.startsWith('en');
-  const subject = isEn ? 'Security Alert: Password Changed' : 'Alerte de sécurité : Mot de passe modifié';
-  const title = isEn ? 'Password Changed' : 'Mot de passe modifié';
-  const bodyText = `
-    <p>${isEn ? `Hello ${userName},` : `Bonjour ${userName},`}</p>
-    <p>${isEn ? 'Your SupFile account password was recently changed.' : 'Le mot de passe de votre compte SupFile a été modifié récemment.'}</p>
-    <p><strong>${isEn ? 'If you did not make this change, please contact support immediately.' : 'Si vous n\'êtes pas à l\'origine de cette action, veuillez contacter le support immédiatement.'}</strong></p>
-  `;
 
-  return {
-    subject,
-    html: generateHtmlTemplate(title, bodyText)
-  };
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn ? 'Security Alert: Password Changed' : 'Alerte de sécurité : Mot de passe modifié',
+    preheader: isEn
+      ? 'Your SupFile password was changed.'
+      : 'Le mot de passe de votre compte SupFile a été modifié.',
+    title: isEn ? 'Password changed' : 'Mot de passe modifié',
+    paragraphs: isEn
+      ? [
+        `Hello ${userName},`,
+        'The password for your SupFile account was changed recently.',
+        'If you made this change, no action is required.',
+      ]
+      : [
+        `Bonjour ${userName},`,
+        'Le mot de passe de votre compte SupFile a été modifié récemment.',
+        'Si vous êtes à l’origine de cette action, aucune action supplémentaire n’est nécessaire.',
+      ],
+    ctaLink: appLink() || undefined,
+    ctaText: isEn ? 'Open SupFile' : 'Ouvrir SupFile',
+    footerNote: isEn
+      ? 'If you did not make this change, contact support immediately and review your active sessions.'
+      : 'Si vous n’êtes pas à l’origine de cette action, contactez immédiatement le support et vérifiez vos sessions actives.',
+  });
+};
+
+export const getExpirationAlertEmail = (
+  lang: string,
+  userName: string,
+  itemName: string,
+  daysLeft: number,
+  link: string
+) => {
+  const isEn = lang.startsWith('en');
+
+  return renderTransactionalEmail({
+    lang,
+    subject: isEn
+      ? `Your share "${itemName}" expires in ${daysLeft} day(s)`
+      : `Votre partage "${itemName}" expire dans ${daysLeft} jour(s)`,
+    preheader: isEn
+      ? 'A SupFile public link will expire soon.'
+      : 'Un lien public SupFile va bientôt expirer.',
+    title: isEn ? 'Share expiration reminder' : 'Expiration prochaine du partage',
+    paragraphs: isEn
+      ? [
+        `Hello ${userName},`,
+        `Your public share link for "${itemName}" will expire in ${daysLeft} day(s).`,
+        'After this date, the link will no longer be accessible.',
+      ]
+      : [
+        `Bonjour ${userName},`,
+        `Votre lien de partage public pour "${itemName}" va expirer dans ${daysLeft} jour(s).`,
+        'Après cette date, le lien ne sera plus accessible.',
+      ],
+    ctaLink: link,
+    ctaText: isEn ? 'Manage my shares' : 'Gérer mes partages',
+    footerNote: isEn
+      ? 'This reminder is informational. No private token is included in this email.'
+      : 'Ce rappel est informatif. Aucun jeton privé n’est inclus dans cet email.',
+  });
 };

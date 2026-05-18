@@ -5,7 +5,7 @@
  *   1. generateDek / generateSalt  - entropie, format
  *   2. deriveKek                   - determinisme, sensibilite au mot de passe et au sel
  *   3. encryptDekWithKek           - round-trip, IV aleatoire, mauvaise KEK, bit flipping
- *   4. wrapDek / unwrapDek         - round-trip JWT, degradation gracieuse, cle serveur absente
+ *   4. wrapDek / unwrapDek         - round-trip JWT, degradation gracieuse, secret serveur requis
  */
 
 import crypto from 'crypto';
@@ -169,22 +169,17 @@ describe('KekService.wrapDek / unwrapDek', () => {
     expect(KekService.wrapDek(dek)).not.toBe(KekService.wrapDek(dek));
   });
 
-  it('wrapDek sans DEK_WRAP_SECRET -> ne throw pas (utilise le fallback)', () => {
+  it('wrapDek sans DEK_WRAP_SECRET -> throw (aucun fallback runtime)', () => {
     delete process.env.DEK_WRAP_SECRET;
     const dek = KekService.generateDek();
-    const wrapped = KekService.wrapDek(dek);
-    expect(wrapped).toBeDefined();
-    
-    // Verifier que l'unwrap fonctionne aussi avec le fallback
-    const unwrapped = KekService.unwrapDek(wrapped);
-    expect(unwrapped!.equals(dek)).toBe(true);
+    expect(() => KekService.wrapDek(dek)).toThrow('DEK_WRAP_SECRET');
   });
 
-  it('unwrapDek sans DEK_WRAP_SECRET -> fonctionne via le fallback', () => {
-    delete process.env.DEK_WRAP_SECRET;
+  it('unwrapDek sans DEK_WRAP_SECRET -> null (aucun fallback runtime)', () => {
     const dek = KekService.generateDek();
     const wrapped = KekService.wrapDek(dek);
-    expect(KekService.unwrapDek(wrapped)).not.toBeNull();
+    delete process.env.DEK_WRAP_SECRET;
+    expect(KekService.unwrapDek(wrapped)).toBeNull();
   });
 
   it('bit flip dans le token wrappe -> null (degradation gracieuse)', () => {

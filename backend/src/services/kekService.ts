@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { getDekWrapSecret } from '../config/secrets';
 
 const ALGORITHM = 'aes-256-gcm';
 const PBKDF2_ITERATIONS = 100_000;
@@ -72,7 +73,7 @@ export class KekService {
    * Format retourné (base64) : IV(16) + ciphertext(32) + AuthTag(16)
    */
   static wrapDek(dek: Buffer): string {
-    const secret = process.env.DEK_WRAP_SECRET || 'your-dek-wrap-secret-key-change-in-production';
+    const secret = getDekWrapSecret();
     const wrapKey = crypto.createHash('sha256').update(secret).digest();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(ALGORITHM, wrapKey, iv);
@@ -83,11 +84,11 @@ export class KekService {
 
   /**
    * Désenveloppe (unwrap) un DEK wrappé avec wrapDek().
-   * Retourne null si DEK_WRAP_SECRET absent (graceful degradation).
+   * Retourne null si le wrapped DEK est invalide ou ne correspond pas à la clé serveur.
    */
   static unwrapDek(wrappedBase64: string): Buffer | null {
-    const secret = process.env.DEK_WRAP_SECRET || 'your-dek-wrap-secret-key-change-in-production';
     try {
+      const secret = getDekWrapSecret();
       const wrapKey = crypto.createHash('sha256').update(secret).digest();
       const data = Buffer.from(wrappedBase64, 'base64');
       const iv = data.subarray(0, 16);

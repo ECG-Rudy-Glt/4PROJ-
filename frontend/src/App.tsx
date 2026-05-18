@@ -5,6 +5,8 @@ import { useAuthStore } from './stores/useAuthStore';
 // Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import MFAVerificationPage from './pages/MFAVerificationPage';
 import DashboardPage from './pages/DashboardPage';
 import FilesPage from './pages/FilesPage';
@@ -18,6 +20,8 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import AdminPage from './pages/AdminPage';
 import OrganizationAdminPage from './pages/OrganizationAdminPage';
 import AuditPage from './pages/AuditPage';
+import NotFoundPage from './pages/NotFoundPage';
+import LegalPage from './pages/LegalPage';
 
 // Components
 import Layout from './components/Layout';
@@ -37,9 +41,15 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/mfa-verify" element={<MFAVerificationPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
       <Route path="/share/:token" element={<SharedLinkPage />} />
+      <Route path="/legal" element={<LegalPage kind="legal" />} />
+      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+      <Route path="/terms" element={<LegalPage kind="terms" />} />
+      <Route path="/contact" element={<LegalPage kind="contact" />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
@@ -49,6 +59,8 @@ function App() {
           <Route path="/files/:folderId" element={<FilesPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/shared" element={<SharedPage />} />
+          <Route path="/invite/folder/:folderId" element={<Navigate to="/shared" replace />} />
+          <Route path="/invite/file/:fileId" element={<Navigate to="/shared" replace />} />
           <Route path="/trash" element={<TrashPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/plans" element={<PlansPage />} />
@@ -59,6 +71,8 @@ function App() {
           </Route>
         </Route>
       </Route>
+
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

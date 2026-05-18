@@ -3,12 +3,26 @@ import prisma from '../config/database';
 
 const GB = BigInt(1024 * 1024 * 1024);
 const MB = BigInt(1024 * 1024);
+export const PLAN_UPGRADE_REQUIRED_CODE = 'PLAN_UPGRADE_REQUIRED';
+export type PlanFeature = 'mfa' | 'prioritySupport' | 'auditLogs' | 'aiChat' | 'vault' | 'onlyoffice' | 'sharePassword';
+
+export class PlanUpgradeRequiredError extends Error {
+    statusCode = 403;
+    code = PLAN_UPGRADE_REQUIRED_CODE;
+    requiredPlan = Plan.PRO;
+    upgradePath = '/plans';
+
+    constructor(public feature: PlanFeature) {
+        super('Cette fonctionnalité nécessite le plan PRO ou supérieur.');
+        this.name = 'PlanUpgradeRequiredError';
+    }
+}
 
 export const PLAN_LIMITS = {
     [Plan.FREE]: {
         storage: BigInt(30) * GB, // 30 GB
         maxFileSize: BigInt(10) * GB, // 10 GB per file
-        maxShares: 5,
+        maxShares: 100,
         maxVersions: 3,
         maxTags: 10,
         features: {
@@ -17,12 +31,14 @@ export const PLAN_LIMITS = {
             auditLogs: false,
             aiChat: false,
             vault: false,
+            onlyoffice: false,
+            sharePassword: false,
         },
     },
     [Plan.PRO]: {
         storage: BigInt(200) * GB, // 200 GB
         maxFileSize: BigInt(500) * MB, // 500 MB per file
-        maxShares: 50,
+        maxShares: 500,
         maxVersions: 10,
         maxTags: 50,
         features: {
@@ -31,6 +47,8 @@ export const PLAN_LIMITS = {
             auditLogs: true,
             aiChat: true,
             vault: true,
+            onlyoffice: true,
+            sharePassword: true,
         },
     },
     [Plan.BUSINESS]: {
@@ -45,6 +63,8 @@ export const PLAN_LIMITS = {
             auditLogs: true,
             aiChat: true,
             vault: true,
+            onlyoffice: true,
+            sharePassword: true,
         },
     },
     [Plan.ENTERPRISE]: {
@@ -59,6 +79,8 @@ export const PLAN_LIMITS = {
             auditLogs: true,
             aiChat: true,
             vault: true,
+            onlyoffice: true,
+            sharePassword: true,
         },
     },
 };
@@ -201,7 +223,7 @@ export class PlanService {
     /**
      * Vérifie si une fonctionnalité est disponible pour le plan de l'utilisateur
      */
-    static async checkFeature(userId: string, feature: string): Promise<boolean> {
+    static async checkFeature(userId: string, feature: PlanFeature): Promise<boolean> {
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { plan: true },
@@ -209,7 +231,22 @@ export class PlanService {
         if (!user) throw new Error('Utilisateur non trouvé');
 
         const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS[Plan.FREE];
-        return (limits.features as any)[feature] === true;
+        return limits.features[feature] === true;
+    }
+
+    static async assertFeature(userId: string, feature: PlanFeature): Promise<void> {
+        const available = await this.checkFeature(userId, feature);
+        if (!available) {
+            throw new PlanUpgradeRequiredError(feature);
+        }
+    }
+
+    static getUpgradeRequirement(feature: PlanFeature) {
+        return {
+            feature,
+            requiredPlan: Plan.PRO,
+            upgradePath: '/plans',
+        };
     }
 
     /**

@@ -3,9 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '@/services/api';
+import { billingService } from '@/services/billingService';
 import { useTranslation } from 'react-i18next';
 import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 const plans: Array<{
   id: PlanId;
@@ -29,11 +30,11 @@ const plans: Array<{
     storage: PLAN_STORAGE_LABELS.FREE,
     features: [
       { name: 'plans_page.features.secure_cloud', included: true },
-      { name: 'plans_page.features.file_sharing', included: true },
-      { name: 'plans_page.features.standard_support', included: true },
-      { name: 'plans_page.features.audit_history', included: false },
+      { name: 'plans_page.features.sharing_basic', included: true },
+      { name: 'plans_page.features.france_hosting', included: true },
+      { name: 'plans_page.features.ai_bobby', included: false },
       { name: 'plans_page.features.vault', included: false },
-      { name: 'plans_page.features.priority_support', included: false },
+      { name: 'plans_page.features.onlyoffice', included: false },
     ],
     icon: Database,
     color: 'bg-blue-100 text-blue-600',
@@ -42,17 +43,17 @@ const plans: Array<{
   {
     id: 'PRO',
     name: 'plans_page.pro_name',
-    price: '9.99€',
+    price: '9,99€',
     period: 'plans_page.period_month',
     description: 'plans_page.pro_desc',
     storage: PLAN_STORAGE_LABELS.PRO,
     features: [
-      { name: 'plans_page.features.secure_cloud', included: true },
-      { name: 'plans_page.features.file_sharing', included: true },
-      { name: 'plans_page.features.standard_support', included: true },
-      { name: 'plans_page.features.audit_history', included: true },
+      { name: 'plans_page.features.ai_bobby_basic', included: true },
       { name: 'plans_page.features.vault', included: true },
-      { name: 'plans_page.features.priority_support', included: true },
+      { name: 'plans_page.features.sharing_advanced', included: true },
+      { name: 'plans_page.features.onlyoffice', included: true },
+      { name: 'plans_page.features.versioning_10', included: true },
+      { name: 'plans_page.features.email_support_48h', included: true },
     ],
     icon: Zap,
     color: 'bg-purple-100 text-purple-600',
@@ -62,17 +63,17 @@ const plans: Array<{
   {
     id: 'BUSINESS',
     name: 'plans_page.business_name',
-    price: '29.99€',
+    price: '24,99€',
     period: 'plans_page.period_month',
     description: 'plans_page.business_desc',
     storage: PLAN_STORAGE_LABELS.BUSINESS,
     features: [
-      { name: 'plans_page.features.secure_cloud', included: true },
-      { name: 'plans_page.features.file_sharing', included: true },
-      { name: 'plans_page.features.standard_support', included: true },
-      { name: 'plans_page.features.audit_history', included: true },
+      { name: 'plans_page.features.ai_bobby_advanced', included: true },
       { name: 'plans_page.features.vault', included: true },
-      { name: 'plans_page.features.priority_support_247', included: true },
+      { name: 'plans_page.features.sharing_advanced', included: true },
+      { name: 'plans_page.features.onlyoffice', included: true },
+      { name: 'plans_page.features.versioning_25', included: true },
+      { name: 'plans_page.features.email_support_24h', included: true },
     ],
     icon: Server,
     color: 'bg-orange-100 text-orange-600',
@@ -85,12 +86,12 @@ const plans: Array<{
     description: 'plans_page.enterprise_desc',
     storage: PLAN_STORAGE_LABELS.ENTERPRISE,
     features: [
-      { name: 'plans_page.features.secure_cloud', included: true },
-      { name: 'plans_page.features.adv_sharing', included: true },
-      { name: 'plans_page.features.dedicated_support', included: true },
-      { name: 'plans_page.features.full_audit', included: true },
+      { name: 'plans_page.features.ai_bobby_dedicated', included: true },
       { name: 'plans_page.features.vault', included: true },
-      { name: 'plans_page.features.sla', included: true },
+      { name: 'plans_page.features.adv_sharing', included: true },
+      { name: 'plans_page.features.onlyoffice', included: true },
+      { name: 'plans_page.features.versioning_unlimited', included: true },
+      { name: 'plans_page.features.account_manager', included: true },
     ],
     icon: Server,
     color: 'bg-gray-200 text-gray-700',
@@ -127,31 +128,24 @@ export default function PlansPage() {
     setLoading(planId);
     try {
       if (planId === 'FREE') {
-        await api.post('/billing/downgrade-free');
+        await billingService.downgradeToFree();
         await refreshProfile();
         toast.success(t('plans_page.downgrade_success'));
         return;
       }
 
-      // Simulation Stripe Checkout
       setIsRedirecting(true);
-      
-      const response = await api.post('/billing/checkout-session', { plan: planId });
-      
-      // Simuler le délai de paiement "en cours"
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      if (response.data.url && !response.data.url.includes('/plans?checkout=success')) {
-        window.location.href = response.data.url;
-      } else {
-        // En mode simulation, le plan est déjà activé sur le backend
-        await refreshProfile();
-        setIsRedirecting(false);
-        toast.success(t('plans_page.payment_success'));
+
+      const session = await billingService.createCheckoutSession(planId);
+
+      if (!session.url) {
+        throw new Error(t('plans_page.checkout_missing_url'));
       }
+
+      window.location.href = session.url;
     } catch (error: any) {
       setIsRedirecting(false);
-      toast.error(error.response?.data?.error || t('plans_page.payment_failed'));
+      toast.error(getApiErrorMessage(error, t('plans_page.payment_failed')));
     } finally {
       setLoading(null);
     }
@@ -209,7 +203,7 @@ export default function PlansPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {plan.features.slice(0, 4).map((feature, idx) => (
+                    {plan.features.map((feature, idx) => (
                       <div key={idx} className="flex items-center gap-3">
                         {feature.included ? (
                           <Check className="w-4 h-4 text-green-500" />
@@ -225,6 +219,7 @@ export default function PlansPage() {
                 </div>
 
                 <button
+                  data-testid={`select-plan-${plan.id}`}
                   onClick={() => handlePlanSelection(plan.id)}
                   disabled={isCurrentPlan || loading !== null}
                   className={`w-full py-4 px-6 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${

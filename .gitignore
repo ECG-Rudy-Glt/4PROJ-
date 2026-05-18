@@ -8,6 +8,8 @@ pnpm-lock.yaml
 .env
 .env.*
 !.env.example
+env
+env.*
 
 # Build outputs
 dist/
@@ -15,14 +17,14 @@ build/
 *.log
 
 # IDEs
-.vscode/
-.idea/
+vscode/
+idea/
 *.swp
 *.swo
 *~
 
 # OS
-.DS_Store
+DS_Store
 Thumbs.db
 
 # Uploads (for local development)
@@ -32,11 +34,23 @@ backend/uploads/
 *.sqlite
 *.db
 
-# Prisma
-backend/prisma/migrations/
+# Prisma migrations are versioned.
 
 # Testing
 coverage/
-.nyc_output/
+nyc_output/
+backups/
+doc/account-deletion-snapshots/
 
-.claude/
+claude/
+repomix-output.*
+codesight/report.html
+codesight/
+repomix.config.json
+
+cursorrules/
+AGENTS.md
+CLAUDE.md
+codex.md
+copilot-instructions.md
+AUDIT_FONCTIONNALITES_SUPFILE.md

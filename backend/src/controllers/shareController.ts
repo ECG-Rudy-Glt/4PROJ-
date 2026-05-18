@@ -1,24 +1,142 @@
 import { Response, NextFunction, Request } from 'express';
 import { ShareService } from '../services/shareService';
-import { ShareInvitationService } from '../services/shareInvitationService';
 import { AuthRequest } from '../types';
 import { SocketService } from '../services/socketService';
 import { NotificationService } from '../services/notificationService';
 import fs from 'fs';
 import { EncryptionService } from '../services/encryptionService';
+import { ShareKeyService } from '../services/shareKeyService';
+import { StorageService } from '../services/storageService';
 import logger from '../config/logger';
 import { sendSuccess, sendCreated, sendError } from '../utils/response';
+import { Readable } from 'stream';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { getShareAccessSecret } from '../config/secrets';
+
+const ENCRYPTION_OVERHEAD_BYTES = 32;
+const SHARE_ACCESS_HEADER = 'x-share-access-token';
+const SHARE_ACCESS_PURPOSE = 'share-password-access';
+
+function getShareAccessToken(req: Request): string | undefined {
+  const value = typeof req.get === 'function'
+    ? req.get(SHARE_ACCESS_HEADER)
+    : req.headers?.[SHARE_ACCESS_HEADER];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getPasswordFingerprint(passwordHash: string): string {
+  return passwordHash.slice(-16);
+}
+
+function verifyPublicShareAccessToken(accessToken: string, shareLink: any, token: string): void {
+  const decoded = jwt.verify(accessToken, getShareAccessSecret()) as any;
+  if (
+    decoded.purpose !== SHARE_ACCESS_PURPOSE ||
+    decoded.kind !== 'public-link' ||
+    decoded.token !== token ||
+    decoded.linkId !== shareLink.id ||
+    decoded.fingerprint !== getPasswordFingerprint(shareLink.password)
+  ) {
+    throw new Error('Invalid share access token');
+  }
+}
+
+function assertPublicShareLinkAvailable(shareLink: any, bundle = false): void {
+  if (!shareLink) throw new Error('Share link not found');
+  if (shareLink.user?.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
+  if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
+  if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) {
+    throw new Error('Share link download limit reached');
+  }
+
+  if (bundle) {
+    if (!shareLink.bundleFileIds) throw new Error('Bundle share link not found');
+    return;
+  }
+
+  if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
+  if (shareLink.file.isDeleted) throw new Error('Share link is unavailable');
+  if (shareLink.file.isVault) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+}
+
+function sendSharePasswordRequired(res: Response): void {
+  res.status(423).json({ error: 'SHARE_PASSWORD_REQUIRED', message: 'Mot de passe requis' });
+}
+
+function sendSharePasswordInvalid(res: Response): void {
+  res.status(403).json({ error: 'SHARE_PASSWORD_INVALID', message: 'Mot de passe invalide ou expiré' });
+}
+
+async function getStoredEncryptedSize(storagePath: string): Promise<number | null> {
+  if (StorageService.isS3Key(storagePath)) {
+    try {
+      return await StorageService.getObjectSize(storagePath);
+    } catch (error) {
+      logger.error({ error, storagePath }, '[shareController] stored S3 object unavailable');
+      return null;
+    }
+  }
+
+  if (!fs.existsSync(storagePath)) {
+    return null;
+  }
+
+  return fs.statSync(storagePath).size;
+}
+
+function sendStoredFileNotFound(res: Response, storagePath: string): void {
+  const message = StorageService.isS3Key(storagePath)
+    ? 'File not found in storage'
+    : 'File not found on disk';
+  sendError(res, message, 404);
+}
+
+function sendInvalidStoredFile(res: Response, storagePath: string, encryptedSize: number): void {
+  logger.error({ storagePath, encryptedSize }, '[shareController] invalid encrypted file size');
+  sendError(res, 'Stored file is invalid or corrupted', 500);
+}
+
+function pipeDecryptStream(decryptStream: Readable, res: Response, errorMessage: string): void {
+  decryptStream.on('error', (error) => {
+    logger.error({ err: error }, '[shareController] decrypt stream error');
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: errorMessage });
+    } else {
+      res.destroy();
+    }
+  });
+  decryptStream.pipe(res);
+}
+
+function resolveSharedAccessDek(
+  sharedFile: { file?: { userId?: string } | null; ownerWrappedDek?: string | null },
+  userId?: string,
+  requestDek?: Buffer
+): Buffer | undefined {
+  if (sharedFile.file?.userId && userId && sharedFile.file.userId === userId) {
+    return requestDek;
+  }
+
+  return ShareKeyService.unwrapOwnerDek(sharedFile.ownerWrappedDek);
+}
 
 export class ShareController {
   static async createShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { fileId, password, expiresAt, maxDownloads } = req.body;
+      const { fileId, folderId, password, expiresAt, maxDownloads } = req.body;
+
+      if (folderId || !fileId) {
+        sendError(res, 'Le partage public de dossier n’est pas supporté', 400);
+        return;
+      }
 
       const shareLink = await ShareService.createShareLink(userId, fileId, {
         password,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         maxDownloads,
+        ownerWrappedDek: ShareKeyService.wrapOwnerDek(req.dekBuffer),
       });
 
       sendCreated(res, {
@@ -38,12 +156,48 @@ export class ShareController {
   static async getSharedFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params;
-      const { password } = req.query;
+      const accessToken = getShareAccessToken(req);
 
-      const shareLink = await ShareService.getShareLink(
-        token,
-        password ? String(password) : undefined
-      );
+      let shareLink;
+      try {
+        shareLink = await ShareService.getShareLink(token);
+      } catch (err: any) {
+        if (err.message === 'Password required' && accessToken) {
+          const prisma = (await import('../config/database')).default;
+          shareLink = await prisma.sharedLink.findUnique({
+            where: { token },
+            include: { file: true, user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } } },
+          });
+
+          try {
+            assertPublicShareLinkAvailable(shareLink);
+            verifyPublicShareAccessToken(accessToken, shareLink, token);
+          } catch {
+            sendSharePasswordInvalid(res);
+            return;
+          }
+        } else if (err.message === 'Password required') {
+          sendSharePasswordRequired(res);
+          return;
+        } else if (err.message === 'Invalid password') {
+          sendSharePasswordInvalid(res);
+          return;
+        } else {
+          throw err;
+        }
+      }
+
+      // Bundle link: no single file, multiple files zipped on download
+      if ((shareLink as any).bundleFileIds) {
+        const fileIds: string[] = JSON.parse((shareLink as any).bundleFileIds);
+        sendSuccess(res, {
+          isBundle: true,
+          fileCount: fileIds.length,
+          downloadUrl: `/share/${token}/download-bundle`,
+          sharedBy: shareLink.user,
+        });
+        return;
+      }
 
       sendSuccess(res, {
         file: {
@@ -61,26 +215,60 @@ export class ShareController {
   static async downloadSharedFile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params;
-      const { password } = req.query;
+      const accessToken = getShareAccessToken(req);
 
-      const shareLink = await ShareService.getShareLink(
-        token,
-        password ? String(password) : undefined
-      );
+      let shareLink;
+      try {
+        shareLink = await ShareService.getShareLink(token);
+      } catch (err: any) {
+        if (err.message === 'Password required' && accessToken) {
+          const prisma = (await import('../config/database')).default;
+          shareLink = await prisma.sharedLink.findUnique({
+            where: { token },
+            include: { file: true, user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } } },
+          });
 
-      if (!fs.existsSync(shareLink.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+          try {
+            assertPublicShareLinkAvailable(shareLink);
+            verifyPublicShareAccessToken(accessToken, shareLink, token);
+          } catch {
+            sendSharePasswordInvalid(res);
+            return;
+          }
+        } else if (err.message === 'Password required') {
+          sendSharePasswordRequired(res);
+          return;
+        } else if (err.message === 'Invalid password') {
+          sendSharePasswordInvalid(res);
+          return;
+        } else {
+          throw err;
+        }
+      }
+
+      const storagePath = shareLink.file!.storagePath;
+      const encryptedSize = await getStoredEncryptedSize(storagePath);
+      if (encryptedSize === null) {
+        sendStoredFileNotFound(res, storagePath);
         return;
       }
 
-      // Increment download count
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        sendInvalidStoredFile(res, storagePath, encryptedSize);
+        return;
+      }
+
       await ShareService.incrementDownloadCount(token);
+
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(
+        storagePath,
+        ShareKeyService.unwrapOwnerDek(shareLink.ownerWrappedDek)
+      );
 
       res.setHeader('Content-Disposition', `attachment; filename="${shareLink.file!.name}"`);
       res.setHeader('Content-Type', shareLink.file!.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(shareLink.file!.storagePath);
-      decryptStream.pipe(res);
+      pipeDecryptStream(decryptStream, res, 'Failed to download file');
     } catch (error) { next(error); }
   }
 
@@ -120,7 +308,7 @@ export class ShareController {
   static async shareFolder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { folderId, targetUserEmail, canRead, canWrite, canDelete, canShare } = req.body;
+      const { folderId, targetUserEmail, canRead, canWrite, canDelete, canShare, password } = req.body;
 
       const prisma = (await import('../config/database')).default;
       const targetUser = await prisma.user.findUnique({
@@ -128,18 +316,7 @@ export class ShareController {
       });
 
       if (!targetUser) {
-        await ShareInvitationService.inviteByEmailToFolder({
-          folderId,
-          ownerId: userId,
-          ownerName: req.user!.firstName || req.user!.email,
-          targetEmail: targetUserEmail,
-        });
-
-        sendSuccess(res, {
-          message: 'Invitation envoyée à créer un compte',
-          isNewUser: true,
-          sharedFolder: null,
-        });
+        sendError(res, 'Utilisateur destinataire introuvable', 404);
         return;
       }
 
@@ -147,7 +324,9 @@ export class ShareController {
         userId,
         folderId,
         targetUser.id,
-        { canRead, canWrite, canDelete, canShare }
+        { canRead, canWrite, canDelete, canShare },
+        ShareKeyService.wrapOwnerDek(req.dekBuffer),
+        password
       );
 
       SocketService.emitToUser(targetUser.id, 'share_received', {
@@ -159,9 +338,14 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'notifications.share.folder_received.title',
-        'notifications.share.folder_received.message',
-        { folderId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
+        'Nouveau dossier partagé',
+        `${req.user!.firstName || req.user!.email} a partagé un dossier avec vous`,
+        {
+          folderId,
+          sharedById: userId,
+          userName: req.user!.firstName || req.user!.email,
+          dedupeKey: `share:folder:${folderId}:${userId}`,
+        }
       ).catch((e) => logger.error(e));
 
       sendCreated(res, { sharedFolder });
@@ -181,6 +365,7 @@ export class ShareController {
     try {
       const userId = req.user!.id;
 
+      await ShareKeyService.backfillOwnerShareKeys(userId, ShareKeyService.wrapOwnerDek(req.dekBuffer));
       const sharedFolders = await ShareService.listSharedByMe(userId);
       sendSuccess(res, { sharedFolders });
     } catch (error) { next(error); }
@@ -190,12 +375,13 @@ export class ShareController {
     try {
       const userId = req.user!.id;
       const { shareId } = req.params;
-      const { canRead, canWrite, canDelete, canShare } = req.body;
+      const { canRead, canWrite, canDelete, canShare, password, clearPassword } = req.body;
 
       const sharedFolder = await ShareService.updateSharedFolderPermissions(
         shareId,
         userId,
-        { canRead, canWrite, canDelete, canShare }
+        { canRead, canWrite, canDelete, canShare },
+        { password, clearPassword }
       );
 
       sendSuccess(res, { sharedFolder });
@@ -215,7 +401,7 @@ export class ShareController {
   static async shareFile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { fileId, targetUserEmail, canRead, canWrite, canDelete, canShare } = req.body;
+      const { fileId, targetUserEmail, canRead, canWrite, canDelete, canShare, password } = req.body;
 
       const prisma = (await import('../config/database')).default;
       const targetUser = await prisma.user.findUnique({
@@ -223,18 +409,7 @@ export class ShareController {
       });
 
       if (!targetUser) {
-        await ShareInvitationService.inviteByEmailToFile({
-          fileId,
-          ownerId: userId,
-          ownerName: req.user!.firstName || req.user!.email,
-          targetEmail: targetUserEmail,
-        });
-
-        sendSuccess(res, {
-          message: 'Invitation envoyée avec succès',
-          isNewUser: true,
-          sharedFile: null,
-        });
+        sendError(res, 'Utilisateur destinataire introuvable', 404);
         return;
       }
 
@@ -242,7 +417,9 @@ export class ShareController {
         userId,
         fileId,
         targetUser.id,
-        { canRead, canWrite, canDelete, canShare }
+        { canRead, canWrite, canDelete, canShare },
+        ShareKeyService.wrapOwnerDek(req.dekBuffer),
+        password
       );
 
       SocketService.emitToUser(targetUser.id, 'share_received', {
@@ -254,9 +431,14 @@ export class ShareController {
       NotificationService.create(
         targetUser.id,
         'SHARE',
-        'notifications.share.file_received.title',
-        'notifications.share.file_received.message',
-        { fileId, sharedById: userId, userName: req.user!.firstName || req.user!.email }
+        'Nouveau fichier partagé',
+        `${req.user!.firstName || req.user!.email} a partagé un fichier avec vous`,
+        {
+          fileId,
+          sharedById: userId,
+          userName: req.user!.firstName || req.user!.email,
+          dedupeKey: `share:file:${fileId}:${userId}`,
+        }
       ).catch((e) => logger.error(e));
 
       sendCreated(res, { sharedFile, isNewUser: false });
@@ -276,6 +458,7 @@ export class ShareController {
     try {
       const userId = req.user!.id;
 
+      await ShareKeyService.backfillOwnerShareKeys(userId, ShareKeyService.wrapOwnerDek(req.dekBuffer));
       const sharedFiles = await ShareService.listFilesSharedByMe(userId);
       sendSuccess(res, { sharedFiles });
     } catch (error) { next(error); }
@@ -295,12 +478,13 @@ export class ShareController {
     try {
       const userId = req.user!.id;
       const { shareId } = req.params;
-      const { canRead, canWrite, canDelete, canShare } = req.body;
+      const { canRead, canWrite, canDelete, canShare, password, clearPassword } = req.body;
 
       const sharedFile = await ShareService.updateSharedFilePermissions(
         shareId,
         userId,
-        { canRead, canWrite, canDelete, canShare }
+        { canRead, canWrite, canDelete, canShare },
+        { password, clearPassword }
       );
 
       sendSuccess(res, { sharedFile });
@@ -324,20 +508,30 @@ export class ShareController {
 
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
 
-      if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+      const storagePath = sharedFile.file!.storagePath;
+      const encryptedSize = await getStoredEncryptedSize(storagePath);
+      if (encryptedSize === null) {
+        sendStoredFileNotFound(res, storagePath);
         return;
       }
 
-      const stat = fs.statSync(sharedFile.file!.storagePath);
-      const fileSize = stat.size - 32; // IV + auth tag AES-GCM
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        sendInvalidStoredFile(res, storagePath, encryptedSize);
+        return;
+      }
+
+      const fileSize = encryptedSize - ENCRYPTION_OVERHEAD_BYTES;
+
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(
+        storagePath,
+        resolveSharedAccessDek(sharedFile, userId, req.dekBuffer)
+      );
 
       res.writeHead(200, {
         'Content-Length': fileSize,
         'Content-Type': sharedFile.file!.mimeType,
       });
-      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
-      decryptStream.pipe(res);
+      pipeDecryptStream(decryptStream, res, 'Failed to stream file');
     } catch (error) { next(error); }
   }
 
@@ -348,16 +542,37 @@ export class ShareController {
 
       const sharedFile = await ShareService.getSharedFileAccess(fileId, userId);
 
-      if (!fs.existsSync(sharedFile.file!.storagePath)) {
-        sendError(res, 'File not found on disk', 404);
+      const storagePath = sharedFile.file!.storagePath;
+      const encryptedSize = await getStoredEncryptedSize(storagePath);
+      if (encryptedSize === null) {
+        sendStoredFileNotFound(res, storagePath);
         return;
       }
+
+      if (encryptedSize < ENCRYPTION_OVERHEAD_BYTES) {
+        sendInvalidStoredFile(res, storagePath, encryptedSize);
+        return;
+      }
+
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(
+        storagePath,
+        resolveSharedAccessDek(sharedFile, userId, req.dekBuffer)
+      );
 
       res.setHeader('Content-Disposition', `attachment; filename="${sharedFile.file!.name}"`);
       res.setHeader('Content-Type', sharedFile.file!.mimeType);
 
-      const decryptStream = EncryptionService.getDecryptStream(sharedFile.file!.storagePath);
-      decryptStream.pipe(res);
+      pipeDecryptStream(decryptStream, res, 'Failed to download file');
+    } catch (error) { next(error); }
+  }
+
+  static async getSharedFolderContents(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { folderId } = req.params;
+      const rootFolderId = req.query.rootFolderId as string | undefined;
+      const contents = await ShareService.getSharedFolderContents(folderId, userId, rootFolderId);
+      res.status(200).json(contents);
     } catch (error) { next(error); }
   }
 
@@ -424,6 +639,259 @@ export class ShareController {
 
       await ShareService.rejectSharedFile(shareId, userId);
       sendSuccess(res, { message: 'Partage rejeté' });
+    } catch (error) { next(error); }
+  }
+
+  static async createBundleShareLink(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { fileIds, password, expiresAt, maxDownloads } = req.body;
+
+      if (!Array.isArray(fileIds) || fileIds.length === 0) {
+        sendError(res, 'fileIds must be a non-empty array', 400);
+        return;
+      }
+
+      const shareLink = await ShareService.createBundleShareLink(userId, fileIds, {
+        password,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        maxDownloads,
+        ownerWrappedDek: ShareKeyService.wrapOwnerDek(req.dekBuffer),
+      });
+
+      sendCreated(res, {
+        shareLink: {
+          id: shareLink.id,
+          token: shareLink.token,
+          fileIds,
+          expiresAt: shareLink.expiresAt,
+          maxDownloads: shareLink.maxDownloads,
+          downloads: shareLink.downloads,
+          url: `${process.env.FRONTEND_URL}/share/${shareLink.token}`,
+        },
+      });
+    } catch (error) { next(error); }
+  }
+
+  static async downloadBundleShareLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.params;
+      const accessToken = getShareAccessToken(req);
+
+      let shareLinkResult;
+      try {
+        shareLinkResult = await ShareService.getBundleShareLink(token);
+      } catch (err: any) {
+        if (err.message === 'Password required' && accessToken) {
+          const prisma = (await import('../config/database')).default;
+          const shareLink = await prisma.sharedLink.findUnique({
+            where: { token },
+            include: { user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } } },
+          });
+
+          try {
+            assertPublicShareLinkAvailable(shareLink, true);
+            verifyPublicShareAccessToken(accessToken, shareLink, token);
+            const fileIds: string[] = JSON.parse(shareLink.bundleFileIds!);
+            const files = await prisma.file.findMany({ where: { id: { in: fileIds }, isDeleted: false } });
+            if (files.length !== fileIds.length || files.some((file) => file.isVault)) {
+              throw new Error('Shared bundle is unavailable');
+            }
+            shareLinkResult = { shareLink, files };
+          } catch {
+            sendSharePasswordInvalid(res);
+            return;
+          }
+        } else if (err.message === 'Password required') {
+          sendSharePasswordRequired(res);
+          return;
+        } else if (err.message === 'Invalid password') {
+          sendSharePasswordInvalid(res);
+          return;
+        } else {
+          throw err;
+        }
+      }
+      const { shareLink, files } = shareLinkResult;
+
+      await ShareService.incrementDownloadCount(token);
+
+      const archiver = (await import('archiver')).default;
+      const { EncryptionService } = await import('../services/encryptionService');
+      const ownerDek = ShareKeyService.unwrapOwnerDek(shareLink.ownerWrappedDek);
+
+      res.setHeader('Content-Disposition', `attachment; filename="bundle-${shareLink.token.slice(0, 8)}.zip"`);
+      res.setHeader('Content-Type', 'application/zip');
+
+      const archive = archiver('zip', { zlib: { level: 6 } });
+      archive.pipe(res);
+
+      for (const file of files) {
+        const stream = await EncryptionService.getDecryptStreamAuto(file.storagePath, ownerDek);
+        archive.append(stream as any, { name: file.name });
+      }
+
+      await archive.finalize();
+    } catch (error) { next(error); }
+  }
+
+  static async unlockDirectShare(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { shareId } = req.params;
+      const { password } = req.body;
+
+      const prisma = (await import('../config/database')).default;
+      const sharedFile = await prisma.sharedFile.findFirst({
+        where: {
+          id: shareId,
+          sharedWithId: userId,
+          accepted: true,
+          file: { is: { isDeleted: false } },
+        },
+      });
+
+      if (!sharedFile) {
+        sendError(res, 'Partage introuvable', 404);
+        return;
+      }
+
+      if (!sharedFile.passwordHash) {
+        sendSuccess(res, { shareAccessToken: null, expiresIn: 0 });
+        return;
+      }
+
+      if (!password) {
+        sendError(res, 'Mot de passe requis', 400);
+        return;
+      }
+
+      const isValid = await bcrypt.compare(password, sharedFile.passwordHash);
+      if (!isValid) {
+        res.status(403).json({ error: 'SHARE_PASSWORD_INVALID', message: 'Mot de passe invalide' });
+        return;
+      }
+
+      const fingerprint = getPasswordFingerprint(sharedFile.passwordHash);
+      const token = jwt.sign(
+        {
+          purpose: SHARE_ACCESS_PURPOSE,
+          kind: 'shared-file',
+          shareId,
+          fileId: sharedFile.fileId,
+          userId,
+          fingerprint,
+        },
+        getShareAccessSecret(),
+        { expiresIn: '1h' }
+      );
+
+      sendSuccess(res, { shareAccessToken: token, expiresIn: 3600 });
+    } catch (error) { next(error); }
+  }
+
+  static async unlockDirectFolderShare(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { shareId } = req.params;
+      const { password } = req.body;
+
+      const prisma = (await import('../config/database')).default;
+      const sharedFolder = await prisma.sharedFolder.findFirst({
+        where: {
+          id: shareId,
+          sharedWithId: userId,
+          accepted: true,
+          folder: { is: { isDeleted: false } },
+        },
+      });
+
+      if (!sharedFolder) {
+        sendError(res, 'Partage introuvable', 404);
+        return;
+      }
+
+      if (!sharedFolder.passwordHash) {
+        sendSuccess(res, { shareAccessToken: null, expiresIn: 0 });
+        return;
+      }
+
+      if (!password) {
+        sendError(res, 'Mot de passe requis', 400);
+        return;
+      }
+
+      const isValid = await bcrypt.compare(password, sharedFolder.passwordHash);
+      if (!isValid) {
+        res.status(403).json({ error: 'SHARE_PASSWORD_INVALID', message: 'Mot de passe invalide' });
+        return;
+      }
+
+      const fingerprint = getPasswordFingerprint(sharedFolder.passwordHash);
+      const token = jwt.sign(
+        {
+          purpose: SHARE_ACCESS_PURPOSE,
+          kind: 'shared-folder',
+          shareId,
+          folderId: sharedFolder.folderId,
+          userId,
+          fingerprint,
+        },
+        getShareAccessSecret(),
+        { expiresIn: '1h' }
+      );
+
+      sendSuccess(res, { shareAccessToken: token, expiresIn: 3600 });
+    } catch (error) { next(error); }
+  }
+
+  static async unlockPublicShare(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token: shareToken } = req.params;
+      const { password } = req.body;
+
+      const prisma = (await import('../config/database')).default;
+      const shareLink = await prisma.sharedLink.findUnique({
+        where: { token: shareToken },
+      });
+
+      if (!shareLink) {
+        sendError(res, 'Lien de partage introuvable', 404);
+        return;
+      }
+
+      if (!shareLink.password) {
+        sendSuccess(res, { shareAccessToken: null, expiresIn: 0 });
+        return;
+      }
+
+      if (!password) {
+        sendError(res, 'Mot de passe requis', 400);
+        return;
+      }
+
+      const isValid = await bcrypt.compare(password, shareLink.password);
+      if (!isValid) {
+        res.status(403).json({ error: 'SHARE_PASSWORD_INVALID', message: 'Mot de passe invalide' });
+        return;
+      }
+
+      assertPublicShareLinkAvailable(shareLink, Boolean(shareLink.bundleFileIds));
+
+      const fingerprint = getPasswordFingerprint(shareLink.password);
+      const token = jwt.sign(
+        {
+          purpose: SHARE_ACCESS_PURPOSE,
+          kind: 'public-link',
+          linkId: shareLink.id,
+          token: shareToken,
+          fingerprint,
+        },
+        getShareAccessSecret(),
+        { expiresIn: '1h' }
+      );
+
+      sendSuccess(res, { shareAccessToken: token, expiresIn: 3600 });
     } catch (error) { next(error); }
   }
 }

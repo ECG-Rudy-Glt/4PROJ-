@@ -1,3 +1,4 @@
+import '../config/environment';
 import prisma from '../config/database';
 
 /**

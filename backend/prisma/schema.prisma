@@ -11,7 +11,6 @@ datasource db {
 // 1. UTILISATEURS & SÉCURITÉ
 // --------------------------------------
 
-
 enum Plan {
   FREE
   PRO
@@ -50,82 +49,85 @@ enum OrganizationMemberRole {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String?   // Null si OAuth
+  id            String        @id @default(uuid())
+  email         String        @unique
+  password      String? // Null si OAuth
   firstName     String?
   lastName      String?
   avatar        String?
-  role          Role      @default(USER)
+  role          Role          @default(USER)
   accountStatus AccountStatus @default(ACTIVE)
 
-  provider      String?   @default("local")
-  providerId    String?
+  provider   String? @default("local")
+  providerId String?
 
   // Quotas & UI
-  quotaUsed     BigInt    @default(0)
-  quotaLimit    BigInt    @default(32212254720) // 30 GB
-  theme         String    @default("light")
+  quotaUsed  BigInt @default(0)
+  quotaLimit BigInt @default(32212254720) // 30 GB
+  theme      String @default("light")
+  language   String @default("fr")
 
   // Plans & Billing
-  plan          Plan      @default(FREE)
+  plan               Plan               @default(FREE)
   subscriptionStatus SubscriptionStatus @default(ACTIVE)
-  stripeCustomerId String?
+  stripeCustomerId   String?
 
   // Coffre-fort sécurisé
-  vaultEnabled      Boolean   @default(false)
-  vaultPasswordHash String?
-  vaultUnlockUntil  DateTime?
-  vaultLockedUntil  DateTime?
-  vaultFailedAttempts Int     @default(0)
+  vaultEnabled        Boolean   @default(false)
+  vaultPasswordHash   String?
+  vaultUnlockUntil    DateTime?
+  vaultLockedUntil    DateTime?
+  vaultFailedAttempts Int       @default(0)
   vaultLastUnlockedAt DateTime?
 
   // MFA (Multi-Factor Authentication)
-  mfaEnabled    Boolean   @default(false)
-  mfaSecret     String?   // Secret TOTP encrypté
+  mfaEnabled     Boolean   @default(false)
+  mfaSecret      String? // Secret TOTP encrypté
   mfaBackupCodes String[] // Array de codes de récupération hashés
-  mfaSetupAt    DateTime? // Date de configuration du MFA
-  
+  mfaSetupAt     DateTime? // Date de configuration du MFA
+
   // Chiffrement par utilisateur (KEK/DEK)
-  kekSalt       String?   // Sel PBKDF2 (hex, 16 bytes) pour dériver la KEK depuis le mot de passe
-  encryptedDek  String?   // DEK chiffrée avec KEK (hex : IV+ciphertext+AuthTag)
+  kekSalt      String? // Sel PBKDF2 (hex, 16 bytes) pour dériver la KEK depuis le mot de passe
+  encryptedDek String? // DEK chiffrée avec KEK (hex : IV+ciphertext+AuthTag)
 
   // Sécurité & Sessions
-  tokenVersion  Int       @default(1) // Pour l'invalidation globale des tokens
-  lastActiveAt  DateTime  @default(now()) // Pour le timeout d'inactivité
+  tokenVersion Int      @default(1) // Pour l'invalidation globale des tokens
+  lastActiveAt DateTime @default(now()) // Pour le timeout d'inactivité
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  files         File[]
-  folders       Folder[]
-  sharedLinks   SharedLink[]
-  trustedDevices TrustedDevice[]
+  files                   File[]
+  folders                 Folder[]
+  sharedLinks             SharedLink[]
+  trustedDevices          TrustedDevice[]
   organizationMemberships OrganizationMember[]
-  currentOrganizationId String?
-  currentOrganization   Organization? @relation("CurrentOrganization", fields: [currentOrganizationId], references: [id], onDelete: SetNull)
+  currentOrganizationId   String?
+  currentOrganization     Organization?        @relation("CurrentOrganization", fields: [currentOrganizationId], references: [id], onDelete: SetNull)
 
   // Gestion des partages reçus/envoyés
-  sharedWithMe  SharedFolder[] @relation("SharedWithUser")
-  sharedByMe    SharedFolder[] @relation("SharedByUser")
+  sharedWithMe SharedFolder[] @relation("SharedWithUser")
+  sharedByMe   SharedFolder[] @relation("SharedByUser")
 
   filesSharedWithMe SharedFile[] @relation("FileSharedWithUser")
   filesSharedByMe   SharedFile[] @relation("FileSharedByUser")
 
   // Nouvelles fonctionnalités
-  refreshTokens RefreshToken[] // Pour la sécurité JWT
-  auditLogs     AuditLog[]     // Pour le Dashboard (Activité)
-  tags          Tag[]          // Tags créés par l'utilisateur
-  comments      Comment[]      // Commentaires créés par l'utilisateur
-  fileVersions  FileVersion[]  // Versions de fichiers créées
-  switchLinksAsRoot   AccountSwitchLink[] @relation("SwitchRootUser")
-  switchLinksAsTarget AccountSwitchLink[] @relation("SwitchTargetUser")
-  delegationsGiven    Delegation[] @relation("DelegationOwner")
-  delegationsReceived Delegation[] @relation("DelegationDelegate")
-  notifications      Notification[]      // Notifications de l'utilisateur
-  pushSubscriptions  PushSubscription[]  // Abonnements push navigateur
-  conversations      Conversation[]      // Historique des conversations Bobby
+  refreshTokens       RefreshToken[] // Pour la sécurité JWT
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[] // Pour le Dashboard (Activité)
+  tags                Tag[] // Tags créés par l'utilisateur
+  comments            Comment[] // Commentaires créés par l'utilisateur
+  fileVersions        FileVersion[] // Versions de fichiers créées
+  switchLinksAsRoot   AccountSwitchLink[]  @relation("SwitchRootUser")
+  switchLinksAsTarget AccountSwitchLink[]  @relation("SwitchTargetUser")
+  delegationsGiven    Delegation[]         @relation("DelegationOwner")
+  delegationsReceived Delegation[]         @relation("DelegationDelegate")
+  notifications       Notification[] // Notifications de l'utilisateur
+  pushSubscriptions   PushSubscription[] // Abonnements push navigateur
+  expoPushTokens      ExpoPushToken[] // Tokens push Expo (mobile)
+  conversations       Conversation[] // Historique des conversations Bobby
 
   @@index([email])
   @@index([providerId])
@@ -146,31 +148,44 @@ model RefreshToken {
   @@index([userId])
 }
 
+// Nouveau : Pour la réinitialisation de mot de passe
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
 // --------------------------------------
 // 2. DOSSIERS
 // --------------------------------------
 
 model Folder {
-  id        String   @id @default(uuid())
-  name      String
-  path      String   // Breadcrumbs
+  id   String @id @default(uuid())
+  name String
+  path String // Breadcrumbs
 
-  parentId  String?
-  parent    Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children  Folder[] @relation("FolderHierarchy")
+  parentId String?
+  parent   Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderHierarchy")
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  files     File[]
-  isVault   Boolean  @default(false)
+  files   File[]
+  isVault Boolean @default(false)
 
-  isDeleted    Boolean  @default(false)
-  deletedAt    DateTime?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
 
   // Relations pour les partages
-  sharedLinks  SharedLink[]
-  sharedWith   SharedFolder[]
+  sharedLinks SharedLink[]
+  sharedWith  SharedFolder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,17 +200,17 @@ model Folder {
 }
 
 model AccountSwitchLink {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   rootUserId          String
-  rootUser            User     @relation("SwitchRootUser", fields: [rootUserId], references: [id], onDelete: Cascade)
+  rootUser            User      @relation("SwitchRootUser", fields: [rootUserId], references: [id], onDelete: Cascade)
   targetUserId        String
-  targetUser          User     @relation("SwitchTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetUser          User      @relation("SwitchTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
   label               String?
   expiresAt           DateTime
   lastAuthenticatedAt DateTime
   revokedAt           DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([rootUserId, revokedAt, expiresAt])
   @@index([targetUserId])
@@ -228,42 +243,42 @@ model Delegation {
 // --------------------------------------
 
 model File {
-  id           String   @id @default(uuid())
+  id           String @id @default(uuid())
   name         String
   originalName String
   mimeType     String
   size         BigInt
 
-  storagePath  String   @unique // Lien vers Docker
+  storagePath String @unique // Lien vers Docker
 
   // Analytics
-  views        Int      @default(0)
-  downloads    Int      @default(0)
+  views          Int      @default(0)
+  downloads      Int      @default(0)
   lastAccessedAt DateTime @default(now())
 
   // Nouveau : Pour la prévisualisation & média
   thumbnailPath String? // Lien vers la miniature
   category      String? // 'image', 'video', 'doc', 'audio', 'other' (Pour le graph du Dashboard)
 
-  folderId     String?
-  folder       Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  sharedLinks  SharedLink[]
-  tags         FileTag[]  // Tags associés au fichier
-  comments     Comment[]  // Commentaires sur le fichier
-  versions     FileVersion[]  // Versions du fichier
-  sharedWith   SharedFile[]  // Partages avec d'autres utilisateurs
-  isVault      Boolean  @default(false)
-  searchIndex  FileSearchIndex?
+  sharedLinks SharedLink[]
+  tags        FileTag[] // Tags associés au fichier
+  comments    Comment[] // Commentaires sur le fichier
+  versions    FileVersion[] // Versions du fichier
+  sharedWith  SharedFile[] // Partages avec d'autres utilisateurs
+  isVault     Boolean          @default(false)
+  searchIndex FileSearchIndex?
 
-  isDeleted    Boolean  @default(false)
-  deletedAt    DateTime?
-  isFavorite   Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime?
+  isFavorite Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([userId])
   @@index([folderId])
@@ -279,7 +294,7 @@ model File {
 }
 
 model FileSearchIndex {
-  id           String   @id @default(uuid())
+  id            String   @id @default(uuid())
   fileId        String   @unique
   file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
   extractedText String   @db.Text
@@ -296,18 +311,22 @@ model FileSearchIndex {
 // --------------------------------------
 
 model SharedLink {
-  id           String    @id @default(uuid())
-  token        String    @unique @default(uuid())
+  id    String @id @default(uuid())
+  token String @unique @default(uuid())
 
   // Peut pointer vers un fichier OU un dossier
-  fileId       String?
-  file         File?     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId String?
+  file   File?   @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
-  folderId     String?
-  folder       Folder?   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // JSON array of file IDs for multi-file bundle links
+  bundleFileIds   String?
+  ownerWrappedDek String? // DEK propriétaire enveloppée pour lire les fichiers partagés
 
   password     String?
   expiresAt    DateTime?
@@ -321,26 +340,28 @@ model SharedLink {
 }
 
 model SharedFolder {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  folderId     String
-  folder       Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId String
+  folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
-  sharedById   String
-  sharedBy     User     @relation("SharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedById String
+  sharedBy   User   @relation("SharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
 
   sharedWithId String
-  sharedWith   User     @relation("SharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
+  sharedWith   User   @relation("SharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
 
   // Permissions granulaires
-  canRead      Boolean  @default(true)   // Peut consulter les fichiers
-  canWrite     Boolean  @default(false)  // Peut uploader/modifier des fichiers
-  canDelete    Boolean  @default(false)  // Peut supprimer des fichiers
-  canShare     Boolean  @default(false)  // Peut repartager à d'autres utilisateurs
+  canRead   Boolean @default(true) // Peut consulter les fichiers
+  canWrite  Boolean @default(false) // Peut uploader/modifier des fichiers
+  canDelete Boolean @default(false) // Peut supprimer des fichiers
+  canShare  Boolean @default(false) // Peut repartager à d'autres utilisateurs
 
   // Acceptation du partage
-  accepted     Boolean  @default(false)  // L'utilisateur a accepté le partage
-  createdAt    DateTime @default(now())
+  accepted        Boolean  @default(false) // L'utilisateur a accepté le partage
+  ownerWrappedDek String? // DEK propriétaire enveloppée pour les accès au dossier partagé
+  passwordHash    String? // Hash bcrypt du mot de passe pour le partage (PRO+)
+  createdAt       DateTime @default(now())
 
   @@unique([folderId, sharedWithId])
   @@index([sharedById])
@@ -348,26 +369,28 @@ model SharedFolder {
 }
 
 model SharedFile {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  fileId       String
-  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
-  sharedById   String
-  sharedBy     User     @relation("FileSharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedById String
+  sharedBy   User   @relation("FileSharedByUser", fields: [sharedById], references: [id], onDelete: Cascade)
 
   sharedWithId String
-  sharedWith   User     @relation("FileSharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
+  sharedWith   User   @relation("FileSharedWithUser", fields: [sharedWithId], references: [id], onDelete: Cascade)
 
   // Permissions granulaires pour les fichiers
-  canRead      Boolean  @default(true)   // Peut consulter/télécharger le fichier
-  canWrite     Boolean  @default(false)  // Peut modifier le fichier (upload nouvelle version)
-  canDelete    Boolean  @default(false)  // Peut supprimer le fichier
-  canShare     Boolean  @default(false)  // Peut repartager à d'autres utilisateurs
+  canRead   Boolean @default(true) // Peut consulter/télécharger le fichier
+  canWrite  Boolean @default(false) // Peut modifier le fichier (upload nouvelle version)
+  canDelete Boolean @default(false) // Peut supprimer le fichier
+  canShare  Boolean @default(false) // Peut repartager à d'autres utilisateurs
 
   // Acceptation du partage
-  accepted     Boolean  @default(false)  // L'utilisateur a accepté le partage
-  createdAt    DateTime @default(now())
+  accepted        Boolean  @default(false) // L'utilisateur a accepté le partage
+  ownerWrappedDek String? // DEK propriétaire enveloppée pour les accès au fichier partagé
+  passwordHash    String? // Hash bcrypt du mot de passe pour le partage (PRO+)
+  createdAt       DateTime @default(now())
 
   @@unique([fileId, sharedWithId])
   @@index([sharedById])
@@ -379,8 +402,8 @@ model AuditLog {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String   // 'UPLOAD', 'DELETE', 'LOGIN', 'DOWNLOAD', 'SHARE', 'CREATE_FOLDER'
-  details   String?  // JSON avec les détails de l'action
+  action    String // 'UPLOAD', 'DELETE', 'LOGIN', 'DOWNLOAD', 'SHARE', 'CREATE_FOLDER'
+  details   String? // JSON avec les détails de l'action
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -425,19 +448,19 @@ model FileTag {
 // --------------------------------------
 
 model Comment {
-  id        String   @id @default(uuid())
-  content   String
+  id      String @id @default(uuid())
+  content String
 
-  fileId    String
-  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Pour les réponses (commentaires imbriqués)
-  parentId  String?
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -476,17 +499,17 @@ model FileVersion {
 // --------------------------------------
 
 model TrustedDevice {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  deviceFingerprint String   // Hash unique de l'appareil (user-agent + IP + accept-language)
-  deviceName        String   // Ex: "Chrome on Windows", "Firefox on macOS"
+  deviceFingerprint String // Hash unique de l'appareil (user-agent + IP + accept-language)
+  deviceName        String // Ex: "Chrome on Windows", "Firefox on macOS"
   ipAddress         String
 
-  createdAt         DateTime @default(now())
-  expiresAt         DateTime // 30 jours après création
-  lastUsedAt        DateTime @default(now())
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime // 30 jours après création
+  lastUsedAt DateTime @default(now())
 
   @@index([userId])
   @@index([deviceFingerprint])
@@ -494,27 +517,27 @@ model TrustedDevice {
 }
 
 model Organization {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  members     OrganizationMember[]
-  currentUsers User[]  @relation("CurrentOrganization")
+  members      OrganizationMember[]
+  currentUsers User[]               @relation("CurrentOrganization")
 
   @@index([name])
 }
 
 model OrganizationMember {
-  id             String               @id @default(uuid())
+  id             String                 @id @default(uuid())
   organizationId String
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
-  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           OrganizationMemberRole @default(MEMBER)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -539,7 +562,7 @@ model Notification {
   title     String
   message   String
   read      Boolean          @default(false)
-  data      Json?            // Metadata (fileId, folderId, etc.)
+  data      Json? // Metadata (fileId, folderId, etc.)
   createdAt DateTime         @default(now())
 
   @@index([userId])
@@ -559,6 +582,17 @@ model PushSubscription {
   endpoint  String   @unique
   p256dh    String
   auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ExpoPushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -585,7 +619,7 @@ model ConversationMessage {
   id             String       @id @default(uuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String       // "user" | "assistant"
+  role           String // "user" | "assistant"
   content        String
   createdAt      DateTime     @default(now())
 

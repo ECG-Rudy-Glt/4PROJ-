@@ -1,8 +1,57 @@
 import { useEffect } from 'react';
 import Toast from 'react-native-toast-message';
 import { useSocket } from '../hooks/useSocket';
-import { useAuthStore } from '../stores/useAuthStore';
 import { useNotificationStore } from '../stores/useNotificationStore';
+
+const getDataString = (data: Record<string, unknown> | undefined, key: string): string | undefined => {
+  const value = data?.[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const formatNotificationToast = (notification: any) => {
+  const data = notification?.data as Record<string, unknown> | undefined;
+  const title = typeof notification?.title === 'string' ? notification.title : '';
+  const message = typeof notification?.message === 'string' ? notification.message : '';
+  const usage = typeof data?.usage === 'number' ? data.usage : undefined;
+
+  if (title === 'notifications.share.file_received.title') {
+    return {
+      type: 'success',
+      text1: 'Nouveau fichier partagé',
+      text2: `${getDataString(data, 'userName') ?? 'Quelqu\'un'} vous a partagé un fichier.`,
+    };
+  }
+
+  if (title === 'notifications.share.folder_received.title') {
+    return {
+      type: 'success',
+      text1: 'Nouveau dossier partagé',
+      text2: `${getDataString(data, 'userName') ?? 'Quelqu\'un'} vous a partagé un dossier.`,
+    };
+  }
+
+  if (title.startsWith('notifications.comment.')) {
+    return {
+      type: 'info',
+      text1: 'Nouveau commentaire',
+      text2: `${getDataString(data, 'userName') ?? 'Quelqu\'un'} a commenté ${getDataString(data, 'fileName') ?? 'un fichier'}.`,
+    };
+  }
+
+  if (title.startsWith('notifications.quota.')) {
+    return {
+      type: 'info',
+      text1: 'Quota',
+      text2: typeof usage === 'number' ? `Votre quota est utilisé à ${usage}%.` : 'Votre quota évolue.',
+    };
+  }
+
+  return {
+    type: 'info',
+    text1: title || 'Nouvelle notification',
+    text2: message || '',
+  };
+};
 
 /**
  * Mounts a Socket.io listener while the user is authenticated.
@@ -10,7 +59,6 @@ import { useNotificationStore } from '../stores/useNotificationStore';
  */
 export default function SocketListener() {
   const socket = useSocket();
-  const user = useAuthStore((s) => s.user);
   const fetch = useNotificationStore((s) => s.fetch);
 
   // Initial load when socket comes up
@@ -21,55 +69,25 @@ export default function SocketListener() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleComment = (data: any) => {
-      if (data?.userId === user?.id) return;
-      Toast.show({
-        type: 'info',
-        text1: 'Nouveau commentaire',
-        text2: `${data?.user?.firstName ?? 'Quelqu\'un'} a commenté un fichier.`,
-      });
+    const handleNotification = (notification: any) => {
+      Toast.show(formatNotificationToast(notification));
       fetch();
     };
 
-    const handleShare = (data: any) => {
-      Toast.show({
-        type: 'success',
-        text1: 'Nouveau partage reçu',
-        text2: `${data?.sharedBy?.firstName ?? 'Quelqu\'un'} vous a partagé un ${
-          data?.type === 'folder' ? 'dossier' : 'fichier'
-        }.`,
-      });
+    const refreshOnly = () => {
       fetch();
     };
 
-    const handleAccepted = () => {
-      Toast.show({ type: 'success', text1: 'Partage accepté' });
-      fetch();
-    };
-
-    const handleQuota = (data: any) => {
-      Toast.show({
-        type: 'info',
-        text1: 'Quota',
-        text2: data?.message ?? 'Votre quota évolue.',
-      });
-      fetch();
-    };
-
-    socket.on('comment:new', handleComment);
-    socket.on('share:new', handleShare);
-    socket.on('share:accepted', handleAccepted);
-    socket.on('quota:update', handleQuota);
-    socket.on('notification:new', () => fetch());
+    socket.on('notification_new', handleNotification);
+    socket.on('notification:new', handleNotification);
+    socket.on('share_received', refreshOnly);
 
     return () => {
-      socket.off('comment:new', handleComment);
-      socket.off('share:new', handleShare);
-      socket.off('share:accepted', handleAccepted);
-      socket.off('quota:update', handleQuota);
-      socket.off('notification:new');
+      socket.off('notification_new', handleNotification);
+      socket.off('notification:new', handleNotification);
+      socket.off('share_received', refreshOnly);
     };
-  }, [socket, user?.id, fetch]);
+  }, [socket, fetch]);
 
   return null;
 }
