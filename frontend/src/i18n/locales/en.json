@@ -793,6 +793,7 @@
     "payment_cancelled": "Payment cancelled",
     "downgrade_success": "Successfully downgraded to free plan",
     "payment_failed": "Failed to transition to payment",
+    "checkout_missing_url": "Stripe did not return a checkout URL",
     "recommended": "Recommended",
     "storage_secure": "of secure storage",
     "current": "Current plan",

@@ -793,6 +793,7 @@
     "payment_cancelled": "Paiement annulé",
     "downgrade_success": "Retour au plan gratuit effectué",
     "payment_failed": "Échec de la transition vers le paiement",
+    "checkout_missing_url": "Stripe n'a pas renvoyé d'URL de paiement",
     "recommended": "Recommandé",
     "storage_secure": "de stockage sécurisé",
     "current": "Plan actuel",

@@ -3,9 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Check, X, Zap, Database, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '@/services/api';
+import { billingService } from '@/services/billingService';
 import { useTranslation } from 'react-i18next';
 import { PlanId, PLAN_STORAGE_LABELS } from '@/constants/plans';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 const plans: Array<{
   id: PlanId;
@@ -127,31 +128,24 @@ export default function PlansPage() {
     setLoading(planId);
     try {
       if (planId === 'FREE') {
-        await api.post('/billing/downgrade-free');
+        await billingService.downgradeToFree();
         await refreshProfile();
         toast.success(t('plans_page.downgrade_success'));
         return;
       }
 
-      // Simulation Stripe Checkout
       setIsRedirecting(true);
-      
-      const response = await api.post('/billing/checkout-session', { plan: planId });
-      
-      // Simuler le délai de paiement "en cours"
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      if (response.data.url && !response.data.url.includes('/plans?checkout=success')) {
-        window.location.href = response.data.url;
-      } else {
-        // En mode simulation, le plan est déjà activé sur le backend
-        await refreshProfile();
-        setIsRedirecting(false);
-        toast.success(t('plans_page.payment_success'));
+
+      const session = await billingService.createCheckoutSession(planId);
+
+      if (!session.url) {
+        throw new Error(t('plans_page.checkout_missing_url'));
       }
+
+      window.location.href = session.url;
     } catch (error: any) {
       setIsRedirecting(false);
-      toast.error(error.response?.data?.error || t('plans_page.payment_failed'));
+      toast.error(getApiErrorMessage(error, t('plans_page.payment_failed')));
     } finally {
       setLoading(null);
     }
