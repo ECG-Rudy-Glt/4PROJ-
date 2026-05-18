@@ -6,6 +6,7 @@ import { AuditService } from '../services/auditService';
 import { validateEmail, validatePasswordStrength } from '../utils/validators';
 import { mfaService } from '../services/mfaService';
 import { trustedDeviceService } from '../services/trustedDeviceService';
+import { AccountDeletionService } from '../services/accountDeletionService';
 import { generateTempToken } from './mfaController';
 import { clearSwitchSessionCookie } from '../utils/cookies';
 import logger from '../config/logger';
@@ -134,6 +135,20 @@ export class AuthController {
     } catch (error) { next(error); }
   }
 
+  static async deleteAccount(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await AccountDeletionService.deleteAccount(req.user!.id, {
+        confirmationEmail: String(req.body.confirmationEmail || ''),
+        currentPassword: typeof req.body.currentPassword === 'string' ? req.body.currentPassword : undefined,
+        mfaCode: typeof req.body.mfaCode === 'string' ? req.body.mfaCode : undefined,
+      });
+
+      clearSwitchSessionCookie(res);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
   static async oauthCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const user = req.user!;

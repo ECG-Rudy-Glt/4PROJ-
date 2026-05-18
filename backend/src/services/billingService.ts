@@ -164,6 +164,26 @@ export class BillingService {
     };
   }
 
+  static async cancelCustomerSubscriptions(customerId: string) {
+    const stripe = this.getStripeClient();
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 100,
+    });
+
+    const cancelableSubscriptions = subscriptions.data.filter((subscription) => (
+      subscription.status !== 'canceled'
+      && subscription.status !== 'incomplete_expired'
+    ));
+
+    for (const subscription of cancelableSubscriptions) {
+      await stripe.subscriptions.cancel(subscription.id);
+    }
+
+    return { canceled: cancelableSubscriptions.length };
+  }
+
   static constructWebhookEvent(rawPayload: Buffer | string, signature?: string): Stripe.Event {
     const stripe = this.getStripeClient();
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

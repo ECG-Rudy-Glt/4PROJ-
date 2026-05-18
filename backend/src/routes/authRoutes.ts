@@ -1,15 +1,23 @@
-import { Router } from 'express';
+import { NextFunction, Response, Router } from 'express';
 import { AuthController } from '../controllers/authController';
 import { UserProfileController } from '../controllers/userProfileController';
 import { DataExportController } from '../controllers/dataExportController';
-import { authenticate } from '../middlewares/auth';
+import { authenticate, AuthRequest } from '../middlewares/auth';
 import { body } from 'express-validator';
 import { validate } from '../middlewares/validation';
 import passport from '../config/passport';
 import { avatarUpload } from '../config/multer';
+import { sendError } from '../utils/response';
 
 const router = Router();
 
+const requireDirectSession = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.authContext?.authType && req.authContext.authType !== 'DIRECT') {
+    sendError(res, 'Action autorisée uniquement depuis votre session directe', 403, 'DIRECT_SESSION_REQUIRED');
+    return;
+  }
+  next();
+};
 // Local auth
 router.post(
   '/register',
@@ -58,7 +66,17 @@ router.post(
 
 // RGPD - Export des données
 router.get('/export-data', authenticate, DataExportController.exportUserData);
-
+router.delete(
+  '/account',
+  authenticate,
+  requireDirectSession,
+  validate([
+    body('confirmationEmail').isEmail().withMessage('Confirmation email is required'),
+    body('currentPassword').optional().isString().withMessage('Current password must be a string'),
+    body('mfaCode').optional().isString().isLength({ min: 6, max: 32 }).withMessage('MFA code is invalid'),
+  ]),
+  AuthController.deleteAccount
+);
 // OAuth2 routes
 router.get(
   '/google',

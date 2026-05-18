@@ -6,6 +6,9 @@ export interface User {
   avatar?: string;
   role?: 'USER' | 'ADMIN';
   accountStatus?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  hasPassword?: boolean;
+  mfaEnabled?: boolean;
+  authProvider?: 'local' | 'google' | 'github' | 'deleted' | string;
   quotaUsed: number;
   quotaLimit: number;
   theme: string;

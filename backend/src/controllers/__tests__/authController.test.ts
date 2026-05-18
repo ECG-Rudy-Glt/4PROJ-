@@ -5,6 +5,7 @@ import { trustedDeviceService } from '../../services/trustedDeviceService';
 import { generateTempToken } from '../mfaController';
 import { AuditService } from '../../services/auditService';
 import { generateToken } from '../../utils/jwt';
+import { AccountDeletionService } from '../../services/accountDeletionService';
 
 jest.mock('../../services/authService', () => ({
   AuthService: {
@@ -17,6 +18,11 @@ jest.mock('../../services/authService', () => ({
   },
 }));
 
+jest.mock('../../services/accountDeletionService', () => ({
+  AccountDeletionService: {
+    deleteAccount: jest.fn(),
+  },
+}));
 jest.mock('../../services/mfaService', () => ({
   mfaService: {
     isMFAEnabled: jest.fn(),
@@ -312,6 +318,34 @@ describe('AuthController', () => {
     });
   });
 
+  describe('deleteAccount', () => {
+    it('should delete the current account with confirmation data', async () => {
+      (AccountDeletionService.deleteAccount as jest.Mock).mockResolvedValue({ message: 'Compte supprimé avec succès' });
+
+      const req: any = {
+        user: { id: 'user-1' },
+        body: {
+          confirmationEmail: 'user@example.com',
+          currentPassword: 'password',
+          mfaCode: '123456',
+        },
+      };
+      const res = createRes();
+
+      await AuthController.deleteAccount(req, res, jest.fn());
+
+      expect(AccountDeletionService.deleteAccount).toHaveBeenCalledWith('user-1', {
+        confirmationEmail: 'user@example.com',
+        currentPassword: 'password',
+        mfaCode: '123456',
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { message: 'Compte supprimé avec succès' },
+      });
+    });
+  });
   describe('oauthCallback', () => {
     it('should issue OAuth token with current tokenVersion', async () => {
       (generateToken as jest.Mock).mockReturnValue('oauth-token');

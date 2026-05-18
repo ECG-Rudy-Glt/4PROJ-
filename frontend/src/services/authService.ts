@@ -56,6 +56,14 @@ export const authService = {
     return response.data.data || response.data;
   },
 
+  async deleteAccount(data: {
+    confirmationEmail: string;
+    currentPassword?: string;
+    mfaCode?: string;
+  }) {
+    const response = await api.delete('/auth/account', { data });
+    return response.data.data || response.data;
+  },
   async logout(refreshToken: string) {
     const response = await api.post('/auth/logout', { refreshToken });
     return response.data.data || response.data;

@@ -27,6 +27,9 @@ export default function LoginPage() {
       toast.error(t('login.session_expired'));
       // Clean URL
       window.history.replaceState({}, '', '/login');
+    } else if (params.get('accountDeleted') === 'true') {
+      toast.success(t('login.account_deleted'));
+      window.history.replaceState({}, '', '/login');
     }
   }, [t]);
 
