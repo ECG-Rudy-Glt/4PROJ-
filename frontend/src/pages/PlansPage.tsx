@@ -219,6 +219,7 @@ export default function PlansPage() {
                 </div>
 
                 <button
+                  data-testid={`select-plan-${plan.id}`}
                   onClick={() => handlePlanSelection(plan.id)}
                   disabled={isCurrentPlan || loading !== null}
                   className={`w-full py-4 px-6 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${

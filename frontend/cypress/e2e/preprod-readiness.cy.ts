@@ -36,7 +36,8 @@ describe('Preprod readiness — Stripe test checkout', () => {
       },
     });
 
-    cy.contains('button', /select|selectionner|sélectionner/i).click();
+    cy.wait('@getProfile');
+    cy.get('[data-testid="select-plan-PRO"]').should('be.enabled').click();
     cy.wait('@checkout');
   });
 });
