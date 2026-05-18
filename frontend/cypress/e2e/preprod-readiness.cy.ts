@@ -42,7 +42,10 @@ describe('Preprod readiness — Stripe test checkout', () => {
 });
 
 describe('Preprod readiness — public legal pages', () => {
-  it('serves privacy, terms and contact pages without authentication', () => {
+  it('serves legal, privacy, terms and contact pages without authentication', () => {
+    cy.visit('/legal');
+    cy.contains(/mentions/i).should('be.visible');
+
     cy.visit('/privacy');
     cy.contains(/confidentialite|confidentialité/i).should('be.visible');
 

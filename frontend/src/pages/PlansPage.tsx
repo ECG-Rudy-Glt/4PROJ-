@@ -72,7 +72,7 @@ const plans: Array<{
       { name: 'plans_page.features.vault', included: true },
       { name: 'plans_page.features.sharing_advanced', included: true },
       { name: 'plans_page.features.onlyoffice', included: true },
-      { name: 'plans_page.features.versioning_30', included: true },
+      { name: 'plans_page.features.versioning_25', included: true },
       { name: 'plans_page.features.email_support_24h', included: true },
     ],
     icon: Server,

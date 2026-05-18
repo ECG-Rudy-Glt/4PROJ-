@@ -46,6 +46,7 @@ function App() {
       <Route path="/mfa-verify" element={<MFAVerificationPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
       <Route path="/share/:token" element={<SharedLinkPage />} />
+      <Route path="/legal" element={<LegalPage kind="legal" />} />
       <Route path="/privacy" element={<LegalPage kind="privacy" />} />
       <Route path="/terms" element={<LegalPage kind="terms" />} />
       <Route path="/contact" element={<LegalPage kind="contact" />} />
