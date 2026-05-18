@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { validatePasswordStrength } from '@/utils/validators';
 import MFASetupModal from '@/components/MFASetupModal';
 import BackupCodesModal from '@/components/BackupCodesModal';
+import OAuthButtons from '@/components/OAuthButtons';
 import { useMobileRedirect } from '@/hooks/useMobileRedirect';
 
 export default function RegisterPage() {
@@ -202,6 +203,8 @@ export default function RegisterPage() {
           >
             {isLoading ? t('register.button_loading') : t('register.button')}
           </button>
+
+          <OAuthButtons />
 
           <div className="text-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">

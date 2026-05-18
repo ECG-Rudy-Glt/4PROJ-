@@ -1,4 +1,4 @@
-import { NextFunction, Response, Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import { AuthController } from '../controllers/authController';
 import { UserProfileController } from '../controllers/userProfileController';
 import { DataExportController } from '../controllers/dataExportController';
@@ -11,6 +11,26 @@ import { sendError } from '../utils/response';
 
 const router = Router();
 
+const isOAuthProviderConfigured = (provider: 'google' | 'github') => {
+  if (provider === 'google') {
+    return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  }
+
+  return Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
+};
+
+const requireOAuthProvider = (provider: 'google' | 'github') => (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!isOAuthProviderConfigured(provider)) {
+    sendError(res, 'OAuth provider not configured', 404, 'OAUTH_PROVIDER_DISABLED');
+    return;
+  }
+  next();
+};
+
 const requireDirectSession = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (req.authContext?.authType && req.authContext.authType !== 'DIRECT') {
     sendError(res, 'Action autorisée uniquement depuis votre session directe', 403, 'DIRECT_SESSION_REQUIRED');
@@ -18,6 +38,7 @@ const requireDirectSession = (req: AuthRequest, res: Response, next: NextFunctio
   }
   next();
 };
+
 // Local auth
 router.post(
   '/register',
@@ -45,6 +66,8 @@ router.post('/forgot-password', AuthController.requestPasswordReset);
 router.post('/reset-password-info', AuthController.getResetTokenInfo);
 router.get('/reset-password-info', AuthController.getResetTokenInfo);
 router.post('/reset-password', AuthController.resetPassword);
+
+router.get('/providers', AuthController.getOAuthProviders);
 
 // Global Logout
 router.post('/logout-all', authenticate, AuthController.logoutAll);
@@ -77,25 +100,30 @@ router.delete(
   ]),
   AuthController.deleteAccount
 );
+
 // OAuth2 routes
 router.get(
   '/google',
+  requireOAuthProvider('google'),
   passport.authenticate('google', { scope: ['profile', 'email'], session: false })
 );
 
 router.get(
   '/google/callback',
+  requireOAuthProvider('google'),
   passport.authenticate('google', { session: false, failureRedirect: '/auth/failure' }),
   AuthController.oauthCallback
 );
 
 router.get(
   '/github',
+  requireOAuthProvider('github'),
   passport.authenticate('github', { scope: ['user:email'], session: false })
 );
 
 router.get(
   '/github/callback',
+  requireOAuthProvider('github'),
   passport.authenticate('github', { session: false, failureRedirect: '/auth/failure' }),
   AuthController.oauthCallback
 );

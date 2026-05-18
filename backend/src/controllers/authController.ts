@@ -21,6 +21,13 @@ function getBearerToken(req: Request): string | undefined {
 }
 
 export class AuthController {
+  static async getOAuthProviders(_req: Request, res: Response): Promise<void> {
+    sendSuccess(res, {
+      google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+    });
+  }
+
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password, firstName, lastName } = req.body;
@@ -149,6 +156,7 @@ export class AuthController {
       next(error);
     }
   }
+
   static async oauthCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const user = req.user!;

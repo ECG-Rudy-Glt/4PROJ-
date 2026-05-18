@@ -23,6 +23,7 @@ jest.mock('../../services/accountDeletionService', () => ({
     deleteAccount: jest.fn(),
   },
 }));
+
 jest.mock('../../services/mfaService', () => ({
   mfaService: {
     isMFAEnabled: jest.fn(),
@@ -92,8 +93,48 @@ const baseLoginResult = {
 };
 
 describe('AuthController', () => {
+  const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const originalGithubClientId = process.env.GITHUB_CLIENT_ID;
+  const originalGithubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    delete process.env.GITHUB_CLIENT_ID;
+    delete process.env.GITHUB_CLIENT_SECRET;
+  });
+
+  afterAll(() => {
+    if (originalGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+    if (originalGoogleClientSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
+    else process.env.GOOGLE_CLIENT_SECRET = originalGoogleClientSecret;
+    if (originalGithubClientId === undefined) delete process.env.GITHUB_CLIENT_ID;
+    else process.env.GITHUB_CLIENT_ID = originalGithubClientId;
+    if (originalGithubClientSecret === undefined) delete process.env.GITHUB_CLIENT_SECRET;
+    else process.env.GITHUB_CLIENT_SECRET = originalGithubClientSecret;
+  });
+
+  describe('getOAuthProviders', () => {
+    it('should expose only configured OAuth providers', async () => {
+      process.env.GOOGLE_CLIENT_ID = 'google-client';
+      process.env.GOOGLE_CLIENT_SECRET = 'google-secret';
+
+      const res = createRes();
+
+      await AuthController.getOAuthProviders({} as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          google: true,
+          github: false,
+        },
+      });
+    });
   });
 
   describe('register', () => {
@@ -346,6 +387,7 @@ describe('AuthController', () => {
       });
     });
   });
+
   describe('oauthCallback', () => {
     it('should issue OAuth token with current tokenVersion', async () => {
       (generateToken as jest.Mock).mockReturnValue('oauth-token');

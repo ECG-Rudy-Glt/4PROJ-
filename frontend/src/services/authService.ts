@@ -9,6 +9,11 @@ function clearStoredAuth() {
 }
 
 export const authService = {
+  async getOAuthProviders(): Promise<{ google: boolean; github: boolean }> {
+    const response = await api.get('/auth/providers');
+    return response.data.data || response.data;
+  },
+
   async register(data: {
     email: string;
     password: string;
@@ -64,6 +69,7 @@ export const authService = {
     const response = await api.delete('/auth/account', { data });
     return response.data.data || response.data;
   },
+
   async logout(refreshToken: string) {
     const response = await api.post('/auth/logout', { refreshToken });
     return response.data.data || response.data;

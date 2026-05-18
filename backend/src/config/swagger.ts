@@ -219,6 +219,36 @@ Obtenez un token via **POST /api/auth/login**.
       },
     },
 
+    '/auth/providers': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Disponibilite des providers OAuth',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Providers OAuth configures',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        google: { type: 'boolean' },
+                        github: { type: 'boolean' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
     '/auth/profile': {
       get: {
         tags: ['Auth'],
@@ -345,6 +375,7 @@ Obtenez un token via **POST /api/auth/login**.
         },
       },
     },
+
     // ═══════════════════════════════════════════════════════════
     // FILES
     // ═══════════════════════════════════════════════════════════
