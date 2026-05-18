@@ -33,9 +33,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET est requis}
       JWT_MFA_SECRET: ${JWT_MFA_SECRET:?JWT_MFA_SECRET est requis}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      API_URL: http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}
+      API_URL: ${API_URL:-http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}}
       API_INTERNAL_URL: http://backend:${BACKEND_PORT:-5001}
-      FRONTEND_URL: http://${HOST_IP:-localhost}:${FRONTEND_PORT:-3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://${HOST_IP:-localhost}:${FRONTEND_PORT:-3000}}
       PORT: ${BACKEND_PORT:-5001}
       UPLOAD_DIR: /app/uploads
       NODE_ENV: production
@@ -50,7 +50,7 @@ services:
       MAIL_LOGO_URL: ${MAIL_LOGO_URL:-}
       # OnlyOffice configuration
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
-      ONLYOFFICE_PUBLIC_URL: http://${HOST_IP:-localhost}:${ONLYOFFICE_PORT:-8080}
+      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://${HOST_IP:-localhost}:${ONLYOFFICE_PORT:-8080}}
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET est requis}
       # Optional OAuth2 credentials (leave empty if not configured)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -84,7 +84,7 @@ services:
     volumes:
       - uploads_data:/app/uploads
     ports:
-      - "${BACKEND_PORT:-5001}:${BACKEND_PORT:-5001}"
+      - "${BIND_ADDRESS:-}${BACKEND_PORT:-5001}:${BACKEND_PORT:-5001}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,10 +100,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}
+        VITE_API_URL: ${VITE_API_URL:-http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}}
     container_name: supfile-frontend
     ports:
-      - "${FRONTEND_PORT:-3000}:8080"
+      - "${BIND_ADDRESS:-}${FRONTEND_PORT:-3000}:8080"
     depends_on:
       - backend
     restart: unless-stopped
@@ -121,7 +121,7 @@ services:
       - ALLOW_PRIVATE_IP_ADDRESS=true
       - ALLOW_META_IP_ADDRESS=true
     ports:
-      - "${ONLYOFFICE_PORT:-8080}:80"
+      - "${BIND_ADDRESS:-}${ONLYOFFICE_PORT:-8080}:80"
     volumes:
       - onlyoffice_data:/var/www/onlyoffice/Data
       - onlyoffice_log:/var/log/onlyoffice

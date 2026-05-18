@@ -140,7 +140,9 @@ Job configure mais commente. Fonctionnement prevu :
 |---|---|
 | `JWT_SECRET` | Backend : signature JWT (obligatoire) |
 | `FILE_ENCRYPTION_KEY` | Backend : KEK chiffrement fichiers (obligatoire) |
-| `FILE_ENCRYPTION_KEY` | Backend : wrapping DEK (optionnel -- valeur CI par defaut) |
+| `JWT_MFA_SECRET` | Backend : signature des jetons MFA temporaires |
+| `DEK_WRAP_SECRET` | Backend : wrapping DEK |
+| `ONLYOFFICE_JWT_SECRET` | Backend/OnlyOffice : signature des callbacks et configs |
 | `MFA_ENCRYPTION_KEY` | Backend : chiffrement secrets TOTP |
 | `DATABASE_URL` | Backend : connexion PostgreSQL (tests) |
 | `GITHUB_TOKEN` | Docker push GHCR (fourni automatiquement par GitHub) |

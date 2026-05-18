@@ -39,6 +39,8 @@ backend/uploads/
 # Testing
 coverage/
 nyc_output/
+backups/
+doc/account-deletion-snapshots/
 
 claude/
 repomix-output.*
