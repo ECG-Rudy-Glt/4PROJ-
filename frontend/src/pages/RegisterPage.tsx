@@ -62,12 +62,15 @@ export default function RegisterPage() {
     }
   };
 
-  const handleMFASetupComplete = (codes: string[], token: string) => {
+  const handleMFASetupComplete = (codes: string[], token: string, refreshToken?: string) => {
     setBackupCodes(codes);
     setShowMFASetupModal(false);
     setShowBackupCodesModal(true);
 
     localStorage.setItem('token', token);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     localStorage.removeItem('tempToken');
   };
 
