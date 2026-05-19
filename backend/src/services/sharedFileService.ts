@@ -9,6 +9,7 @@ import logger from '../config/logger';
 import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
 import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 import { AppError } from '../middlewares/errorHandler';
+import { vaultShareForbiddenError } from '../constants/shareErrors';
 
 type Permissions = {
   canRead?: boolean;
@@ -36,7 +37,7 @@ export class SharedFileService {
   ) {
     const file = await prisma.file.findFirst({ where: { id: fileId, isDeleted: false } });
     if (!file) throw new Error('File not found');
-    if (file.isVault) throw new Error('Le partage est interdit pour les fichiers du coffre-fort');
+    if (file.isVault) throw vaultShareForbiddenError();
 
     const isOwner = file.userId === userId;
     const directShare = isOwner
@@ -141,7 +142,7 @@ export class SharedFileService {
 
   static async getFileShares(fileId: string, userId: string) {
     const file = await prisma.file.findFirst({ where: { id: fileId, userId, isDeleted: false } });
-    if (!file) throw new Error('File not found');
+    if (!file) throw new AppError(404, 'Fichier introuvable ou inaccessible', 'FILE_NOT_FOUND');
 
     const shares = await prisma.sharedFile.findMany({
       where: { fileId },
@@ -180,9 +181,12 @@ export class SharedFileService {
 
   static async removeSharedFile(shareId: string, userId: string) {
     const sharedFile = await prisma.sharedFile.findFirst({
-      where: { id: shareId, sharedById: userId, file: { is: { isDeleted: false } } },
+      where: { id: shareId, file: { is: { isDeleted: false } } },
     });
-    if (!sharedFile) throw new Error('Shared file not found');
+    if (!sharedFile) throw new AppError(404, 'Shared file not found', 'SHARED_FILE_NOT_FOUND');
+    if (sharedFile.sharedById !== userId && sharedFile.sharedWithId !== userId) {
+      throw new AppError(403, 'Vous ne pouvez pas supprimer ce partage', 'SHARE_ACCESS_DENIED');
+    }
 
     await prisma.sharedFile.delete({ where: { id: shareId } });
     return { message: 'Shared file removed successfully' };
@@ -196,7 +200,7 @@ export class SharedFileService {
 
     if (sharedFile) {
       if (sharedFile.file.isDeleted) throw new Error('File not found');
-      if (sharedFile.file.isVault) throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
+      if (sharedFile.file.isVault) throw vaultShareForbiddenError();
       return sharedFile;
     }
 
@@ -205,7 +209,7 @@ export class SharedFileService {
     if (file.folder?.isDeleted) throw new Error('File not found');
 
     if (file.folderId) {
-      if (file.isVault) throw new Error('Ce fichier appartient au coffre-fort et ne peut pas être partagé');
+      if (file.isVault) throw vaultShareForbiddenError();
       const sharedFolder = await findSharedFolderAccessRoot(userId, file.folderId, 'read');
 
       if (sharedFolder) {

@@ -41,7 +41,7 @@ function PermBadge({ label, icon: Icon, active }: { label: string; icon: React.E
 
 export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitcherModalProps) {
   const { t, i18n } = useTranslation();
-  const { user, sessionContext, setAuthToken } = useAuthStore();
+  const { user, sessionContext } = useAuthStore();
 
   const [tab, setTab] = useState<Tab>('accounts');
   const [isLoading, setIsLoading] = useState(false);
@@ -55,6 +55,16 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
   const [grantForm, setGrantForm] = useState({
     delegateEmail: '', canWrite: false, canDelete: false, canShare: false, expiresAt: '',
   });
+
+  const replaceAuthContextAndReload = (token: string, switchSessionId?: string | null) => {
+    localStorage.setItem('token', token);
+    if (switchSessionId) {
+      localStorage.setItem('switchSessionId', switchSessionId);
+    } else {
+      localStorage.removeItem('switchSessionId');
+    }
+    window.location.replace('/dashboard');
+  };
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -101,11 +111,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const handleSwitch = async (linkId: string) => {
     try {
-      const { token, user: nextUser, authContext, switchSessionId } = await accountAccessService.switchToLinkedAccount(linkId);
-      if (switchSessionId) localStorage.setItem('switchSessionId', switchSessionId);
-      await setAuthToken(token, nextUser, authContext);
+      const { token, user: nextUser, switchSessionId } = await accountAccessService.switchToLinkedAccount(linkId);
       toast.success(t('account_access.active_session', { email: nextUser.email }));
       onClose();
+      replaceAuthContextAndReload(token, switchSessionId);
     } catch (error: any) {
       if (error.response?.data?.code === 'REAUTH_REQUIRED') {
         toast.error(t('account_access.reauth_required'));
@@ -117,11 +126,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const handleSwitchBack = async () => {
     try {
-      const { token, user: nextUser, authContext } = await accountAccessService.switchBack();
-      localStorage.removeItem('switchSessionId');
-      await setAuthToken(token, nextUser, authContext);
+      const { token, user: nextUser } = await accountAccessService.switchBack();
       toast.success(t('account_access.switch_success', { email: nextUser.email }));
       onClose();
+      replaceAuthContextAndReload(token);
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
     }
@@ -171,11 +179,10 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const handleAssumeDelegation = async (delegationId: string) => {
     try {
-      const { token, user: nextUser, authContext, switchSessionId } = await accountAccessService.assumeDelegation(delegationId);
-      if (switchSessionId) localStorage.setItem('switchSessionId', switchSessionId);
-      await setAuthToken(token, nextUser, authContext);
+      const { token, user: nextUser, switchSessionId } = await accountAccessService.assumeDelegation(delegationId);
       toast.success(t('account_access.assume_success', { email: nextUser.email }));
       onClose();
+      replaceAuthContextAndReload(token, switchSessionId);
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('common.error'));
     }

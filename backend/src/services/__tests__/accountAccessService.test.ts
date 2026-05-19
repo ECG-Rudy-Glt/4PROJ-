@@ -157,7 +157,7 @@ describe('AccountAccessService', () => {
 
       await expect(
         AccountAccessService.assumeDelegation('delegate-user', 'delegation-1', 'switch-session-1')
-      ).rejects.toThrow('Délégation invalide ou expirée');
+      ).rejects.toThrow('Délégation invalide, expirée ou révoquée');
     });
 
     it('should return delegation token when delegation is valid', async () => {
@@ -257,7 +257,7 @@ describe('AccountAccessService', () => {
 
       await expect(
         AccountAccessService.grantDelegation('owner-user', { delegateEmail: 'delegate@example.com' })
-      ).rejects.toThrow('Impossible de se déléguer soi-même');
+      ).rejects.toThrow('Vous ne pouvez pas vous déléguer à vous-même');
 
       expect(prisma.delegation.create).not.toHaveBeenCalled();
       expect(MailService.sendDelegationGrantedNotification).not.toHaveBeenCalled();

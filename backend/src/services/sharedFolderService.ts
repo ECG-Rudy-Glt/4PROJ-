@@ -8,6 +8,8 @@ import { findSharedFolderAccessRoot } from '../middlewares/permissions';
 import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 import bcrypt from 'bcryptjs';
 import logger from '../config/logger';
+import { AppError } from '../middlewares/errorHandler';
+import { vaultShareForbiddenError } from '../constants/shareErrors';
 
 type Permissions = {
   canRead?: boolean;
@@ -78,7 +80,7 @@ export class SharedFolderService {
   ) {
     const folder = await prisma.folder.findFirst({ where: { id: folderId, isDeleted: false } });
     if (!folder) throw new Error('Folder not found');
-    if (folder.isVault) throw new Error('Le partage est interdit pour les dossiers du coffre-fort');
+    if (folder.isVault) throw vaultShareForbiddenError();
 
     const isOwner = folder.userId === userId;
     const sourceShare = isOwner ? null : await findSharedFolderAccessRoot(userId, folderId, 'share');
@@ -199,9 +201,12 @@ export class SharedFolderService {
 
   static async removeSharedFolder(shareId: string, userId: string) {
     const sharedFolder = await prisma.sharedFolder.findFirst({
-      where: { id: shareId, sharedById: userId, folder: { is: { isDeleted: false } } },
+      where: { id: shareId, folder: { is: { isDeleted: false } } },
     });
-    if (!sharedFolder) throw new Error('Shared folder not found');
+    if (!sharedFolder) throw new AppError(404, 'Shared folder not found', 'SHARED_FOLDER_NOT_FOUND');
+    if (sharedFolder.sharedById !== userId && sharedFolder.sharedWithId !== userId) {
+      throw new AppError(403, 'Vous ne pouvez pas supprimer ce partage', 'SHARE_ACCESS_DENIED');
+    }
 
     await prisma.sharedFolder.delete({ where: { id: shareId } });
     return { message: 'Shared folder removed successfully' };
