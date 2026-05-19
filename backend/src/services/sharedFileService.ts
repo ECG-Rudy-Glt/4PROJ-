@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import logger from '../config/logger';
 import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
 import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
+import { AppError } from '../middlewares/errorHandler';
 
 type Permissions = {
   canRead?: boolean;
@@ -59,7 +60,13 @@ export class SharedFileService {
     }
 
     const existing = await prisma.sharedFile.findFirst({ where: { fileId, sharedWithId: targetUserId } });
-    if (existing) throw new Error('File already shared with this user');
+    if (existing) {
+      throw new AppError(
+        409,
+        'Ce fichier est déjà partagé avec cet utilisateur. Modifiez ou supprimez le partage existant.',
+        'SHARED_FILE_ALREADY_EXISTS'
+      );
+    }
 
     await SharedLinkService.assertShareLimit(userId);
     const shareWrappedDek = isOwner ? ownerWrappedDek : directShare?.ownerWrappedDek || folderShare?.ownerWrappedDek;

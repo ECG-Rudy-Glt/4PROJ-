@@ -118,7 +118,7 @@ export class FolderController {
 
       const folder = await FolderService.getFolder(folderId, userId);
 
-      if (!ensureDekUnlocked(req, res)) return;
+      if (folder.userId === userId && !ensureDekUnlocked(req, res)) return;
 
       const safeName = folder.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       res.setHeader('Content-Type', 'application/zip');

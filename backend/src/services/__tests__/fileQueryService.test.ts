@@ -14,6 +14,10 @@ jest.mock('../../config/database', () => ({
     },
     sharedFolder: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    sharedFile: {
+      findMany: jest.fn(),
     },
   },
 }));
@@ -106,6 +110,35 @@ describe('FileQueryService share acceptance checks', () => {
             },
           },
         }),
+      })
+    );
+  });
+
+  it('excludes deleted accepted shares from the aggregate accepted-shares endpoint', async () => {
+    (prisma.sharedFolder.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.sharedFile.findMany as jest.Mock).mockResolvedValue([]);
+
+    await expect(FileQueryService.getAcceptedShares('shared-user')).resolves.toEqual({
+      folders: [],
+      files: [],
+    });
+
+    expect(prisma.sharedFolder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          sharedWithId: 'shared-user',
+          accepted: true,
+          folder: { is: { isDeleted: false, isVault: false } },
+        },
+      })
+    );
+    expect(prisma.sharedFile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          sharedWithId: 'shared-user',
+          accepted: true,
+          file: { is: { isDeleted: false, isVault: false } },
+        },
       })
     );
   });

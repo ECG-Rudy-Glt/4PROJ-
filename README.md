@@ -59,8 +59,8 @@ POSTGRES_DB=supfile
 # === MinIO (stockage objet) ===
 MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=<mot-de-passe-minio>
-MINIO_APP_USER=supfile-app
-MINIO_APP_PASSWORD=<mot-de-passe-app-minio>
+MINIO_APP_ACCESS_KEY=supfile-app
+MINIO_APP_SECRET_KEY=<mot-de-passe-app-minio>
 
 # === OAuth2 (optionnel — connexion Google/GitHub) ===
 GOOGLE_CLIENT_ID=

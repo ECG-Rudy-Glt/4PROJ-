@@ -147,14 +147,22 @@ export class FileQueryService {
     const vaultUnlocked = await VaultService.isVaultUnlocked(userId);
     const [sharedFolders, sharedFiles] = await Promise.all([
       prisma.sharedFolder.findMany({
-        where: { sharedWithId: userId, accepted: true, ...(vaultUnlocked ? {} : { folder: { isVault: false } }) },
+        where: {
+          sharedWithId: userId,
+          accepted: true,
+          folder: { is: { isDeleted: false, ...(vaultUnlocked ? {} : { isVault: false }) } },
+        },
         include: {
           folder: { include: { user: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } } } },
           sharedBy: { select: { id: true, email: true, firstName: true, lastName: true, avatar: true } },
         },
       }),
       prisma.sharedFile.findMany({
-        where: { sharedWithId: userId, accepted: true, ...(vaultUnlocked ? {} : { file: { isVault: false } }) },
+        where: {
+          sharedWithId: userId,
+          accepted: true,
+          file: { is: { isDeleted: false, ...(vaultUnlocked ? {} : { isVault: false }) } },
+        },
         include: {
           file: {
             include: {

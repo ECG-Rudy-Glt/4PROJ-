@@ -235,7 +235,7 @@ describe('SharedFileService.shareFile', () => {
 
     await expect(
       SharedFileService.shareFile('owner-user', 'file-1', 'target-user', { canRead: true })
-    ).rejects.toThrow('File already shared with this user');
+    ).rejects.toThrow('Ce fichier est déjà partagé avec cet utilisateur');
 
     expect(prisma.sharedFile.create).not.toHaveBeenCalled();
     expect(MailService.sendShareNotification).not.toHaveBeenCalled();

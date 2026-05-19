@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from './auditService';
 import { PlanService } from './planService';
 import logger from '../config/logger';
+import { AppError } from '../middlewares/errorHandler';
 
 export class SharedLinkService {
   static async assertShareLimit(userId: string) {
@@ -74,7 +75,13 @@ export class SharedLinkService {
       },
     });
 
-    if (!shareLink) throw new Error('Share link not found');
+    if (!shareLink) {
+      throw new AppError(
+        404,
+        'Lien de partage introuvable ou révoqué.',
+        'SHARE_LINK_NOT_FOUND'
+      );
+    }
     if (shareLink.user.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
     if (!shareLink.bundleFileIds) {
       if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
@@ -188,7 +195,13 @@ export class SharedLinkService {
       where: { id: linkId, userId },
     });
 
-    if (!shareLink) throw new Error('Share link not found');
+    if (!shareLink) {
+      throw new AppError(
+        404,
+        'Lien de partage introuvable ou révoqué.',
+        'SHARE_LINK_NOT_FOUND'
+      );
+    }
 
     await prisma.sharedLink.delete({ where: { id: linkId } });
     return { message: 'Share link deleted successfully' };

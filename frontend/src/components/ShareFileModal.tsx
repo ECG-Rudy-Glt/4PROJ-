@@ -39,6 +39,7 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
     canShare: false,
   });
   const [inviteLink, setInviteLink] = useState('');
+  const [isCreatingInviteLink, setIsCreatingInviteLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [sharePassword, setSharePassword] = useState('');
   const [showSharePassword, setShowSharePassword] = useState(false);
@@ -52,7 +53,8 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
 
   useEffect(() => {
     loadSharedWith();
-    generateInviteLink();
+    setInviteLink('');
+    setLinkCopied(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
@@ -94,11 +96,6 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
     } catch (error: any) {
       console.error('Erreur chargement partages:', error);
     }
-  };
-
-  const generateInviteLink = () => {
-    const link = `${window.location.origin}/files/${file.id}`;
-    setInviteLink(link);
   };
 
   const applyTemplate = (template: PermissionTemplate) => {
@@ -233,11 +230,30 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
     setSuggestions([]);
   };
 
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(inviteLink);
-    setLinkCopied(true);
-    toast.success(t('share_modal.copied'));
-    setTimeout(() => setLinkCopied(false), 2000);
+  const copyInviteLink = async () => {
+    if (isCreatingInviteLink) return;
+
+    setIsCreatingInviteLink(true);
+    try {
+      let link = inviteLink;
+
+      if (!link) {
+        const options = sharePassword.trim() ? { password: sharePassword.trim() } : undefined;
+        const result = await shareService.createShareLink(file.id, options);
+        link = result.shareLink.url;
+        setInviteLink(link);
+        toast.success(t('files.share_link_created'));
+      }
+
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      toast.success(t('share_modal.copied'));
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
+    } finally {
+      setIsCreatingInviteLink(false);
+    }
   };
 
   const getUserDisplayName = (user: any) => {
@@ -445,12 +461,14 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
                 <input
                   type="text"
                   value={inviteLink}
+                  placeholder={t('file_modals.share_link.create_link')}
                   readOnly
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
                 />
               </div>
               <button
                 onClick={copyInviteLink}
+                disabled={isCreatingInviteLink}
                 className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
               >
                 {linkCopied ? (
@@ -461,7 +479,13 @@ export const ShareFileModal: React.FC<ShareFileModalProps> = ({ file, onClose })
                 ) : (
                   <>
                     <Copy className="w-5 h-5" />
-                    <span>{t('file_modals.share_link.copy')}</span>
+                    <span>
+                      {isCreatingInviteLink
+                        ? t('file_modals.share_link.create_link')
+                        : inviteLink
+                          ? t('file_modals.share_link.copy')
+                          : t('file_modals.share_link.create_link')}
+                    </span>
                   </>
                 )}
               </button>
