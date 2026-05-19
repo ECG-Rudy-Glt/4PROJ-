@@ -35,6 +35,7 @@ import AccountSwitcherModal from '../../components/AccountSwitcherModal';
 import PlansModal from '../../components/PlansModal';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { pushService } from '../../services/pushService';
+import { useI18nStore } from '../../stores/useI18nStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type TabNav = BottomTabNavigationProp<TabParamList>;
@@ -78,7 +79,8 @@ export default function SettingsScreen() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [language, setLanguage] = useState<'fr' | 'en'>((user as any)?.language ?? 'fr');
+  const { lang, setLang, t } = useI18nStore();
+  const [language, setLanguageLocal] = useState<'fr' | 'en'>((user as any)?.language ?? lang);
 
   const styles = makeStyles(colors);
 
@@ -86,7 +88,14 @@ export default function SettingsScreen() {
     pushService.getPermissionStatus().then((status) => {
       setPushEnabled(status === 'granted');
     });
+    // Refresh profile to get accurate mfaEnabled
+    authService.getProfile().then(({ user: fresh }) => setUser(fresh)).catch(() => {});
   }, []);
+
+  const setLanguage = (l: 'fr' | 'en') => {
+    setLanguageLocal(l);
+    setLang(l);
+  };
 
   const loadSessions = async () => {
     setLoadingSessions(true);
@@ -279,7 +288,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content}>
-      <Text style={styles.pageTitle}>Profil</Text>
+      <Text style={styles.pageTitle}>{t.profile}</Text>
 
       {/* Avatar + nom */}
       <View style={styles.profileCard}>
@@ -308,7 +317,7 @@ export default function SettingsScreen() {
       {/* Informations personnelles */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Informations personnelles</Text>
+          <Text style={styles.sectionTitle}>{t.personalInfo}</Text>
           <TouchableOpacity onPress={() => setEditing(!editing)}>
             <Ionicons name={editing ? 'close' : 'create-outline'} size={20} color={colors.primary[600]} />
           </TouchableOpacity>
@@ -316,11 +325,11 @@ export default function SettingsScreen() {
 
         {editing ? (
           <>
-            <Text style={styles.label}>Prénom</Text>
-            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="Prénom" placeholderTextColor={colors.neutral[400]} />
-            <Text style={styles.label}>Nom</Text>
-            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Nom" placeholderTextColor={colors.neutral[400]} />
-            <Text style={styles.label}>Langue</Text>
+            <Text style={styles.label}>{t.firstName}</Text>
+            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder={t.firstName} placeholderTextColor={colors.neutral[400]} />
+            <Text style={styles.label}>{t.lastName}</Text>
+            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder={t.lastName} placeholderTextColor={colors.neutral[400]} />
+            <Text style={styles.label}>{t.language}</Text>
             <View style={styles.langRow}>
               <TouchableOpacity
                 style={[styles.langBtn, language === 'fr' && styles.langBtnActive]}
@@ -336,22 +345,22 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={handleSaveProfile} disabled={saving}>
-              {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveBtnText}>Enregistrer les modifications</Text>}
+              {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveBtnText}>{t.saveChanges}</Text>}
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <SettingsRow colors={colors} icon="person-outline" label="Prénom" value={user?.firstName || '–'} />
-            <SettingsRow colors={colors} icon="person-outline" label="Nom" value={user?.lastName || '–'} />
-            <SettingsRow colors={colors} icon="mail-outline" label="Email" value={user?.email || '–'} />
-            <SettingsRow colors={colors} icon="language-outline" label="Langue" value={(user as any)?.language === 'en' ? '🇬🇧 English' : '🇫🇷 Français'} />
+            <SettingsRow colors={colors} icon="person-outline" label={t.firstName} value={user?.firstName || '–'} />
+            <SettingsRow colors={colors} icon="person-outline" label={t.lastName} value={user?.lastName || '–'} />
+            <SettingsRow colors={colors} icon="mail-outline" label={t.email} value={user?.email || '–'} />
+            <SettingsRow colors={colors} icon="language-outline" label={t.language} value={lang === 'en' ? '🇬🇧 English' : '🇫🇷 Français'} />
           </>
         )}
       </View>
 
       {/* Thème */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thème</Text>
+        <Text style={styles.sectionTitle}>{t.theme}</Text>
         <View style={styles.themeRow}>
           {(['light', 'dark', 'system'] as const).map((m) => (
             <TouchableOpacity
@@ -365,7 +374,7 @@ export default function SettingsScreen() {
                 color={themeMode === m ? '#FFFFFF' : colors.neutral[500]}
               />
               <Text style={[styles.themeBtnText, themeMode === m && styles.themeBtnTextActive]}>
-                {m === 'light' ? 'Clair' : m === 'dark' ? 'Sombre' : 'Système'}
+                {m === 'light' ? t.themeLight : m === 'dark' ? t.themeDark : t.themeSystem}
               </Text>
             </TouchableOpacity>
           ))}
@@ -374,30 +383,30 @@ export default function SettingsScreen() {
 
       {/* Stockage */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Espace de stockage</Text>
-        <SettingsRow colors={colors} icon="cloud-outline" label="Utilisé" value={user ? formatQuota(user.quotaUsed) : '–'} />
-        <SettingsRow colors={colors} icon="pie-chart-outline" label="Total" value={user ? formatQuota(user.quotaLimit) : '–'} />
+        <Text style={styles.sectionTitle}>{t.storage}</Text>
+        <SettingsRow colors={colors} icon="cloud-outline" label={t.storageUsed} value={user ? formatQuota(user.quotaUsed) : '–'} />
+        <SettingsRow colors={colors} icon="pie-chart-outline" label={t.storageTotal} value={user ? formatQuota(user.quotaLimit) : '–'} />
         <View style={styles.storageBar}>
           <View style={[styles.storageBarFill, { width: `${quotaPercent}%` }]} />
         </View>
         <Text style={styles.storagePercent}>{quotaPercent}% utilisé</Text>
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowPlans(true)}>
           <Ionicons name="diamond-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Forfaits & abonnements</Text>
+          <Text style={styles.menuLabel}>{t.plans}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
       </View>
 
       {/* Sécurité */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Sécurité</Text>
+        <Text style={styles.sectionTitle}>{t.security}</Text>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowMfa(true)}>
           <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Double authentification (MFA)</Text>
+          <Text style={styles.menuLabel}>{t.mfa}</Text>
           <View style={[styles.statusPill, user?.mfaEnabled ? styles.statusPillOn : styles.statusPillOff]}>
             <Text style={[styles.statusPillText, user?.mfaEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-              {user?.mfaEnabled ? 'Actif' : 'Inactif'}
+              {user?.mfaEnabled ? t.mfaActive : t.mfaInactive}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
@@ -405,13 +414,13 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Vault')}>
           <Ionicons name="lock-closed-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Coffre-fort chiffré</Text>
+          <Text style={styles.menuLabel}>{t.vault}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowPasswordChange(!showPasswordChange)}>
           <Ionicons name="key-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Changer le mot de passe</Text>
+          <Text style={styles.menuLabel}>{t.changePassword}</Text>
           <Ionicons name={showPasswordChange ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
@@ -437,12 +446,13 @@ export default function SettingsScreen() {
           }}
         >
           <Ionicons name="desktop-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Sessions actives</Text>
+          <Text style={styles.menuLabel}>{t.activeSessions}</Text>
           <Ionicons name={showSessions ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         {showSessions && (
           <View style={styles.sessionsSection}>
+            <Text style={styles.sessionsDesc}>Appareils connectés à votre compte. Déconnectez les appareils inconnus.</Text>
             {loadingSessions ? (
               <ActivityIndicator color={colors.primary[600]} />
             ) : sessions.length === 0 ? (
@@ -455,6 +465,23 @@ export default function SettingsScreen() {
                     <Text style={styles.sessionDevice}>{s.deviceInfo ?? 'Appareil inconnu'}</Text>
                     <Text style={styles.sessionMeta}>IP : {s.ipAddress ?? '–'} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString('fr-FR') : ''}</Text>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert('Déconnecter', 'Déconnecter cet appareil ?', [
+                        { text: 'Annuler', style: 'cancel' },
+                        { text: 'Déconnecter', style: 'destructive', onPress: async () => {
+                          try {
+                            await api.delete(`/auth/sessions/${s.id}`);
+                            Toast.show({ type: 'success', text1: 'Session déconnectée' });
+                            loadSessions();
+                          } catch { Toast.show({ type: 'error', text1: 'Erreur' }); }
+                        }},
+                      ]);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+                  </TouchableOpacity>
                 </View>
               ))
             )}
@@ -468,11 +495,11 @@ export default function SettingsScreen() {
 
       {/* Raccourcis */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Raccourcis</Text>
+        <Text style={styles.sectionTitle}>{t.shortcuts}</Text>
 
         <View style={styles.menuRow}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
-          <Text style={[styles.menuLabel, { flex: 1 }]}>Notifications push</Text>
+          <Text style={[styles.menuLabel, { flex: 1 }]}>{t.pushNotifications}</Text>
           {pushLoading ? (
             <ActivityIndicator size="small" color={colors.primary[600]} />
           ) : (
@@ -487,7 +514,7 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowNotifs(true)}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Centre de notifications</Text>
+          <Text style={styles.menuLabel}>{t.notificationCenter}</Text>
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -498,26 +525,26 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Trash')}>
           <Ionicons name="trash-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Corbeille</Text>
+          <Text style={styles.menuLabel}>{t.trash}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowAccountSwitcher(true)}>
           <Ionicons name="swap-horizontal-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Comptes liés & délégations</Text>
+          <Text style={styles.menuLabel}>{t.linkedAccounts}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Audit')}>
           <Ionicons name="list-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Logs d'audit</Text>
+          <Text style={styles.menuLabel}>{t.auditLogs}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         {user?.role === 'ADMIN' && (
           <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Admin')}>
             <Ionicons name="shield-outline" size={20} color={colors.primary[600]} />
-            <Text style={styles.menuLabel}>Panel administrateur</Text>
+            <Text style={styles.menuLabel}>{t.adminPanel}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
           </TouchableOpacity>
         )}
@@ -525,11 +552,11 @@ export default function SettingsScreen() {
 
       {/* RGPD */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Protection des données (RGPD)</Text>
+        <Text style={styles.sectionTitle}>{t.rgpd}</Text>
 
         <TouchableOpacity style={styles.menuRow} onPress={handleExportData} disabled={exporting}>
           <Ionicons name="download-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Exporter mes données</Text>
+          <Text style={styles.menuLabel}>{t.exportData}</Text>
           {exporting ? (
             <ActivityIndicator size="small" color={colors.primary[600]} />
           ) : (
@@ -540,14 +567,14 @@ export default function SettingsScreen() {
 
       {/* Zone dangereuse */}
       <View style={[styles.section, styles.dangerSection]}>
-        <Text style={[styles.sectionTitle, { color: colors.error }]}>Zone dangereuse</Text>
+        <Text style={[styles.sectionTitle, { color: colors.error }]}>{t.dangerZone}</Text>
         <TouchableOpacity style={styles.dangerBtn} onPress={handleDeleteAccount} disabled={deletingAccount}>
           {deletingAccount ? (
             <ActivityIndicator color={colors.error} size="small" />
           ) : (
             <>
               <Ionicons name="trash-outline" size={18} color={colors.error} />
-              <Text style={styles.dangerBtnText}>Supprimer mon compte</Text>
+              <Text style={styles.dangerBtnText}>{t.deleteAccount}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -556,7 +583,7 @@ export default function SettingsScreen() {
       {/* Déconnexion */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color={colors.error} />
-        <Text style={styles.logoutText}>Se déconnecter</Text>
+        <Text style={styles.logoutText}>{t.logout}</Text>
       </TouchableOpacity>
 
       <NotificationCenter
@@ -870,6 +897,12 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
     sessionsSection: {
       marginTop: spacing.sm,
       gap: spacing.sm,
+    },
+    sessionsDesc: {
+      ...typography.caption,
+      color: colors.neutral[500],
+      marginBottom: spacing.sm,
+      lineHeight: 18,
     },
     sessionRow: {
       flexDirection: 'row',
