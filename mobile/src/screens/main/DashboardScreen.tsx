@@ -18,6 +18,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useDashboardStore } from '../../stores/useDashboardStore';
 import SearchBar from '../../components/SearchBar';
 import FilePreviewModal from '../../components/FilePreviewModal';
+import PieChart from '../../components/PieChart';
 import { FileItem } from '../../types';
 
 const formatSize = (bytes: number): string => {
@@ -61,9 +62,30 @@ export default function DashboardScreen() {
 
   const quotaPercent = data ? Math.round((data.quotaUsed / data.quotaLimit) * 100) : 0;
 
-  // Répartition par type
+  // Répartition par type — camembert
+  const SLICE_COLORS = ['#6366f1', '#e8b84a', '#d4785c', '#22c55e', '#06b6d4', '#a78bfa'];
   const byType = data?.fileStats?.byMimeType ?? {};
-  const typeEntries = Object.entries(byType).slice(0, 4);
+
+  const getCategoryLabel = (mime: string): string => {
+    if (mime.startsWith('image/')) return 'Images';
+    if (mime.startsWith('video/')) return 'Vidéos';
+    if (mime.startsWith('audio/')) return 'Audio';
+    if (mime.includes('pdf')) return 'PDF';
+    if (mime.includes('word') || mime.includes('docx')) return 'Word';
+    if (mime.includes('sheet') || mime.includes('xlsx')) return 'Excel';
+    return mime.split('/')[1]?.substring(0, 8) ?? mime;
+  };
+
+  const pieSlices = Object.entries(byType)
+    .map(([mime, val]) => ({
+      label: getCategoryLabel(mime),
+      value: (val as { count: number; size: number }).count,
+      color: '',
+    }))
+    .filter((s) => s.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+    .map((s, i) => ({ ...s, color: SLICE_COLORS[i] }));
 
   return (
     <ScrollView
@@ -126,27 +148,11 @@ export default function DashboardScreen() {
         </Text>
       </View>
 
-      {/* Répartition par type */}
-      {typeEntries.length > 0 && (
+      {/* Répartition par type — camembert */}
+      {pieSlices.length > 0 && (
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Répartition par type</Text>
-          {typeEntries.map(([mime, count]) => {
-            const icon = getCategoryIcon(mime);
-            const fileCount = (count as { count: number; size: number }).count;
-            const pct = data?.fileStats?.totalFiles
-              ? Math.round((fileCount / data.fileStats.totalFiles) * 100)
-              : 0;
-            return (
-              <View key={mime} style={styles.typeRow}>
-                <Ionicons name={icon} size={16} color={colors.primary[500]} style={{ width: 20 }} />
-                <Text style={styles.typeLabel} numberOfLines={1}>{mime.split('/')[1] ?? mime}</Text>
-                <View style={styles.typeBarBg}>
-                  <View style={[styles.typeBarFill, { width: `${pct}%` }]} />
-                </View>
-                <Text style={styles.typeCount}>{String(fileCount)}</Text>
-              </View>
-            );
-          })}
+          <PieChart slices={pieSlices} size={160} />
         </View>
       )}
 

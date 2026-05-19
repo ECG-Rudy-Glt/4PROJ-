@@ -112,6 +112,36 @@ export default function TrashScreen() {
     );
   };
 
+  const handleEmptyTrash = () => {
+    if (items.length === 0) return;
+    Alert.alert(
+      'Vider la corbeille',
+      `Supprimer définitivement ${items.length} élément(s) ? Cette action est irréversible.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Tout supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Promise.all(
+                items.map((item) =>
+                  item.kind === 'file'
+                    ? fileService.deleteFile(item.data.id, true)
+                    : folderService.deleteFolder(item.data.id, true)
+                )
+              );
+              setItems([]);
+              Toast.show({ type: 'success', text1: 'Corbeille vidée' });
+            } catch {
+              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -119,6 +149,12 @@ export default function TrashScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.primary[600]} />
         </TouchableOpacity>
         <Text style={styles.title}>Corbeille</Text>
+        {items.length > 0 && (
+          <TouchableOpacity onPress={handleEmptyTrash} style={styles.emptyBtn}>
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
+            <Text style={styles.emptyBtnText}>Vider</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -184,6 +220,22 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h2,
     color: colors.primary[600],
+    flex: 1,
+  },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  emptyBtnText: {
+    ...typography.caption,
+    color: colors.error,
+    fontWeight: '600',
   },
   list: {
     paddingHorizontal: spacing.lg,

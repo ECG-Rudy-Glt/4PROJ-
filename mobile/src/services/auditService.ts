@@ -32,6 +32,7 @@ export const auditService = {
     if (options?.offset) params.append('offset', String(options.offset));
     if (options?.action) params.append('action', options.action);
     const { data } = await api.get(`/audit/logs?${params.toString()}`);
-    return data as { logs: AuditLog[]; total: number };
+    const unwrapped = data?.success === true && data.data ? data.data : data;
+    return unwrapped as { logs: AuditLog[]; total: number };
   },
 };
