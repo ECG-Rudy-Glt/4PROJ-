@@ -348,7 +348,8 @@ export const getPasswordResetEmail = (lang: string, userName: string, resetLink:
   const preheader = isEn
     ? 'Use this secure link to reset your password. Link valid for 1 hour.'
     : 'Utilisez ce lien sécurisé pour réinitialiser votre mot de passe. Lien valable 1 heure.';
-  const greeting = isEn ? `Hello ${userName},` : `Bonjour ${userName},`;
+  const greetingHtml = isEn ? `Hello ${escapeHtml(userName)},` : `Bonjour ${escapeHtml(userName)},`;
+  const resetLinkHtml = escapeHtml(resetLink);
   const title = isEn ? 'Password reset request' : 'Réinitialisation de votre mot de passe';
   const description = isEn
     ? 'We received a request to reset your SupFile password. Click the button below to create a new one.'
@@ -396,13 +397,13 @@ export const getPasswordResetEmail = (lang: string, userName: string, resetLink:
           </div>
 
           <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#254441;text-align:center;">${title}</h2>
-          <p style="margin:0 0 24px;font-size:14px;color:#6B7280;text-align:center;">${greeting}</p>
+          <p style="margin:0 0 24px;font-size:14px;color:#6B7280;text-align:center;">${greetingHtml}</p>
 
           <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#374151;">${description}</p>
 
           <!-- CTA -->
           <div style="text-align:center;margin:0 0 28px;">
-            <a href="${resetLink}" style="display:inline-block;background:#254441;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.2px;">${ctaText}</a>
+            <a href="${resetLinkHtml}" style="display:inline-block;background:#254441;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.2px;">${ctaText}</a>
           </div>
 
           <!-- Warning -->

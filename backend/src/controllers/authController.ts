@@ -161,7 +161,7 @@ export class AuthController {
     try {
       const user = req.user!;
       const token = generateToken(user.id, user.email, user.tokenVersion || 1);
-      const state = typeof req.query.state === 'string' ? req.query.state : '';
+      const state = typeof req.query?.state === 'string' ? req.query.state : '';
       if (state === 'mobile') {
         res.redirect(`supfile://auth/callback#token=${encodeURIComponent(token)}`);
         return;
@@ -170,7 +170,7 @@ export class AuthController {
       res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(token)}`);
     } catch (error) {
       const msg = encodeURIComponent(error instanceof Error ? error.message : 'Unknown error');
-      const state = typeof req.query.state === 'string' ? req.query.state : '';
+      const state = typeof req.query?.state === 'string' ? req.query.state : '';
       if (state === 'mobile') {
         res.redirect(`supfile://auth/callback?error=${msg}`);
         return;
