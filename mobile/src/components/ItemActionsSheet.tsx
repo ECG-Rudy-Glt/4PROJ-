@@ -163,6 +163,18 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     }
   };
 
+  const handleDownloadZip = async () => {
+    if (isFile) return;
+    try {
+      Toast.show({ type: 'info', text1: 'Préparation du ZIP…' });
+      const url = await folderService.downloadAsZip(target.data.id, target.data.name);
+      await Linking.openURL(url);
+      onClose();
+    } catch {
+      Toast.show({ type: 'error', text1: 'Impossible de télécharger le dossier' });
+    }
+  };
+
   // ── Sub sheet: Rename ─────────────────────────────────
   if (subSheet === 'rename') {
     return (
@@ -308,13 +320,15 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
             }}
           />
           <ActionRow icon="share-social-outline" label="Partager" onPress={() => setSubSheet('share')} />
-          {isFile && (
+          {isFile ? (
             <>
               <ActionRow icon="pricetags-outline" label="Tags" onPress={() => setSubSheet('tags')} />
               <ActionRow icon="chatbubble-outline" label="Commentaires" onPress={() => setSubSheet('comments')} />
               <ActionRow icon="time-outline" label="Historique des versions" onPress={() => setSubSheet('versions')} />
               <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} />
             </>
+          ) : (
+            <ActionRow icon="archive-outline" label="Télécharger en ZIP" onPress={handleDownloadZip} />
           )}
           <ActionRow
             icon="trash-outline"

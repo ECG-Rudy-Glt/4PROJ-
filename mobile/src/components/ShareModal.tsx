@@ -19,6 +19,7 @@ import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
 import { FileItem, Folder } from '../types';
 import { shareService, SharePermissions } from '../services/shareService';
+import { useAuthStore } from '../stores/useAuthStore';
 
 type Target =
   | { kind: 'file'; data: FileItem }
@@ -33,6 +34,9 @@ interface Props {
 type Mode = 'user' | 'link';
 
 export default function ShareModal({ target, targets: targetsProp, onClose }: Props) {
+  const user = useAuthStore((s) => s.user);
+  const canUsePassword = user?.plan !== 'FREE';
+
   const [mode, setMode] = useState<Mode>('user');
   const [email, setEmail] = useState('');
   const [perms, setPerms] = useState<SharePermissions>({ canRead: true });
@@ -207,15 +211,22 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                         {`${fileTargets.length} fichier(s) — les dossiers seront ignorés.`}
                       </Text>
                     )}
-                    <Text style={styles.label}>Mot de passe (optionnel)</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Laisser vide pour aucun"
-                      placeholderTextColor={colors.neutral[400]}
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                    />
+                    <Text style={styles.label}>Protection par mot de passe</Text>
+                    {canUsePassword ? (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Laisser vide pour aucun"
+                        placeholderTextColor={colors.neutral[400]}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                      />
+                    ) : (
+                      <View style={styles.proBanner}>
+                        <Ionicons name="lock-closed" size={16} color="#7c3aed" />
+                        <Text style={styles.proText}>Fonctionnalité PRO — Passez à un abonnement supérieur pour protéger vos liens par mot de passe.</Text>
+                      </View>
+                    )}
 
                     <Text style={[styles.label, { marginTop: spacing.lg }]}>Téléchargements max (optionnel)</Text>
                     <TextInput
@@ -394,5 +405,20 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     textAlign: 'center',
     padding: spacing.xl,
+  },
+  proBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: '#f5f3ff',
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+  },
+  proText: {
+    ...typography.bodySmall,
+    color: '#7c3aed',
+    flex: 1,
   },
 });

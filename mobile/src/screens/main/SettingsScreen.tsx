@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Share,
   Image,
+  Switch,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -190,6 +192,18 @@ export default function SettingsScreen() {
         setPushEnabled(false);
         Toast.show({ type: 'success', text1: 'Notifications désactivées' });
       } else {
+        const status = await pushService.getPermissionStatus();
+        if (status === 'denied') {
+          Alert.alert(
+            'Notifications bloquées',
+            'Les notifications ont été refusées. Ouvrez les réglages pour les activer.',
+            [
+              { text: 'Annuler', style: 'cancel' },
+              { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
         await pushService.subscribe();
         setPushEnabled(true);
         Toast.show({ type: 'success', text1: 'Notifications activées' });
@@ -456,19 +470,20 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Raccourcis</Text>
 
-        <TouchableOpacity style={styles.menuRow} onPress={handleTogglePush} disabled={pushLoading}>
+        <View style={styles.menuRow}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Notifications push</Text>
+          <Text style={[styles.menuLabel, { flex: 1 }]}>Notifications push</Text>
           {pushLoading ? (
             <ActivityIndicator size="small" color={colors.primary[600]} />
           ) : (
-            <View style={[styles.statusPill, pushEnabled ? styles.statusPillOn : styles.statusPillOff]}>
-              <Text style={[styles.statusPillText, pushEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-                {pushEnabled ? 'Actif' : 'Inactif'}
-              </Text>
-            </View>
+            <Switch
+              value={pushEnabled}
+              onValueChange={handleTogglePush}
+              trackColor={{ false: colors.neutral[200], true: colors.primary[400] }}
+              thumbColor={pushEnabled ? colors.primary[600] : colors.neutral[400]}
+            />
           )}
-        </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowNotifs(true)}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />

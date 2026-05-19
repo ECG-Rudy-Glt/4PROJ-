@@ -1,3 +1,9 @@
+### Reste a faire:
+-notification push mobile a pouvoir activer (erreur projet expo non initialisé)
+-session active non fonctionnelles (ne sait pas a quoi ca sert)
+-mfa par defaut inactif alors qu'il est activé par defaut
+-quand on change du francais a l'anglais ca change pas -les texte (informations personneles, theme, espaces de stockageges etc...)
+-pour le web il faut comme pour le mobile avoir un fond un peu plus beige comme sur le mobile (pas full blanc)
 
 ### Vue d'ensemble rapide
 

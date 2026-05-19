@@ -1,5 +1,10 @@
+import * as SecureStore from 'expo-secure-store';
 import api from './api';
 import { Folder, Breadcrumb } from '../types';
+
+async function getFileSystem() {
+  return import('expo-file-system/legacy').catch(() => import('expo-file-system'));
+}
 
 function unwrap<T>(data: any): T {
   return (data?.success === true && 'data' in data) ? data.data : data;
@@ -63,5 +68,23 @@ export const folderService = {
   async restoreFolder(folderId: string): Promise<{ folder: Folder }> {
     const res = await api.post(`/folders/${folderId}/restore`);
     return unwrap(res.data);
+  },
+
+  async downloadAsZip(folderId: string, folderName: string): Promise<string> {
+    const token = await SecureStore.getItemAsync('token');
+    if (!token) throw new Error('Session expirée');
+    const FileSystem = await getFileSystem();
+    const cacheDirectory = (FileSystem as any).cacheDirectory;
+    if (!cacheDirectory) throw new Error('Cache local indisponible');
+    const dir = `${cacheDirectory}supfile-zip/`;
+    await (FileSystem as any).makeDirectoryAsync(dir, { intermediates: true }).catch(() => undefined);
+    const safeName = folderName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'folder';
+    const destination = `${dir}${Date.now()}-${safeName}.zip`;
+    const uri = `${api.defaults.baseURL}/folders/${folderId}/download`;
+    const result = await (FileSystem as any).downloadAsync(uri, destination, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (result.status < 200 || result.status >= 300) throw new Error(`Erreur ${result.status}`);
+    return result.uri;
   },
 };
