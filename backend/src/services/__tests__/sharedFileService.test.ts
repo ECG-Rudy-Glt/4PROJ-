@@ -3,6 +3,7 @@ import { SharedFileService } from '../sharedFileService';
 import { MailService } from '../mailService';
 import { SharedLinkService } from '../sharedLinkService';
 import { PlanService } from '../planService';
+import { VAULT_SHARE_FORBIDDEN_CODE } from '../../constants/shareErrors';
 
 jest.mock('../../config/database', () => ({
   __esModule: true,
@@ -241,6 +242,21 @@ describe('SharedFileService.shareFile', () => {
     expect(MailService.sendShareNotification).not.toHaveBeenCalled();
   });
 
+  it('refuses vault files with a clear 403 before creating a share or sending email', async () => {
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue({ ...ownerFile, isVault: true });
+
+    await expect(
+      SharedFileService.shareFile('owner-user', 'file-1', 'target-user', { canRead: true })
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      code: VAULT_SHARE_FORBIDDEN_CODE,
+    });
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.sharedFile.create).not.toHaveBeenCalled();
+    expect(MailService.sendShareNotification).not.toHaveBeenCalled();
+  });
+
   it('stores a hash and never exposes passwordHash for protected direct file shares', async () => {
     (prisma.user.findUnique as jest.Mock)
       .mockResolvedValueOnce({
@@ -282,5 +298,65 @@ describe('SharedFileService.shareFile', () => {
     expect(createArg.data.passwordHash).not.toBe('secret-password');
     expect((result as any).passwordHash).toBeUndefined();
     expect((result as any).passwordProtected).toBe(true);
+  });
+});
+
+describe('SharedFileService.getFileShares', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns a clean 404 when the file is not owned by the current user', async () => {
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      SharedFileService.getFileShares('file-1', 'other-user')
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'FILE_NOT_FOUND',
+    });
+
+    expect(prisma.sharedFile.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('SharedFileService.removeSharedFile', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('allows the recipient to remove a received share', async () => {
+    (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue({
+      id: 'share-file-1',
+      sharedById: 'owner-user',
+      sharedWithId: 'recipient-user',
+    });
+    (prisma.sharedFile.delete as jest.Mock).mockResolvedValue({ id: 'share-file-1' });
+
+    await expect(
+      SharedFileService.removeSharedFile('share-file-1', 'recipient-user')
+    ).resolves.toEqual({ message: 'Shared file removed successfully' });
+
+    expect(prisma.sharedFile.findFirst).toHaveBeenCalledWith({
+      where: { id: 'share-file-1', file: { is: { isDeleted: false } } },
+    });
+    expect(prisma.sharedFile.delete).toHaveBeenCalledWith({ where: { id: 'share-file-1' } });
+  });
+
+  it('refuses unrelated users when removing a share', async () => {
+    (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue({
+      id: 'share-file-1',
+      sharedById: 'owner-user',
+      sharedWithId: 'recipient-user',
+    });
+
+    await expect(
+      SharedFileService.removeSharedFile('share-file-1', 'other-user')
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      code: 'SHARE_ACCESS_DENIED',
+    });
+
+    expect(prisma.sharedFile.delete).not.toHaveBeenCalled();
   });
 });

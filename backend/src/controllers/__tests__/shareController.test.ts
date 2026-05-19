@@ -7,13 +7,18 @@ import { StorageService } from '../../services/storageService';
 import { EncryptionService } from '../../services/encryptionService';
 import prisma from '../../config/database';
 
-jest.mock('fs', () => ({
-  __esModule: true,
-  default: {
+jest.mock('fs', () => {
+  const fsMock = {
     existsSync: jest.fn(),
     statSync: jest.fn(),
-  },
-}));
+  };
+
+  return {
+    __esModule: true,
+    default: fsMock,
+    ...fsMock,
+  };
+});
 
 jest.mock('../../services/shareService', () => ({
   ShareService: {

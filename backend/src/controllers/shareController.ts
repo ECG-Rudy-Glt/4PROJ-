@@ -14,6 +14,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { getShareAccessSecret } from '../config/secrets';
 import { AppError } from '../middlewares/errorHandler';
+import { vaultShareForbiddenError } from '../constants/shareErrors';
 
 const ENCRYPTION_OVERHEAD_BYTES = 32;
 const SHARE_ACCESS_HEADER = 'x-share-access-token';
@@ -64,7 +65,7 @@ function assertPublicShareLinkAvailable(shareLink: any, bundle = false): void {
 
   if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
   if (shareLink.file.isDeleted) throw new Error('Share link is unavailable');
-  if (shareLink.file.isVault) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+  if (shareLink.file.isVault) throw vaultShareForbiddenError();
 }
 
 function sendSharePasswordRequired(res: Response): void {

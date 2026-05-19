@@ -74,6 +74,26 @@ function hasSwitchSession(config?: RetriableRequestConfig) {
   );
 }
 
+function isFatalAuth401(error: any) {
+  const code = error.response?.data?.code;
+  const message = error.response?.data?.error;
+
+  if (code === 'SESSION_EXPIRED') return true;
+  if (code === 'REAUTH_REQUIRED' || code === 'DEK_UNLOCK_REQUIRED') return false;
+
+  return [
+    'No token provided',
+    'Access denied: full authentication required',
+    'User not found',
+    'Session expired (global logout)',
+    'Invalid switch session cookie',
+    'Delegation is no longer valid',
+    'Delegate account inactive',
+    'Root session account inactive',
+    'Invalid token',
+  ].includes(message);
+}
+
 function setAuthorizationHeader(config: RetriableRequestConfig, token: string) {
   config.headers = config.headers || {};
   if (typeof config.headers.set === 'function') {
@@ -166,11 +186,18 @@ api.interceptors.response.use(
       const originalRequest = error.config as RetriableRequestConfig | undefined;
       const expired = error.response?.data?.code === 'SESSION_EXPIRED';
 
+      if (hasSwitchSession(originalRequest)) {
+        if (isFatalAuth401(error)) {
+          clearStoredAuth();
+          redirectToLogin(expired);
+        }
+        return Promise.reject(error);
+      }
+
       if (!originalRequest
         || originalRequest._retry
         || isRefreshRequest(originalRequest)
         || isLogoutRequest(originalRequest)
-        || hasSwitchSession(originalRequest)
       ) {
         clearStoredAuth();
         redirectToLogin(expired);

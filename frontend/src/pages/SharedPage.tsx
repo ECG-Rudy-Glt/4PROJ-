@@ -185,6 +185,25 @@ export default function SharedPage() {
     }
   };
 
+  const handleRemoveReceivedShare = async (shareId: string, type: 'file' | 'folder', name: string) => {
+    if (!shareId) {
+      toast.error(t('common.error'));
+      return;
+    }
+    if (!confirm(t('files.stop_sharing_confirm', { name }))) return;
+    try {
+      if (type === 'file') {
+        await shareService.rejectSharedFile(shareId);
+      } else {
+        await shareService.rejectSharedFolder(shareId);
+      }
+      toast.success(t('files.stop_sharing_success'));
+      loadShared();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
+    }
+  };
+
   const handleDeleteLink = async (linkId: string) => {
     if (!confirm(t('shared.my_shares.delete_link_confirm'))) return;
 
@@ -364,13 +383,22 @@ export default function SharedPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             {isLocked ? (
-                              <button
-                                onClick={() => setUnlockTarget({ type: 'file', file, action: 'preview' })}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg transition-colors"
-                              >
-                                <Lock className="w-4 h-4" />
-                                {t('shared.unlock')}
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => setUnlockTarget({ type: 'file', file, action: 'preview' })}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg transition-colors"
+                                >
+                                  <Lock className="w-4 h-4" />
+                                  {t('shared.unlock')}
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveReceivedShare((file as any).shareId, 'file', file.name)}
+                                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                  title={t('files.stop_sharing_action')}
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </>
                             ) : (
                               <>
                                 <button
@@ -386,6 +414,13 @@ export default function SharedPage() {
                                   title={t('common.download')}
                                 >
                                   <Download className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveReceivedShare((file as any).shareId, 'file', file.name)}
+                                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                  title={t('files.stop_sharing_action')}
+                                >
+                                  <Trash2 className="w-5 h-5" />
                                 </button>
                               </>
                             )}
@@ -443,7 +478,19 @@ export default function SharedPage() {
                               )}
                             </div>
                           </div>
-                          <ExternalLink className="w-5 h-5 text-gray-400" />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleRemoveReceivedShare(folder.id, 'folder', folder.folder?.name || t('shared.my_shares.shared_folder'));
+                              }}
+                              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title={t('files.stop_sharing_action')}
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                            <ExternalLink className="w-5 h-5 text-gray-400" />
+                          </div>
                         </div>
                       );
                     })}

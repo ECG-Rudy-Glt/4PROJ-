@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { SharedLinkService } from '../sharedLinkService';
+import { VAULT_SHARE_FORBIDDEN_CODE } from '../../constants/shareErrors';
 
 jest.mock('../../config/database', () => ({
   __esModule: true,
@@ -16,6 +17,7 @@ jest.mock('../../config/database', () => ({
       count: jest.fn(),
     },
     file: {
+      findFirst: jest.fn(),
       findMany: jest.fn(),
     },
   },
@@ -71,6 +73,37 @@ describe('SharedLinkService public link guards', () => {
     });
 
     await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Share link is unavailable');
+  });
+
+  it('refuses public file links for vault files with a clear 403', async () => {
+    (prisma.sharedLink.findUnique as jest.Mock).mockResolvedValue({
+      token: 'public-token',
+      file: { id: 'file-1', isDeleted: false, isVault: true },
+      user: activeOwner,
+    });
+
+    await expect(SharedLinkService.getShareLink('public-token')).rejects.toMatchObject({
+      statusCode: 403,
+      code: VAULT_SHARE_FORBIDDEN_CODE,
+    });
+  });
+
+  it('refuses creating public links for vault files before writing a link', async () => {
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue({
+      id: 'file-1',
+      userId: 'owner-user',
+      isDeleted: false,
+      isVault: true,
+    });
+
+    await expect(
+      SharedLinkService.createShareLink('owner-user', 'file-1')
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      code: VAULT_SHARE_FORBIDDEN_CODE,
+    });
+
+    expect(prisma.sharedLink.create).not.toHaveBeenCalled();
   });
 
   it('rejects persisted folder public links with a clear error', async () => {
