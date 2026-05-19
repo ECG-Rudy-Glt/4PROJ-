@@ -305,12 +305,10 @@
 
 | Priorité | Fonctionnalité manquante | Complexité |
 | :--- | :--- | :---: |
+| 🔴 Haute | Filtres dans le journal d'audit | Faible |
+| 🔴 Haute | Partage publique | Faible |
+| 🔴 Haute | Forcer téléchargement (appui long) + dossier en ZIP | Faible |
 | 🟠 Moyenne | Mot de passe oublié / réinitialisation | Faible |
 | 🟠 Moyenne | Prévisualisation texte / Markdown | Faible |
-| 🟠 Moyenne | Édition de tag (renommer, recolorer) | Faible |
-| 🟠 Moyenne | Flux d'activité dans le Dashboard | Moyenne |
 | 🟠 Moyenne | Téléchargement dossier en ZIP | Faible |
-| 🟠 Moyenne | Export CSV admin | Faible |
 | 🟠 Moyenne | Gestion trusted devices (liste & révocation) | Faible |
-| 🟡 Basse | OAuth Google / GitHub | Moyenne |
-| 🟡 Basse | Organisations | Élevée |
