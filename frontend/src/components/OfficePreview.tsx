@@ -36,6 +36,53 @@ export const OfficePreview: React.FC<OfficePreviewProps> = ({ file, isDelegatedS
     return <FileText className="w-16 h-16 text-blue-500" />;
   };
 
+  const handleDownload = async () => {
+    try {
+      const response = await api.get(`/files/${file.id}/download`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', file.name);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+    }
+  };
+
+  // All hooks must be declared before any conditional return (React rules of hooks)
+  useEffect(() => {
+    // Skip OnlyOffice init entirely in delegated sessions
+    if (isDelegatedSession) return;
+
+    let isMounted = true;
+
+    const initViewer = async () => {
+      if (isMounted) {
+        await loadViewer();
+      }
+    };
+
+    initViewer();
+
+    return () => {
+      isMounted = false;
+      if (docEditorRef.current) {
+        try {
+          docEditorRef.current.destroyEditor();
+        } catch (e) {
+          console.log('Editor cleanup error:', e);
+        }
+        docEditorRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.id, isDelegatedSession]);
+
   // Delegated/switch sessions never carry the owner's DEK → OnlyOffice always returns 401.
   // Show a clear UX message instead of crashing.
   if (isDelegatedSession) {
@@ -63,49 +110,6 @@ export const OfficePreview: React.FC<OfficePreviewProps> = ({ file, isDelegatedS
       </div>
     );
   }
-
-  const handleDownload = async () => {
-    try {
-      const response = await api.get(`/files/${file.id}/download`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', file.name);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download error:', err);
-    }
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const initViewer = async () => {
-      if (isMounted) {
-        await loadViewer();
-      }
-    };
-
-    initViewer();
-
-    return () => {
-      isMounted = false;
-      if (docEditorRef.current) {
-        try {
-          docEditorRef.current.destroyEditor();
-        } catch (e) {
-          console.log('Editor cleanup error:', e);
-        }
-        docEditorRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file.id]);
 
   const loadViewer = async () => {
     try {
