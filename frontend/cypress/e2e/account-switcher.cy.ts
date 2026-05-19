@@ -83,7 +83,7 @@ describe('Account Switcher Modal', () => {
     cy.get('input[placeholder="Label (e.g., Work account)"]').type('Compte secondaire');
     cy.contains('button', 'Next').click();
 
-    cy.get('input[placeholder="MFA Code (optional)"]').type('123456');
+    cy.get('input[placeholder="MFA Code (6 digits)"]').type('123456');
     cy.get('form').contains('button', 'Link an account').click();
 
     cy.wait('@addSwitchLink');
