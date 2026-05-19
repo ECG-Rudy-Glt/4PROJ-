@@ -1,16 +1,24 @@
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { ShareController } from '../shareController';
 import { ShareService } from '../../services/shareService';
 import { StorageService } from '../../services/storageService';
 import { EncryptionService } from '../../services/encryptionService';
+import prisma from '../../config/database';
 
-jest.mock('fs', () => ({
-  __esModule: true,
-  default: {
+jest.mock('fs', () => {
+  const fsMock = {
     existsSync: jest.fn(),
     statSync: jest.fn(),
-  },
-}));
+  };
+
+  return {
+    __esModule: true,
+    default: fsMock,
+    ...fsMock,
+  };
+});
 
 jest.mock('../../services/shareService', () => ({
   ShareService: {
@@ -31,6 +39,19 @@ jest.mock('../../services/encryptionService', () => ({
   EncryptionService: {
     getDecryptStreamAuto: jest.fn(),
   },
+}));
+
+jest.mock('../../config/database', () => ({
+  __esModule: true,
+  default: {
+    sharedLink: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('../../config/secrets', () => ({
+  getShareAccessSecret: () => 'test-share-access-secret',
 }));
 
 jest.mock('../../services/shareInvitationService', () => ({
@@ -243,5 +264,56 @@ describe('ShareController shared file storage streaming', () => {
     expect(StorageService.getObjectSize).toHaveBeenCalledWith('files/shared.enc');
     expect(res.writeHead).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalledWith(decryptError);
+  });
+});
+
+describe('ShareController public share unlock', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('unlocks password-protected public file links after reloading availability relations', async () => {
+    const passwordHash = await bcrypt.hash('secret-password', 10);
+    (prisma.sharedLink.findUnique as jest.Mock).mockResolvedValue({
+      id: 'link-1',
+      token: 'public-token',
+      fileId: 'file-1',
+      folderId: null,
+      bundleFileIds: null,
+      password: passwordHash,
+      expiresAt: null,
+      maxDownloads: null,
+      downloads: 0,
+      file: { id: 'file-1', isDeleted: false, isVault: false },
+      user: { id: 'owner-1', accountStatus: 'ACTIVE' },
+    });
+
+    const req: any = {
+      params: { token: 'public-token' },
+      body: { password: 'secret-password' },
+    };
+    const res = createRes();
+
+    await ShareController.unlockPublicShare(req, res, jest.fn());
+
+    expect(prisma.sharedLink.findUnique).toHaveBeenCalledWith({
+      where: { token: 'public-token' },
+      include: {
+        file: true,
+        user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } },
+      },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    const payload = res.json.mock.calls[0][0];
+    expect(payload.data.shareAccessToken).toEqual(expect.any(String));
+    expect(payload.data.expiresIn).toBe(3600);
+
+    const decoded = jwt.verify(payload.data.shareAccessToken, 'test-share-access-secret') as any;
+    expect(decoded).toEqual(expect.objectContaining({
+      purpose: 'share-password-access',
+      kind: 'public-link',
+      linkId: 'link-1',
+      token: 'public-token',
+    }));
   });
 });

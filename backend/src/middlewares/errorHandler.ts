@@ -33,6 +33,11 @@ export function errorHandler(
   if (err instanceof AppError) {
     const body: Record<string, unknown> = { error: err.message };
     if (err.code) body.code = err.code;
+    if (err.statusCode >= 500) {
+      logger.error({ err, method: req.method, url: redactUrl(req.originalUrl) }, err.message);
+    } else {
+      logger.warn({ statusCode: err.statusCode, method: req.method, url: redactUrl(req.originalUrl) }, err.message);
+    }
     res.status(err.statusCode).json(body);
     return;
   }

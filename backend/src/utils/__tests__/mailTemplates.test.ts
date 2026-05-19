@@ -3,6 +3,7 @@ import {
   getDelegationGrantedEmail,
   getDelegationRevokedEmail,
   getExpirationAlertEmail,
+  getPasswordResetEmail,
   getPasswordChangeNotification,
   getShareNotificationEmail,
   getWelcomeEmail,
@@ -93,5 +94,19 @@ describe('mailTemplates transactional templates', () => {
     const withSvgLogo = getWelcomeEmail('fr', 'Alice');
     expect(withSvgLogo.html).not.toContain('<img');
     expect(withSvgLogo.html).toContain('SupFile</h1>');
+  });
+
+  it('renders password reset emails with escaped HTML variables and text fallback', () => {
+    const template = getPasswordResetEmail(
+      'fr',
+      '<Alice>',
+      'https://supfile.example/reset-password?token=abc&next=<dashboard>'
+    );
+
+    expect(template.subject).toContain('Réinitialisation');
+    expect(template.text).toContain('https://supfile.example/reset-password?token=abc&next=<dashboard>');
+    expect(template.html).toContain('Bonjour &lt;Alice&gt;');
+    expect(template.html).toContain('https://supfile.example/reset-password?token=abc&amp;next=&lt;dashboard&gt;');
+    expect(template.html).not.toContain('Bonjour <Alice>');
   });
 });

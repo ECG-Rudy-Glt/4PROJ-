@@ -83,7 +83,7 @@ describe('Account Switcher Modal', () => {
     cy.get('input[placeholder="Label (e.g., Work account)"]').type('Compte secondaire');
     cy.contains('button', 'Next').click();
 
-    cy.get('input[placeholder="MFA Code (optional)"]').type('123456');
+    cy.get('input[placeholder="MFA Code"]').type('123456');
     cy.get('form').contains('button', 'Link an account').click();
 
     cy.wait('@addSwitchLink');
@@ -263,8 +263,11 @@ describe('Account Switcher Modal', () => {
       expect(win.localStorage.getItem('token')).to.equal('switched-token-2');
     });
 
+    // Re-open the modal. The Return button triggers switchBack which calls
+    // window.location.replace('/dashboard') — use force:true to click before
+    // the element detaches from the DOM during the navigation.
     cy.get('button[title="Switch de comptes"]').click();
-    cy.contains('button', 'Return').click();
+    cy.contains('button', 'Return').click({ force: true });
     cy.wait('@switchBack');
 
     cy.window().then((win) => {

@@ -13,6 +13,8 @@ import { Readable } from 'stream';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { getShareAccessSecret } from '../config/secrets';
+import { AppError } from '../middlewares/errorHandler';
+import { vaultShareForbiddenError } from '../constants/shareErrors';
 
 const ENCRYPTION_OVERHEAD_BYTES = 32;
 const SHARE_ACCESS_HEADER = 'x-share-access-token';
@@ -43,7 +45,13 @@ function verifyPublicShareAccessToken(accessToken: string, shareLink: any, token
 }
 
 function assertPublicShareLinkAvailable(shareLink: any, bundle = false): void {
-  if (!shareLink) throw new Error('Share link not found');
+  if (!shareLink) {
+    throw new AppError(
+      404,
+      'Lien de partage introuvable ou révoqué.',
+      'SHARE_LINK_NOT_FOUND'
+    );
+  }
   if (shareLink.user?.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
   if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
   if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) {
@@ -57,7 +65,7 @@ function assertPublicShareLinkAvailable(shareLink: any, bundle = false): void {
 
   if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
   if (shareLink.file.isDeleted) throw new Error('Share link is unavailable');
-  if (shareLink.file.isVault) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+  if (shareLink.file.isVault) throw vaultShareForbiddenError();
 }
 
 function sendSharePasswordRequired(res: Response): void {
@@ -853,10 +861,21 @@ export class ShareController {
       const prisma = (await import('../config/database')).default;
       const shareLink = await prisma.sharedLink.findUnique({
         where: { token: shareToken },
+        include: {
+          file: true,
+          user: { select: { id: true, email: true, firstName: true, lastName: true, accountStatus: true } },
+        },
       });
 
       if (!shareLink) {
         sendError(res, 'Lien de partage introuvable', 404);
+        return;
+      }
+
+      try {
+        assertPublicShareLinkAvailable(shareLink, Boolean(shareLink.bundleFileIds));
+      } catch (error: any) {
+        sendError(res, error.message || 'Lien de partage indisponible', 403);
         return;
       }
 
@@ -875,8 +894,6 @@ export class ShareController {
         res.status(403).json({ error: 'SHARE_PASSWORD_INVALID', message: 'Mot de passe invalide' });
         return;
       }
-
-      assertPublicShareLinkAvailable(shareLink, Boolean(shareLink.bundleFileIds));
 
       const fingerprint = getPasswordFingerprint(shareLink.password);
       const token = jwt.sign(

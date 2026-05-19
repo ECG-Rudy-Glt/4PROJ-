@@ -337,7 +337,10 @@ export default function FilesPage() {
     }
   }, [folderId, searchQuery, getSharedItemsAsDisplayFiles, loadPendingSharesCount]);
 
-  const canShareItem = (item: any) => !isSharedItem(item) || Boolean(item?._canShare || item?._sharedFolderPermissions?.canShare);
+  const canShareItem = (item: any) => {
+    if (item?.isVault) return false;
+    return !isSharedItem(item) || Boolean(item?._canShare || item?._sharedFolderPermissions?.canShare);
+  };
   const canDeleteItem = (item: any) => !isSharedItem(item) || Boolean(item?._canDelete || item?._sharedFolderPermissions?.canDelete);
 
   useEffect(() => {
@@ -522,6 +525,21 @@ export default function FilesPage() {
     if (!confirm(t('files.stop_sharing_confirm', { name: folderName }))) return;
     try {
       await shareService.rejectSharedFolder(sharedFolderId);
+      toast.success(t('files.stop_sharing_success'));
+      getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('common.error')));
+    }
+  };
+
+  const handleRemoveSharedFile = async (sharedFileId: string, fileName: string) => {
+    if (!sharedFileId) {
+      toast.error(t('common.error'));
+      return;
+    }
+    if (!confirm(t('files.stop_sharing_confirm', { name: fileName }))) return;
+    try {
+      await shareService.rejectSharedFile(sharedFileId);
       toast.success(t('files.stop_sharing_success'));
       getSharedItemsAsDisplayFiles().then(setAcceptedSharedFiles);
     } catch (error) {
@@ -888,7 +906,7 @@ export default function FilesPage() {
                               onChange={(e) => setRenameValue(e.target.value)}
                               onKeyDown={(e) => handleRenameKeyDown(e, 'file')}
                               onBlur={confirmRenameFile}
-                              className="text-sm font-medium px-2 py-1 border border-primary-400 rounded-lg"
+                              className="text-sm font-medium px-2 py-1 border border-primary-400 dark:border-primary-500 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                               autoFocus
                             />
                             {renameExtension && <span className="text-sm text-gray-400">{renameExtension}</span>}
@@ -923,6 +941,9 @@ export default function FilesPage() {
                           <button onClick={() => handleDownloadFile(file)} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.download')}><Download className="w-4 h-4" /></button>
                           {fileCanShare && <button onClick={() => { setSelectedFile(file); setShowShareFileModal(true); }} className="p-2 text-gray-400 hover:text-primary-600" title={t('common.share')}><Share2 className="w-4 h-4" /></button>}
                           {fileCanDelete && <button onClick={() => handleDelete(file.id)} className="p-2 text-gray-400 hover:text-red-600" title={t('common.delete')}><Trash2 className="w-4 h-4" /></button>}
+                          {isShared && !fileCanDelete && (
+                            <button onClick={() => handleRemoveSharedFile((file as any)._shareId || (file as any).shareId, file.name)} className="p-2 text-gray-400 hover:text-red-600" title={t('files.stop_sharing_action')}><Trash2 className="w-4 h-4" /></button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
 
 // Pages
@@ -30,12 +30,27 @@ import AdminRoute from './components/AdminRoute';
 
 function App() {
   const { loadUser, isAuthenticated } = useAuthStore();
+  const location = useLocation();
+
+  const isPublicRoute = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/mfa-verify',
+    '/auth/callback',
+    '/share',
+    '/legal',
+    '/privacy',
+    '/terms',
+    '/contact',
+  ].some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isPublicRoute) {
       loadUser();
     }
-  }, [isAuthenticated, loadUser]);
+  }, [isAuthenticated, isPublicRoute, loadUser]);
 
   return (
     <Routes>

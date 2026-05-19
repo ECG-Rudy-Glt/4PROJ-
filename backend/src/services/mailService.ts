@@ -53,7 +53,11 @@ export class MailService {
     static async sendMail(options: MailOptions): Promise<boolean> {
         const smtpMock = process.env.SMTP_MOCK === 'true';
         if (smtpMock) {
-            logger.info({ options }, '[MailService] SMTP not configured. Mocking email send:');
+            logger.info({
+                to: options.to,
+                subject: options.subject,
+                hasHtml: Boolean(options.html),
+            }, '[MailService] SMTP not configured. Mocking email send:');
             return true;
         }
 

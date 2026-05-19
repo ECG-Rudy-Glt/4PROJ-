@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from './auditService';
 import { PlanService } from './planService';
 import logger from '../config/logger';
+import { AppError } from '../middlewares/errorHandler';
+import { vaultShareForbiddenError } from '../constants/shareErrors';
 
 export class SharedLinkService {
   static async assertShareLimit(userId: string) {
@@ -33,7 +35,7 @@ export class SharedLinkService {
     });
 
     if (!file) throw new Error('File not found');
-    if (file.isVault) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+    if (file.isVault) throw vaultShareForbiddenError();
 
     await this.assertShareLimit(userId);
 
@@ -74,13 +76,19 @@ export class SharedLinkService {
       },
     });
 
-    if (!shareLink) throw new Error('Share link not found');
+    if (!shareLink) {
+      throw new AppError(
+        404,
+        'Lien de partage introuvable ou révoqué.',
+        'SHARE_LINK_NOT_FOUND'
+      );
+    }
     if (shareLink.user.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
     if (!shareLink.bundleFileIds) {
       if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
       if (shareLink.file.isDeleted) throw new Error('Share link is unavailable');
     }
-    if (shareLink.file?.isVault) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+    if (shareLink.file?.isVault) throw vaultShareForbiddenError();
     if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
     if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) throw new Error('Share link download limit reached');
 
@@ -120,7 +128,7 @@ export class SharedLinkService {
     });
 
     if (files.length !== fileIds.length) throw new Error('Un ou plusieurs fichiers sont introuvables');
-    if (files.some((f) => f.isVault)) throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+    if (files.some((f) => f.isVault)) throw vaultShareForbiddenError();
 
     await this.assertShareLimit(userId);
 
@@ -177,7 +185,7 @@ export class SharedLinkService {
       throw new Error('One or more shared files are no longer available');
     }
     if (files.some((file) => file.isVault)) {
-      throw new Error('Le partage public est interdit pour les fichiers du coffre-fort');
+      throw vaultShareForbiddenError();
     }
 
     return { shareLink, files };
@@ -188,7 +196,13 @@ export class SharedLinkService {
       where: { id: linkId, userId },
     });
 
-    if (!shareLink) throw new Error('Share link not found');
+    if (!shareLink) {
+      throw new AppError(
+        404,
+        'Lien de partage introuvable ou révoqué.',
+        'SHARE_LINK_NOT_FOUND'
+      );
+    }
 
     await prisma.sharedLink.delete({ where: { id: linkId } });
     return { message: 'Share link deleted successfully' };
