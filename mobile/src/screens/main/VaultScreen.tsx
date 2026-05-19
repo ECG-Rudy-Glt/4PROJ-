@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -20,6 +21,7 @@ import { vaultService, VaultStatus } from '../../services/vaultService';
 
 export default function VaultScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -34,7 +36,7 @@ export default function VaultScreen() {
       const res = await vaultService.getStatus();
       setStatus(res.status);
     } catch {
-      Toast.show({ type: 'error', text1: 'Impossible de charger le statut du coffre' });
+      Toast.show({ type: 'error', text1: t('vault.error') });
     } finally {
       setLoading(false);
     }
@@ -46,7 +48,7 @@ export default function VaultScreen() {
 
   const handleSetup = async () => {
     if (!password || totp.length !== 6) {
-      Toast.show({ type: 'error', text1: 'Mot de passe et code TOTP requis' });
+      Toast.show({ type: 'error', text1: t('vault.empty') });
       return;
     }
     setActionLoading(true);
@@ -56,9 +58,9 @@ export default function VaultScreen() {
       setMode('idle');
       setPassword('');
       setTotp('');
-      Toast.show({ type: 'success', text1: 'Coffre activé' });
+      Toast.show({ type: 'success', text1: t('vault.setup_success') });
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Erreur lors de l\'activation' });
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || t('vault.error') });
     } finally {
       setActionLoading(false);
     }
@@ -66,7 +68,7 @@ export default function VaultScreen() {
 
   const handleUnlock = async () => {
     if (!password || totp.length !== 6) {
-      Toast.show({ type: 'error', text1: 'Mot de passe et code TOTP requis' });
+      Toast.show({ type: 'error', text1: t('vault.empty') });
       return;
     }
     setActionLoading(true);
@@ -76,27 +78,27 @@ export default function VaultScreen() {
       setMode('idle');
       setPassword('');
       setTotp('');
-      Toast.show({ type: 'success', text1: 'Coffre déverrouillé' });
+      Toast.show({ type: 'success', text1: t('vault.unlock_success') });
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Mot de passe ou code invalide' });
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || t('vault.error') });
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleLock = () => {
-    Alert.alert('Verrouiller le coffre', 'Confirmer le verrouillage ?', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('vault.lock_btn'), t('common.confirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Verrouiller',
+        text: t('vault.lock_btn'),
         onPress: async () => {
           setActionLoading(true);
           try {
             const res = await vaultService.lock();
             setStatus(res.status);
-            Toast.show({ type: 'success', text1: 'Coffre verrouillé' });
+            Toast.show({ type: 'success', text1: t('vault.lock_success') });
           } catch {
-            Toast.show({ type: 'error', text1: 'Erreur lors du verrouillage' });
+            Toast.show({ type: 'error', text1: t('vault.error') });
           } finally {
             setActionLoading(false);
           }
@@ -107,7 +109,7 @@ export default function VaultScreen() {
 
   const handleRotate = async () => {
     if (!password || !newPassword || totp.length !== 6) {
-      Toast.show({ type: 'error', text1: 'Tous les champs sont requis' });
+      Toast.show({ type: 'error', text1: t('vault.empty') });
       return;
     }
     setActionLoading(true);
@@ -118,9 +120,9 @@ export default function VaultScreen() {
       setPassword('');
       setNewPassword('');
       setTotp('');
-      Toast.show({ type: 'success', text1: 'Mot de passe du coffre modifié' });
+      Toast.show({ type: 'success', text1: t('vault.change_success') });
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Erreur' });
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || t('vault.error') });
     } finally {
       setActionLoading(false);
     }
@@ -138,13 +140,13 @@ export default function VaultScreen() {
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content}>
-      <Text style={styles.pageTitle}>Coffre-fort</Text>
+      <Text style={styles.pageTitle}>{t('vault.title')}</Text>
 
       {needsMFA && (
         <View style={styles.warningCard}>
           <Ionicons name="warning-outline" size={20} color={colors.accent.warm} />
           <Text style={styles.warningText}>
-            Le coffre-fort requiert l'authentification à deux facteurs (MFA). Activez le MFA dans les paramètres de sécurité.
+            {t('vault.warning_text')}
           </Text>
         </View>
       )}
@@ -158,7 +160,7 @@ export default function VaultScreen() {
           />
         </View>
         <Text style={styles.statusTitle}>
-          {!status?.enabled ? 'Coffre non configuré' : status.unlocked ? 'Coffre déverrouillé' : 'Coffre verrouillé'}
+          {!status?.enabled ? t('vault.status_unset') : status.unlocked ? t('vault.status_unlocked') : t('vault.status_locked')}
         </Text>
         {status?.unlockUntil && (
           <Text style={styles.statusSub}>
@@ -175,14 +177,14 @@ export default function VaultScreen() {
       {!status?.enabled && !needsMFA && mode === 'idle' && (
         <TouchableOpacity style={styles.primaryBtn} onPress={() => setMode('setup')}>
           <Ionicons name="shield-checkmark-outline" size={18} color={colors.white} />
-          <Text style={styles.primaryBtnText}>Configurer le coffre</Text>
+          <Text style={styles.primaryBtnText}>{t('vault.setup_btn')}</Text>
         </TouchableOpacity>
       )}
 
       {status?.enabled && !status.unlocked && mode === 'idle' && (
         <TouchableOpacity style={styles.primaryBtn} onPress={() => setMode('unlock')} disabled={needsMFA}>
           <Ionicons name="lock-open-outline" size={18} color={colors.white} />
-          <Text style={styles.primaryBtnText}>Déverrouiller</Text>
+          <Text style={styles.primaryBtnText}>{t('vault.unlock_btn')}</Text>
         </TouchableOpacity>
       )}
 
@@ -190,47 +192,47 @@ export default function VaultScreen() {
         <View style={styles.row}>
           <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={handleLock} disabled={actionLoading}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.primary[600]} />
-            <Text style={styles.secondaryBtnText}>Verrouiller</Text>
+            <Text style={styles.secondaryBtnText}>{t('vault.lock_btn')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={() => setMode('rotate')}>
             <Ionicons name="key-outline" size={18} color={colors.primary[600]} />
-            <Text style={styles.secondaryBtnText}>Changer le mdp</Text>
+            <Text style={styles.secondaryBtnText}>{t('vault.change_password_btn')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {(mode === 'setup' || mode === 'unlock') && (
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>{mode === 'setup' ? 'Configuration du coffre' : 'Déverrouillage'}</Text>
-          <Text style={styles.label}>Mot de passe du coffre</Text>
+          <Text style={styles.formTitle}>{mode === 'setup' ? t('vault.setup_btn') : t('vault.unlock_btn')}</Text>
+          <Text style={styles.label}>{t('vault.password_label')}</Text>
           <TextInput
             style={styles.input}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            placeholder="Mot de passe"
+            placeholder={t('vault.password_label')}
             placeholderTextColor={colors.neutral[400]}
           />
-          <Text style={styles.label}>Code TOTP (MFA)</Text>
+          <Text style={styles.label}>{t('auth.mfa.code_label')}</Text>
           <TextInput
             style={styles.input}
             value={totp}
             onChangeText={setTotp}
-            placeholder="6 chiffres"
+            placeholder={t('auth.mfa.code_placeholder')}
             keyboardType="number-pad"
             maxLength={6}
             placeholderTextColor={colors.neutral[400]}
           />
           <View style={styles.row}>
             <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={() => { setMode('idle'); setPassword(''); setTotp(''); }}>
-              <Text style={styles.secondaryBtnText}>Annuler</Text>
+              <Text style={styles.secondaryBtnText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.primaryBtn, { flex: 1 }]}
               onPress={mode === 'setup' ? handleSetup : handleUnlock}
               disabled={actionLoading}
             >
-              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>{mode === 'setup' ? 'Configurer' : 'Déverrouiller'}</Text>}
+              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>{mode === 'setup' ? t('vault.setup_btn') : t('vault.unlock_btn')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -238,19 +240,19 @@ export default function VaultScreen() {
 
       {mode === 'rotate' && (
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Changer le mot de passe</Text>
-          <Text style={styles.label}>Mot de passe actuel</Text>
-          <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder="Actuel" placeholderTextColor={colors.neutral[400]} />
-          <Text style={styles.label}>Nouveau mot de passe</Text>
-          <TextInput style={styles.input} secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholder="Nouveau" placeholderTextColor={colors.neutral[400]} />
-          <Text style={styles.label}>Code TOTP</Text>
-          <TextInput style={styles.input} value={totp} onChangeText={setTotp} placeholder="6 chiffres" keyboardType="number-pad" maxLength={6} placeholderTextColor={colors.neutral[400]} />
+          <Text style={styles.formTitle}>{t('vault.change_password_btn')}</Text>
+          <Text style={styles.label}>{t('settings.old_password')}</Text>
+          <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder={t('settings.old_password')} placeholderTextColor={colors.neutral[400]} />
+          <Text style={styles.label}>{t('vault.new_password_label')}</Text>
+          <TextInput style={styles.input} secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholder={t('vault.new_password_label')} placeholderTextColor={colors.neutral[400]} />
+          <Text style={styles.label}>{t('auth.mfa.code_label')}</Text>
+          <TextInput style={styles.input} value={totp} onChangeText={setTotp} placeholder={t('auth.mfa.code_placeholder')} keyboardType="number-pad" maxLength={6} placeholderTextColor={colors.neutral[400]} />
           <View style={styles.row}>
             <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={() => { setMode('idle'); setPassword(''); setNewPassword(''); setTotp(''); }}>
-              <Text style={styles.secondaryBtnText}>Annuler</Text>
+              <Text style={styles.secondaryBtnText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.primaryBtn, { flex: 1 }]} onPress={handleRotate} disabled={actionLoading}>
-              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>Modifier</Text>}
+              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>{t('common.edit')}</Text>}
             </TouchableOpacity>
           </View>
         </View>

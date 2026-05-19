@@ -52,6 +52,11 @@ export const authService = {
     return unwrap(res.data);
   },
 
+  async getProfileWithToken(token: string): Promise<{ user: User; session?: AuthSessionContext }> {
+    const res = await api.get('/auth/profile', { headers: { Authorization: `Bearer ${token}` } });
+    return unwrap(res.data);
+  },
+
   async updateProfile(data: Partial<Pick<User, 'firstName' | 'lastName' | 'theme'>>): Promise<{ user: User }> {
     const res = await api.put('/auth/profile', data);
     return unwrap(res.data);

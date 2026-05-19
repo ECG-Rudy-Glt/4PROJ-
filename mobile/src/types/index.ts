@@ -287,6 +287,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  ResetPassword: { token: string };
   MfaVerify: { tempToken: string; userId: string; mfaSetupRequired?: boolean; qrCode?: string; secret?: string };
   Main: undefined;
   Trash: undefined;

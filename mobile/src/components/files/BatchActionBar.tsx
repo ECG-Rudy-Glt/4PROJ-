@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../../theme/useColors';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function BatchActionBar({ onMove, onShare, onDelete }: Props) {
+  const { t } = useTranslation();
   const colors = useColors();
   const styles = makeStyles(colors);
 
@@ -22,21 +24,21 @@ export default function BatchActionBar({ onMove, onShare, onDelete }: Props) {
         <View style={styles.btnIcon}>
           <Ionicons name="move-outline" size={20} color={colors.primary[600]} />
         </View>
-        <Text style={styles.btnText}>Déplacer</Text>
+        <Text style={styles.btnText}>{t('files.batch_move')}</Text>
       </TouchableOpacity>
       <View style={styles.divider} />
       <TouchableOpacity style={styles.btn} onPress={onShare}>
         <View style={styles.btnIcon}>
           <Ionicons name="share-social-outline" size={20} color={colors.primary[600]} />
         </View>
-        <Text style={styles.btnText}>Partager</Text>
+        <Text style={styles.btnText}>{t('files.batch_share')}</Text>
       </TouchableOpacity>
       <View style={styles.divider} />
       <TouchableOpacity style={styles.btn} onPress={onDelete}>
         <View style={[styles.btnIcon, styles.btnIconDestructive]}>
           <Ionicons name="trash-outline" size={20} color={colors.error} />
         </View>
-        <Text style={[styles.btnText, { color: colors.error }]}>Supprimer</Text>
+        <Text style={[styles.btnText, { color: colors.error }]}>{t('files.batch_delete')}</Text>
       </TouchableOpacity>
     </View>
   );

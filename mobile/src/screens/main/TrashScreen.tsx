@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -38,6 +39,7 @@ const formatDate = (iso: string): string => {
 };
 
 export default function TrashScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [items, setItems] = useState<TrashItem[]>([]);
@@ -60,7 +62,7 @@ export default function TrashScreen() {
       });
       setItems(trashItems);
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur de chargement' });
+      Toast.show({ type: 'error', text1: t('common.error') });
     } finally {
       setLoading(false);
     }
@@ -78,21 +80,20 @@ export default function TrashScreen() {
         await folderService.restoreFolder(item.data.id);
       }
       await fetchDeleted();
-      Toast.show({ type: 'success', text1: item.kind === 'file' ? 'Fichier restauré' : 'Dossier restauré' });
+      Toast.show({ type: 'success', text1: t('trash.restored') });
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors de la restauration' });
+      Toast.show({ type: 'error', text1: t('trash.restore_error') });
     }
   };
 
   const handleDeletePermanent = (item: TrashItem) => {
-    const label = item.kind === 'file' ? 'Fichier' : 'Dossier';
     Alert.alert(
-      'Supprimer définitivement',
-      `"${item.data.name}" sera supprimé définitivement. Cette action est irréversible.`,
+      t('trash.delete_confirm_title'),
+      t('trash.delete_confirm_msg'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -102,9 +103,9 @@ export default function TrashScreen() {
                 await folderService.deleteFolder(item.data.id, true);
               }
               await fetchDeleted();
-              Toast.show({ type: 'success', text1: `${label} supprimé définitivement` });
+              Toast.show({ type: 'success', text1: t('trash.deleted') });
             } catch {
-              Toast.show({ type: 'error', text1: 'Erreur de suppression' });
+              Toast.show({ type: 'error', text1: t('trash.delete_error') });
             }
           },
         },
@@ -115,12 +116,12 @@ export default function TrashScreen() {
   const handleEmptyTrash = () => {
     if (items.length === 0) return;
     Alert.alert(
-      'Vider la corbeille',
-      `Supprimer définitivement ${items.length} élément(s) ? Cette action est irréversible.`,
+      t('trash.empty_confirm_title'),
+      t('trash.empty_confirm_msg'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Tout supprimer',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -132,9 +133,9 @@ export default function TrashScreen() {
                 )
               );
               setItems([]);
-              Toast.show({ type: 'success', text1: 'Corbeille vidée' });
+              Toast.show({ type: 'success', text1: t('trash.title') });
             } catch {
-              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
+              Toast.show({ type: 'error', text1: t('trash.delete_error') });
             }
           },
         },
@@ -148,11 +149,11 @@ export default function TrashScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.primary[600]} />
         </TouchableOpacity>
-        <Text style={styles.title}>Corbeille</Text>
+        <Text style={styles.title}>{t('trash.title')}</Text>
         {items.length > 0 && (
           <TouchableOpacity onPress={handleEmptyTrash} style={styles.emptyBtn}>
             <Ionicons name="trash-outline" size={18} color={colors.error} />
-            <Text style={styles.emptyBtnText}>Vider</Text>
+            <Text style={styles.emptyBtnText}>{t('trash.empty_btn')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -168,8 +169,8 @@ export default function TrashScreen() {
           !loading ? (
             <EmptyState
               icon="trash-outline"
-              title="Corbeille vide"
-              subtitle="Les fichiers et dossiers supprimés apparaîtront ici"
+              title={t('trash.empty')}
+              subtitle={t('trash.empty')}
             />
           ) : null
         }
@@ -186,7 +187,7 @@ export default function TrashScreen() {
               <Text style={styles.name} numberOfLines={1}>{item.data.name}</Text>
               <Text style={styles.meta}>
                 {item.kind === 'file' ? `${formatSize(item.data.size)} · ` : 'Dossier · '}
-                Supprimé le {item.data.deletedAt ? formatDate(item.data.deletedAt) : '–'}
+                {item.data.deletedAt ? formatDate(item.data.deletedAt) : '–'}
               </Text>
             </View>
             <TouchableOpacity onPress={() => handleRestore(item)} style={styles.actionBtn}>

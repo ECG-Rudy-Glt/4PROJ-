@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
+  const { t } = useTranslation();
   const [subSheet, setSubSheet] = useState<
     'none' | 'rename' | 'move' | 'share' | 'tags' | 'versions' | 'comments'
   >('none');
@@ -47,7 +49,6 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
 
   const store = useFileStore();
 
-  // Reset state when target changes
   useEffect(() => {
     if (target) {
       setRenameValue(target.data.name);
@@ -82,7 +83,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       const res = await folderService.listAllFolders();
       setAllFolders(res.folders ?? []);
     } catch {
-      Toast.show({ type: 'error', text1: 'Impossible de charger les dossiers' });
+      Toast.show({ type: 'error', text1: t('actions.folders_loading_error') });
     } finally {
       setLoadingFolders(false);
     }
@@ -97,10 +98,10 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       } else {
         await store.renameFolder(target.data.id, v);
       }
-      Toast.show({ type: 'success', text1: 'Renommé' });
+      Toast.show({ type: 'success', text1: t('actions.renamed') });
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors du renommage' });
+      Toast.show({ type: 'error', text1: t('actions.rename_error') });
     }
   };
 
@@ -111,28 +112,26 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       } else {
         const destination = folderId ? allFolders.find((folder) => folder.id === folderId) : undefined;
         if (destination && isInvalidFolderDestination(destination)) {
-          Toast.show({ type: 'error', text1: 'Destination invalide' });
+          Toast.show({ type: 'error', text1: t('actions.move_invalid') });
           return;
         }
         await store.moveFolder(target.data.id, folderId);
       }
-      Toast.show({ type: 'success', text1: 'Déplacé' });
+      Toast.show({ type: 'success', text1: t('actions.moved') });
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors du déplacement' });
+      Toast.show({ type: 'error', text1: t('actions.move_error') });
     }
   };
 
   const handleDelete = () => {
     Alert.alert(
-      isFile ? 'Supprimer ce fichier ?' : 'Supprimer ce dossier ?',
-      isFile
-        ? 'Le fichier sera déplacé dans la corbeille.'
-        : 'Le dossier et tout son contenu seront supprimés.',
+      isFile ? t('actions.delete_file_title') : t('actions.delete_folder_title'),
+      isFile ? t('actions.delete_file_msg') : t('actions.delete_folder_msg'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -141,10 +140,10 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
               } else {
                 await store.deleteFolder(target.data.id);
               }
-              Toast.show({ type: 'success', text1: 'Supprimé' });
+              Toast.show({ type: 'success', text1: t('actions.deleted') });
               onClose();
             } catch {
-              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
+              Toast.show({ type: 'error', text1: t('actions.delete_error') });
             }
           },
         },
@@ -159,23 +158,22 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       await Linking.openURL(url);
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: 'Impossible d\'ouvrir le fichier' });
+      Toast.show({ type: 'error', text1: t('actions.download_error') });
     }
   };
 
   const handleDownloadZip = async () => {
     if (isFile) return;
     try {
-      Toast.show({ type: 'info', text1: 'Préparation du ZIP…' });
+      Toast.show({ type: 'info', text1: t('actions.download_zip_preparing') });
       const url = await folderService.downloadAsZip(target.data.id, target.data.name);
       await Linking.openURL(url);
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: 'Impossible de télécharger le dossier' });
+      Toast.show({ type: 'error', text1: t('actions.download_zip_error') });
     }
   };
 
-  // ── Sub sheet: Rename ─────────────────────────────────
   if (subSheet === 'rename') {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={() => setSubSheet('none')}>
@@ -184,22 +182,22 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>Renommer</Text>
+            <Text style={styles.dialogTitle}>{t('actions.rename')}</Text>
             <TextInput
               style={styles.input}
               value={renameValue}
               onChangeText={setRenameValue}
-              placeholder="Nouveau nom"
+              placeholder={t('actions.rename_placeholder')}
               placeholderTextColor={colors.neutral[400]}
               autoFocus
               selectTextOnFocus
             />
             <View style={styles.dialogActions}>
               <TouchableOpacity onPress={() => setSubSheet('none')} style={styles.btnGhost}>
-                <Text style={styles.btnGhostText}>Annuler</Text>
+                <Text style={styles.btnGhostText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleRename} style={styles.btnPrimary}>
-                <Text style={styles.btnPrimaryText}>Valider</Text>
+                <Text style={styles.btnPrimaryText}>{t('common.validate')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -208,7 +206,6 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
-  // ── Sub sheet: Share ─────────────────────────────────
   if (subSheet === 'share') {
     return (
       <ShareModal
@@ -218,7 +215,6 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
-  // ── Sub sheet: Tags (files only) ─────────────────────
   if (subSheet === 'tags' && isFile) {
     return (
       <TagsPicker
@@ -228,7 +224,6 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
-  // ── Sub sheet: Versions (files only) ─────────────────
   if (subSheet === 'versions' && isFile) {
     return (
       <VersionsPanel
@@ -239,7 +234,6 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
-  // ── Sub sheet: Comments (files only) ─────────────────
   if (subSheet === 'comments' && isFile) {
     return (
       <CommentsPanel
@@ -249,14 +243,13 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
-  // ── Sub sheet: Move ──────────────────────────────────
   if (subSheet === 'move') {
     return (
       <Modal visible transparent animationType="slide" onRequestClose={() => setSubSheet('none')}>
         <View style={styles.overlay}>
           <View style={[styles.sheet, { maxHeight: '80%' }]}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Déplacer vers</Text>
+              <Text style={styles.sheetTitle}>{t('actions.move_to')}</Text>
               <TouchableOpacity onPress={() => setSubSheet('none')}>
                 <Ionicons name="close" size={24} color={colors.neutral[500]} />
               </TouchableOpacity>
@@ -264,22 +257,21 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
             <ScrollView style={{ maxHeight: 400 }}>
               <TouchableOpacity style={styles.folderItem} onPress={() => handleMoveTo(undefined)}>
                 <Ionicons name="home-outline" size={20} color={colors.primary[600]} />
-                <Text style={styles.folderItemText}>Racine</Text>
+                <Text style={styles.folderItemText}>{t('actions.move_root')}</Text>
               </TouchableOpacity>
-              {loadingFolders && <Text style={styles.muted}>Chargement…</Text>}
-              {availableMoveFolders
-                .map((f) => (
-                  <TouchableOpacity
-                    key={f.id}
-                    style={styles.folderItem}
-                    onPress={() => handleMoveTo(f.id)}
-                  >
-                    <Ionicons name="folder-outline" size={20} color={colors.accent.bright} />
-                    <Text style={styles.folderItemText} numberOfLines={1}>{formatFolderDestination(f)}</Text>
-                  </TouchableOpacity>
-                ))}
+              {loadingFolders && <Text style={styles.muted}>{t('actions.move_loading')}</Text>}
+              {availableMoveFolders.map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={styles.folderItem}
+                  onPress={() => handleMoveTo(f.id)}
+                >
+                  <Ionicons name="folder-outline" size={20} color={colors.accent.bright} />
+                  <Text style={styles.folderItemText} numberOfLines={1}>{formatFolderDestination(f)}</Text>
+                </TouchableOpacity>
+              ))}
               {!loadingFolders && availableMoveFolders.length === 0 && (
-                <Text style={styles.muted}>Aucun autre dossier</Text>
+                <Text style={styles.muted}>{t('actions.move_no_folders')}</Text>
               )}
             </ScrollView>
           </View>
@@ -288,7 +280,6 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
-  // ── Main actions sheet ────────────────────────────────
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
@@ -306,33 +297,33 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
           {onSelect && (
             <ActionRow
               icon="checkmark-circle-outline"
-              label="Sélectionner"
+              label={t('actions.select')}
               onPress={() => { onSelect(); onClose(); }}
             />
           )}
-          <ActionRow icon="create-outline" label="Renommer" onPress={() => setSubSheet('rename')} />
+          <ActionRow icon="create-outline" label={t('actions.rename')} onPress={() => setSubSheet('rename')} />
           <ActionRow
             icon="move-outline"
-            label="Déplacer"
+            label={t('actions.move')}
             onPress={() => {
               setSubSheet('move');
               loadFolders();
             }}
           />
-          <ActionRow icon="share-social-outline" label="Partager" onPress={() => setSubSheet('share')} />
+          <ActionRow icon="share-social-outline" label={t('actions.share')} onPress={() => setSubSheet('share')} />
           {isFile ? (
             <>
-              <ActionRow icon="pricetags-outline" label="Tags" onPress={() => setSubSheet('tags')} />
-              <ActionRow icon="chatbubble-outline" label="Commentaires" onPress={() => setSubSheet('comments')} />
-              <ActionRow icon="time-outline" label="Historique des versions" onPress={() => setSubSheet('versions')} />
-              <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} />
+              <ActionRow icon="pricetags-outline" label={t('actions.tags')} onPress={() => setSubSheet('tags')} />
+              <ActionRow icon="chatbubble-outline" label={t('actions.comments')} onPress={() => setSubSheet('comments')} />
+              <ActionRow icon="time-outline" label={t('actions.versions')} onPress={() => setSubSheet('versions')} />
+              <ActionRow icon="download-outline" label={t('actions.download')} onPress={handleDownload} />
             </>
           ) : (
-            <ActionRow icon="archive-outline" label="Télécharger en ZIP" onPress={handleDownloadZip} />
+            <ActionRow icon="archive-outline" label={t('actions.download_zip')} onPress={handleDownloadZip} />
           )}
           <ActionRow
             icon="trash-outline"
-            label="Supprimer"
+            label={t('actions.delete')}
             destructive
             onPress={handleDelete}
           />

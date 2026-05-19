@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../../theme/useColors';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -25,6 +26,7 @@ export default function FilesHeader({
   title, selectionMode, selectedCount, canGoBack, paddingTop,
   onGoBack, onExitSelection, onSelectAll, onSearch, onNewFolder, onSort,
 }: Props) {
+  const { t } = useTranslation();
   const colors = useColors();
   const styles = makeStyles(colors);
 
@@ -42,7 +44,7 @@ export default function FilesHeader({
         ) : null}
         <Text style={[styles.title, selectionMode && styles.titleSelection]} numberOfLines={1}>
           {selectionMode
-            ? selectedCount === 0 ? 'Sélection' : `${selectedCount} élément${selectedCount > 1 ? 's' : ''}`
+            ? t('files.batch_selected', { count: selectedCount })
             : title}
         </Text>
       </View>

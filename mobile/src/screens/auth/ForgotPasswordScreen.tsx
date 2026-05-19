@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -17,6 +18,7 @@ import { RootStackParamList } from '../../types';
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ForgotPassword'>;
 
 export default function ForgotPasswordScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,15 +26,15 @@ export default function ForgotPasswordScreen() {
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      Toast.show({ type: 'error', text1: 'Veuillez saisir votre adresse e-mail' });
+      Toast.show({ type: 'error', text1: t('auth.forgot_password.email_label') });
       return;
     }
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: email.trim(), lang: 'fr' });
+      await api.post('/auth/forgot-password', { email: email.trim(), lang: 'fr', platform: 'mobile' });
       setSent(true);
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Erreur', text2: err?.response?.data?.error ?? 'Une erreur est survenue' });
+      Toast.show({ type: 'error', text1: t('common.error'), text2: err?.response?.data?.error ?? t('common.error') });
     } finally {
       setLoading(false);
     }
@@ -43,27 +45,23 @@ export default function ForgotPasswordScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>Mot de passe oublié</Text>
-          <Text style={styles.subtitle}>
-            Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation.
-          </Text>
+          <Text style={styles.title}>{t('auth.forgot_password.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.forgot_password.subtitle')}</Text>
         </View>
 
         <View style={styles.card}>
           {sent ? (
             <View style={styles.successBox}>
               <Ionicons name="checkmark-circle" size={48} color="#16a34a" />
-              <Text style={styles.successTitle}>Demande envoyée</Text>
-              <Text style={styles.successMsg}>
-                Si un compte est associé à cette adresse, un lien de réinitialisation vous a été envoyé. Vérifiez également vos spams.
-              </Text>
+              <Text style={styles.successTitle}>{t('common.success')}</Text>
+              <Text style={styles.successMsg}>{t('auth.forgot_password.success')}</Text>
             </View>
           ) : (
             <>
-              <Text style={styles.label}>Adresse e-mail</Text>
+              <Text style={styles.label}>{t('auth.forgot_password.email_label')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="vous@exemple.com"
+                placeholder={t('auth.forgot_password.email_placeholder')}
                 placeholderTextColor={colors.neutral[400]}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -79,7 +77,7 @@ export default function ForgotPasswordScreen() {
               >
                 {loading
                   ? <ActivityIndicator color={colors.white} />
-                  : <Text style={styles.buttonText}>Envoyer le lien</Text>
+                  : <Text style={styles.buttonText}>{t('auth.forgot_password.submit')}</Text>
                 }
               </TouchableOpacity>
             </>
@@ -87,7 +85,7 @@ export default function ForgotPasswordScreen() {
 
           <TouchableOpacity style={styles.backRow} onPress={() => navigation.navigate('Login')}>
             <Ionicons name="arrow-back" size={16} color={colors.neutral[500]} />
-            <Text style={styles.backText}>Retour à la connexion</Text>
+            <Text style={styles.backText}>{t('auth.forgot_password.back')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

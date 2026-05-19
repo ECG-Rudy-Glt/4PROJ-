@@ -6,38 +6,17 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { auditService, AuditLog } from '../../services/auditService';
-
-const ACTION_LABELS: Record<string, string> = {
-  UPLOAD: 'Fichier importé',
-  DELETE: 'Fichier supprimé',
-  RESTORE: 'Fichier restauré',
-  DOWNLOAD: 'Fichier téléchargé',
-  SHARE: 'Partage créé',
-  UNSHARE: 'Partage supprimé',
-  CREATE_FOLDER: 'Dossier créé',
-  DELETE_FOLDER: 'Dossier supprimé',
-  MOVE_FILE: 'Fichier déplacé',
-  RENAME_FILE: 'Fichier renommé',
-  LOGIN: 'Connexion',
-  LOGOUT: 'Déconnexion',
-  PASSWORD_CHANGE: 'Mot de passe modifié',
-  PROFILE_UPDATE: 'Profil mis à jour',
-  TAG_ADD: 'Étiquette ajoutée',
-  TAG_REMOVE: 'Étiquette supprimée',
-  COMMENT_ADD: 'Commentaire ajouté',
-  VAULT_SETUP: 'Coffre configuré',
-  VAULT_UNLOCK: 'Coffre déverrouillé',
-  VAULT_LOCK: 'Coffre verrouillé',
-};
 
 const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   UPLOAD: 'cloud-upload-outline',
@@ -55,18 +34,19 @@ const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 type AuditCategory = 'all' | 'files' | 'folders' | 'auth' | 'security' | 'sharing';
 
-const AUDIT_CATEGORIES: { key: AuditCategory; label: string; actions?: string[] }[] = [
-  { key: 'all', label: 'Tout' },
-  { key: 'files', label: 'Fichiers', actions: ['UPLOAD', 'DELETE', 'RESTORE', 'DOWNLOAD', 'MOVE_FILE', 'RENAME_FILE'] },
-  { key: 'folders', label: 'Dossiers', actions: ['CREATE_FOLDER', 'DELETE_FOLDER'] },
-  { key: 'auth', label: 'Connexions', actions: ['LOGIN', 'LOGOUT'] },
-  { key: 'security', label: 'Sécurité', actions: ['PASSWORD_CHANGE', 'PROFILE_UPDATE', 'VAULT_SETUP', 'VAULT_UNLOCK', 'VAULT_LOCK'] },
-  { key: 'sharing', label: 'Partage', actions: ['SHARE', 'UNSHARE'] },
+const AUDIT_CATEGORIES: { key: AuditCategory; actions?: string[] }[] = [
+  { key: 'all' },
+  { key: 'files', actions: ['UPLOAD', 'DELETE', 'RESTORE', 'DOWNLOAD', 'MOVE_FILE', 'RENAME_FILE'] },
+  { key: 'folders', actions: ['CREATE_FOLDER', 'DELETE_FOLDER'] },
+  { key: 'auth', actions: ['LOGIN', 'LOGOUT'] },
+  { key: 'security', actions: ['PASSWORD_CHANGE', 'PROFILE_UPDATE', 'VAULT_SETUP', 'VAULT_UNLOCK', 'VAULT_LOCK'] },
+  { key: 'sharing', actions: ['SHARE', 'UNSHARE'] },
 ];
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 150;
 
 export default function AuditScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -74,6 +54,12 @@ export default function AuditScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [category, setCategory] = useState<AuditCategory>('all');
+
+  const getActionLabel = (action: string) =>
+    t(`audit.action_${action}`, { defaultValue: action });
+
+  const getCategoryLabel = (key: AuditCategory): string =>
+    t(`audit.filter_${key}`);
 
   const fetchLogs = useCallback(async (offset = 0) => {
     try {
@@ -108,9 +94,14 @@ export default function AuditScreen() {
     ? logs.filter((l) => categoryActions.includes(l.action))
     : logs;
 
+  const getCount = (cat: AuditCategory) => {
+    const actions = AUDIT_CATEGORIES.find((c) => c.key === cat)?.actions;
+    return actions ? logs.filter((l) => actions.includes(l.action)).length : logs.length;
+  };
+
   const renderItem = ({ item }: { item: AuditLog }) => {
     const icon = ACTION_ICONS[item.action] ?? 'ellipse-outline';
-    const label = ACTION_LABELS[item.action] ?? item.action;
+    const label = getActionLabel(item.action);
     const date = new Date(item.createdAt);
 
     return (
@@ -124,7 +115,7 @@ export default function AuditScreen() {
             <Text style={styles.logDetail} numberOfLines={1}>{item.details.fileName}</Text>
           )}
           {item.details?.ipAddress && (
-            <Text style={styles.logMeta}>IP : {item.details.ipAddress}</Text>
+            <Text style={styles.logMeta}>{t('audit.ip_label', { ip: item.details.ipAddress })}</Text>
           )}
         </View>
         <Text style={styles.logDate}>
@@ -141,23 +132,33 @@ export default function AuditScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.primary[600]} />
         </TouchableOpacity>
-        <Text style={styles.pageTitle}>Journal d'activité</Text>
+        <Text style={styles.pageTitle}>{t('audit.title')}</Text>
       </View>
 
-      <View style={styles.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
         {AUDIT_CATEGORIES.map((c) => {
           const active = category === c.key;
+          const count = getCount(c.key);
           return (
             <TouchableOpacity
               key={c.key}
               style={[styles.filterChip, active && styles.filterChipActive]}
               onPress={() => setCategory(c.key)}
             >
-              <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{c.label}</Text>
+              <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{getCategoryLabel(c.key)}</Text>
+              {count > 0 && (
+                <View style={[styles.chipBadge, active && styles.chipBadgeActive]}>
+                  <Text style={[styles.chipBadgeText, active && styles.chipBadgeTextActive]}>{count}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       {loading ? (
         <View style={styles.center}>
@@ -174,7 +175,12 @@ export default function AuditScreen() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="document-text-outline" size={48} color={colors.neutral[300]} />
-              <Text style={styles.emptyText}>Aucune activité</Text>
+              <Text style={styles.emptyText}>{t('audit.empty')}</Text>
+              {category !== 'all' && (
+                <TouchableOpacity onPress={() => setCategory('all')} style={styles.showAllBtn}>
+                  <Text style={styles.showAllText}>{t('common.see_all')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
           ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary[600]} style={{ margin: spacing.lg }} /> : null}
@@ -200,15 +206,16 @@ const styles = StyleSheet.create({
   pageTitle: { ...typography.h3, color: colors.primary[600] },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
     borderBottomColor: colors.neutral[100],
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -224,6 +231,38 @@ const styles = StyleSheet.create({
   },
   filterLabelActive: {
     color: '#fff',
+  },
+  chipBadge: {
+    backgroundColor: colors.neutral[300],
+    borderRadius: borderRadius.full,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  chipBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  chipBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.neutral[600],
+  },
+  chipBadgeTextActive: {
+    color: '#fff',
+  },
+  showAllBtn: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primary[50],
+  },
+  showAllText: {
+    ...typography.bodySmall,
+    color: colors.primary[600],
+    fontWeight: '600',
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   list: { padding: spacing.lg, gap: spacing.sm },

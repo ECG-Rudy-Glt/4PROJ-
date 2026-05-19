@@ -11,7 +11,6 @@ export interface PushSubscription {
 }
 
 function getProjectId(): string | undefined {
-  // Priorité : extra.eas.projectId (injecté par `eas init`) puis easConfig
   return (
     Constants.expoConfig?.extra?.eas?.projectId ??
     (Constants as any).easConfig?.projectId ??
@@ -19,9 +18,21 @@ function getProjectId(): string | undefined {
   );
 }
 
+/** Returns true when running inside Expo Go (not a standalone/dev-client build) */
+function isExpoGo(): boolean {
+  return Constants.executionEnvironment === 'storeClient';
+}
+
 async function getExpoPushToken(): Promise<string> {
+  if (isExpoGo()) {
+    throw new Error(
+      'Les notifications push ne sont pas disponibles dans Expo Go (SDK 53+).\n' +
+      'Utilisez un development build.'
+    );
+  }
+
   if (!Device.isDevice) {
-    throw new Error('Les notifications push ne fonctionnent que sur un appareil physique.');
+    throw new Error('Les notifications push nécessitent un appareil physique.');
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -44,10 +55,9 @@ async function getExpoPushToken(): Promise<string> {
   }
 
   const projectId = getProjectId();
-  if (!projectId) {
+  if (!projectId || projectId === 'supfile-local-dev') {
     throw new Error(
-      'Projet Expo non initialisé.\n' +
-      'Exécutez "npx eas init" dans le dossier mobile pour activer les notifications push.'
+      'Push non configuré — exécutez "npx eas init" dans le dossier mobile.'
     );
   }
 
@@ -56,6 +66,11 @@ async function getExpoPushToken(): Promise<string> {
 }
 
 export const pushService = {
+  /** Returns true if push notifications are supported in the current environment */
+  isSupported(): boolean {
+    return !isExpoGo() && Device.isDevice === true;
+  },
+
   async subscribe(): Promise<void> {
     const token = await getExpoPushToken();
     await api.post('/push/expo/subscribe', { token, platform: Platform.OS });

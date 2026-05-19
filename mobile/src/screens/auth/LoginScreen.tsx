@@ -14,6 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -21,10 +22,12 @@ import { shadows } from '../../theme/shadows';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { RootStackParamList, MfaRequiredResponse } from '../../types';
+import OAuthButtons from '../../components/OAuthButtons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const setAuth = useAuthStore((s) => s.setAuth);
 
@@ -35,7 +38,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Toast.show({ type: 'error', text1: 'Veuillez remplir tous les champs' });
+      Toast.show({ type: 'error', text1: t('auth.login.error_empty') });
       return;
     }
 
@@ -43,7 +46,6 @@ export default function LoginScreen() {
     try {
       const result = await authService.login({ email: email.trim(), password });
 
-      // MFA requis (vérification du code) ou setup MFA obligatoire
       if (
         ('mfaRequired' in result && result.mfaRequired) ||
         ('mfaSetupRequired' in result && (result as any).mfaSetupRequired)
@@ -59,13 +61,12 @@ export default function LoginScreen() {
         return;
       }
 
-      // Connexion directe
       if ('token' in result && 'user' in result) {
         await setAuth(result.token, result.user, result.authContext, result.refreshToken);
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Identifiants incorrects';
-      Toast.show({ type: 'error', text1: 'Erreur de connexion', text2: msg });
+      const msg = err?.response?.data?.error || err?.message || t('auth.login.error_invalid');
+      Toast.show({ type: 'error', text1: t('auth.login.error_prefix'), text2: msg });
     } finally {
       setLoading(false);
     }
@@ -80,23 +81,21 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo / titre */}
         <View style={styles.header}>
           <Image
             source={require('../../../assets/icon.png')}
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Bienvenue sur SUPFILE</Text>
-          <Text style={styles.subtitle}>Connectez-vous pour accéder à vos fichiers</Text>
+          <Text style={styles.title}>{t('auth.login.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.login.subtitle')}</Text>
         </View>
 
-        {/* Formulaire */}
         <View style={styles.card}>
-          <Text style={styles.label}>Adresse e-mail</Text>
+          <Text style={styles.label}>{t('auth.login.email_label')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="nom@exemple.com"
+            placeholder={t('auth.login.email_placeholder')}
             placeholderTextColor={colors.neutral[400]}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -105,7 +104,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
           />
 
-          <Text style={styles.label}>Mot de passe</Text>
+          <Text style={styles.label}>{t('auth.login.password_label')}</Text>
           <View style={styles.passwordRow}>
             <TextInput
               style={[styles.input, styles.passwordInput]}
@@ -119,7 +118,7 @@ export default function LoginScreen() {
               style={styles.eyeBtn}
               onPress={() => setShowPassword((v) => !v)}
             >
-              <Text style={styles.eyeText}>{showPassword ? 'Masquer' : 'Voir'}</Text>
+              <Text style={styles.eyeText}>{showPassword ? t('auth.login.hide_password') : t('auth.login.show_password')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -132,19 +131,29 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.buttonText}>Se connecter</Text>
+              <Text style={styles.buttonText}>{t('auth.login.submit')}</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.forgotRow} onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+            <Text style={styles.forgotText}>{t('auth.login.forgot_password')}</Text>
           </TouchableOpacity>
 
-          {/* Lien inscription */}
+          <OAuthButtons
+            onTokenReceived={async (token) => {
+              try {
+                const { user, session } = await authService.getProfileWithToken(token);
+                await setAuth(token, user, session, undefined);
+              } catch {
+                Toast.show({ type: 'error', text1: t('auth.oauth.error') });
+              }
+            }}
+          />
+
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Vous n'avez pas de compte ? </Text>
+            <Text style={styles.footerText}>{t('auth.login.no_account')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.link}>S'inscrire</Text>
+              <Text style={styles.link}>{t('auth.login.signup')}</Text>
             </TouchableOpacity>
           </View>
         </View>

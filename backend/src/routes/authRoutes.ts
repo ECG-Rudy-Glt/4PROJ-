@@ -105,7 +105,10 @@ router.delete(
 router.get(
   '/google',
   requireOAuthProvider('google'),
-  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+  (req, res, next) => {
+    const state = typeof req.query.state === 'string' ? req.query.state : undefined;
+    passport.authenticate('google', { scope: ['profile', 'email'], session: false, state } as any)(req, res, next);
+  }
 );
 
 router.get(
@@ -118,7 +121,10 @@ router.get(
 router.get(
   '/github',
   requireOAuthProvider('github'),
-  passport.authenticate('github', { scope: ['user:email'], session: false })
+  (req, res, next) => {
+    const state = typeof req.query.state === 'string' ? req.query.state : undefined;
+    passport.authenticate('github', { scope: ['user:email'], session: false, state } as any)(req, res, next);
+  }
 );
 
 router.get(

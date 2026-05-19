@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../../theme/useColors';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function BatchMoveModal({ visible, folders, loading, onClose, onSelectFolder }: Props) {
+  const { t } = useTranslation();
   const colors = useColors();
   const styles = makeStyles(colors);
 
@@ -24,7 +26,7 @@ export default function BatchMoveModal({ visible, folders, loading, onClose, onS
       <View style={styles.overlay}>
         <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>Déplacer vers</Text>
+            <Text style={styles.title}>{t('files.batch_move_title')}</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={22} color={colors.neutral[500]} />
             </TouchableOpacity>
@@ -35,7 +37,7 @@ export default function BatchMoveModal({ visible, folders, loading, onClose, onS
             <ScrollView style={{ maxHeight: 400 }}>
               <TouchableOpacity style={styles.folderItem} onPress={() => onSelectFolder(undefined)}>
                 <Ionicons name="home-outline" size={20} color={colors.primary[600]} />
-                <Text style={styles.folderText}>Racine</Text>
+                <Text style={styles.folderText}>{t('files.batch_move_root')}</Text>
               </TouchableOpacity>
               {folders.map((f) => (
                 <TouchableOpacity key={f.id} style={styles.folderItem} onPress={() => onSelectFolder(f.id)}>
@@ -44,7 +46,7 @@ export default function BatchMoveModal({ visible, folders, loading, onClose, onS
                 </TouchableOpacity>
               ))}
               {folders.length === 0 && (
-                <Text style={styles.muted}>Aucun dossier disponible</Text>
+                <Text style={styles.muted}>{t('files.batch_move_loading')}</Text>
               )}
             </ScrollView>
           )}

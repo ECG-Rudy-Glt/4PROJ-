@@ -10,6 +10,7 @@ import {
   ActionSheetIOS,
   Platform,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -42,6 +43,7 @@ type ActionTarget =
   | null;
 
 export default function FilesScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
@@ -88,7 +90,7 @@ export default function FilesScreen() {
       duration: 45000,
       useNativeDriver: false,
     }).start(({ finished }) => {
-      if (finished && !uploadTransferDone.current) setUploadLabel('Traitement en cours…');
+      if (finished && !uploadTransferDone.current) setUploadLabel(t('files.upload_processing'));
     });
   };
 
@@ -97,7 +99,7 @@ export default function FilesScreen() {
     Animated.timing(progressAnim, { toValue: pct, duration: 150, useNativeDriver: false }).start();
     if (pct >= 100) {
       uploadTransferDone.current = true;
-      setUploadLabel('Traitement en cours…');
+      setUploadLabel(t('files.upload_processing'));
     }
   };
 
@@ -110,13 +112,13 @@ export default function FilesScreen() {
     try {
       const result = await uploadService.pickAndUpload(
         currentFolderId,
-        () => { setUploading(true); setUploadLabel('Envoi en cours…'); startProgressAnimation(); },
+        () => { setUploading(true); setUploadLabel(t('files.upload_uploading')); startProgressAnimation(); },
         (abort) => { cancelUpload.current = abort; },
         (pct) => setRealProgress(pct),
       );
       if (result.success) {
         completeProgress();
-        setUploadLabel('Terminé !');
+        setUploadLabel(t('files.upload_done'));
         setTimeout(async () => {
           setUploading(false);
           progressAnim.setValue(0);
@@ -144,7 +146,7 @@ export default function FilesScreen() {
       cancelUpload.current = null;
       uploadTransferDone.current = false;
       if (err?.cancelled) return;
-      Toast.show({ type: 'error', text1: "Erreur lors de l'envoi", text2: err?.response?.data?.error ?? err?.message });
+      Toast.show({ type: 'error', text1: t('files.upload_error'), text2: err?.response?.data?.error ?? err?.message });
     }
   };
 
@@ -155,7 +157,7 @@ export default function FilesScreen() {
     setUploading(false);
     progressAnim.stopAnimation();
     progressAnim.setValue(0);
-    Toast.show({ type: 'info', text1: 'Envoi annulé' });
+    Toast.show({ type: 'info', text1: t('common.cancel') });
   };
 
   // ── Folder / navigation ───────────────────────────────────────────────────
@@ -169,7 +171,7 @@ export default function FilesScreen() {
       setShowNewFolder(false);
       setNewFolderName('');
     } catch {
-      Alert.alert('Erreur', 'Impossible de créer le dossier');
+      Alert.alert(t('common.error'), t('files.folder_create_error'));
     }
   };
 
@@ -211,12 +213,12 @@ export default function FilesScreen() {
   const handleBatchDelete = () => {
     const count = selectedIds.size;
     Alert.alert(
-      `Supprimer ${count} élément(s) ?`,
-      'Les fichiers seront déplacés dans la corbeille. Les dossiers et leur contenu seront supprimés.',
+      t('files.batch_delete_confirm_title', { count }),
+      t('files.batch_delete_confirm_msg'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer', style: 'destructive', onPress: async () => {
+          text: t('common.delete'), style: 'destructive', onPress: async () => {
             try {
               await Promise.all(getSelectedTargets().map((t) =>
                 t.kind === 'file'
@@ -226,7 +228,7 @@ export default function FilesScreen() {
               Toast.show({ type: 'success', text1: `${count} élément(s) supprimé(s)` });
               exitSelectionMode();
             } catch {
-              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
+              Toast.show({ type: 'error', text1: t('common.error') });
             }
           },
         },
@@ -241,7 +243,7 @@ export default function FilesScreen() {
       const res = await folderService.listAllFolders().catch(() => folderService.listFolders());
       setBatchMoveFolders(res.folders ?? []);
     } catch {
-      Toast.show({ type: 'error', text1: 'Impossible de charger les dossiers' });
+      Toast.show({ type: 'error', text1: t('common.error') });
     } finally {
       setBatchMoveFoldersLoading(false);
     }
@@ -261,25 +263,32 @@ export default function FilesScreen() {
       setShowBatchMove(false);
       exitSelectionMode();
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors du déplacement' });
+      Toast.show({ type: 'error', text1: t('common.error') });
     }
   };
 
   // ── Sort ──────────────────────────────────────────────────────────────────
 
-  const SORT_OPTIONS = ['Nom A→Z', 'Nom Z→A', 'Plus récent', 'Plus ancien', 'Taille ↓', 'Taille ↑', 'Annuler'] as const;
   const SORT_KEYS = ['name-asc', 'name-desc', 'date-desc', 'date-asc', 'size-desc', 'size-asc'] as const;
 
   const handleSort = () => {
+    const sortLabels = [
+      t('files.sort_name_asc'),
+      t('files.sort_name_desc'),
+      t('files.sort_date_desc'),
+      t('files.sort_date_asc'),
+      t('files.sort_size_desc'),
+      t('files.sort_size_asc'),
+    ];
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: [...SORT_OPTIONS], cancelButtonIndex: 6 },
+        { options: [...sortLabels, t('common.cancel')], cancelButtonIndex: 6 },
         (idx) => { if (idx < 6) setSortKey(SORT_KEYS[idx]); }
       );
     } else {
-      Alert.alert('Trier par', undefined,
-        SORT_KEYS.map((k, i) => ({ text: SORT_OPTIONS[i], onPress: () => setSortKey(k) }))
-          .concat([{ text: 'Annuler', onPress: () => {} }])
+      Alert.alert(t('files.sort_title'), undefined,
+        SORT_KEYS.map((k, i) => ({ text: sortLabels[i], onPress: () => setSortKey(k) }))
+          .concat([{ text: t('common.cancel'), onPress: () => {} }])
       );
     }
   };
@@ -289,7 +298,7 @@ export default function FilesScreen() {
   const safeBreadcrumbs = breadcrumbs ?? [];
   const currentFolderName = safeBreadcrumbs.length > 0
     ? safeBreadcrumbs[safeBreadcrumbs.length - 1].name
-    : 'Mes fichiers';
+    : t('files.title');
 
   const filteredFiles = activeTagId
     ? files.filter((f) => f.tags?.some((ft) => ft.tagId === activeTagId))
@@ -368,8 +377,8 @@ export default function FilesScreen() {
           !loading ? (
             <EmptyState
               icon="folder-open-outline"
-              title="Dossier vide"
-              subtitle="Ajoutez des fichiers ou créez un dossier"
+              title={t('files.empty_folder')}
+              subtitle={t('files.empty_drop')}
             />
           ) : null
         }

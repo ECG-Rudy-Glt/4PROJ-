@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useColors } from '../../theme/useColors';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function NewFolderModal({ visible, value, onChangeText, onConfirm, onCancel }: Props) {
+  const { t } = useTranslation();
   const colors = useColors();
   const styles = makeStyles(colors);
 
@@ -24,10 +26,10 @@ export default function NewFolderModal({ visible, value, onChangeText, onConfirm
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.card}>
-          <Text style={styles.title}>Nouveau dossier</Text>
+          <Text style={styles.title}>{t('files.new_folder')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nom du dossier"
+            placeholder={t('files.new_folder_placeholder')}
             placeholderTextColor={colors.neutral[400]}
             value={value}
             onChangeText={onChangeText}
@@ -35,14 +37,14 @@ export default function NewFolderModal({ visible, value, onChangeText, onConfirm
           />
           <View style={styles.actions}>
             <TouchableOpacity style={styles.btnCancel} onPress={onCancel}>
-              <Text style={styles.btnCancelText}>Annuler</Text>
+              <Text style={styles.btnCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.btnConfirm, !value.trim() && styles.btnDisabled]}
               onPress={onConfirm}
               disabled={!value.trim()}
             >
-              <Text style={styles.btnConfirmText}>Créer</Text>
+              <Text style={styles.btnConfirmText}>{t('files.new_folder_create')}</Text>
             </TouchableOpacity>
           </View>
         </View>

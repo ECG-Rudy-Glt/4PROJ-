@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { TabParamList } from '../types';
 import DashboardScreen from '../screens/main/DashboardScreen';
@@ -21,6 +22,8 @@ const tabIcons: Record<string, { focused: keyof typeof Ionicons.glyphMap; defaul
 };
 
 export default function TabNavigator() {
+  const { t } = useTranslation();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -45,11 +48,11 @@ export default function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: 'Accueil' }} />
-      <Tab.Screen name="Files" component={FilesScreen} options={{ tabBarLabel: 'Fichiers' }} />
-      <Tab.Screen name="Shared" component={SharedScreen} options={{ tabBarLabel: 'Partages' }} />
-      <Tab.Screen name="AI" component={AIScreen} options={{ tabBarLabel: 'Bobby' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Profil' }} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: t('tabs.dashboard') }} />
+      <Tab.Screen name="Files" component={FilesScreen} options={{ tabBarLabel: t('tabs.files') }} />
+      <Tab.Screen name="Shared" component={SharedScreen} options={{ tabBarLabel: t('tabs.shared') }} />
+      <Tab.Screen name="AI" component={AIScreen} options={{ tabBarLabel: t('tabs.ai') }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tabs.profile') }} />
     </Tab.Navigator>
   );
 }

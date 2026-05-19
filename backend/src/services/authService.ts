@@ -387,7 +387,7 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  static async requestPasswordReset(email: string, requestLanguage?: string) {
+  static async requestPasswordReset(email: string, requestLanguage?: string, platform?: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       // Don't throw error to prevent email enumeration
@@ -413,7 +413,9 @@ export class AuthService {
 
     // Determine language: use user.language, fallback to requestLanguage or 'fr'
     const lang = user.language || requestLanguage || 'fr';
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const resetLink = platform === 'mobile'
+      ? `supfile://reset-password?token=${token}`
+      : `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
     try {
       const sent = await MailService.sendPasswordResetMail(user.email, user.firstName || 'Utilisateur', resetLink, lang);

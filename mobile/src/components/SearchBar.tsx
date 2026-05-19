@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -27,12 +28,14 @@ interface Props {
 
 type TypeFilter = 'all' | 'image' | 'document' | 'video' | 'audio';
 
-const TYPE_FILTERS: { key: TypeFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'all', label: 'Tout', icon: 'apps-outline' },
-  { key: 'image', label: 'Images', icon: 'image-outline' },
-  { key: 'document', label: 'Documents', icon: 'document-text-outline' },
-  { key: 'video', label: 'Vidéos', icon: 'videocam-outline' },
-  { key: 'audio', label: 'Audio', icon: 'musical-notes-outline' },
+type TypeFilterDef = { key: TypeFilter; labelKey: string; icon: keyof typeof Ionicons.glyphMap };
+
+const TYPE_FILTER_DEFS: TypeFilterDef[] = [
+  { key: 'all', labelKey: 'search.filter_all', icon: 'apps-outline' },
+  { key: 'image', labelKey: 'search.filter_images', icon: 'image-outline' },
+  { key: 'document', labelKey: 'search.filter_documents', icon: 'document-text-outline' },
+  { key: 'video', labelKey: 'search.filter_videos', icon: 'videocam-outline' },
+  { key: 'audio', labelKey: 'search.filter_audio', icon: 'musical-notes-outline' },
 ];
 
 const DOC_EXTS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'odt', 'ods']);
@@ -58,6 +61,7 @@ function matchesFilter(file: FileItem, filter: TypeFilter): boolean {
 }
 
 export default function SearchBar({ visible, onClose, onFilePress }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [allResults, setAllResults] = useState<FileItem[]>([]);
@@ -103,7 +107,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
             <Ionicons name="search" size={18} color={colors.neutral[400]} />
             <TextInput
               style={styles.input}
-              placeholder="Rechercher des fichiers..."
+              placeholder={t('search.placeholder')}
               placeholderTextColor={colors.neutral[400]}
               value={query}
               onChangeText={handleSearch}
@@ -117,13 +121,12 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
             )}
           </View>
           <TouchableOpacity onPress={handleClose} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>Annuler</Text>
+            <Text style={styles.cancelText}>{t('search.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Type filters */}
         <View style={styles.filterRow}>
-          {TYPE_FILTERS.map((f) => {
+          {TYPE_FILTER_DEFS.map((f) => {
             const active = typeFilter === f.key;
             return (
               <TouchableOpacity
@@ -132,7 +135,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
                 onPress={() => setTypeFilter(f.key)}
               >
                 <Ionicons name={f.icon} size={14} color={active ? '#fff' : colors.neutral[600]} />
-                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{f.label}</Text>
+                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{t(f.labelKey)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -153,13 +156,13 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
             searched && !loading ? (
               <EmptyState
                 icon="search-outline"
-                title="Aucun résultat"
-                subtitle={`Aucun fichier ne correspond à "${query}"`}
+                title={t('search.no_results')}
+                subtitle={t('search.no_results_detail', { query })}
               />
             ) : !searched ? (
               <View style={styles.hint}>
                 <Ionicons name="search-outline" size={40} color={colors.neutral[300]} />
-                <Text style={styles.hintText}>Tapez au moins 2 caractères pour rechercher</Text>
+                <Text style={styles.hintText}>{t('search.hint')}</Text>
               </View>
             ) : null
           }

@@ -14,12 +14,15 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { authService } from '../../services/authService';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { RootStackParamList } from '../../types';
+import OAuthButtons from '../../components/OAuthButtons';
 
 function validatePassword(password: string) {
   return {
@@ -31,18 +34,16 @@ function validatePassword(password: string) {
   };
 }
 
-const PASSWORD_RULES = [
-  { key: 'length' as const, label: 'Au moins 12 caractères' },
-  { key: 'uppercase' as const, label: 'Une majuscule' },
-  { key: 'lowercase' as const, label: 'Une minuscule' },
-  { key: 'number' as const, label: 'Un chiffre' },
-  { key: 'special' as const, label: 'Un caractère spécial' },
-];
+type PasswordRuleKey = 'length' | 'uppercase' | 'lowercase' | 'number' | 'special';
+
+const PASSWORD_RULE_KEYS: PasswordRuleKey[] = ['length', 'uppercase', 'lowercase', 'number', 'special'];
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -57,15 +58,15 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
-      Toast.show({ type: 'error', text1: 'Veuillez remplir tous les champs' });
+      Toast.show({ type: 'error', text1: t('auth.register.error_empty') });
       return;
     }
     if (!isPasswordValid) {
-      Toast.show({ type: 'error', text1: 'Mot de passe trop faible', text2: 'Respectez toutes les règles ci-dessous' });
+      Toast.show({ type: 'error', text1: t('auth.register.error_weak'), text2: t('auth.register.error_weak_detail') });
       return;
     }
     if (password !== confirmPassword) {
-      Toast.show({ type: 'error', text1: 'Les mots de passe ne correspondent pas' });
+      Toast.show({ type: 'error', text1: t('auth.register.error_mismatch') });
       return;
     }
 
@@ -88,15 +89,19 @@ export default function RegisterScreen() {
 
       Toast.show({
         type: 'error',
-        text1: 'Inscription incomplète',
-        text2: 'La configuration MFA est requise pour finaliser le compte.',
+        text1: t('auth.register.error_incomplete'),
+        text2: t('auth.register.error_incomplete_detail'),
       });
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Erreur lors de l'inscription";
-      Toast.show({ type: 'error', text1: 'Erreur', text2: msg });
+      const msg = err.response?.data?.error || t('common.error');
+      Toast.show({ type: 'error', text1: t('common.error'), text2: msg });
     } finally {
       setLoading(false);
     }
+  };
+
+  const getRuleLabel = (key: PasswordRuleKey): string => {
+    return t(`auth.register.rule_${key}`);
   };
 
   return (
@@ -114,18 +119,17 @@ export default function RegisterScreen() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Créer un compte</Text>
-          <Text style={styles.subtitle}>Rejoignez SUPFILE et stockez vos fichiers en toute sécurité</Text>
+          <Text style={styles.title}>{t('auth.register.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.register.subtitle')}</Text>
         </View>
 
         <View style={styles.card}>
-          {/* Prénom / Nom en ligne */}
           <View style={styles.row}>
             <View style={styles.halfField}>
-              <Text style={styles.label}>Prénom</Text>
+              <Text style={styles.label}>{t('auth.register.firstname_label')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Jean"
+                placeholder={t('auth.register.firstname_placeholder')}
                 placeholderTextColor={colors.neutral[400]}
                 autoCapitalize="words"
                 value={firstName}
@@ -133,10 +137,10 @@ export default function RegisterScreen() {
               />
             </View>
             <View style={styles.halfField}>
-              <Text style={styles.label}>Nom</Text>
+              <Text style={styles.label}>{t('auth.register.lastname_label')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Dupont"
+                placeholder={t('auth.register.lastname_placeholder')}
                 placeholderTextColor={colors.neutral[400]}
                 autoCapitalize="words"
                 value={lastName}
@@ -145,10 +149,10 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          <Text style={styles.label}>Adresse e-mail</Text>
+          <Text style={styles.label}>{t('auth.register.email_label')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="nom@exemple.com"
+            placeholder={t('auth.register.email_placeholder')}
             placeholderTextColor={colors.neutral[400]}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -157,7 +161,7 @@ export default function RegisterScreen() {
             onChangeText={setEmail}
           />
 
-          <Text style={styles.label}>Mot de passe</Text>
+          <Text style={styles.label}>{t('auth.register.password_label')}</Text>
           <View style={styles.passwordRow}>
             <TextInput
               style={[styles.input, styles.passwordInput]}
@@ -171,24 +175,24 @@ export default function RegisterScreen() {
               style={styles.eyeBtn}
               onPress={() => setShowPassword((v) => !v)}
             >
-              <Text style={styles.eyeText}>{showPassword ? 'Masquer' : 'Voir'}</Text>
+              <Text style={styles.eyeText}>{showPassword ? t('auth.login.hide_password') : t('auth.login.show_password')}</Text>
             </TouchableOpacity>
           </View>
 
           {password.length > 0 && (
             <View style={styles.passwordRules}>
-              {PASSWORD_RULES.map((rule) => (
+              {PASSWORD_RULE_KEYS.map((key) => (
                 <Text
-                  key={rule.key}
-                  style={[styles.ruleText, pwdChecks[rule.key] ? styles.ruleValid : styles.ruleInvalid]}
+                  key={key}
+                  style={[styles.ruleText, pwdChecks[key] ? styles.ruleValid : styles.ruleInvalid]}
                 >
-                  {pwdChecks[rule.key] ? '✓' : '✗'} {rule.label}
+                  {pwdChecks[key] ? '✓' : '✗'} {getRuleLabel(key)}
                 </Text>
               ))}
             </View>
           )}
 
-          <Text style={styles.label}>Confirmer le mot de passe</Text>
+          <Text style={styles.label}>{t('auth.register.confirm_password_label')}</Text>
           <TextInput
             style={styles.input}
             placeholder="••••••••"
@@ -207,14 +211,25 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.buttonText}>Créer mon compte</Text>
+              <Text style={styles.buttonText}>{t('auth.register.submit')}</Text>
             )}
           </TouchableOpacity>
 
+          <OAuthButtons
+            onTokenReceived={async (token) => {
+              try {
+                const { user, session } = await authService.getProfileWithToken(token);
+                await setAuth(token, user, session, undefined);
+              } catch {
+                Toast.show({ type: 'error', text1: t('auth.oauth.error') });
+              }
+            }}
+          />
+
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Déjà un compte ? </Text>
+            <Text style={styles.footerText}>{t('auth.register.have_account')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.link}>Se connecter</Text>
+              <Text style={styles.link}>{t('auth.register.signin')}</Text>
             </TouchableOpacity>
           </View>
         </View>

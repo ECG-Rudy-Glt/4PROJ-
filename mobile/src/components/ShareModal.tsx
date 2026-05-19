@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -34,6 +35,7 @@ interface Props {
 type Mode = 'user' | 'link';
 
 export default function ShareModal({ target, targets: targetsProp, onClose }: Props) {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const canUsePassword = user?.plan !== 'FREE';
 
@@ -42,12 +44,11 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
   const [perms, setPerms] = useState<SharePermissions>({ canRead: true });
   const [loading, setLoading] = useState(false);
 
-  // link-only state
   const [password, setPassword] = useState('');
   const [maxDownloads, setMaxDownloads] = useState('');
   const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const [copyLoading, setCopyLoading] = useState(false);
 
-  // Normalise : targetsProp prend la priorité, sinon on wrap target en tableau
   const targets: Target[] = targetsProp ?? (target ? [target] : []);
 
   if (targets.length === 0) return null;
@@ -74,59 +75,76 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
 
   const handleShareToUser = async () => {
     if (!email.trim()) {
-      Toast.show({ type: 'error', text1: 'Email requis' });
+      Toast.show({ type: 'error', text1: t('share_modal.email_required') });
       return;
     }
     setLoading(true);
     try {
-      await Promise.all(targets.map((t) =>
-        t.kind === 'file'
-          ? shareService.shareFile(t.data.id, email.trim(), perms)
-          : shareService.shareFolder(t.data.id, email.trim(), perms)
+      await Promise.all(targets.map((tgt) =>
+        tgt.kind === 'file'
+          ? shareService.shareFile(tgt.data.id, email.trim(), perms)
+          : shareService.shareFolder(tgt.data.id, email.trim(), perms)
       ));
-      Toast.show({ type: 'success', text1: isMulti ? `${targets.length} éléments partagés` : 'Partage envoyé' });
+      Toast.show({
+        type: 'success',
+        text1: isMulti
+          ? t('share_modal.shared_success_multi', { count: targets.length })
+          : t('share_modal.shared_success_single'),
+      });
       handleClose();
     } catch (e: any) {
-      const msg = e?.response?.data?.error || 'Erreur lors du partage';
+      const msg = e?.response?.data?.error || t('share_modal.share_error');
       Toast.show({ type: 'error', text1: msg });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateLink = async () => {
+  const getOrCreateLink = async (): Promise<string | null> => {
+    if (createdLink) return createdLink;
     if (!hasFileTargets) {
-      Toast.show({ type: 'error', text1: 'Sélectionnez au moins un fichier pour créer un lien public' });
-      return;
+      Toast.show({ type: 'error', text1: t('share_modal.files_required') });
+      return null;
     }
+    const max = maxDownloads.trim() ? parseInt(maxDownloads, 10) : undefined;
+    const opts = {
+      password: canUsePassword && password.trim() ? password.trim() : undefined,
+      maxDownloads: Number.isFinite(max) ? max : undefined,
+    };
+    let link: string;
+    if (fileTargets.length === 1) {
+      const res = await shareService.createShareLink(fileTargets[0].data.id, opts);
+      link = res.shareLink.url;
+    } else {
+      const res = await shareService.createBundleShareLink(fileTargets.map((tgt) => tgt.data.id), opts);
+      link = res.shareLink.url;
+    }
+    setCreatedLink(link);
+    return link;
+  };
+
+  const handleCreateLink = async () => {
     setLoading(true);
     try {
-      const max = maxDownloads.trim() ? parseInt(maxDownloads, 10) : undefined;
-      const opts = {
-        password: password.trim() || undefined,
-        maxDownloads: Number.isFinite(max) ? max : undefined,
-      };
-      if (fileTargets.length === 1) {
-        const res = await shareService.createShareLink(fileTargets[0].data.id, opts);
-        setCreatedLink(res.shareLink.url);
-      } else {
-        const res = await shareService.createBundleShareLink(fileTargets.map((t) => t.data.id), opts);
-        setCreatedLink(res.shareLink.url);
-      }
-      Toast.show({ type: 'success', text1: 'Lien créé' });
+      const link = await getOrCreateLink();
+      if (link) Toast.show({ type: 'success', text1: t('share_modal.link_created') });
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors de la création du lien' });
+      Toast.show({ type: 'error', text1: t('share_modal.link_error') });
     } finally {
       setLoading(false);
     }
   };
 
   const handleShareLink = async () => {
-    if (!createdLink) return;
+    setCopyLoading(true);
     try {
-      await RNShare.share({ message: createdLink });
+      const link = await getOrCreateLink();
+      if (!link) return;
+      await RNShare.share({ message: link });
     } catch {
       /* user cancelled */
+    } finally {
+      setCopyLoading(false);
     }
   };
 
@@ -146,36 +164,37 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
               color={colors.primary[600]}
             />
             <Text style={styles.title} numberOfLines={1}>
-              {isMulti ? `Partager ${targets.length} éléments` : `Partager « ${targets[0].data.name} »`}
+              {isMulti
+                ? t('share_modal.title_multi', { count: targets.length })
+                : t('share_modal.title_single', { name: targets[0].data.name })}
             </Text>
             <TouchableOpacity onPress={handleClose}>
               <Ionicons name="close" size={24} color={colors.neutral[500]} />
             </TouchableOpacity>
           </View>
 
-          {/* Mode tabs */}
           <View style={styles.tabs}>
             <TouchableOpacity
               style={[styles.tab, mode === 'user' && styles.tabActive]}
               onPress={() => setMode('user')}
             >
-              <Text style={[styles.tabText, mode === 'user' && styles.tabTextActive]}>Utilisateur</Text>
+              <Text style={[styles.tabText, mode === 'user' && styles.tabTextActive]}>{t('share_modal.tab_user')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, mode === 'link' && styles.tabActive]}
               onPress={() => setMode('link')}
             >
-              <Text style={[styles.tabText, mode === 'link' && styles.tabTextActive]}>Lien public</Text>
+              <Text style={[styles.tabText, mode === 'link' && styles.tabTextActive]}>{t('share_modal.tab_link')}</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.scrollContent}>
             {mode === 'user' ? (
               <View>
-                <Text style={styles.label}>Email du destinataire</Text>
+                <Text style={styles.label}>{t('share_modal.email_label')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="utilisateur@exemple.com"
+                  placeholder={t('share_modal.email_placeholder')}
                   placeholderTextColor={colors.neutral[400]}
                   value={email}
                   onChangeText={setEmail}
@@ -183,39 +202,37 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                   keyboardType="email-address"
                 />
 
-                <Text style={[styles.label, { marginTop: spacing.lg }]}>Permissions</Text>
-                <PermToggle label="Lecture" active={!!perms.canRead} onToggle={() => togglePerm('canRead')} />
-                <PermToggle label="Écriture" active={!!perms.canWrite} onToggle={() => togglePerm('canWrite')} />
-                <PermToggle label="Suppression" active={!!perms.canDelete} onToggle={() => togglePerm('canDelete')} />
-                <PermToggle label="Partage" active={!!perms.canShare} onToggle={() => togglePerm('canShare')} />
+                <Text style={[styles.label, { marginTop: spacing.lg }]}>{t('share_modal.permissions_title')}</Text>
+                <PermToggle label={t('share_modal.perm_read')} active={!!perms.canRead} onToggle={() => togglePerm('canRead')} />
+                <PermToggle label={t('share_modal.perm_write')} active={!!perms.canWrite} onToggle={() => togglePerm('canWrite')} />
+                <PermToggle label={t('share_modal.perm_delete')} active={!!perms.canDelete} onToggle={() => togglePerm('canDelete')} />
+                <PermToggle label={t('share_modal.perm_share')} active={!!perms.canShare} onToggle={() => togglePerm('canShare')} />
 
                 <TouchableOpacity
                   style={[styles.primaryBtn, loading && styles.btnDisabled]}
                   onPress={handleShareToUser}
                   disabled={loading}
                 >
-                  <Text style={styles.primaryBtnText}>{loading ? 'Envoi…' : 'Partager'}</Text>
+                  <Text style={styles.primaryBtnText}>{loading ? t('share_modal.sharing') : t('share_modal.share_btn')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View>
                 {!hasFileTargets && (
-                  <Text style={styles.muted}>
-                    Les liens publics sont disponibles uniquement pour les fichiers.
-                  </Text>
+                  <Text style={styles.muted}>{t('share_modal.files_only_notice')}</Text>
                 )}
                 {hasFileTargets && !createdLink && (
                   <>
                     {isMulti && fileTargets.length < targets.length && (
                       <Text style={[styles.muted, { textAlign: 'left', paddingHorizontal: 0, paddingTop: 0, paddingBottom: spacing.md }]}>
-                        {`${fileTargets.length} fichier(s) — les dossiers seront ignorés.`}
+                        {t('share_modal.folders_ignored', { count: fileTargets.length })}
                       </Text>
                     )}
-                    <Text style={styles.label}>Protection par mot de passe</Text>
+                    <Text style={styles.label}>{t('share_modal.password_label')}</Text>
                     {canUsePassword ? (
                       <TextInput
                         style={styles.input}
-                        placeholder="Laisser vide pour aucun"
+                        placeholder={t('share_modal.password_placeholder')}
                         placeholderTextColor={colors.neutral[400]}
                         value={password}
                         onChangeText={setPassword}
@@ -224,14 +241,14 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                     ) : (
                       <View style={styles.proBanner}>
                         <Ionicons name="lock-closed" size={16} color="#7c3aed" />
-                        <Text style={styles.proText}>Fonctionnalité PRO — Passez à un abonnement supérieur pour protéger vos liens par mot de passe.</Text>
+                        <Text style={styles.proText}>{t('share_modal.pro_banner')}</Text>
                       </View>
                     )}
 
-                    <Text style={[styles.label, { marginTop: spacing.lg }]}>Téléchargements max (optionnel)</Text>
+                    <Text style={[styles.label, { marginTop: spacing.lg }]}>{t('share_modal.max_downloads_label')}</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="Illimité"
+                      placeholder={t('share_modal.max_downloads_placeholder')}
                       placeholderTextColor={colors.neutral[400]}
                       value={maxDownloads}
                       onChangeText={setMaxDownloads}
@@ -239,27 +256,28 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                     />
 
                     <TouchableOpacity
-                      style={[styles.primaryBtn, loading && styles.btnDisabled]}
-                      onPress={handleCreateLink}
-                      disabled={loading}
+                      style={[styles.primaryBtn, (loading || copyLoading) && styles.btnDisabled]}
+                      onPress={handleShareLink}
+                      disabled={loading || copyLoading}
                     >
+                      <Ionicons name="share-outline" size={18} color={colors.white} />
                       <Text style={styles.primaryBtnText}>
-                        {loading ? 'Création…' : 'Créer le lien'}
+                        {copyLoading ? t('share_modal.creating') : createdLink ? t('share_modal.copy_link') : t('share_modal.create_share_btn')}
                       </Text>
                     </TouchableOpacity>
+
+                    {createdLink && (
+                      <View style={[styles.linkResult, { marginTop: spacing.md }]}>
+                        <Text style={styles.label}>
+                          {fileTargets.length > 1 ? t('share_modal.link_label_zip') : t('share_modal.link_label')}
+                        </Text>
+                        <Text style={styles.linkText} selectable numberOfLines={2}>{createdLink}</Text>
+                      </View>
+                    )}
                   </>
                 )}
 
-                {hasFileTargets && createdLink && (
-                  <View style={styles.linkResult}>
-                    <Text style={styles.label}>Lien public{fileTargets.length > 1 ? ' (archive ZIP)' : ''}</Text>
-                    <Text style={styles.linkText} selectable numberOfLines={2}>{createdLink}</Text>
-                    <TouchableOpacity style={styles.primaryBtn} onPress={handleShareLink}>
-                      <Ionicons name="share-outline" size={18} color={colors.white} />
-                      <Text style={styles.primaryBtnText}>Partager le lien</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                {hasFileTargets && createdLink && false && null}
               </View>
             )}
           </ScrollView>

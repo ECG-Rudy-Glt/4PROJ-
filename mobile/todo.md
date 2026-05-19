@@ -3,7 +3,7 @@
 
 | Domaine | Web | Mobile | Écart |
 | :--- | :---: | :---: | :--- |
-| Authentification | ✅ Complet | 🟡 Partiel | OAuth, reset password, trusted devices |
+| Authentification | ✅ Complet | 🟡 Partiel | Trusted devices |
 | Gestionnaire de fichiers | ✅ Complet | 🟡 Partiel | Pas de filtres avancés (date / taille / mime) |
 | Corbeille | ✅ Complet | 🟡 Partiel | Pas de restauration de dossiers, pas de vidage global |
 | Prévisualisation | ✅ Complet | 🟡 Partiel | Pas de texte/Markdown, pas d'OnlyOffice |
@@ -15,7 +15,7 @@
 | Versions | ✅ Complet | ✅ Complet | — |
 | Notifications | ✅ Complet | ✅ Complet | — |
 | Dashboard | ✅ Complet | 🟡 Partiel | Pas de flux d'activité |
-| Profil & Paramètres | ✅ Complet | 🟡 Partiel | Pas de thème sombre, i18n, suppression compte |
+| Profil & Paramètres | ✅ Complet | 🟡 Partiel | Pas de thème sombre, suppression compte |
 | MFA dans les paramètres | ✅ Complet | 🟡 Partiel | Pas de désactivation, codes, trusted devices |
 | Comptes multiples | ✅ Complet | ✅ Complet | — |
 | Administration | ✅ Complet | 🟡 Partiel | Pas d'export CSV |
@@ -35,10 +35,10 @@
 | :--- | :---: | :---: |
 | Inscription email / mot de passe | ✅ | ✅ |
 | Connexion email / mot de passe | ✅ | ✅ |
-| OAuth Google | ✅ | ❌ |
-| OAuth GitHub | ✅ | ❌ |
-| Mot de passe oublié (envoi email) | ✅ | ❌ |
-| Réinitialisation via lien | ✅ | ❌ |
+| OAuth Google | ✅ | ✅ |
+| OAuth GitHub | ✅ | ✅ |
+| Mot de passe oublié (envoi email) | ✅ | ✅ |
+| Réinitialisation via lien | ✅ | ✅ |
 | MFA TOTP — configuration initiale | ✅ | ✅ |
 | MFA TOTP — vérification à la connexion | ✅ | ✅ |
 | Gestion session JWT sécurisée (SecureStore) | ✅ | ✅ |
@@ -209,7 +209,7 @@
 | Export données personnelles (RGPD) | ✅ | ✅ |
 | Suppression du compte | ✅ | ❌ |
 | Thème sombre (dark mode) | ✅ | ❌ |
-| Langue FR / EN (i18next) | ✅ | ❌ |
+| Langue FR / EN (i18next) | ✅ | ✅ |
 | Activer le MFA | ✅ | ✅ |
 | Désactiver le MFA | ✅ | ❌ |
 | Voir / regénérer les codes de secours | ✅ | ❌ |
@@ -264,7 +264,7 @@ Les domaines suivants sont entièrement implémentés sur le web mais **absents 
 | 🔴 Haute | Restauration de dossiers depuis la corbeille | Faible |
 | 🔴 Haute | Vider la corbeille | Faible |
 | 🔴 Haute | Désactiver MFA + codes de secours dans les paramètres | Faible |
-| 🟠 Moyenne | Mot de passe oublié / réinitialisation | Faible |
+| ~~🟠 Moyenne~~ | ~~Mot de passe oublié / réinitialisation~~ | ~~Faible~~ ✅ |
 | 🟠 Moyenne | Prévisualisation texte / Markdown | Faible |
 | 🟠 Moyenne | Édition de tag (renommer, recolorer) | Faible |
 | 🟠 Moyenne | Flux d'activité dans le Dashboard | Moyenne |
@@ -272,9 +272,9 @@ Les domaines suivants sont entièrement implémentés sur le web mais **absents 
 | 🟠 Moyenne | Téléchargement dossier en ZIP | Faible |
 | 🟠 Moyenne | Export CSV admin | Faible |
 | 🟠 Moyenne | Thème sombre | Faible |
-| 🟡 Basse | OAuth Google / GitHub | Moyenne |
+| ~~🟡 Basse~~ | ~~OAuth Google / GitHub~~ | ~~Moyenne~~ ✅ |
 | 🟡 Basse | Trusted devices (liste & révocation) | Moyenne |
-| 🟡 Basse | Internationalisation FR/EN | Élevée |
+| ~~🟡 Basse~~ | ~~Internationalisation FR/EN~~ | ~~Élevée~~ ✅ |
 | 🟡 Basse | Coffre-fort chiffré (Vault) | Élevée |
 | 🟡 Basse | Journal d'audit | Moyenne |
 | 🟡 Basse | Organisations | Élevée |

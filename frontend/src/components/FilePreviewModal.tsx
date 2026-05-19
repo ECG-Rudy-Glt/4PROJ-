@@ -331,7 +331,10 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
     }
   };
 
-  const getFileType = (mimeType: string): string => {
+  const getFileType = (mimeType: string, fileName: string): string => {
+    const ext = fileName.toLowerCase().split('.').pop() ?? '';
+    // HEIC/HEIF: browsers don't render them, treat as download-only
+    if (mimeType === 'image/heic' || mimeType === 'image/heif' || ext === 'heic' || ext === 'heif') return 'other';
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('video/')) return 'video';
     if (mimeType.startsWith('audio/')) return 'audio';
@@ -341,14 +344,39 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
         mimeType === 'application/json' ||
         mimeType === 'application/javascript' ||
         mimeType === 'application/xml') return 'text';
+    // iOS sometimes uploads Office docs as octet-stream — detect by extension
+    const officeExts: Record<string, string> = {
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls: 'application/vnd.ms-excel',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ppt: 'application/vnd.ms-powerpoint',
+    };
+    if (mimeType === 'application/octet-stream' && officeExts[ext]) return 'other';
     return 'other';
   };
 
   // Also check file extension for markdown
-  const isMarkdownFile = file.name.toLowerCase().endsWith('.md') || 
+  const isMarkdownFile = file.name.toLowerCase().endsWith('.md') ||
                          file.name.toLowerCase().endsWith('.markdown');
 
-  const fileType = isMarkdownFile ? 'markdown' : getFileType(file.mimeType);
+  // For iOS octet-stream Office files, treat them as editable by extension
+  const effectiveMimeType = (() => {
+    if (file.mimeType !== 'application/octet-stream') return file.mimeType;
+    const ext = file.name.toLowerCase().split('.').pop() ?? '';
+    const officeExts: Record<string, string> = {
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls: 'application/vnd.ms-excel',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ppt: 'application/vnd.ms-powerpoint',
+    };
+    return officeExts[ext] ?? file.mimeType;
+  })();
+
+  const fileType = isMarkdownFile ? 'markdown' : getFileType(file.mimeType, file.name);
   const streamUrl = isShared ? fileService.getSharedFileStreamUrl(file.id) : fileService.getStreamUrl(file.id);
   const downloadUrl = isShared ? fileService.getSharedFileDownloadUrl(file.id) : fileService.getDownloadUrl(file.id);
 
@@ -391,7 +419,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
 
       default:
         // Pour les documents Office, afficher la prévisualisation avec OnlyOffice
-        if (canEditDocument(file.mimeType)) {
+        if (canEditDocument(effectiveMimeType)) {
           if (isPasswordProtectedSharedFile) {
             return (
               <div className="flex flex-col items-center justify-center p-12 bg-gray-100 dark:bg-gray-900 rounded-lg text-center">
@@ -462,7 +490,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
             </p>
           </div>
           <div className="flex items-center space-x-2 ml-4">
-            {canWrite && canEditDocument(file.mimeType) && !isPasswordProtectedSharedFile && (
+            {canWrite && canEditDocument(effectiveMimeType) && !isPasswordProtectedSharedFile && (
               <button
                 onClick={() => setShowDocumentEditor(true)}
                 className="p-2 text-gray-600 dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-300 rounded-lg"
