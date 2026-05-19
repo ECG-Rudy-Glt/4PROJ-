@@ -10,6 +10,7 @@ import { StorageService } from './storageService';
 import logger from '../config/logger';
 import { AppError } from '../middlewares/errorHandler';
 import { findSharedFolderAccessRoot } from '../middlewares/permissions';
+import { ShareKeyService } from './shareKeyService';
 
 async function deleteStorageFileBestEffort(pathOrKey: string, fileId: string): Promise<void> {
   try {
@@ -102,7 +103,7 @@ export class FolderService {
     const folder = await prisma.folder.findFirst({
       where: {
         id: folderId,
-        userId,
+        isDeleted: false,
       },
       include: {
         parent: true,
@@ -114,9 +115,28 @@ export class FolderService {
       throw new AppError(404, 'Folder not found');
     }
 
-    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    if (folder.userId === userId) {
+      await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+      return folder;
+    }
 
-    return folder;
+    const sharedRoot = await findSharedFolderAccessRoot(userId, folderId, 'read');
+    if (!sharedRoot) {
+      throw new AppError(403, 'Folder not shared with you');
+    }
+
+    return {
+      ...folder,
+      _sharedFolderPermissions: {
+        canRead: sharedRoot.canRead,
+        canWrite: sharedRoot.canWrite,
+        canDelete: sharedRoot.canDelete,
+        canShare: sharedRoot.canShare,
+      },
+      _shareId: sharedRoot.id,
+      _sharedRootFolderId: sharedRoot.folderId,
+      passwordProtected: Boolean(sharedRoot.passwordHash),
+    };
   }
 
   static async listFolders(userId: string, parentId?: string) {
@@ -480,23 +500,33 @@ export class FolderService {
 
   static async streamFolderAsZip(folderId: string, userId: string, res: Response, dek?: Buffer): Promise<void> {
     const folder = await prisma.folder.findFirst({
-      where: { id: folderId, userId },
-      select: { id: true, name: true, isVault: true },
+      where: { id: folderId, isDeleted: false },
+      select: { id: true, name: true, isVault: true, userId: true },
     });
 
     if (!folder) throw new Error('Folder not found');
-    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+
+    const isOwner = folder.userId === userId;
+    const sharedRoot = isOwner ? null : await findSharedFolderAccessRoot(userId, folderId, 'read');
+    if (isOwner) {
+      await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    } else if (!sharedRoot) {
+      throw new AppError(403, 'Folder not shared with you');
+    }
+
+    const storageOwnerId = folder.userId;
+    const archiveDek = isOwner ? dek : (ShareKeyService.unwrapOwnerDek(sharedRoot?.ownerWrappedDek) ?? undefined);
 
     type FileEntry = { storagePath: string; entryPath: string };
 
     const collectFiles = async (currentFolderId: string, relativePath: string): Promise<FileEntry[]> => {
       const [files, subfolders] = await Promise.all([
         prisma.file.findMany({
-          where: { folderId: currentFolderId, userId },
+          where: { folderId: currentFolderId, userId: storageOwnerId, isDeleted: false },
           select: { name: true, storagePath: true },
         }),
         prisma.folder.findMany({
-          where: { parentId: currentFolderId, userId, isDeleted: false },
+          where: { parentId: currentFolderId, userId: storageOwnerId, isDeleted: false },
           select: { id: true, name: true },
         }),
       ]);
@@ -530,7 +560,7 @@ export class FolderService {
     archive.pipe(res);
 
     for (const { storagePath, entryPath } of allFiles) {
-      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, dek);
+      const decryptStream = await EncryptionService.getDecryptStreamAuto(storagePath, archiveDek);
       archive.append(decryptStream, { name: entryPath });
     }
 

@@ -1,9 +1,12 @@
 import fs from 'fs/promises';
+import archiver from 'archiver';
 import prisma from '../../config/database';
 import logger from '../../config/logger';
 import { FolderService } from '../folderService';
 import { StorageService } from '../storageService';
 import { PlanService } from '../planService';
+import { EncryptionService } from '../encryptionService';
+import { ShareKeyService } from '../shareKeyService';
 
 jest.mock('fs/promises', () => ({
   unlink: jest.fn(),
@@ -16,12 +19,17 @@ jest.mock('../../config/database', () => ({
   default: {
     folder: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
     },
     file: {
       findMany: jest.fn(),
       delete: jest.fn(),
+    },
+    sharedFolder: {
+      findFirst: jest.fn(),
     },
   },
 }));
@@ -57,7 +65,15 @@ jest.mock('../planService', () => ({
 }));
 
 jest.mock('../encryptionService', () => ({
-  EncryptionService: {},
+  EncryptionService: {
+    getDecryptStreamAuto: jest.fn(),
+  },
+}));
+
+jest.mock('../shareKeyService', () => ({
+  ShareKeyService: {
+    unwrapOwnerDek: jest.fn(),
+  },
 }));
 
 jest.mock('../../config/logger', () => ({
@@ -244,5 +260,71 @@ describe('FolderService.deleteFolder permanent storage cleanup', () => {
     expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(100));
     expect(PlanService.updateQuotaUsed).toHaveBeenCalledWith('owner-1', -BigInt(40));
     expect(prisma.file.delete).toHaveBeenCalledWith({ where: { id: 'file-duplicate-path' } });
+  });
+});
+
+describe('FolderService.streamFolderAsZip shared access', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (archiver as unknown as jest.Mock).mockReturnValue({
+      on: jest.fn(),
+      pipe: jest.fn(),
+      append: jest.fn(),
+      finalize: jest.fn().mockResolvedValue(undefined),
+    });
+    (prisma.folder.findFirst as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      userId: 'owner-1',
+      name: 'Documents',
+      isDeleted: false,
+      isVault: false,
+    });
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      parentId: null,
+      isDeleted: false,
+      isVault: false,
+    });
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue({
+      id: 'share-1',
+      folderId: 'folder-1',
+      sharedWithId: 'shared-user',
+      accepted: true,
+      canRead: true,
+      canWrite: false,
+      canDelete: false,
+      canShare: false,
+      ownerWrappedDek: 'wrapped-owner-dek',
+    });
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      { name: 'doc.txt', storagePath: 'files/owner-1/doc.enc' },
+    ]);
+    (prisma.folder.findMany as jest.Mock).mockResolvedValue([]);
+    (ShareKeyService.unwrapOwnerDek as jest.Mock).mockReturnValue(Buffer.from('owner-dek'));
+    (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue({ on: jest.fn(), pipe: jest.fn() });
+  });
+
+  it('zips accepted shared folders using the owner storage scope and wrapped owner DEK', async () => {
+    const res: any = { headersSent: false, status: jest.fn().mockReturnThis(), json: jest.fn(), destroy: jest.fn() };
+
+    await FolderService.streamFolderAsZip('folder-1', 'shared-user', res);
+
+    expect(prisma.sharedFolder.findFirst).toHaveBeenCalledWith({
+      where: {
+        folderId: 'folder-1',
+        sharedWithId: 'shared-user',
+        accepted: true,
+        canRead: true,
+      },
+    });
+    expect(prisma.file.findMany).toHaveBeenCalledWith({
+      where: { folderId: 'folder-1', userId: 'owner-1', isDeleted: false },
+      select: { name: true, storagePath: true },
+    });
+    expect(ShareKeyService.unwrapOwnerDek).toHaveBeenCalledWith('wrapped-owner-dek');
+    expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith(
+      'files/owner-1/doc.enc',
+      Buffer.from('owner-dek')
+    );
   });
 });
