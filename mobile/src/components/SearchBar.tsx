@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { fileService } from '../services/fileService';
@@ -28,14 +28,12 @@ interface Props {
 
 type TypeFilter = 'all' | 'image' | 'document' | 'video' | 'audio';
 
-type TypeFilterDef = { key: TypeFilter; labelKey: string; icon: keyof typeof Ionicons.glyphMap };
-
-const TYPE_FILTER_DEFS: TypeFilterDef[] = [
-  { key: 'all', labelKey: 'search.filter_all', icon: 'apps-outline' },
-  { key: 'image', labelKey: 'search.filter_images', icon: 'image-outline' },
-  { key: 'document', labelKey: 'search.filter_documents', icon: 'document-text-outline' },
-  { key: 'video', labelKey: 'search.filter_videos', icon: 'videocam-outline' },
-  { key: 'audio', labelKey: 'search.filter_audio', icon: 'musical-notes-outline' },
+const TYPE_FILTERS: { key: TypeFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'all', label: 'Tout', icon: 'apps-outline' },
+  { key: 'image', label: 'Images', icon: 'image-outline' },
+  { key: 'document', label: 'Documents', icon: 'document-text-outline' },
+  { key: 'video', label: 'Vidéos', icon: 'videocam-outline' },
+  { key: 'audio', label: 'Audio', icon: 'musical-notes-outline' },
 ];
 
 const DOC_EXTS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'odt', 'ods']);
@@ -63,6 +61,8 @@ function matchesFilter(file: FileItem, filter: TypeFilter): boolean {
 export default function SearchBar({ visible, onClose, onFilePress }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [allResults, setAllResults] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,7 +107,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
             <Ionicons name="search" size={18} color={colors.neutral[400]} />
             <TextInput
               style={styles.input}
-              placeholder={t('search.placeholder')}
+              placeholder="Rechercher des fichiers..."
               placeholderTextColor={colors.neutral[400]}
               value={query}
               onChangeText={handleSearch}
@@ -121,12 +121,13 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
             )}
           </View>
           <TouchableOpacity onPress={handleClose} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>{t('search.cancel')}</Text>
+            <Text style={styles.cancelText}>Annuler</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Type filters */}
         <View style={styles.filterRow}>
-          {TYPE_FILTER_DEFS.map((f) => {
+          {TYPE_FILTERS.map((f) => {
             const active = typeFilter === f.key;
             return (
               <TouchableOpacity
@@ -135,7 +136,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
                 onPress={() => setTypeFilter(f.key)}
               >
                 <Ionicons name={f.icon} size={14} color={active ? '#fff' : colors.neutral[600]} />
-                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{t(f.labelKey)}</Text>
+                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{f.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -156,13 +157,13 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
             searched && !loading ? (
               <EmptyState
                 icon="search-outline"
-                title={t('search.no_results')}
-                subtitle={t('search.no_results_detail', { query })}
+                title="Aucun résultat"
+                subtitle={`Aucun fichier ne correspond à "${query}"`}
               />
             ) : !searched ? (
               <View style={styles.hint}>
                 <Ionicons name="search-outline" size={40} color={colors.neutral[300]} />
-                <Text style={styles.hintText}>{t('search.hint')}</Text>
+                <Text style={styles.hintText}>Tapez au moins 2 caractères pour rechercher</Text>
               </View>
             ) : null
           }
@@ -181,10 +182,10 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   searchRow: {
     flexDirection: 'row',
@@ -192,15 +193,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: c.neutral[200],
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     paddingVertical: 0,
   },
   cancelBtn: {
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     ...typography.body,
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '500',
   },
   filterRow: {
@@ -226,9 +227,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   filterChip: {
     flexDirection: 'row',
@@ -237,14 +238,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
   },
   filterChipActive: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
   },
   filterLabel: {
     ...typography.bodySmall,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     fontWeight: '500',
   },
   filterLabelActive: {
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     ...typography.bodySmall,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
   },
 });

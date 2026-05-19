@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/useColors';
 import { TabParamList } from '../types';
 import DashboardScreen from '../screens/main/DashboardScreen';
 import FilesScreen from '../screens/main/FilesScreen';
@@ -14,16 +14,17 @@ import SettingsScreen from '../screens/main/SettingsScreen';
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const tabIcons: Record<string, { focused: keyof typeof Ionicons.glyphMap; default: keyof typeof Ionicons.glyphMap }> = {
-  Dashboard: { focused: 'home', default: 'home-outline' },
-  Files: { focused: 'folder', default: 'folder-outline' },
-  Favorites: { focused: 'heart', default: 'heart-outline' },
-  Shared: { focused: 'people', default: 'people-outline' },
-  AI: { focused: 'hardware-chip', default: 'hardware-chip-outline' },
-  Settings: { focused: 'settings', default: 'settings-outline' },
+  Dashboard: { focused: 'home',          default: 'home-outline' },
+  Files:     { focused: 'folder',        default: 'folder-outline' },
+  Favorites: { focused: 'heart',         default: 'heart-outline' },
+  Shared:    { focused: 'people',        default: 'people-outline' },
+  AI:        { focused: 'hardware-chip', default: 'hardware-chip-outline' },
+  Settings:  { focused: 'settings',      default: 'settings-outline' },
 };
 
 export default function TabNavigator() {
   const { t } = useTranslation();
+  const colors = useColors();
 
   return (
     <Tab.Navigator
@@ -33,7 +34,7 @@ export default function TabNavigator() {
         tabBarInactiveTintColor: colors.neutral[400],
         tabBarStyle: {
           backgroundColor: colors.white,
-          borderTopColor: colors.neutral[200],
+          borderTopColor: colors.neutral[100],
           paddingBottom: 8,
           paddingTop: 8,
           height: 88,
@@ -50,11 +51,11 @@ export default function TabNavigator() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: t('tabs.dashboard') }} />
-      <Tab.Screen name="Files" component={FilesScreen} options={{ tabBarLabel: t('tabs.files') }} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: t('tabs.favorites') }} />
-      <Tab.Screen name="Shared" component={SharedScreen} options={{ tabBarLabel: t('tabs.shared') }} />
-      <Tab.Screen name="AI" component={AIScreen} options={{ tabBarLabel: t('tabs.ai') }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tabs.profile') }} />
+      <Tab.Screen name="Files"      component={FilesScreen}     options={{ tabBarLabel: t('tabs.files') }} />
+      <Tab.Screen name="Favorites"  component={FavoritesScreen} options={{ tabBarLabel: t('tabs.favorites') }} />
+      <Tab.Screen name="Shared"     component={SharedScreen}    options={{ tabBarLabel: t('tabs.shared') }} />
+      <Tab.Screen name="AI"         component={AIScreen}        options={{ tabBarLabel: t('tabs.ai') }} />
+      <Tab.Screen name="Settings"   component={SettingsScreen}  options={{ tabBarLabel: t('tabs.profile') }} />
     </Tab.Navigator>
   );
 }

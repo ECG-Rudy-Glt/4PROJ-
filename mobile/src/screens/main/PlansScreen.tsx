@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -90,6 +90,8 @@ const PLANS: PlanDef[] = [
 
 export default function PlansScreen() {
   const navigation = useNavigation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const currentPlan = useAuthStore((s) => s.user?.plan) ?? 'FREE';
   const [checkoutLoading, setCheckoutLoading] = useState<Plan | null>(null);
 
@@ -187,29 +189,29 @@ export default function PlansScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.neutral[50] },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.neutral[50] },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
+    backgroundColor: c.white, borderBottomWidth: 1, borderBottomColor: c.neutral[100],
   },
-  headerTitle: { ...typography.h4, color: colors.neutral[800] },
+  headerTitle: { ...typography.h4, color: c.neutral[800] },
   content: { padding: spacing.lg, paddingBottom: spacing['4xl'] },
-  subtitle: { ...typography.bodySmall, color: colors.neutral[500], marginBottom: spacing.xl, textAlign: 'center' },
+  subtitle: { ...typography.bodySmall, color: c.neutral[500], marginBottom: spacing.xl, textAlign: 'center' },
   card: {
-    backgroundColor: colors.white, borderRadius: borderRadius.xl,
+    backgroundColor: c.white, borderRadius: borderRadius.xl,
     padding: spacing.xl, marginBottom: spacing.lg, ...shadows.md,
-    borderWidth: 1, borderColor: colors.neutral[100],
+    borderWidth: 1, borderColor: c.neutral[100],
   },
-  cardCurrent: { borderColor: colors.primary[400], borderWidth: 2 },
+  cardCurrent: { borderColor: c.primary[400], borderWidth: 2 },
   cardPopular: { ...shadows.lg },
   badge: {
     alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: 3,
     borderRadius: borderRadius.full, marginBottom: spacing.md,
   },
-  badgeCurrent: { backgroundColor: colors.primary[600] },
-  badgeText: { ...typography.caption, color: colors.white, fontWeight: '700', fontSize: 11 },
+  badgeCurrent: { backgroundColor: c.primary[600] },
+  badgeText: { ...typography.caption, color: c.white, fontWeight: '700', fontSize: 11 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
   iconCircle: {
     width: 44, height: 44, borderRadius: 22,
@@ -217,19 +219,19 @@ const styles = StyleSheet.create({
   },
   cardTitleRow: { flex: 1 },
   planName: { ...typography.h4, fontWeight: '700' },
-  planStorage: { ...typography.caption, color: colors.neutral[500], marginTop: 2 },
+  planStorage: { ...typography.caption, color: c.neutral[500], marginTop: 2 },
   planPrice: { ...typography.body, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: colors.neutral[100], marginVertical: spacing.md },
+  divider: { height: 1, backgroundColor: c.neutral[100], marginVertical: spacing.md },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  featureText: { ...typography.bodySmall, color: colors.neutral[700], flex: 1 },
-  featureTextDim: { color: colors.neutral[400] },
+  featureText: { ...typography.bodySmall, color: c.neutral[700], flex: 1 },
+  featureTextDim: { color: c.neutral[400] },
   upgradeBtn: {
     marginTop: spacing.lg, paddingVertical: spacing.md,
     borderRadius: borderRadius.lg, alignItems: 'center',
   },
-  upgradeBtnText: { ...typography.button, color: colors.white },
+  upgradeBtnText: { ...typography.button, color: c.white },
   note: {
-    ...typography.caption, color: colors.neutral[400],
+    ...typography.caption, color: c.neutral[400],
     textAlign: 'center', marginTop: spacing.md,
   },
 });

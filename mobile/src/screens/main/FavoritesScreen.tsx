@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { fileService } from '../../services/fileService';
@@ -14,6 +14,8 @@ import FilePreviewModal from '../../components/FilePreviewModal';
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
@@ -80,14 +82,14 @@ export default function FavoritesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   title: {
     ...typography.h2,
-    color: colors.primary[600],
+    color: c.primary[600],
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },

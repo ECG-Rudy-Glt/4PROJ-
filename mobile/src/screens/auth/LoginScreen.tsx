@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -28,6 +28,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 export default function LoginScreen() {
   const { t } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<Nav>();
   const setAuth = useAuthStore((s) => s.setAuth);
 
@@ -129,7 +131,7 @@ export default function LoginScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>{t('auth.login.submit')}</Text>
             )}
@@ -162,10 +164,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.bg.secondary,
   },
   scrollContent: {
     flexGrow: 1,
@@ -184,35 +186,35 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.primary[600],
+    color: c.primary[600],
     marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.bodySmall,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     textAlign: 'center',
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     ...shadows.xl,
   },
   label: {
     ...typography.label,
-    color: colors.neutral[700],
+    color: c.neutral[700],
     marginBottom: spacing.xs,
     marginTop: spacing.md,
   },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
   },
   passwordRow: {
     position: 'relative',
@@ -229,11 +231,11 @@ const styles = StyleSheet.create({
   },
   eyeText: {
     ...typography.caption,
-    color: colors.primary[500],
+    color: c.primary[500],
     fontWeight: '600',
   },
   button: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg,
     alignItems: 'center',
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     ...typography.button,
-    color: colors.white,
+    color: '#fff',
   },
   forgotRow: {
     alignItems: 'flex-end',
@@ -253,7 +255,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     ...typography.caption,
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '600',
   },
   footer: {
@@ -263,11 +265,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     ...typography.bodySmall,
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   link: {
     ...typography.bodySmall,
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '600',
   },
 });

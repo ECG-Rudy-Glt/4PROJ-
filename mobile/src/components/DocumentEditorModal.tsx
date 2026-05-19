@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import api from '../services/api';
@@ -74,6 +74,8 @@ function buildEditorHtml(onlyofficeUrl: string, config: object, token: string): 
 }
 
 export default function DocumentEditorModal({ file, visible, onClose }: Props) {
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -169,24 +171,24 @@ export default function DocumentEditorModal({ file, visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: c.bg.primary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1f2937',
+    backgroundColor: c.bg.secondary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: c.neutral[200],
   },
   fileName: {
     flex: 1,
     ...typography.body,
-    color: colors.white,
+    color: c.white,
     fontWeight: '600',
     marginRight: spacing.md,
   },
@@ -209,18 +211,18 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...typography.body,
-    color: colors.white,
+    color: c.white,
     opacity: 0.7,
     marginTop: spacing.md,
   },
   errorTitle: {
     ...typography.h4,
-    color: colors.white,
+    color: c.white,
     marginTop: spacing.sm,
   },
   errorMsg: {
     ...typography.bodySmall,
-    color: '#9ca3af',
+    color: c.neutral[500],
     textAlign: 'center',
     marginTop: spacing.xs,
   },
@@ -228,11 +230,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing['2xl'],
     paddingVertical: spacing.md,
-    backgroundColor: '#374151',
+    backgroundColor: c.neutral[200],
     borderRadius: 8,
   },
   closeErrorText: {
     ...typography.button,
-    color: colors.white,
+    color: c.white,
   },
 });

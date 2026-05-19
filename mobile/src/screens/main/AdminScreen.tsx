@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -35,6 +35,8 @@ type Tab = 'overview' | 'users';
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<Tab>('overview');
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
@@ -141,12 +143,12 @@ export default function AdminScreen() {
             <>
               <Text style={styles.sectionTitle}>Statistiques</Text>
               <View style={styles.kpiGrid}>
-                <KpiCard icon="people-outline" label="Utilisateurs" value={kpis.totalUsers} />
-                <KpiCard icon="document-outline" label="Fichiers" value={kpis.totalFiles} />
-                <KpiCard icon="cloud-upload-outline" label="Uploads 24h" value={kpis.uploads24h} />
-                <KpiCard icon="person-add-outline" label="Nouveaux 30j" value={kpis.newUsers30d} />
-                <KpiCard icon="pulse-outline" label="Actifs 24h" value={kpis.activeUsers24h} />
-                <KpiCard icon="shield-outline" label="Admins" value={kpis.totalAdmins} />
+                <KpiCard icon="people-outline" label="Utilisateurs" value={kpis.totalUsers} styles={styles} colors={colors} />
+                <KpiCard icon="document-outline" label="Fichiers" value={kpis.totalFiles} styles={styles} colors={colors} />
+                <KpiCard icon="cloud-upload-outline" label="Uploads 24h" value={kpis.uploads24h} styles={styles} colors={colors} />
+                <KpiCard icon="person-add-outline" label="Nouveaux 30j" value={kpis.newUsers30d} styles={styles} colors={colors} />
+                <KpiCard icon="pulse-outline" label="Actifs 24h" value={kpis.activeUsers24h} styles={styles} colors={colors} />
+                <KpiCard icon="shield-outline" label="Admins" value={kpis.totalAdmins} styles={styles} colors={colors} />
               </View>
 
               <Text style={styles.sectionTitle}>Stockage</Text>
@@ -295,7 +297,7 @@ export default function AdminScreen() {
   );
 }
 
-function KpiCard({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: number }) {
+function KpiCard({ icon, label, value, styles, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: number; styles: ReturnType<typeof makeStyles>; colors: AppColors }) {
   return (
     <View style={styles.kpiCard}>
       <Ionicons name={icon} size={22} color={colors.primary[600]} />
@@ -305,91 +307,91 @@ function KpiCard({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg.secondary },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg.secondary },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
+    backgroundColor: c.white,
+    borderBottomWidth: 1, borderBottomColor: c.neutral[100],
   },
   backBtn: { padding: spacing.xs },
-  title: { ...typography.h3, color: colors.neutral[900] },
+  title: { ...typography.h3, color: c.neutral[900] },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
+    backgroundColor: c.white,
+    borderBottomWidth: 1, borderBottomColor: c.neutral[100],
   },
   tab: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary[600] },
-  tabText: { ...typography.bodySmall, color: colors.neutral[400] },
-  tabTextActive: { color: colors.primary[600], fontWeight: '700' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: c.primary[600] },
+  tabText: { ...typography.bodySmall, color: c.neutral[400] },
+  tabTextActive: { color: c.primary[600], fontWeight: '700' },
   content: { padding: spacing.lg, paddingBottom: spacing['5xl'] },
-  sectionTitle: { ...typography.h4, color: colors.neutral[700], marginBottom: spacing.sm, marginTop: spacing.md },
+  sectionTitle: { ...typography.h4, color: c.neutral[700], marginBottom: spacing.sm, marginTop: spacing.md },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   kpiCard: {
-    backgroundColor: colors.white, borderRadius: borderRadius.lg,
+    backgroundColor: c.white, borderRadius: borderRadius.lg,
     padding: spacing.md, alignItems: 'center', width: '31%',
     ...shadows.sm,
   },
-  kpiValue: { ...typography.h3, color: colors.neutral[900], marginTop: 4 },
-  kpiLabel: { ...typography.caption, color: colors.neutral[400], textAlign: 'center', marginTop: 2 },
+  kpiValue: { ...typography.h3, color: c.neutral[900], marginTop: 4 },
+  kpiLabel: { ...typography.caption, color: c.neutral[400], textAlign: 'center', marginTop: 2 },
   storageCard: {
-    backgroundColor: colors.white, borderRadius: borderRadius.xl,
+    backgroundColor: c.white, borderRadius: borderRadius.xl,
     padding: spacing.lg, ...shadows.sm, gap: spacing.sm,
   },
   storageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  storageLabel: { ...typography.bodySmall, color: colors.neutral[500] },
-  storageValue: { ...typography.body, color: colors.neutral[900], fontWeight: '600' },
+  storageLabel: { ...typography.bodySmall, color: c.neutral[500] },
+  storageValue: { ...typography.body, color: c.neutral[900], fontWeight: '600' },
   storageBar: {
-    height: 8, backgroundColor: colors.neutral[100],
+    height: 8, backgroundColor: c.neutral[100],
     borderRadius: borderRadius.full, overflow: 'hidden',
   },
-  storageBarFill: { height: '100%', backgroundColor: colors.primary[500], borderRadius: borderRadius.full },
-  storagePct: { ...typography.caption, color: colors.neutral[400], textAlign: 'right' },
+  storageBarFill: { height: '100%', backgroundColor: c.primary[500], borderRadius: borderRadius.full },
+  storagePct: { ...typography.caption, color: c.neutral[400], textAlign: 'right' },
   userCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.white, borderRadius: borderRadius.lg,
+    backgroundColor: c.white, borderRadius: borderRadius.lg,
     padding: spacing.md, marginBottom: spacing.sm, ...shadows.sm,
   },
   userAvatar: {
     width: 38, height: 38, borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[100], justifyContent: 'center', alignItems: 'center',
+    backgroundColor: c.primary[100], justifyContent: 'center', alignItems: 'center',
   },
-  userAvatarText: { ...typography.body, color: colors.primary[700], fontWeight: '700' },
-  userEmail: { ...typography.bodySmall, color: colors.neutral[900], fontWeight: '600' },
-  userMeta: { ...typography.caption, color: colors.neutral[400] },
+  userAvatarText: { ...typography.body, color: c.primary[700], fontWeight: '700' },
+  userEmail: { ...typography.bodySmall, color: c.neutral[900], fontWeight: '600' },
+  userMeta: { ...typography.caption, color: c.neutral[400] },
   miniBar: {
-    height: 4, backgroundColor: colors.neutral[100],
+    height: 4, backgroundColor: c.neutral[100],
     borderRadius: borderRadius.full, overflow: 'hidden', marginTop: 4,
   },
-  miniBarFill: { height: '100%', backgroundColor: colors.primary[400] },
+  miniBarFill: { height: '100%', backgroundColor: c.primary[400] },
   planBtn: {
-    backgroundColor: colors.primary[50], paddingHorizontal: spacing.sm,
+    backgroundColor: c.primary[50], paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs, borderRadius: borderRadius.md, minWidth: 60, alignItems: 'center',
   },
-  planBtnText: { ...typography.caption, color: colors.primary[700], fontWeight: '700' },
+  planBtnText: { ...typography.caption, color: c.primary[700], fontWeight: '700' },
   searchRow: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: colors.white, borderRadius: borderRadius.lg,
-    borderWidth: 1, borderColor: colors.neutral[200],
+    backgroundColor: c.white, borderRadius: borderRadius.lg,
+    borderWidth: 1, borderColor: c.neutral[200],
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
-  searchInput: { flex: 1, ...typography.body, color: colors.neutral[900] },
+  searchInput: { flex: 1, ...typography.body, color: c.neutral[900] },
   planFilters: {
     flexDirection: 'row', gap: spacing.xs,
     paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, flexWrap: 'wrap',
   },
   planChip: {
     paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full, backgroundColor: colors.neutral[100],
+    borderRadius: borderRadius.full, backgroundColor: c.neutral[100],
   },
-  planChipActive: { backgroundColor: colors.primary[600] },
-  planChipText: { ...typography.caption, color: colors.neutral[600] },
-  planChipTextActive: { color: colors.white, fontWeight: '700' },
+  planChipActive: { backgroundColor: c.primary[600] },
+  planChipText: { ...typography.caption, color: c.neutral[600] },
+  planChipTextActive: { color: c.white, fontWeight: '700' },
   pagination: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.lg, paddingTop: spacing.lg },
   pageBtn: { padding: spacing.sm },
-  pageLabel: { ...typography.body, color: colors.neutral[600] },
-  empty: { ...typography.body, color: colors.neutral[400], textAlign: 'center', marginTop: spacing['2xl'] },
+  pageLabel: { ...typography.body, color: c.neutral[600] },
+  empty: { ...typography.body, color: c.neutral[400], textAlign: 'center', marginTop: spacing['2xl'] },
 });

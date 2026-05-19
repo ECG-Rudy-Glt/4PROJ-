@@ -4,7 +4,7 @@ import { ActivityIndicator, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useAuthStore } from '../stores/useAuthStore';
 import { authService } from '../services/authService';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/useColors';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import MfaVerifyScreen from '../screens/auth/MfaVerifyScreen';
@@ -21,6 +21,7 @@ import { navigationRef } from './navigationRef';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const colors = useColors();
   const { isAuthenticated, isLoading, hydrated } = useAuthStore();
   const hydrate = useAuthStore((s) => s.hydrate);
   const setAuth = useAuthStore((s) => s.setAuth);

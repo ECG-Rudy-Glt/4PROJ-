@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -33,6 +33,8 @@ type Step = 'loading' | 'status' | 'qr' | 'verify' | 'done' | 'disable';
 export default function MfaSetupModal({ visible, onClose }: Props) {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [step, setStep] = useState<Step>('loading');
   const [status, setStatus] = useState<MFAStatusResponse | null>(null);
@@ -319,7 +321,7 @@ export default function MfaSetupModal({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   kavContainer: {
     flex: 1,
   },
@@ -329,7 +331,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   header: {
@@ -350,12 +352,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
     marginBottom: spacing.md,
   },
   title: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   centered: {
@@ -371,31 +373,31 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   statusOn: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
   },
   statusOff: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
   },
   statusText: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     fontWeight: '600',
   },
   body: {
     ...typography.body,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     marginBottom: spacing.md,
     lineHeight: 22,
   },
   info: {
     ...typography.bodySmall,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     marginBottom: spacing.xs,
   },
   qrWrap: {
     alignItems: 'center',
     padding: spacing.lg,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     marginVertical: spacing.md,
   },
@@ -405,7 +407,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.caption,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     fontWeight: '600',
     marginTop: spacing.md,
     marginBottom: spacing.xs,
@@ -413,29 +415,29 @@ const styles = StyleSheet.create({
   secret: {
     ...typography.bodySmall,
     fontFamily: 'Menlo',
-    color: colors.neutral[800],
-    backgroundColor: colors.neutral[50],
+    color: c.neutral[800],
+    backgroundColor: c.neutral[50],
     padding: spacing.md,
     borderRadius: borderRadius.md,
     textAlign: 'center',
     letterSpacing: 2,
   },
   codeInput: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     fontSize: 24,
     textAlign: 'center',
     letterSpacing: 6,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     marginVertical: spacing.md,
   },
   primaryBtn: {
     flexDirection: 'row',
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
     alignItems: 'center',
@@ -445,13 +447,13 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     ...typography.button,
-    color: colors.white,
+    color: c.white,
   },
   btnDisabled: {
     opacity: 0.5,
   },
   codesBox: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     marginVertical: spacing.md,
@@ -460,7 +462,7 @@ const styles = StyleSheet.create({
   backupCode: {
     ...typography.body,
     fontFamily: 'Menlo',
-    color: colors.neutral[800],
+    color: c.neutral[800],
     textAlign: 'center',
     letterSpacing: 2,
   },

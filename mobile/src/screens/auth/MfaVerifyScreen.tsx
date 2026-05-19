@@ -16,7 +16,7 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors, useIsDark } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -32,6 +32,9 @@ const CODE_LENGTH = 6;
 
 export default function MfaVerifyScreen() {
   const { t } = useTranslation();
+  const colors = useColors();
+  const isDark = useIsDark();
+  const styles = React.useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const route = useRoute<Route>();
   const { tempToken, mfaSetupRequired } = route.params;
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -235,7 +238,7 @@ export default function MfaVerifyScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>{t('auth.mfa.submit')}</Text>
             )}
@@ -246,8 +249,8 @@ export default function MfaVerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: colors.primary[50] },
+const makeStyles = (c: AppColors, isDark: boolean) => StyleSheet.create({
+  wrapper: { flex: 1, backgroundColor: c.bg.secondary },
   scrollContent: {
     flexGrow: 1, justifyContent: 'center',
     paddingHorizontal: spacing.xl, paddingVertical: spacing['3xl'],
@@ -255,49 +258,51 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginBottom: spacing['2xl'] },
   iconCircle: {
     width: 64, height: 64, borderRadius: borderRadius.full,
-    backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: c.white, justifyContent: 'center', alignItems: 'center',
     marginBottom: spacing.lg, ...shadows.lg,
   },
   iconText: { fontSize: 28 },
-  title: { ...typography.h3, color: colors.primary[600], marginBottom: spacing.xs, textAlign: 'center' },
-  subtitle: { ...typography.bodySmall, color: colors.neutral[500], textAlign: 'center', paddingHorizontal: spacing.lg },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.xl },
+  title: { ...typography.h3, color: c.primary[600], marginBottom: spacing.xs, textAlign: 'center' },
+  subtitle: { ...typography.bodySmall, color: c.neutral[500], textAlign: 'center', paddingHorizontal: spacing.lg },
+  card: { backgroundColor: c.white, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.xl },
   qrSection: { alignItems: 'center', marginBottom: spacing.xl },
   qrLoading: { alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl },
-  qrLoadingText: { ...typography.bodySmall, color: colors.neutral[500] },
+  qrLoadingText: { ...typography.bodySmall, color: c.neutral[500] },
   addAuthButton: {
-    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    backgroundColor: c.primary[600], borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg, paddingHorizontal: spacing.xl,
     alignItems: 'center', width: '100%', marginBottom: spacing.lg, ...shadows.md,
   },
-  addAuthButtonText: { ...typography.button, color: colors.white },
-  secretBox: { backgroundColor: colors.neutral[50], borderRadius: borderRadius.md, padding: spacing.md, width: '100%' },
-  secretLabel: { ...typography.caption, color: colors.neutral[500], marginBottom: spacing.xs },
-  secretCode: { ...typography.body, fontWeight: '600', color: colors.primary[600], textAlign: 'center', letterSpacing: 2 },
+  addAuthButtonText: { ...typography.button, color: '#fff' },
+  secretBox: { backgroundColor: c.neutral[50], borderRadius: borderRadius.md, padding: spacing.md, width: '100%' },
+  secretLabel: { ...typography.caption, color: c.neutral[500], marginBottom: spacing.xs },
+  secretCode: { ...typography.body, fontWeight: '600', color: c.primary[600], textAlign: 'center', letterSpacing: 2 },
   copyButton: {
-    marginTop: spacing.sm, backgroundColor: colors.neutral[200],
+    marginTop: spacing.sm, backgroundColor: c.neutral[200],
     borderRadius: borderRadius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
     alignSelf: 'center',
   },
-  copyButtonText: { ...typography.caption, color: colors.neutral[700], fontWeight: '600' },
-  hint: { ...typography.caption, color: colors.neutral[400], textAlign: 'center', marginTop: spacing.md },
+  copyButtonText: { ...typography.caption, color: c.neutral[700], fontWeight: '600' },
   warningBox: {
-    backgroundColor: '#FEF3C7', borderRadius: borderRadius.md,
+    backgroundColor: isDark ? 'rgba(251,191,36,0.12)' : '#FEF3C7',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? '#FBBF24' : 'transparent',
+    borderRadius: borderRadius.md,
     padding: spacing.md, marginTop: spacing.md, width: '100%',
   },
-  warningText: { ...typography.caption, color: '#92400E', lineHeight: 18 },
-  label: { ...typography.label, color: colors.neutral[700], marginBottom: spacing.md },
+  warningText: { ...typography.caption, color: isDark ? c.warning : '#92400E', lineHeight: 18 },
+  label: { ...typography.label, color: c.neutral[700], marginBottom: spacing.md },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.xl },
   codeInput: {
-    flex: 1, height: 56, backgroundColor: colors.neutral[50],
-    borderWidth: 2, borderColor: colors.neutral[200], borderRadius: borderRadius.lg,
-    textAlign: 'center', fontSize: 22, fontWeight: '700', color: colors.neutral[900],
+    flex: 1, height: 56, backgroundColor: c.neutral[50],
+    borderWidth: 2, borderColor: c.neutral[200], borderRadius: borderRadius.lg,
+    textAlign: 'center', fontSize: 22, fontWeight: '700', color: c.neutral[900],
   },
-  codeInputFilled: { borderColor: colors.primary[500], backgroundColor: colors.primary[50] },
+  codeInputFilled: { borderColor: c.primary[500], backgroundColor: c.primary[50] },
   button: {
-    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    backgroundColor: c.primary[600], borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg, alignItems: 'center', ...shadows.md,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { ...typography.button, color: colors.white },
+  buttonText: { ...typography.button, color: '#fff' },
 });

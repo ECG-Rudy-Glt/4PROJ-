@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -34,6 +34,8 @@ const formatDate = (iso: string): string => {
 
 export default function CommentsPanel({ file, onClose }: Props) {
   const currentUser = useAuthStore((s) => s.user);
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState('');
@@ -168,14 +170,14 @@ export default function CommentsPanel({ file, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   header: {
@@ -197,12 +199,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
     marginBottom: spacing.md,
   },
   title: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   centered: {
@@ -211,7 +213,7 @@ const styles = StyleSheet.create({
   },
   muted: {
     ...typography.body,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
     padding: spacing.xl,
   },
@@ -220,19 +222,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   avatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primary[100],
+    backgroundColor: c.primary[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     ...typography.body,
-    color: colors.primary[700],
+    color: c.primary[700],
     fontWeight: '700',
   },
   commentBody: {
@@ -245,16 +247,16 @@ const styles = StyleSheet.create({
   },
   commentAuthor: {
     ...typography.bodySmall,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     fontWeight: '600',
   },
   commentDate: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
   },
   commentContent: {
     ...typography.body,
-    color: colors.neutral[700],
+    color: c.neutral[700],
     marginTop: 2,
   },
   deleteBtn: {
@@ -266,25 +268,25 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral[100],
+    borderTopColor: c.neutral[100],
   },
   input: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     maxHeight: 120,
   },
   sendBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     alignItems: 'center',
     justifyContent: 'center',
   },
