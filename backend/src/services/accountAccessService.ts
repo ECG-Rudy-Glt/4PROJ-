@@ -5,6 +5,7 @@ import { generateToken } from '../utils/jwt';
 import { MailService } from './mailService';
 import { NotificationService } from './notificationService';
 import logger from '../config/logger';
+import { AppError } from '../middlewares/errorHandler';
 
 type DelegationPermissionsInput = {
   canRead?: boolean;
@@ -159,33 +160,33 @@ export class AccountAccessService {
     });
 
     if (!target || !target.password) {
-      throw new Error('Identifiants invalides');
+      throw new AppError(401, 'Identifiants invalides');
     }
     if (target.accountStatus !== 'ACTIVE') {
-      throw new Error('Le compte cible est inactif ou suspendu');
+      throw new AppError(403, 'Le compte cible est inactif ou suspendu');
     }
     if (target.id === rootUserId) {
-      throw new Error('Impossible de lier votre compte actuel');
+      throw new AppError(400, 'Impossible de lier votre propre compte');
     }
 
     const passwordValid = await bcrypt.compare(payload.password, target.password);
     if (!passwordValid) {
-      throw new Error('Identifiants invalides');
+      throw new AppError(401, 'Identifiants invalides');
     }
 
     if (target.mfaEnabled) {
       if (payload.mfaCode) {
         const mfaValid = await mfaService.verifyUserTOTPCode(target.id, payload.mfaCode);
         if (!mfaValid) {
-          throw new Error('Code MFA invalide');
+          throw new AppError(401, 'Code MFA invalide');
         }
       } else if (payload.backupCode) {
         const backupValid = await mfaService.verifyBackupCode(target.id, payload.backupCode);
         if (!backupValid) {
-          throw new Error('Code de récupération invalide');
+          throw new AppError(401, 'Code de récupération invalide');
         }
       } else {
-        throw new Error('Un code MFA ou un code de récupération est requis');
+        throw new AppError(400, 'Un code MFA ou un code de récupération est requis pour ce compte');
       }
     }
 
@@ -281,12 +282,12 @@ export class AccountAccessService {
     });
 
     if (!link) {
-      throw new Error('Lien de switch introuvable');
+      throw new AppError(404, 'Lien de switch introuvable');
     }
 
     const now = new Date();
     if (link.expiresAt <= now) {
-      throw new Error('Lien de switch expiré');
+      throw new AppError(400, 'Ce lien de switch a expiré, veuillez relier le compte');
     }
 
     const reauthMaxAgeMs = this.getSwitchReauthMinutes() * 60 * 1000;
@@ -295,7 +296,7 @@ export class AccountAccessService {
     }
 
     if (link.targetUser.accountStatus !== 'ACTIVE') {
-      throw new Error('Le compte cible est inactif ou suspendu');
+      throw new AppError(403, 'Le compte cible est inactif ou suspendu');
     }
 
     const token = generateToken(
@@ -339,10 +340,10 @@ export class AccountAccessService {
     });
 
     if (!rootUser) {
-      throw new Error('Compte racine introuvable');
+      throw new AppError(404, 'Compte racine introuvable');
     }
     if (rootUser.accountStatus !== 'ACTIVE') {
-      throw new Error('Le compte racine est inactif ou suspendu');
+      throw new AppError(403, 'Le compte racine est inactif ou suspendu');
     }
 
     const token = generateToken(rootUser.id, rootUser.email, rootUser.tokenVersion);
@@ -381,25 +382,25 @@ export class AccountAccessService {
     ]);
 
     if (!delegate) {
-      throw new Error('Utilisateur délégataire introuvable');
+      throw new AppError(404, 'Aucun compte trouvé pour cet email');
     }
     if (!owner) {
-      throw new Error('Compte propriétaire introuvable');
+      throw new AppError(404, 'Compte propriétaire introuvable');
     }
     if (delegate.accountStatus !== 'ACTIVE') {
-      throw new Error('Le compte délégataire est inactif ou suspendu');
+      throw new AppError(403, 'Le compte délégataire est inactif ou suspendu');
     }
     if (delegate.id === ownerUserId) {
-      throw new Error('Impossible de se déléguer soi-même');
+      throw new AppError(400, 'Vous ne pouvez pas vous déléguer à vous-même');
     }
 
     const now = new Date();
     const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
     if (expiresAt && Number.isNaN(expiresAt.getTime())) {
-      throw new Error('Date d’expiration invalide');
+      throw new AppError(400, 'Date d\'expiration invalide');
     }
     if (expiresAt && expiresAt <= now) {
-      throw new Error('La date d’expiration doit être dans le futur');
+      throw new AppError(400, 'La date d\'expiration doit être dans le futur');
     }
 
     const permissions = this.normalizeDelegationPermissions(payload.permissions);
@@ -547,7 +548,7 @@ export class AccountAccessService {
       },
     });
     if (!delegation) {
-      throw new Error('Délégation introuvable');
+      throw new AppError(404, 'Délégation introuvable ou déjà révoquée');
     }
 
     const revoked = await prisma.delegation.update({
@@ -623,10 +624,10 @@ export class AccountAccessService {
     });
 
     if (!delegation) {
-      throw new Error('Délégation invalide ou expirée');
+      throw new AppError(404, 'Délégation invalide, expirée ou révoquée');
     }
     if (delegation.ownerUser.accountStatus !== 'ACTIVE') {
-      throw new Error('Le compte cible de la délégation est inactif ou suspendu');
+      throw new AppError(403, 'Le compte propriétaire de la délégation est inactif ou suspendu');
     }
 
     const token = generateToken(
