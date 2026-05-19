@@ -299,10 +299,15 @@
 
 | Priorité | Fonctionnalité manquante | Complexité |
 | :--- | :--- | :---: |
-| 🔴 Haute | Filtres avancés dans la recherche (type, date, taille) | Faible |
-| 🔴 Haute | Tri des fichiers (nom, date, taille) | Faible |
-| 🔴 Haute | Vider la corbeille (bouton global) | Faible |
-| 🔴 Haute | Filtres dans le journal d'audit | Faible |
+| 🔴 Haute | Filtres avancés dans la recherche (type, date, taille) | Faible |R
+| 🔴 Haute | Tri des fichiers (nom, date, taille) | Faible |R
+| 🔴 Haute | Vider la corbeille (bouton global) | Faible |R
+| 🔴 Haute | Filtres dans le journal d'audit 
+| Faible |R
+| 🔴 Haute | Partage publique 
+| Faible |
+| 🔴 Haute | lorce que je reste appuyer sur le boutton proposer de téléchargerle fichier , et si dossier en zip
+| Faible |
 | 🟠 Moyenne | Mot de passe oublié / réinitialisation | Faible |
 | 🟠 Moyenne | Prévisualisation texte / Markdown | Faible |
 | 🟠 Moyenne | Édition de tag (renommer, recolorer) | Faible |
