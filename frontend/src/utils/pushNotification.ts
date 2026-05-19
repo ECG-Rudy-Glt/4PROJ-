@@ -1,6 +1,10 @@
 import api from '@/services/api';
 
 let swRegistration: ServiceWorkerRegistration | null = null;
+let initPromise: Promise<void> | null = null;
+
+const PUSH_RETRY_AFTER_MS = 6 * 60 * 60 * 1000;
+const PUSH_RETRY_STORAGE_KEY = 'supfile:pushRetryAfter';
 
 function waitForActive(reg: ServiceWorkerRegistration): Promise<void> {
   return new Promise((resolve) => {
@@ -19,8 +23,25 @@ function waitForActive(reg: ServiceWorkerRegistration): Promise<void> {
 }
 
 export async function initPushNotifications() {
+  if (initPromise) return initPromise;
+  initPromise = initPushNotificationsOnce().finally(() => {
+    initPromise = null;
+  });
+  return initPromise;
+}
+
+async function initPushNotificationsOnce() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.warn('[Push] Non supporté par ce navigateur');
+    return;
+  }
+
+  if (!window.isSecureContext) {
+    console.warn('[Push] Désactivé: HTTPS ou localhost requis');
+    return;
+  }
+
+  if (isRetryCooldownActive()) {
     return;
   }
 
@@ -62,6 +83,12 @@ export async function initPushNotifications() {
     await api.post('/push/subscribe', { subscription: subscription.toJSON() });
     console.log('[Push] Subscription envoyée au backend');
   } catch (error) {
+    if (isPushServiceUnavailable(error)) {
+      markRetryCooldown();
+      console.warn('[Push] Abonnement indisponible dans ce navigateur/environnement:', getErrorMessage(error));
+      return;
+    }
+
     console.error('[Push] Erreur:', error);
   }
 }
@@ -89,4 +116,24 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+function isRetryCooldownActive(): boolean {
+  const retryAfter = Number(localStorage.getItem(PUSH_RETRY_STORAGE_KEY) || 0);
+  return Number.isFinite(retryAfter) && retryAfter > Date.now();
+}
+
+function markRetryCooldown() {
+  localStorage.setItem(PUSH_RETRY_STORAGE_KEY, String(Date.now() + PUSH_RETRY_AFTER_MS));
+}
+
+function isPushServiceUnavailable(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  return getErrorMessage(error).toLowerCase().includes('push service');
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return 'service push indisponible';
 }
