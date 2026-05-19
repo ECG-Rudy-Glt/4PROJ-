@@ -11,9 +11,10 @@ interface CommentsPanelProps {
   onCommentCountChange?: () => void;
   isShared?: boolean;
   canWrite?: boolean;
+  shareAccessToken?: string | null;
 }
 
-export default function CommentsPanel({ fileId, onCommentCountChange, isShared = false, canWrite = true }: CommentsPanelProps) {
+export default function CommentsPanel({ fileId, onCommentCountChange, isShared = false, canWrite = true, shareAccessToken }: CommentsPanelProps) {
   const { user } = useAuthStore();
   const { t } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -64,13 +65,13 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileId, socket]); // Added socket to dependency array
+  }, [fileId, socket, shareAccessToken]); // Added socket to dependency array
 
   const loadComments = async () => {
     setIsLoading(true);
     setHasError(false);
     try {
-      const { comments: data } = await commentService.getFileComments(fileId); // Changed to data
+      const { comments: data } = await commentService.getFileComments(fileId, shareAccessToken); // Changed to data
       setComments(data); // Changed to data
       if (onCommentCountChange) {
         onCommentCountChange();
@@ -94,7 +95,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
     }
 
     try {
-      await commentService.createComment(fileId, newComment.trim());
+      await commentService.createComment(fileId, newComment.trim(), undefined, shareAccessToken);
       setNewComment('');
       toast.success(t('comments.add_success'));
       loadComments();
@@ -110,7 +111,7 @@ export default function CommentsPanel({ fileId, onCommentCountChange, isShared =
     }
 
     try {
-      await commentService.createComment(fileId, replyContent.trim(), parentId);
+      await commentService.createComment(fileId, replyContent.trim(), parentId, shareAccessToken);
       setReplyContent('');
       setReplyingTo(null);
       toast.success(t('comments.reply_success'));

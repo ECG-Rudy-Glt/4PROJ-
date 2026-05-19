@@ -12,26 +12,28 @@ interface VersionHistoryProps {
   onVersionRestored?: () => void;
   isShared?: boolean;
   canWrite?: boolean;
+  shareAccessToken?: string | null;
 }
 
-export default function VersionHistory({ fileId, onVersionRestored, isShared = false, canWrite = true }: VersionHistoryProps) {
+export default function VersionHistory({ fileId, onVersionRestored, isShared = false, canWrite = true, shareAccessToken }: VersionHistoryProps) {
   const { t, i18n } = useTranslation();
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   const dateLocale = i18n.language === 'fr' ? fr : enUS;
+  const canManageVersions = !isShared && canWrite;
 
   useEffect(() => {
     loadVersions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileId]);
+  }, [fileId, shareAccessToken]);
 
   const loadVersions = async () => {
     setIsLoading(true);
     setHasError(false);
     try {
-      const { versions } = await versionService.getFileVersions(fileId);
+      const { versions } = await versionService.getFileVersions(fileId, shareAccessToken);
       setVersions(versions);
     } catch (error: any) {
       console.error('Erreur chargement versions:', error);
@@ -51,7 +53,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
     }
 
     try {
-      await versionService.restoreVersion(fileId, versionId);
+      await versionService.restoreVersion(fileId, versionId, shareAccessToken);
       toast.success(t('versions.restore_success'));
       loadVersions();
       if (onVersionRestored) {
@@ -68,7 +70,7 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
     }
 
     try {
-      await versionService.deleteVersion(fileId, versionId);
+      await versionService.deleteVersion(fileId, versionId, shareAccessToken);
       toast.success(t('versions.delete_success'));
       loadVersions();
     } catch (error: any) {
@@ -129,10 +131,10 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
         </span>
       </div>
 
-      {isShared && !canWrite && (
+      {(isShared || !canWrite) && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
           <p className="text-sm text-yellow-800 dark:text-yellow-300">
-            {t('versions.read_only_warning')}
+            {isShared ? t('versions.shared_manage_warning') : t('versions.read_only_warning')}
           </p>
         </div>
       )}
@@ -176,22 +178,24 @@ export default function VersionHistory({ fileId, onVersionRestored, isShared = f
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onClick={() => handleRestore(version.id, version.versionNumber)}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all"
-                title={t('versions.restore_tooltip')}
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(version.id, version.versionNumber)}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                title={t('versions.delete_tooltip')}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            {canManageVersions && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => handleRestore(version.id, version.versionNumber)}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all"
+                  title={t('versions.restore_tooltip')}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(version.id, version.versionNumber)}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                  title={t('versions.delete_tooltip')}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

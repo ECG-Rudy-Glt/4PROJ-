@@ -10,4 +10,8 @@ export const billingService = {
     const response = await api.post('/billing/portal-session');
     return response.data;
   },
+
+  async downgradeToFree(): Promise<void> {
+    await api.post('/billing/downgrade-free');
+  },
 };

@@ -4,11 +4,12 @@ import { authenticate } from '../middlewares/auth';
 import { upload } from '../config/multer';
 import { checkQuotaBeforeUpload } from '../middlewares/quotaCheck';
 import { requireDelegationPermission } from '../middlewares/delegation';
+import { verifyDirectSharePassword, verifyDirectSharePasswordFor } from '../middlewares/sharePasswordMiddleware';
 
 const router = Router();
 
-router.post('/upload', authenticate, requireDelegationPermission('write'), upload.array('files', 100), checkQuotaBeforeUpload, FileController.uploadFile);
-router.get('/', authenticate, requireDelegationPermission('read'), FileController.listFiles);
+router.post('/upload', authenticate, requireDelegationPermission('write'), upload.array('files', 100), verifyDirectSharePasswordFor('write'), checkQuotaBeforeUpload, FileController.uploadFile);
+router.get('/', authenticate, requireDelegationPermission('read'), verifyDirectSharePassword, FileController.listFiles);
 router.get('/deleted', authenticate, requireDelegationPermission('read'), FileController.getDeletedFiles);
 router.get('/favorites', authenticate, requireDelegationPermission('read'), FileController.getFavoriteFiles);
 router.get('/shares/accepted', authenticate, requireDelegationPermission('read'), FileController.getAcceptedShares);
@@ -21,6 +22,6 @@ router.put('/:fileId', authenticate, requireDelegationPermission('write'), FileC
 router.put('/:fileId/move', authenticate, requireDelegationPermission('write'), FileController.moveFile);
 router.post('/:fileId/restore', authenticate, requireDelegationPermission('write'), FileController.restoreFile);
 router.post('/:fileId/favorite', authenticate, requireDelegationPermission('write'), FileController.toggleFavorite);
-router.delete('/:fileId', authenticate, requireDelegationPermission('delete'), FileController.deleteFile);
+router.delete('/:fileId', authenticate, requireDelegationPermission('delete'), verifyDirectSharePasswordFor('delete'), FileController.deleteFile);
 
 export default router;

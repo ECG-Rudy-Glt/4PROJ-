@@ -12,6 +12,7 @@ import { KekService } from './kekService';
 import { ShareKeyService } from './shareKeyService';
 import { mfaService } from './mfaService';
 import logger from '../config/logger';
+import { getJwtSecret } from '../config/secrets';
 
 const REFRESH_TOKEN_BYTES = 48;
 const REFRESH_TOKEN_TTL_DAYS = 30;
@@ -178,6 +179,10 @@ export class AuthService {
     return crypto.createHash('sha256').update(refreshToken).digest('hex');
   }
 
+  static hashPasswordResetToken(resetToken: string): string {
+    return crypto.createHmac('sha256', getJwtSecret()).update(resetToken).digest('hex');
+  }
+
   static async createRefreshToken(userId: string): Promise<string> {
     const refreshToken = crypto.randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
     const expiresAt = new Date();
@@ -199,10 +204,10 @@ export class AuthService {
     userId: string,
     tokenVersion: number
   ): string | undefined {
-    if (!accessToken || !process.env.JWT_SECRET) return undefined;
+    if (!accessToken) return undefined;
 
     try {
-      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET) as JWTPayload;
+      const decoded = jwt.verify(accessToken, getJwtSecret()) as JWTPayload;
       if (
         decoded.type === 'auth' &&
         decoded.userId === userId &&
@@ -332,7 +337,7 @@ export class AuthService {
 
     if (user.mfaEnabled) {
       if (!mfaCode) {
-        throw new AppError(401, 'Code MFA requis.');
+        throw new AppError(400, 'Code MFA requis.', 'MFA_REQUIRED');
       }
 
       const isTotpValid = await mfaService.verifyUserTOTPCode(user.id, mfaCode);
@@ -343,7 +348,7 @@ export class AuthService {
       }
 
       if (!isTotpValid && !isBackupValid) {
-        throw new AppError(401, 'Code MFA invalide.');
+        throw new AppError(400, 'Code MFA invalide.', 'MFA_INVALID');
       }
     }
 
@@ -400,7 +405,7 @@ export class AuthService {
 
     await prisma.passwordResetToken.create({
       data: {
-        token,
+        token: this.hashPasswordResetToken(token),
         userId: user.id,
         expiresAt,
       }
@@ -426,7 +431,7 @@ export class AuthService {
 
   static async getResetTokenInfo(token: string) {
     const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: this.hashPasswordResetToken(token) },
       include: { user: true }
     });
 
@@ -441,7 +446,7 @@ export class AuthService {
 
   static async resetPassword(token: string, newPassword: string, mfaCode?: string) {
     const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: this.hashPasswordResetToken(token) },
       include: { user: true }
     });
 

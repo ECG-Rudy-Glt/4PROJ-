@@ -4,13 +4,21 @@ import { FileUploadService } from '../fileUploadService';
 import { VersionService } from '../versionService';
 import { PlanService } from '../planService';
 import { EncryptionService } from '../encryptionService';
+import { ShareKeyService } from '../shareKeyService';
 
 jest.mock('../../config/database', () => ({
   __esModule: true,
   default: {
     file: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
+    },
+    folder: {
+      findUnique: jest.fn(),
+    },
+    sharedFolder: {
+      findFirst: jest.fn(),
     },
   },
 }));
@@ -64,6 +72,12 @@ jest.mock('../fileIndexService', () => ({
   },
 }));
 
+jest.mock('../shareKeyService', () => ({
+  ShareKeyService: {
+    unwrapOwnerDek: jest.fn(),
+  },
+}));
+
 describe('FileUploadService quota checks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -73,12 +87,20 @@ describe('FileUploadService quota checks', () => {
     (PlanService.updateQuotaUsed as jest.Mock).mockResolvedValue(undefined);
     (EncryptionService.encryptFileToS3 as jest.Mock).mockResolvedValue(undefined);
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: 'file-1',
+      userId: 'user-1',
+      isDeleted: false,
+    });
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.file.create as jest.Mock).mockResolvedValue({
       id: 'new-file',
       name: 'new.docx',
       storagePath: 'files/user-1/upload.tmp',
     });
     (VersionService.createVersion as jest.Mock).mockResolvedValue(undefined);
+    (ShareKeyService.unwrapOwnerDek as jest.Mock).mockReturnValue(Buffer.from('owner-dek'));
   });
 
   it('keeps quota check behavior for normal uploads', async () => {
@@ -102,7 +124,7 @@ describe('FileUploadService quota checks', () => {
   });
 
   it('skips fileUploadService quota precheck for replacements and delegates to VersionService', async () => {
-    (prisma.file.findFirst as jest.Mock).mockResolvedValue({
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
       id: 'file-1',
       userId: 'user-1',
       isDeleted: false,
@@ -135,7 +157,7 @@ describe('FileUploadService quota checks', () => {
   });
 
   it('does not precheck the actor quota before shared replacements', async () => {
-    (prisma.file.findFirst as jest.Mock).mockResolvedValue({
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
       id: 'file-1',
       userId: 'owner-1',
       isDeleted: false,
@@ -153,7 +175,7 @@ describe('FileUploadService quota checks', () => {
       'file-1'
     );
 
-    expect(PlanService.checkFileSize).toHaveBeenCalledWith('shared-user', 25);
+    expect(PlanService.checkFileSize).toHaveBeenCalledWith('owner-1', 25);
     expect(PlanService.checkQuota).not.toHaveBeenCalled();
     expect(VersionService.createVersion).toHaveBeenCalledWith(
       'file-1',
@@ -164,6 +186,47 @@ describe('FileUploadService quota checks', () => {
       'application/docx',
       undefined
     );
+  });
+
+  it('uploads new files in shared folders with the folder owner DEK and quota owner', async () => {
+    const ownerDek = Buffer.from('folder-owner-dek');
+    (ShareKeyService.unwrapOwnerDek as jest.Mock).mockReturnValue(ownerDek);
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      userId: 'owner-1',
+      isDeleted: false,
+    });
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue({
+      id: 'share-1',
+      folderId: 'folder-1',
+      ownerWrappedDek: 'owner-wrapped-dek',
+      canWrite: true,
+    });
+
+    await FileUploadService.createFile(
+      'shared-user',
+      'new.docx',
+      'new.docx',
+      'application/docx',
+      25,
+      '/tmp/upload.tmp',
+      'folder-1',
+      Buffer.from('recipient-dek')
+    );
+
+    expect(PlanService.checkFileSize).toHaveBeenCalledWith('owner-1', 25);
+    expect(PlanService.checkQuota).toHaveBeenCalledWith('owner-1', 25);
+    expect(EncryptionService.encryptFileToS3).toHaveBeenCalledWith(
+      '/tmp/upload.tmp',
+      'files/owner-1/upload.tmp',
+      ownerDek
+    );
+    expect(prisma.file.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        userId: 'owner-1',
+        folderId: 'folder-1',
+      }),
+    }));
   });
 
   it('cleans up the temporary replacement file when VersionService fails', async () => {

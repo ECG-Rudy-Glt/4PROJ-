@@ -30,6 +30,7 @@ jest.mock('../../controllers/shareController', () => {
       listSharedByMe: handler('folders-by-me'),
       updateSharedFolderPermissions: handler('folder-permissions'),
       removeSharedFolder: handler('folder-remove'),
+      unlockDirectFolderShare: handler('folder-unlock'),
       shareFile: handler('file-share'),
       listFilesSharedWithMe: handler('files-with-me'),
       listFilesSharedByMe: handler('files-by-me'),
@@ -39,6 +40,8 @@ jest.mock('../../controllers/shareController', () => {
       getSharedFolderContents: handler('folder-contents'),
       streamSharedFile: handler('access-stream'),
       downloadSharedFileAuth: handler('access-download'),
+      unlockDirectShare: handler('file-unlock'),
+      unlockPublicShare: handler('public-unlock'),
       getSharedFile: handler('public-token'),
       downloadSharedFile: handler('public-download'),
       downloadBundleShareLink: handler('public-bundle-download'),
@@ -82,6 +85,11 @@ describe('shareRoutes route order', () => {
   it('does not route /folders/:folderId/contents through /:token', async () => {
     expect(routeIndex('get', '/folders/:folderId/contents')).toBeGreaterThanOrEqual(0);
     expect(routeIndex('get', '/folders/:folderId/contents')).toBeLessThan(routeIndex('get', '/:token'));
+  });
+
+  it('does not route /folders/:shareId/unlock through /:token', async () => {
+    expect(routeIndex('post', '/folders/:shareId/unlock')).toBeGreaterThanOrEqual(0);
+    expect(routeIndex('post', '/folders/:shareId/unlock')).toBeLessThan(routeIndex('post', '/:token/unlock'));
   });
 
   it('keeps public share links working after static routes', async () => {

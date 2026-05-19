@@ -40,10 +40,14 @@ export async function findSharedFolderAccessRoot(
 ) {
   let current = await prisma.folder.findUnique({
     where: { id: folderId },
-    select: { id: true, parentId: true },
+    select: { id: true, parentId: true, isDeleted: true, isVault: true },
   });
 
   while (current) {
+    if (current.isDeleted || current.isVault) {
+      return null;
+    }
+
     const sharedFolder = await prisma.sharedFolder.findFirst({
       where: {
         folderId: current.id,
@@ -61,7 +65,7 @@ export async function findSharedFolderAccessRoot(
 
     current = await prisma.folder.findUnique({
       where: { id: current.parentId },
-      select: { id: true, parentId: true },
+      select: { id: true, parentId: true, isDeleted: true, isVault: true },
     });
   }
 
@@ -93,7 +97,7 @@ export async function checkFilePermission(
     include: { folder: true },
   });
 
-  if (!file) {
+  if (!file || file.isDeleted || file.folder?.isDeleted) {
     throw new Error('Fichier non trouvé');
   }
 
@@ -106,6 +110,7 @@ export async function checkFilePermission(
     where: {
       fileId,
       ...acceptedSharePermissionWhere(userId, requiredPermission),
+      file: { is: { isDeleted: false } },
     },
   });
 
@@ -171,7 +176,7 @@ export function requireFolderPermission(permission: Permission) {
         where: { id: folderId },
       });
 
-      if (!folder) {
+      if (!folder || folder.isDeleted) {
         res.status(404).json({ error: 'Dossier non trouvé' });
         return;
       }
@@ -217,7 +222,7 @@ export async function getFolderPermissions(
     where: { id: folderId },
   });
 
-  if (!folder) {
+  if (!folder || folder.isDeleted) {
     throw new Error('Dossier non trouvé');
   }
 

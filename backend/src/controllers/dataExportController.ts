@@ -5,6 +5,73 @@ import logger from '../config/logger';
 import { sendCsv, csvFilename } from '../utils/csvExporter';
 import { sendError } from '../utils/response';
 
+function maskIpAddress(value: string | null | undefined): string {
+  if (!value) return '';
+
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) {
+    const parts = value.split('.');
+    return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+  }
+
+  if (value.includes(':')) {
+    const parts = value.split(':').filter(Boolean);
+    return `${parts.slice(0, 3).join(':')}::`;
+  }
+
+  return '[masque]';
+}
+
+function sanitizeDetailValue(key: string, value: unknown): unknown {
+  const normalizedKey = key.toLowerCase();
+
+  if (normalizedKey.includes('ip')) {
+    return typeof value === 'string' ? maskIpAddress(value) : '[masque]';
+  }
+
+  if (
+    normalizedKey.includes('useragent') ||
+    normalizedKey.includes('device') ||
+    normalizedKey.includes('token') ||
+    normalizedKey.includes('secret') ||
+    normalizedKey.includes('password')
+  ) {
+    return '[masque]';
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDetails(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return sanitizeDetails(value);
+  }
+
+  return value;
+}
+
+function sanitizeDetails(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDetails(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, detailValue]) => [key, sanitizeDetailValue(key, detailValue)])
+  );
+}
+
+function stringifySanitizedDetails(rawDetails: string): string {
+  try {
+    return JSON.stringify(sanitizeDetails(JSON.parse(rawDetails)));
+  } catch {
+    return rawDetails;
+  }
+}
+
 export class DataExportController {
   static async exportUserData(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -102,7 +169,7 @@ export class DataExportController {
         pushRow('Fichiers', 'Métadonnées', file.id, 'TailleOctets', file.size.toString(), file.createdAt, file.updatedAt);
         pushRow('Fichiers', 'Métadonnées', file.id, 'DossierParentId', file.folderId || 'Racine', file.createdAt, file.updatedAt);
         pushRow('Fichiers', 'Métadonnées', file.id, 'Favori', file.isFavorite ? 'Oui' : 'Non', file.createdAt, file.updatedAt);
-        pushRow('Fichiers', 'Métadonnées', file.id, 'CheminStockage', file.storagePath, file.createdAt, file.updatedAt);
+        pushRow('Fichiers', 'Métadonnées', file.id, 'CheminStockage', '[interne masque]', file.createdAt, file.updatedAt);
       }
 
       for (const folder of folders) {
@@ -112,16 +179,16 @@ export class DataExportController {
       }
 
       for (const link of sharedLinks) {
-        pushRow('Partages', 'LiensPublics', link.id, 'Token', link.token, link.createdAt, null);
+        pushRow('Partages', 'LiensPublics', link.id, 'Token', '[masque]', link.createdAt, null);
         pushRow('Partages', 'LiensPublics', link.id, 'Type', link.fileId ? 'Fichier' : 'Dossier', link.createdAt, null);
         pushRow('Partages', 'LiensPublics', link.id, 'ObjetId', link.fileId || link.folderId || '', link.createdAt, null);
         pushRow('Partages', 'LiensPublics', link.id, 'Téléchargements', link.downloads, link.createdAt, null);
         pushRow('Partages', 'LiensPublics', link.id, 'Expiration', link.expiresAt ? link.expiresAt.toISOString() : 'Jamais', link.createdAt, null);
       }
 
-      for (const device of trustedDevices) {
-        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'NomAppareil', device.deviceName, device.createdAt, device.lastUsedAt);
-        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'AdresseIP', device.ipAddress, device.createdAt, device.lastUsedAt);
+      for (const [index, device] of trustedDevices.entries()) {
+        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'NomAppareil', `Appareil de confiance ${index + 1}`, device.createdAt, device.lastUsedAt);
+        pushRow('Sécurité', 'AppareilsConfiance', device.id, 'AdresseIP', maskIpAddress(device.ipAddress), device.createdAt, device.lastUsedAt);
         pushRow('Sécurité', 'AppareilsConfiance', device.id, 'ExpireLe', device.expiresAt.toISOString(), device.createdAt, device.lastUsedAt);
       }
 
@@ -157,10 +224,7 @@ export class DataExportController {
 
       for (const log of auditLogs) {
         let parsedDetails = '';
-        if (log.details) {
-          try { parsedDetails = JSON.stringify(JSON.parse(log.details)); }
-          catch { parsedDetails = log.details; }
-        }
+        if (log.details) parsedDetails = stringifySanitizedDetails(log.details);
         pushRow('Historique', 'Audit', log.id, 'Action', log.action, log.createdAt, null);
         pushRow('Historique', 'Audit', log.id, 'Détails', parsedDetails, log.createdAt, null);
       }

@@ -196,7 +196,7 @@ export class FileIndexService {
     return normalized.slice(0, 800);
   }
 
-  static async indexFile(fileId: string, userId?: string): Promise<void> {
+  static async indexFile(fileId: string, userId?: string, dek?: Buffer): Promise<void> {
     const file = await prisma.file.findFirst({
       where: {
         id: fileId,
@@ -234,7 +234,7 @@ export class FileIndexService {
     if (!isIndexable) return;
 
     try {
-      const decryptedBuffer = await EncryptionService.decryptToBufferAuto(file.storagePath);
+      const decryptedBuffer = await EncryptionService.decryptToBufferAuto(file.storagePath, dek);
       const nameLower = file.name.toLowerCase();
 
       if (mime === 'application/pdf') {
@@ -312,8 +312,8 @@ export class FileIndexService {
     }
   }
 
-  static indexFileAsync(fileId: string, userId?: string): void {
-    this.indexFile(fileId, userId).catch((error) => {
+  static indexFileAsync(fileId: string, userId?: string, dek?: Buffer): void {
+    this.indexFile(fileId, userId, dek).catch((error) => {
       logger.error({ err: error }, '[FileIndexService] async index error:');
     });
   }

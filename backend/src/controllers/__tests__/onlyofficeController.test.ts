@@ -5,6 +5,7 @@ import { OnlyOfficeController } from '../onlyofficeController';
 import { OnlyOfficeService } from '../../services/onlyofficeService';
 import { KekService } from '../../services/kekService';
 import { EncryptionService } from '../../services/encryptionService';
+import { PlanService } from '../../services/planService';
 
 jest.mock('axios', () => ({
   get: jest.fn(),
@@ -23,6 +24,12 @@ jest.mock('../../config/database', () => ({
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
+    folder: {
+      findUnique: jest.fn(),
+    },
+    sharedFolder: {
+      findFirst: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
     },
@@ -32,6 +39,9 @@ jest.mock('../../config/database', () => ({
 jest.mock('../../services/onlyofficeService', () => ({
   OnlyOfficeService: {
     verifyFileAccessToken: jest.fn(),
+    verifyCallbackRequest: jest.fn(),
+    verifyCallbackToken: jest.fn(),
+    assertSafeDownloadUrl: jest.fn((url) => url),
     processCallback: jest.fn(),
     createFileVersion: jest.fn(),
     canEdit: jest.fn(),
@@ -55,6 +65,18 @@ jest.mock('../../services/kekService', () => ({
   KekService: {
     unwrapDek: jest.fn(),
     wrapDek: jest.fn(),
+  },
+}));
+
+jest.mock('../../services/planService', () => ({
+  PLAN_UPGRADE_REQUIRED_CODE: 'PLAN_UPGRADE_REQUIRED',
+  PlanService: {
+    checkFeature: jest.fn(),
+    getUpgradeRequirement: jest.fn((feature) => ({
+      feature,
+      requiredPlan: 'PRO',
+      upgradePath: '/plans',
+    })),
   },
 }));
 
@@ -87,8 +109,15 @@ const file = {
 describe('OnlyOfficeController.handleCallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
     (prisma.file.findUnique as jest.Mock).mockResolvedValue(file);
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(file);
+    (OnlyOfficeService.verifyCallbackRequest as jest.Mock).mockReturnValue(true);
+    (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'owner-1',
+    });
+    (OnlyOfficeService.assertSafeDownloadUrl as jest.Mock).mockImplementation((url) => url);
     (OnlyOfficeService.processCallback as jest.Mock).mockResolvedValue({
       shouldSave: true,
       downloadUrl: 'http://onlyoffice/download',
@@ -102,16 +131,18 @@ describe('OnlyOfficeController.handleCallback', () => {
   ])(
     'should reject encrypted accounts before download when wrappedDek is %s',
     async (_caseName, wrappedDek, unwrappedDek) => {
+      (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+        fileId: 'file-1',
+        userId: 'user-1',
+        ...(wrappedDek ? { wrappedDek } : {}),
+      });
       (KekService.unwrapDek as jest.Mock).mockReturnValue(unwrappedDek);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ encryptedDek: 'encrypted-dek' });
 
       const req: any = {
-        params: { fileId: 'file-1' },
+        params: { fileId: 'file-1', callbackToken: 'callback-token' },
         body: { status: 2 },
-        query: {
-          userId: 'user-1',
-          ...(wrappedDek ? { wrappedDek } : {}),
-        },
+        query: {},
       };
       const res = createRes();
 
@@ -133,15 +164,19 @@ describe('OnlyOfficeController.handleCallback', () => {
     (OnlyOfficeService.createFileVersion as jest.Mock).mockResolvedValue(undefined);
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'owner-1' },
+      query: {},
     };
     const res = createRes();
 
     await OnlyOfficeController.handleCallback(req, res, jest.fn());
 
-    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', { responseType: 'arraybuffer' });
+    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', {
+      responseType: 'arraybuffer',
+      maxRedirects: 0,
+      timeout: 30000,
+    });
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), content);
     expect(OnlyOfficeService.createFileVersion).toHaveBeenCalledWith(
       'file-1',
@@ -159,11 +194,15 @@ describe('OnlyOfficeController.handleCallback', () => {
   it('should reject callback before download when current write access is not accepted', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({ encryptedDek: null });
     (prisma.file.findFirst as jest.Mock).mockResolvedValue(null);
+    (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'shared-user',
+    });
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'shared-user' },
+      query: {},
     };
     const res = createRes();
 
@@ -194,6 +233,26 @@ describe('OnlyOfficeController.handleCallback', () => {
     expect(OnlyOfficeService.createFileVersion).not.toHaveBeenCalled();
   });
 
+  it('should reject callback save when OnlyOffice is not available for the current plan', async () => {
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+
+    const req: any = {
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
+      body: { status: 2 },
+      query: {},
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.handleCallback(req, res, jest.fn());
+
+    expect(PlanService.checkFeature).toHaveBeenCalledWith('owner-1', 'onlyoffice');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ error: 1, code: 'PLAN_UPGRADE_REQUIRED' });
+    expect(axios.get).not.toHaveBeenCalled();
+    expect(fs.writeFile).not.toHaveBeenCalled();
+    expect(OnlyOfficeService.createFileVersion).not.toHaveBeenCalled();
+  });
+
   it('should allow callback save for accepted write shares', async () => {
     const content = Buffer.from('updated document');
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({ encryptedDek: null });
@@ -201,11 +260,15 @@ describe('OnlyOfficeController.handleCallback', () => {
     (axios.get as jest.Mock).mockResolvedValue({ data: content });
     (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
     (OnlyOfficeService.createFileVersion as jest.Mock).mockResolvedValue(undefined);
+    (OnlyOfficeService.verifyCallbackToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'shared-user',
+    });
 
     const req: any = {
-      params: { fileId: 'file-1' },
+      params: { fileId: 'file-1', callbackToken: 'callback-token' },
       body: { status: 2 },
-      query: { userId: 'shared-user' },
+      query: {},
     };
     const res = createRes();
 
@@ -229,7 +292,11 @@ describe('OnlyOfficeController.handleCallback', () => {
         ],
       },
     });
-    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', { responseType: 'arraybuffer' });
+    expect(axios.get).toHaveBeenCalledWith('http://onlyoffice/download', {
+      responseType: 'arraybuffer',
+      maxRedirects: 0,
+      timeout: 30000,
+    });
     expect(OnlyOfficeService.createFileVersion).toHaveBeenCalledWith(
       'file-1',
       'shared-user',
@@ -247,6 +314,7 @@ describe('OnlyOfficeController.handleCallback', () => {
 describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
   });
 
   it('should reject stale or non-accepted access tokens before decryption', async () => {
@@ -290,8 +358,36 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
     expect(EncryptionService.getDecryptStreamAuto).not.toHaveBeenCalled();
   });
 
+  it('should reject file serving when OnlyOffice is not available for the current plan', async () => {
+    (OnlyOfficeService.verifyFileAccessToken as jest.Mock).mockReturnValue({
+      fileId: 'file-1',
+      userId: 'owner-1',
+    });
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(false);
+
+    const req: any = {
+      params: { fileId: 'file-1' },
+      query: { access_token: 'token' },
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.serveFileToOnlyOffice(req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: 'Cette fonctionnalité nécessite le plan PRO ou supérieur.',
+      code: 'PLAN_UPGRADE_REQUIRED',
+      feature: 'onlyoffice',
+      requiredPlan: 'PRO',
+      upgradePath: '/plans',
+    });
+    expect(prisma.file.findFirst).not.toHaveBeenCalled();
+    expect(EncryptionService.getDecryptStreamAuto).not.toHaveBeenCalled();
+  });
+
   it('should keep owner file serving behavior', async () => {
-    const decryptStream = { pipe: jest.fn() };
+    const decryptStream = { on: jest.fn(), pipe: jest.fn() };
     (OnlyOfficeService.verifyFileAccessToken as jest.Mock).mockReturnValue({
       fileId: 'file-1',
       userId: 'owner-1',
@@ -327,11 +423,12 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
       },
     });
     expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('files/document.docx', undefined);
+    expect(decryptStream.on).toHaveBeenCalledWith('error', expect.any(Function));
     expect(decryptStream.pipe).toHaveBeenCalledWith(res);
   });
 
   it('should allow accepted read shares to serve files', async () => {
-    const decryptStream = { pipe: jest.fn() };
+    const decryptStream = { on: jest.fn(), pipe: jest.fn() };
     (OnlyOfficeService.verifyFileAccessToken as jest.Mock).mockReturnValue({
       fileId: 'file-1',
       userId: 'shared-user',
@@ -367,6 +464,7 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
       },
     });
     expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('files/document.docx', undefined);
+    expect(decryptStream.on).toHaveBeenCalledWith('error', expect.any(Function));
     expect(decryptStream.pipe).toHaveBeenCalledWith(res);
   });
 });
@@ -374,6 +472,7 @@ describe('OnlyOfficeController.serveFileToOnlyOffice', () => {
 describe('OnlyOfficeController share acceptance checks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (PlanService.checkFeature as jest.Mock).mockResolvedValue(true);
   });
 
   it('should reject pending shared files for editor config', async () => {
@@ -455,5 +554,111 @@ describe('OnlyOfficeController share acceptance checks', () => {
     );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { config: {}, token: 'token' } });
+  });
+
+  it('should open accepted read-only shares in view mode', async () => {
+    const readOnlyFile = {
+      ...file,
+      userId: 'owner-1',
+      folderId: null,
+      isDeleted: false,
+      isVault: false,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      sharedWith: [{
+        id: 'share-1',
+        sharedWithId: 'shared-user',
+        accepted: true,
+        canRead: true,
+        canWrite: false,
+        ownerWrappedDek: 'owner-wrapped-dek',
+      }],
+    };
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue(readOnlyFile);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      email: 'shared@example.com',
+      firstName: 'Shared',
+      lastName: 'User',
+    });
+    (OnlyOfficeService.canEdit as jest.Mock).mockReturnValue(true);
+    (OnlyOfficeService.generateConfig as jest.Mock).mockResolvedValue({ config: {}, token: 'token' });
+    (KekService.wrapDek as jest.Mock).mockReturnValue('wrapped-recipient-dek');
+
+    const req: any = {
+      user: { id: 'shared-user' },
+      params: { fileId: 'file-1' },
+      query: {},
+      dekBuffer: Buffer.from('dek'),
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.getEditorConfig(req, res, jest.fn());
+
+    expect(OnlyOfficeService.generateConfig).toHaveBeenCalledWith(
+      readOnlyFile,
+      'shared-user',
+      { email: 'shared@example.com', firstName: 'Shared', lastName: 'User' },
+      'view',
+      'owner-wrapped-dek'
+    );
+    expect(KekService.wrapDek).not.toHaveBeenCalled();
+  });
+
+  it('should use the shared folder owner DEK when opening a writable folder share', async () => {
+    const folderSharedFile = {
+      ...file,
+      userId: 'owner-1',
+      folderId: 'folder-1',
+      isDeleted: false,
+      isVault: false,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      sharedWith: [],
+    };
+    const folderShare = {
+      id: 'folder-share-1',
+      folderId: 'folder-1',
+      sharedWithId: 'shared-user',
+      accepted: true,
+      canRead: true,
+      canWrite: true,
+      ownerWrappedDek: 'folder-owner-wrapped-dek',
+    };
+
+    (prisma.file.findFirst as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(folderSharedFile);
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      parentId: null,
+      isDeleted: false,
+      isVault: false,
+    });
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(folderShare);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      email: 'shared@example.com',
+      firstName: 'Shared',
+      lastName: 'User',
+    });
+    (OnlyOfficeService.canEdit as jest.Mock).mockReturnValue(true);
+    (OnlyOfficeService.generateConfig as jest.Mock).mockResolvedValue({ config: {}, token: 'token' });
+    (KekService.wrapDek as jest.Mock).mockReturnValue('wrapped-recipient-dek');
+
+    const req: any = {
+      user: { id: 'shared-user' },
+      params: { fileId: 'file-1' },
+      query: {},
+      dekBuffer: Buffer.from('recipient-dek'),
+    };
+    const res = createRes();
+
+    await OnlyOfficeController.getEditorConfig(req, res, jest.fn());
+
+    expect(OnlyOfficeService.generateConfig).toHaveBeenCalledWith(
+      folderSharedFile,
+      'shared-user',
+      { email: 'shared@example.com', firstName: 'Shared', lastName: 'User' },
+      'edit',
+      'folder-owner-wrapped-dek'
+    );
+    expect(KekService.wrapDek).not.toHaveBeenCalled();
   });
 });

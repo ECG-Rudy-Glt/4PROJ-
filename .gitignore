@@ -5,9 +5,11 @@ yarn.lock
 pnpm-lock.yaml
 
 # Environment variables (whitelist approach: ignore all, except examples)
+.env
+.env.*
+!.env.example
 env
 env.*
-!.env.example
 
 # Build outputs
 dist/
@@ -32,12 +34,13 @@ backend/uploads/
 *.sqlite
 *.db
 
-# Prisma
-backend/prisma/migrations/
+# Prisma migrations are versioned.
 
 # Testing
 coverage/
 nyc_output/
+backups/
+doc/account-deletion-snapshots/
 
 claude/
 repomix-output.*

@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
@@ -19,6 +20,8 @@ import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { aiService, ChatMessage } from '../../services/aiService';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { isFeatureAvailableForPlan } from '../../constants/plans';
 
 const BOBBY_IDLE = require('../../../assets/bobby/bobby-idle.png');
 const BOBBY_WORKING = require('../../../assets/bobby/bobby-working.gif');
@@ -31,6 +34,8 @@ interface Message {
 }
 
 export default function AIScreen() {
+  const userPlan = useAuthStore((state) => state.user?.plan);
+  const canUseAi = isFeatureAvailableForPlan(userPlan, 'aiChat');
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([
@@ -51,6 +56,10 @@ export default function AIScreen() {
   const handleSend = async () => {
     const text = input.trim();
     if (!text || loading) return;
+    if (!canUseAi) {
+      Toast.show({ type: 'info', text1: 'Bobby nécessite le plan PRO ou supérieur' });
+      return;
+    }
 
     const userMsg: Message = { id: Date.now().toString(), text, sender: 'user', timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
@@ -70,11 +79,23 @@ export default function AIScreen() {
         ...prev,
         { id: (Date.now() + 1).toString(), text: res.response, sender: 'ai', timestamp: new Date() },
       ]);
-    } catch {
-      Toast.show({ type: 'error', text1: 'Erreur de connexion avec Bobby' });
+    } catch (error: any) {
+      if (error?.response?.data?.code === 'PLAN_UPGRADE_REQUIRED') {
+        Toast.show({ type: 'info', text1: 'Bobby nécessite le plan PRO ou supérieur' });
+      } else {
+        Toast.show({ type: 'error', text1: 'Erreur de connexion avec Bobby' });
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const openPlans = () => {
+    const base = process.env.EXPO_PUBLIC_API_URL ?? 'https://supfile.fr';
+    const rootUrl = base.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    Linking.openURL(`${rootUrl}/plans`).catch(() => {
+      Toast.show({ type: 'error', text1: 'Impossible d’ouvrir la page des plans' });
+    });
   };
 
   const formatTime = (d: Date) =>
@@ -100,7 +121,20 @@ export default function AIScreen() {
         contentContainerStyle={styles.messagesContent}
         keyboardDismissMode="interactive"
       >
-        {messages.map((msg) => (
+        {!canUseAi ? (
+          <View style={styles.upgradeCard}>
+            <View style={styles.upgradeIcon}>
+              <Ionicons name="sparkles" size={28} color={colors.primary[600]} />
+            </View>
+            <Text style={styles.upgradeTitle}>Bobby est inclus à partir du plan PRO</Text>
+            <Text style={styles.upgradeText}>
+              Passez à un plan supérieur pour utiliser l'assistant IA, analyser vos fichiers et lancer des recherches intelligentes.
+            </Text>
+            <TouchableOpacity style={styles.upgradeButton} onPress={openPlans}>
+              <Text style={styles.upgradeButtonText}>Voir les plans</Text>
+            </TouchableOpacity>
+          </View>
+        ) : messages.map((msg) => (
           <View key={msg.id} style={[styles.bubble, msg.sender === 'user' ? styles.bubbleUser : styles.bubbleAI]}>
             <Text style={[styles.bubbleText, msg.sender === 'user' ? styles.bubbleTextUser : styles.bubbleTextAI]}>
               {msg.text}
@@ -110,7 +144,7 @@ export default function AIScreen() {
             </Text>
           </View>
         ))}
-        {loading && (
+        {canUseAi && loading && (
           <View style={styles.loadingRow}>
             <ExpoImage source={BOBBY_WORKING} style={styles.bobbySm} contentFit="contain" />
             <View style={[styles.bubble, styles.bubbleAI]}>
@@ -125,17 +159,18 @@ export default function AIScreen() {
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Posez une question sur vos fichiers..."
+          placeholder={canUseAi ? 'Posez une question sur vos fichiers...' : 'Plan PRO requis pour utiliser Bobby'}
           placeholderTextColor={colors.neutral[400]}
           multiline
           maxLength={1000}
           onSubmitEditing={handleSend}
           returnKeyType="send"
+          editable={canUseAi}
         />
         <TouchableOpacity
           style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
           onPress={handleSend}
-          disabled={!input.trim() || loading}
+          disabled={!canUseAi || !input.trim() || loading}
         >
           <Ionicons name="send" size={18} color={colors.white} />
         </TouchableOpacity>
@@ -258,5 +293,45 @@ const styles = StyleSheet.create({
   bobbySm: {
     width: 32,
     height: 32,
+  },
+  upgradeCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.white,
+    ...shadows.sm,
+  },
+  upgradeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary[50],
+    marginBottom: spacing.md,
+  },
+  upgradeTitle: {
+    ...typography.h4,
+    color: colors.neutral[900],
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  upgradeText: {
+    ...typography.body,
+    color: colors.neutral[600],
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  upgradeButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primary[600],
+  },
+  upgradeButtonText: {
+    ...typography.body,
+    color: colors.white,
+    fontWeight: '700',
   },
 });

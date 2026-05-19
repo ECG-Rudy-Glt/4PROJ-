@@ -9,6 +9,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 interface MarkdownPreviewProps {
   file: File;
   isShared?: boolean;
+  shareAccessToken?: string | null;
 }
 
 // Language display names
@@ -275,7 +276,7 @@ function parseMarkdownText(text: string): string {
   return html;
 }
 
-export default function MarkdownPreview({ file, isShared = false }: MarkdownPreviewProps) {
+export default function MarkdownPreview({ file, isShared = false, shareAccessToken }: MarkdownPreviewProps) {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -288,6 +289,7 @@ export default function MarkdownPreview({ file, isShared = false }: MarkdownPrev
         const response = await fetch(streamUrl, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
+            ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
           },
         });
         
@@ -305,7 +307,7 @@ export default function MarkdownPreview({ file, isShared = false }: MarkdownPrev
     };
 
     loadContent();
-  }, [file.id, isShared]);
+  }, [file.id, isShared, shareAccessToken]);
 
   if (loading) {
     return (

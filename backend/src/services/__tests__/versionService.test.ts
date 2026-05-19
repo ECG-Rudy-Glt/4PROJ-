@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { Readable } from 'stream';
 import prisma from '../../config/database';
 import logger from '../../config/logger';
 import { VersionService } from '../versionService';
@@ -6,6 +7,7 @@ import { PlanService } from '../planService';
 import { StorageService } from '../storageService';
 import { EncryptionService } from '../encryptionService';
 import { FileIndexService } from '../fileIndexService';
+import { ShareKeyService } from '../shareKeyService';
 
 jest.mock('fs', () => ({
   existsSync: jest.fn(),
@@ -20,6 +22,15 @@ jest.mock('../../config/database', () => ({
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+    },
+    sharedFile: {
+      findFirst: jest.fn(),
+    },
+    folder: {
+      findUnique: jest.fn(),
+    },
+    sharedFolder: {
+      findFirst: jest.fn(),
     },
     fileVersion: {
       count: jest.fn(),
@@ -54,12 +65,19 @@ jest.mock('../planService', () => ({
 jest.mock('../encryptionService', () => ({
   EncryptionService: {
     encryptFileToS3: jest.fn(),
+    getDecryptStreamAuto: jest.fn(),
   },
 }));
 
 jest.mock('../fileIndexService', () => ({
   FileIndexService: {
     indexFileAsync: jest.fn(),
+  },
+}));
+
+jest.mock('../shareKeyService', () => ({
+  ShareKeyService: {
+    unwrapOwnerDek: jest.fn(),
   },
 }));
 
@@ -119,7 +137,12 @@ describe('VersionService share acceptance checks', () => {
     (PlanService.getNumericLimit as jest.Mock).mockResolvedValue(null);
     (PlanService.checkQuota as jest.Mock).mockResolvedValue(true);
     (EncryptionService.encryptFileToS3 as jest.Mock).mockResolvedValue(undefined);
+    (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue(Readable.from(['ok']));
     (StorageService.deleteStorageFile as jest.Mock).mockResolvedValue(undefined);
+    (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
+    (ShareKeyService.unwrapOwnerDek as jest.Mock).mockReturnValue(Buffer.from('owner-dek'));
   });
 
   it('refuses version creation through pending shares', async () => {
@@ -220,9 +243,14 @@ describe('VersionService quota and storage ownership', () => {
     (PlanService.getNumericLimit as jest.Mock).mockResolvedValue(null);
     (PlanService.checkQuota as jest.Mock).mockResolvedValue(true);
     (EncryptionService.encryptFileToS3 as jest.Mock).mockResolvedValue(undefined);
+    (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue(Readable.from(['ok']));
     (StorageService.isS3Key as jest.Mock).mockImplementation((storagePath: string) => storagePath.startsWith('files/') || storagePath.startsWith('versions/'));
     (StorageService.copy as jest.Mock).mockResolvedValue(undefined);
     (StorageService.deleteStorageFile as jest.Mock).mockResolvedValue(undefined);
+    (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.folder.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.sharedFolder.findFirst as jest.Mock).mockResolvedValue(null);
+    (ShareKeyService.unwrapOwnerDek as jest.Mock).mockReturnValue(Buffer.from('owner-dek'));
   });
 
   it('checks quota before uploading a new version object to S3', async () => {
@@ -236,6 +264,32 @@ describe('VersionService quota and storage ownership', () => {
     );
     expect((PlanService.checkQuota as jest.Mock).mock.invocationCallOrder[0])
       .toBeLessThan((EncryptionService.encryptFileToS3 as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it('encrypts shared replacements with the owner DEK from the accepted share', async () => {
+    const actorDek = Buffer.from('shared-user-dek');
+    const ownerDek = Buffer.from('owner-dek');
+    (prisma.sharedFile.findFirst as jest.Mock).mockResolvedValue({
+      ownerWrappedDek: 'owner-wrapped-dek',
+    });
+    (ShareKeyService.unwrapOwnerDek as jest.Mock).mockReturnValue(ownerDek);
+
+    await VersionService.createVersion(
+      'file-1',
+      'shared-user',
+      '/tmp/new.docx',
+      'new.docx',
+      25,
+      'application/docx',
+      actorDek
+    );
+
+    expect(ShareKeyService.unwrapOwnerDek).toHaveBeenCalledWith('owner-wrapped-dek');
+    expect(EncryptionService.encryptFileToS3).toHaveBeenCalledWith(
+      '/tmp/new.docx',
+      'versions/file-1/3-new.docx',
+      ownerDek
+    );
   });
 
   it('refuses quota without uploading or writing database rows', async () => {
@@ -382,6 +436,7 @@ describe('VersionService quota and storage ownership', () => {
     await VersionService.restoreVersion('version-restore', 'file-1', 'owner-1');
 
     expect(PlanService.checkQuota).toHaveBeenCalledWith('owner-1', BigInt(40));
+    expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith('versions/file-1/1-old.docx', undefined);
     expect(StorageService.copy).toHaveBeenCalledWith(
       'versions/file-1/1-old.docx',
       expect.stringMatching(/^versions\/file-1\/restored-\d+-1-old\.docx$/)
@@ -402,6 +457,43 @@ describe('VersionService quota and storage ownership', () => {
     expect(prisma.fileVersion.create).not.toHaveBeenCalled();
     expect(prisma.file.update).not.toHaveBeenCalled();
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses restore for encrypted owners when no DEK is unlocked', async () => {
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue({
+      ...currentFile,
+      user: { encryptedDek: 'encrypted-dek' },
+    });
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+
+    await expect(VersionService.restoreVersion('version-restore', 'file-1', 'owner-1'))
+      .rejects.toThrow('DEK_UNLOCK_REQUIRED');
+
+    expect(EncryptionService.getDecryptStreamAuto).not.toHaveBeenCalled();
+    expect(StorageService.copy).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses restore when the target version cannot be decrypted', async () => {
+    (prisma.fileVersion.findUnique as jest.Mock).mockResolvedValue(versionToRestore);
+    (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue(new Readable({
+      read() {
+        this.destroy(new Error('bad auth tag'));
+      },
+    }));
+
+    await expect(VersionService.restoreVersion('version-restore', 'file-1', 'owner-1'))
+      .rejects.toThrow('Version illisible ou corrompue');
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      {
+        err: expect.any(Error),
+        storagePath: 'versions/file-1/1-old.docx',
+      },
+      'Refusing to restore unreadable file version'
+    );
+    expect(StorageService.copy).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('restores S3 versions with a logical backup of the current file and quota increment', async () => {

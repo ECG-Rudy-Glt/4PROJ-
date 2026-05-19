@@ -45,7 +45,11 @@ Copiez `.env.example` en `.env` et renseignez les valeurs obligatoires :
 ```bash
 # === OBLIGATOIRES (le backend crashe au démarrage si absent) ===
 JWT_SECRET=<chaine-aleatoire-min-32-chars>
+JWT_MFA_SECRET=<chaine-aleatoire-min-32-chars>
+DEK_WRAP_SECRET=<chaine-aleatoire-min-32-chars>
 FILE_ENCRYPTION_KEY=<chaine-aleatoire-min-32-chars>
+ONLYOFFICE_JWT_SECRET=<chaine-aleatoire-min-32-chars>
+MFA_ENCRYPTION_KEY=<openssl rand -hex 32>
 
 # === Base de données ===
 POSTGRES_USER=supfile
@@ -63,12 +67,16 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
+# Callbacks VPS :
+# https://supfile.tech/api/auth/google/callback
+# https://supfile.tech/api/auth/github/callback
 
-# === Stripe (optionnel — plans payants) ===
-STRIPE_SECRET_KEY=
+# === Stripe test (optionnel — plans payants de démonstration) ===
+STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_PRO_MONTHLY=
 STRIPE_PRICE_BUSINESS_MONTHLY=
+STRIPE_PRICE_ENTERPRISE_MONTHLY=
 
 # === Email (optionnel — invitations, alertes expiration liens) ===
 SMTP_HOST=
@@ -85,7 +93,7 @@ BRAIN_API_URL=http://brain-api:8001
 OLLAMA_MODEL=gemma2:2b
 ```
 
-> ~ **Note examinateur — exception pédagogique :** Le fichier `.env` est **intentionnellement commité** dans ce dépôt afin de permettre à l'examinateur de lancer le projet sans configuration supplémentaire (`docker compose up` suffit). Les secrets présents sont des valeurs de démonstration générées pour ce rendu uniquement — **ils ne sont liés à aucun service de production réel** (pas de clé Stripe active, pas de compte OAuth en production, etc.). En contexte de production, `.env` serait exclu via `.gitignore` et les secrets gérés via un vault (HashiCorp Vault, AWS Secrets Manager, etc.).
+Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [`doc/PREPROD_VPS.md`](doc/PREPROD_VPS.md).
 
 ---
 
@@ -162,6 +170,7 @@ Navigateur / App mobile
 | [`doc/BACKEND_DOC.md`](doc/BACKEND_DOC.md) | Architecture backend, endpoints, sécurité, modèle de données |
 | [`doc/FRONTEND_DOC.md`](doc/FRONTEND_DOC.md) | Architecture frontend, stores Zustand, composants, mobile |
 | [`doc/BOBBY.md`](doc/BOBBY.md) | Documentation du microservice IA brain-api (RAG, ChromaDB, Ollama) |
+| [`doc/PREPROD_VPS.md`](doc/PREPROD_VPS.md) | Déploiement préproduction VPS, OAuth, Stripe test, backup/restore |
 | [`doc/MANUEL_UTILISATEUR.md`](doc/MANUEL_UTILISATEUR.md) | Guide utilisateur complet avec emplacements captures d'écran |
 | [`doc/PRESENTATION/PRESENTATION_CICD.md`](doc/PRESENTATION/PRESENTATION_CICD.md) | Pipeline CI/CD GitHub Actions, SAST, SBOM, Dockle |
 | [`doc/PRESENTATION/`](doc/PRESENTATION/) | Supports de présentation orale (architecture, sécurité, frontend, CEO) |

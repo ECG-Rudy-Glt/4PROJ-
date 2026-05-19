@@ -34,6 +34,24 @@
   body {
     @apply bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100;
   }
+
+  select {
+    color-scheme: light;
+  }
+
+  .dark select {
+    color-scheme: dark;
+  }
+
+  select option,
+  select optgroup {
+    @apply bg-white text-gray-900;
+  }
+
+  .dark select option,
+  .dark select optgroup {
+    @apply bg-gray-800 text-gray-100;
+  }
 }
 
 @layer utilities {

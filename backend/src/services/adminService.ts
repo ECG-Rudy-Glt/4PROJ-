@@ -2,8 +2,39 @@ import { Plan, Role } from '@prisma/client';
 import prisma from '../config/database';
 import { PlanService } from './planService';
 import { AuditService } from './auditService';
+import { MailService } from './mailService';
+import { NotificationService } from './notificationService';
+import logger from '../config/logger';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+type AdminAccountStatus = 'ACTIVE' | 'SUSPENDED';
+type AdminUserRole = 'USER' | 'ADMIN';
+
+const adminUserSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  accountStatus: true,
+  plan: true,
+  subscriptionStatus: true,
+  quotaUsed: true,
+  quotaLimit: true,
+  createdAt: true,
+  lastActiveAt: true,
+};
+
+const displayName = (user: { email: string; firstName?: string | null; lastName?: string | null }) => {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  return fullName || user.email;
+};
+
+const mapAdminUser = <T extends { quotaUsed: bigint; quotaLimit: bigint }>(user: T) => ({
+  ...user,
+  quotaUsed: Number(user.quotaUsed),
+  quotaLimit: Number(user.quotaLimit),
+});
 
 export class AdminService {
   static async getOverview() {
@@ -144,6 +175,7 @@ export class AdminService {
           firstName: true,
           lastName: true,
           role: true,
+          accountStatus: true,
           plan: true,
           subscriptionStatus: true,
           quotaUsed: true,
@@ -168,9 +200,7 @@ export class AdminService {
 
     return {
       users: users.map((user) => ({
-        ...user,
-        quotaUsed: Number(user.quotaUsed),
-        quotaLimit: Number(user.quotaLimit),
+        ...mapAdminUser(user),
       })),
       pagination: {
         page,
@@ -194,19 +224,7 @@ export class AdminService {
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },
       data: { plan },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        plan: true,
-        subscriptionStatus: true,
-        quotaUsed: true,
-        quotaLimit: true,
-        createdAt: true,
-        lastActiveAt: true,
-      },
+      select: adminUserSelect,
     });
 
     await PlanService.syncUserQuotaLimit(targetUserId);
@@ -219,26 +237,123 @@ export class AdminService {
 
     const refreshedUser = await prisma.user.findUnique({
       where: { id: targetUserId },
+      select: adminUserSelect,
+    });
+
+    return mapAdminUser(refreshedUser || updatedUser);
+  }
+
+  static async updateUserRole(adminUserId: string, targetUserId: string, role: AdminUserRole) {
+    if (adminUserId === targetUserId) {
+      throw Object.assign(new Error('Un administrateur ne peut pas modifier son propre rôle'), { status: 400 });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, role: true },
+    });
+
+    if (!existingUser) {
+      throw Object.assign(new Error('User not found'), { status: 404 });
+    }
+
+    if (existingUser.role === Role.ADMIN && role === 'USER') {
+      const adminCount = await prisma.user.count({ where: { role: Role.ADMIN } });
+      if (adminCount <= 1) {
+        throw Object.assign(new Error('Impossible de retirer le dernier administrateur'), { status: 400 });
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId },
+      data: { role },
+      select: adminUserSelect,
+    });
+
+    await AuditService.createLog(adminUserId, 'ADMIN_ROLE_CHANGE', {
+      targetUserId,
+      previousRole: existingUser.role,
+      newRole: role,
+    });
+
+    return mapAdminUser(updatedUser);
+  }
+
+  static async updateUserStatus(
+    adminUserId: string,
+    targetUserId: string,
+    status: AdminAccountStatus,
+    reason?: string
+  ) {
+    if (adminUserId === targetUserId && status === 'SUSPENDED') {
+      throw Object.assign(new Error('Un administrateur ne peut pas suspendre son propre compte'), { status: 400 });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
       select: {
         id: true,
         email: true,
         firstName: true,
         lastName: true,
-        role: true,
-        plan: true,
-        subscriptionStatus: true,
-        quotaUsed: true,
-        quotaLimit: true,
-        createdAt: true,
-        lastActiveAt: true,
+        accountStatus: true,
+        language: true,
       },
     });
 
-    return {
-      ...(refreshedUser || updatedUser),
-      quotaUsed: Number((refreshedUser || updatedUser).quotaUsed),
-      quotaLimit: Number((refreshedUser || updatedUser).quotaLimit),
-    };
+    if (!existingUser) {
+      throw Object.assign(new Error('User not found'), { status: 404 });
+    }
+
+    const shouldRevokeSessions = status === 'SUSPENDED' && existingUser.accountStatus !== 'SUSPENDED';
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        accountStatus: status,
+        ...(shouldRevokeSessions ? { tokenVersion: { increment: 1 } } : {}),
+      },
+      select: adminUserSelect,
+    });
+
+    if (status === 'SUSPENDED') {
+      await prisma.refreshToken.updateMany({
+        where: { userId: targetUserId, revoked: false },
+        data: { revoked: true },
+      });
+    }
+
+    await AuditService.createLog(adminUserId, 'ADMIN_ACCOUNT_STATUS_CHANGE', {
+      targetUserId,
+      previousStatus: existingUser.accountStatus,
+      newStatus: status,
+      reason: reason || null,
+      revokedSessions: status === 'SUSPENDED',
+    });
+
+    const isSuspended = status === 'SUSPENDED';
+    const title = isSuspended ? 'Compte suspendu' : 'Compte réactivé';
+    const message = isSuspended
+      ? 'Votre compte SupFile a été suspendu par un administrateur.'
+      : 'Votre compte SupFile a été réactivé par un administrateur.';
+
+    NotificationService.create(targetUserId, 'SHARE', title, message, {
+      status,
+      reason: reason || null,
+    }).catch((error) => logger.error({ err: error }, 'Failed to create account status notification'));
+
+    try {
+      await MailService.sendAccountStatusNotification(
+        existingUser.email,
+        displayName(existingUser),
+        status,
+        reason,
+        existingUser.language
+      );
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to send account status email');
+    }
+
+    return mapAdminUser(updatedUser);
   }
 
   static async getUsersExportRows() {
@@ -249,6 +364,7 @@ export class AdminService {
         firstName: true,
         lastName: true,
         role: true,
+        accountStatus: true,
         plan: true,
         subscriptionStatus: true,
         quotaUsed: true,
@@ -275,6 +391,7 @@ export class AdminService {
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       role: user.role,
+      accountStatus: user.accountStatus,
       plan: user.plan,
       subscriptionStatus: user.subscriptionStatus,
       quotaUsed: Number(user.quotaUsed),

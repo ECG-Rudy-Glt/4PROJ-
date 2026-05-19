@@ -12,7 +12,6 @@ import {
   Archive,
   File as FileIcon,
   Folder as FolderIcon,
-  ArrowUpDown,
   ChevronRight,
   ChevronDown
 } from 'lucide-react';
@@ -21,6 +20,8 @@ import TagSelector from '@/components/TagSelector';
 import { formatBytes } from '@/utils/bytes';
 import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 import { useTranslation } from 'react-i18next';
+import SortableTableHeader from '@/components/SortableTableHeader';
+import { getFileTagSortValue } from '@/utils/fileSort';
 
 const getMimeTypeIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return Image;
@@ -75,12 +76,27 @@ export default function TrashPage() {
 
       const sortItems = (items: any[]) => {
         return [...items].sort((a, b) => {
-          let aVal: any = a[sortBy === 'date' ? 'deletedAt' : sortBy];
-          let bVal: any = b[sortBy === 'date' ? 'deletedAt' : sortBy];
+          let aVal: any = a[sortBy];
+          let bVal: any = b[sortBy];
 
           if (sortBy === 'name') {
             aVal = aVal?.toLowerCase() || '';
             bVal = bVal?.toLowerCase() || '';
+          }
+
+          if (sortBy === 'tags') {
+            aVal = getFileTagSortValue(a);
+            bVal = getFileTagSortValue(b);
+          }
+
+          if (sortBy === 'size') {
+            aVal = Number(aVal || 0);
+            bVal = Number(bVal || 0);
+          }
+
+          if (sortBy === 'deletedAt') {
+            aVal = new Date(aVal || 0).getTime();
+            bVal = new Date(bVal || 0).getTime();
           }
 
           if (sortOrder === 'asc') {
@@ -133,10 +149,9 @@ export default function TrashPage() {
     }
   };
 
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const [field, order] = e.target.value.split('-');
-    setSortBy(field === 'date' ? 'deletedAt' : field);
-    setSortOrder(order as 'asc' | 'desc');
+  const handleColumnSort = (field: string, order: 'asc' | 'desc') => {
+    setSortBy(field);
+    setSortOrder(order);
   };
 
   const toggleFolder = async (folderId: string) => {
@@ -176,37 +191,15 @@ export default function TrashPage() {
         </p>
       </div>
 
-      {(deletedFiles.length > 0 || deletedFolders.length > 0) && (
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2">
-          <ArrowUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          <label htmlFor="sort-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('common.sort_by')} :
-          </label>
-          <select
-            id="sort-select"
-            value={`${sortBy === 'name' ? 'name' : sortBy === 'size' ? 'size' : 'date'}-${sortOrder}`}
-            onChange={handleSortChange}
-            className="text-sm bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 cursor-pointer"
-          >
-            <option value="name-asc">{t('trash.sort.name_asc')}</option>
-            <option value="name-desc">{t('trash.sort.name_desc')}</option>
-            <option value="date-desc">{t('trash.sort.date_desc')}</option>
-            <option value="date-asc">{t('trash.sort.date_asc')}</option>
-            <option value="size-desc">{t('trash.sort.size_desc')}</option>
-            <option value="size-asc">{t('trash.sort.size_asc')}</option>
-          </select>
-        </div>
-      )}
-
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {(deletedFiles.length > 0 || deletedFolders.length > 0) ? (
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.name')}</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.tags')}</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.size')}</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase italic text-amber-600 dark:text-amber-400">{t('trash.remaining_time')}</th>
+                <SortableTableHeader field="name" label={t('common.name')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" />
+                <SortableTableHeader field="tags" label={t('common.tags')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" />
+                <SortableTableHeader field="size" label={t('common.size')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="desc" />
+                <SortableTableHeader field="deletedAt" label={t('trash.remaining_time')} sortBy={sortBy} sortOrder={sortOrder} onSort={handleColumnSort} defaultOrder="asc" className="italic text-amber-600 dark:text-amber-400" />
                 <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t('common.actions')}</th>
               </tr>
             </thead>

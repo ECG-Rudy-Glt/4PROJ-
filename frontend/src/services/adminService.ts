@@ -30,6 +30,16 @@ export const adminService = {
     return response.data;
   },
 
+  async updateUserRole(userId: string, role: 'USER' | 'ADMIN') {
+    const response = await api.patch(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  async updateUserStatus(userId: string, status: 'ACTIVE' | 'SUSPENDED', reason?: string) {
+    const response = await api.patch(`/admin/users/${userId}/status`, { status, reason });
+    return response.data;
+  },
+
   async downloadUsersCsv(): Promise<Blob> {
     const response = await api.get('/admin/export/users.csv', {
       responseType: 'blob',

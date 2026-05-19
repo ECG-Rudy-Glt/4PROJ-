@@ -1,0 +1,101 @@
+import prisma from '../../config/database';
+import { SharedLinkService } from '../sharedLinkService';
+
+jest.mock('../../config/database', () => ({
+  __esModule: true,
+  default: {
+    sharedLink: {
+      findUnique: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+    },
+    sharedFile: {
+      count: jest.fn(),
+    },
+    sharedFolder: {
+      count: jest.fn(),
+    },
+    file: {
+      findMany: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('../auditService', () => ({
+  AuditService: {
+    createLog: jest.fn(),
+  },
+}));
+
+jest.mock('../planService', () => ({
+  PlanService: {
+    assertLimit: jest.fn(),
+  },
+}));
+
+jest.mock('../../config/logger', () => ({
+  __esModule: true,
+  default: {
+    error: jest.fn(),
+  },
+}));
+
+const activeOwner = {
+  id: 'owner-user',
+  email: 'owner@example.com',
+  firstName: 'Owner',
+  lastName: 'User',
+  accountStatus: 'ACTIVE',
+};
+
+describe('SharedLinkService public link guards', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('refuses public file links owned by suspended accounts', async () => {
+    (prisma.sharedLink.findUnique as jest.Mock).mockResolvedValue({
+      token: 'public-token',
+      file: { id: 'file-1', isDeleted: false, isVault: false },
+      user: { ...activeOwner, accountStatus: 'SUSPENDED' },
+    });
+
+    await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Share link is unavailable');
+  });
+
+  it('refuses public file links when the file was deleted', async () => {
+    (prisma.sharedLink.findUnique as jest.Mock).mockResolvedValue({
+      token: 'public-token',
+      file: { id: 'file-1', isDeleted: true, isVault: false },
+      user: activeOwner,
+    });
+
+    await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Share link is unavailable');
+  });
+
+  it('rejects persisted folder public links with a clear error', async () => {
+    (prisma.sharedLink.findUnique as jest.Mock).mockResolvedValue({
+      token: 'folder-token',
+      folderId: 'folder-1',
+      file: null,
+      user: activeOwner,
+    });
+
+    await expect(SharedLinkService.getShareLink('folder-token')).rejects.toThrow(
+      'Public folder links are not supported'
+    );
+  });
+
+  it('refuses bundle links if any shared file disappeared', async () => {
+    (prisma.sharedLink.findUnique as jest.Mock).mockResolvedValue({
+      token: 'bundle-token',
+      bundleFileIds: JSON.stringify(['file-1', 'file-2']),
+      user: activeOwner,
+    });
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([{ id: 'file-1', isDeleted: false, isVault: false }]);
+
+    await expect(SharedLinkService.getBundleShareLink('bundle-token')).rejects.toThrow(
+      'One or more shared files are no longer available'
+    );
+  });
+});

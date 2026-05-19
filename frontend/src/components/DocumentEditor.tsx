@@ -3,6 +3,8 @@ import { X, AlertCircle, Loader2 } from 'lucide-react';
 import { File } from '@/types';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { isFeatureAvailableForPlan } from '@/constants/plans';
 
 interface DocumentEditorProps {
   file: File;
@@ -16,6 +18,8 @@ declare global {
 }
 
 export const DocumentEditor: React.FC<DocumentEditorProps> = ({ file, onClose }) => {
+  const userPlan = useAuthStore((state) => state.user?.plan);
+  const canUseOnlyOffice = isFeatureAvailableForPlan(userPlan, 'onlyoffice');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -57,6 +61,12 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ file, onClose })
 
       setLoading(true);
       setError(null);
+
+      if (!canUseOnlyOffice) {
+        setError('OnlyOffice nécessite le plan PRO ou supérieur.');
+        setLoading(false);
+        return;
+      }
 
       // Vérifier si le fichier peut être édité
       const canEditResponse = await api.get(`/onlyoffice/can-edit/${file.id}`);
@@ -113,9 +123,14 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ file, onClose })
       }
     } catch (err: any) {
       console.error('Error loading editor:', err);
-      setError(err.response?.data?.error || 'Erreur lors du chargement de l\'éditeur');
+      if (err.response?.data?.code === 'PLAN_UPGRADE_REQUIRED') {
+        setError('OnlyOffice nécessite le plan PRO ou supérieur.');
+        toast.error('Passez au plan PRO pour éditer avec OnlyOffice');
+      } else {
+        setError(err.response?.data?.error || 'Erreur lors du chargement de l\'éditeur');
+        toast.error('Impossible de charger l\'éditeur');
+      }
       setLoading(false);
-      toast.error('Impossible de charger l\'éditeur');
     }
   };
 

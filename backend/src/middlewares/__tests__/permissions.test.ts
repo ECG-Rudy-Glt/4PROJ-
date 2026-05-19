@@ -51,6 +51,7 @@ describe('permissions accepted shares', () => {
         sharedWithId: 'shared-user',
         accepted: true,
         canRead: true,
+        file: { is: { isDeleted: false } },
       },
     });
   });

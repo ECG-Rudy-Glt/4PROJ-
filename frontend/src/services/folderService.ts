@@ -1,5 +1,6 @@
 import api from './api';
 import { Folder, Breadcrumb } from '@/types';
+import { folderShareAccessHeaders } from '@/utils/shareAccessTokens';
 
 export const folderService = {
   async createFolder(name: string, parentId?: string) {
@@ -10,12 +11,15 @@ export const folderService = {
   async listFolders(parentId?: string): Promise<{ folders: Folder[] }> {
     const response = await api.get('/folders', {
       params: { parentId },
+      headers: folderShareAccessHeaders(parentId),
     });
     return response.data;
   },
 
   async getFolder(folderId: string): Promise<{ folder: Folder }> {
-    const response = await api.get(`/folders/${folderId}`);
+    const response = await api.get(`/folders/${folderId}`, {
+      headers: folderShareAccessHeaders(folderId),
+    });
     return response.data;
   },
 
@@ -47,18 +51,23 @@ export const folderService = {
   },
 
   async getFolderTrashContents(folderId: string) {
-    const { data } = await api.get(`/folders/${folderId}/trash-contents`);
+    const { data } = await api.get(`/folders/${folderId}/trash-contents`, {
+      headers: folderShareAccessHeaders(folderId),
+    });
     return data;
   },
 
   async getBreadcrumbs(folderId: string): Promise<{ breadcrumbs: Breadcrumb[] }> {
-    const response = await api.get(`/folders/${folderId}/breadcrumbs`);
+    const response = await api.get(`/folders/${folderId}/breadcrumbs`, {
+      headers: folderShareAccessHeaders(folderId),
+    });
     return response.data;
   },
 
   async downloadFolderAsZip(folderId: string, folderName: string): Promise<void> {
     const response = await api.get(`/folders/${folderId}/download`, {
       responseType: 'blob',
+      headers: folderShareAccessHeaders(folderId),
     });
     const url = URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
     const a = document.createElement('a');

@@ -1,6 +1,13 @@
 import api from './api';
 import { SharedLink, SharedFolder, SharedFile } from '@/types';
 
+const SHARE_ACCESS_HEADER = 'X-Share-Access-Token';
+
+const shareAccessHeaders = (shareAccessToken?: string | null) =>
+  shareAccessToken ? { [SHARE_ACCESS_HEADER]: shareAccessToken } : undefined;
+
+type ShareUnlockResponse = { shareAccessToken: string | null; expiresIn?: number };
+
 export const shareService = {
   async createShareLink(
     fileId: string,
@@ -24,16 +31,31 @@ export const shareService = {
     return response.data;
   },
 
-  async getSharedFile(token: string, password?: string) {
+  async getSharedFile(token: string, shareAccessToken?: string | null) {
     const response = await api.get(`/share/${token}`, {
-      params: { password },
+      headers: shareAccessHeaders(shareAccessToken),
     });
     return response.data;
   },
 
-  getSharedFileDownloadUrl(token: string, password?: string): string {
-    const params = password ? `?password=${password}` : '';
-    return `${api.defaults.baseURL}/share/${token}/download${params}`;
+  getSharedFileDownloadUrl(token: string): string {
+    return `${api.defaults.baseURL}/share/${token}/download`;
+  },
+
+  async downloadSharedFile(token: string, shareAccessToken?: string | null): Promise<Blob> {
+    const response = await api.get(`/share/${token}/download`, {
+      responseType: 'blob',
+      headers: shareAccessHeaders(shareAccessToken),
+    });
+    return response.data;
+  },
+
+  async downloadBundleShareLink(token: string, shareAccessToken?: string | null): Promise<Blob> {
+    const response = await api.get(`/share/${token}/download-bundle`, {
+      responseType: 'blob',
+      headers: shareAccessHeaders(shareAccessToken),
+    });
+    return response.data;
   },
 
   async shareFolder(
@@ -44,12 +66,14 @@ export const shareService = {
       canWrite?: boolean;
       canDelete?: boolean;
       canShare?: boolean;
-    } = {}
+    } = {},
+    password?: string
   ) {
     const response = await api.post('/share/folders', {
       folderId,
       targetUserEmail,
       ...permissions,
+      ...(password ? { password } : {}),
     });
     return response.data;
   },
@@ -61,6 +85,8 @@ export const shareService = {
       canWrite?: boolean;
       canDelete?: boolean;
       canShare?: boolean;
+      password?: string;
+      clearPassword?: boolean;
     }
   ) {
     const response = await api.patch(`/share/folders/${shareId}/permissions`, permissions);
@@ -91,12 +117,14 @@ export const shareService = {
       canWrite?: boolean;
       canDelete?: boolean;
       canShare?: boolean;
-    } = {}
+    } = {},
+    password?: string
   ) {
     const response = await api.post('/share/files', {
       fileId,
       targetUserEmail,
       ...permissions,
+      ...(password ? { password } : {}),
     });
     return response.data;
   },
@@ -113,6 +141,8 @@ export const shareService = {
       canWrite?: boolean;
       canDelete?: boolean;
       canShare?: boolean;
+      password?: string;
+      clearPassword?: boolean;
     }
   ) {
     const response = await api.patch(`/share/files/${shareId}/permissions`, permissions);
@@ -163,6 +193,24 @@ export const shareService = {
   // Get accepted shares
   async getAcceptedShares() {
     const response = await api.get('/files/shares/accepted');
+    return response.data;
+  },
+
+  // Unlock password-protected direct share (returns shareAccessToken)
+  async unlockDirectShare(shareId: string, password: string): Promise<ShareUnlockResponse> {
+    const response = await api.post(`/share/files/${shareId}/unlock`, { password });
+    return response.data;
+  },
+
+  // Unlock password-protected direct folder share (returns shareAccessToken)
+  async unlockDirectFolderShare(shareId: string, password: string): Promise<ShareUnlockResponse> {
+    const response = await api.post(`/share/folders/${shareId}/unlock`, { password });
+    return response.data;
+  },
+
+  // Unlock password-protected public share link (returns shareAccessToken)
+  async unlockPublicShare(token: string, password: string): Promise<ShareUnlockResponse> {
+    const response = await api.post(`/share/${token}/unlock`, { password });
     return response.data;
   },
 };

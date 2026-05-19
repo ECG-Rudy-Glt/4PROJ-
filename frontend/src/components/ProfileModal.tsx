@@ -118,6 +118,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
   };
 
+  const handleSaveSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void handleSave();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -132,7 +137,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <form onSubmit={handleSaveSubmit} className="p-6 space-y-6">
           {/* Avatar Section */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -156,6 +161,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 {DEFAULT_AVATARS.map((avatar, index) => (
                   <button
                     key={index}
+                    type="button"
                     onClick={() => handleAvatarSelect(avatar)}
                     className={`w-full aspect-square rounded-full border-2 transition-all hover:scale-110 ${selectedAvatar === avatar
                       ? 'border-primary-500 dark:border-primary-300 ring-2 ring-primary-500/50'
@@ -179,6 +185,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 className="hidden"
               />
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
                 className="w-full px-4 py-3 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-300 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -268,19 +275,20 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
+              type="button"
               onClick={onClose}
               className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               {t('settings.cancel')}
             </button>
             <button
-              onClick={handleSave}
+              type="submit"
               className="flex-1 px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors"
             >
               {t('settings.save')}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

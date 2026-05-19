@@ -5,6 +5,7 @@ import { trustedDeviceService } from '../../services/trustedDeviceService';
 import { generateTempToken } from '../mfaController';
 import { AuditService } from '../../services/auditService';
 import { generateToken } from '../../utils/jwt';
+import { AccountDeletionService } from '../../services/accountDeletionService';
 
 jest.mock('../../services/authService', () => ({
   AuthService: {
@@ -14,6 +15,12 @@ jest.mock('../../services/authService', () => ({
     rotateRefreshToken: jest.fn(),
     revokeRefreshToken: jest.fn(),
     logoutGlobal: jest.fn(),
+  },
+}));
+
+jest.mock('../../services/accountDeletionService', () => ({
+  AccountDeletionService: {
+    deleteAccount: jest.fn(),
   },
 }));
 
@@ -86,8 +93,48 @@ const baseLoginResult = {
 };
 
 describe('AuthController', () => {
+  const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const originalGithubClientId = process.env.GITHUB_CLIENT_ID;
+  const originalGithubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    delete process.env.GITHUB_CLIENT_ID;
+    delete process.env.GITHUB_CLIENT_SECRET;
+  });
+
+  afterAll(() => {
+    if (originalGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+    if (originalGoogleClientSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
+    else process.env.GOOGLE_CLIENT_SECRET = originalGoogleClientSecret;
+    if (originalGithubClientId === undefined) delete process.env.GITHUB_CLIENT_ID;
+    else process.env.GITHUB_CLIENT_ID = originalGithubClientId;
+    if (originalGithubClientSecret === undefined) delete process.env.GITHUB_CLIENT_SECRET;
+    else process.env.GITHUB_CLIENT_SECRET = originalGithubClientSecret;
+  });
+
+  describe('getOAuthProviders', () => {
+    it('should expose only configured OAuth providers', async () => {
+      process.env.GOOGLE_CLIENT_ID = 'google-client';
+      process.env.GOOGLE_CLIENT_SECRET = 'google-secret';
+
+      const res = createRes();
+
+      await AuthController.getOAuthProviders({} as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          google: true,
+          github: false,
+        },
+      });
+    });
   });
 
   describe('register', () => {
@@ -312,6 +359,35 @@ describe('AuthController', () => {
     });
   });
 
+  describe('deleteAccount', () => {
+    it('should delete the current account with confirmation data', async () => {
+      (AccountDeletionService.deleteAccount as jest.Mock).mockResolvedValue({ message: 'Compte supprimé avec succès' });
+
+      const req: any = {
+        user: { id: 'user-1' },
+        body: {
+          confirmationEmail: 'user@example.com',
+          currentPassword: 'password',
+          mfaCode: '123456',
+        },
+      };
+      const res = createRes();
+
+      await AuthController.deleteAccount(req, res, jest.fn());
+
+      expect(AccountDeletionService.deleteAccount).toHaveBeenCalledWith('user-1', {
+        confirmationEmail: 'user@example.com',
+        currentPassword: 'password',
+        mfaCode: '123456',
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { message: 'Compte supprimé avec succès' },
+      });
+    });
+  });
+
   describe('oauthCallback', () => {
     it('should issue OAuth token with current tokenVersion', async () => {
       (generateToken as jest.Mock).mockReturnValue('oauth-token');
@@ -327,7 +403,7 @@ describe('AuthController', () => {
       await AuthController.oauthCallback(req, res, jest.fn());
 
       expect(generateToken).toHaveBeenCalledWith('oauth-user', 'oauth@example.com', 9);
-      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback?token=oauth-token');
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback#token=oauth-token');
     });
   });
 });

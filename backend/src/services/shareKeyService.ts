@@ -4,6 +4,7 @@ import { KekService } from './kekService';
 
 type ShareWithOwnerDek = {
   ownerWrappedDek?: string | null;
+  passwordHash?: string | null;
 };
 
 export class ShareKeyService {
@@ -23,12 +24,20 @@ export class ShareKeyService {
     return dek;
   }
 
-  static stripOwnerWrappedDek<T extends ShareWithOwnerDek>(share: T): Omit<T, 'ownerWrappedDek'> {
-    const { ownerWrappedDek, ...safeShare } = share;
+  static stripOwnerWrappedDek<T extends ShareWithOwnerDek>(share: T): Omit<T, 'ownerWrappedDek' | 'passwordHash'> & { passwordProtected?: boolean } {
+    const { ownerWrappedDek, passwordHash, ...safeShare } = share as any;
+
+    if (passwordHash !== undefined) {
+      return {
+        ...safeShare,
+        passwordProtected: !!passwordHash
+      };
+    }
+
     return safeShare;
   }
 
-  static stripOwnerWrappedDekMany<T extends ShareWithOwnerDek>(shares: T[]): Array<Omit<T, 'ownerWrappedDek'>> {
+  static stripOwnerWrappedDekMany<T extends ShareWithOwnerDek>(shares: T[]): Array<Omit<T, 'ownerWrappedDek' | 'passwordHash'> & { passwordProtected?: boolean }> {
     return shares.map((share) => this.stripOwnerWrappedDek(share));
   }
 

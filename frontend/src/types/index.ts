@@ -6,6 +6,9 @@ export interface User {
   avatar?: string;
   role?: 'USER' | 'ADMIN';
   accountStatus?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  hasPassword?: boolean;
+  mfaEnabled?: boolean;
+  authProvider?: 'local' | 'google' | 'github' | 'deleted' | string;
   quotaUsed: number;
   quotaLimit: number;
   theme: string;
@@ -138,6 +141,7 @@ export interface SharedFolder {
   canWrite: boolean;
   canDelete: boolean;
   canShare: boolean;
+  passwordProtected?: boolean;
   createdAt: string;
   folder?: Folder;
   sharedBy?: {
@@ -164,6 +168,7 @@ export interface SharedFile {
   canWrite: boolean;
   canDelete: boolean;
   canShare: boolean;
+  passwordProtected?: boolean;
   createdAt: string;
   file?: File;
   sharedBy?: {
@@ -274,6 +279,7 @@ export interface AdminUserRow {
   firstName?: string;
   lastName?: string;
   role: 'USER' | 'ADMIN';
+  accountStatus: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   plan: 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
   subscriptionStatus: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'INCOMPLETE' | 'TRIALING';
   quotaUsed: number;

@@ -75,6 +75,9 @@ export class FileQueryService {
             canDelete: sharedFolderPerms.canDelete,
             canShare: sharedFolderPerms.canShare,
           },
+          _shareId: sharedFolderPerms.id,
+          _sharedRootFolderId: sharedFolderPerms.folderId,
+          passwordProtected: Boolean(sharedFolderPerms.passwordHash),
         }));
       }
     }

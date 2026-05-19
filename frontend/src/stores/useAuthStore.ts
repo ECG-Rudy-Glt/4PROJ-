@@ -19,6 +19,11 @@ interface AuthState {
   loadUser: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  deleteAccount: (data: {
+    confirmationEmail: string;
+    currentPassword?: string;
+    mfaCode?: string;
+  }) => Promise<void>;
   setAuthToken: (
     token: string,
     user?: User,
@@ -137,6 +142,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshProfile: async () => {
     const { user, session } = await authService.getProfile();
     set({ user, sessionContext: session || null });
+  },
+  deleteAccount: async (data) => {
+    await authService.deleteAccount(data);
+    clearAuthStorage();
+    set({ user: null, token: null, sessionContext: null, isAuthenticated: false });
+    window.location.href = '/login?accountDeleted=true';
   },
   setAuthToken: async (token, user, sessionContext, refreshToken) => {
     storeAuthTokens(token, refreshToken);

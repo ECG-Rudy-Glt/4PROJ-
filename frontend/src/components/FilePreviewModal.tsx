@@ -16,6 +16,7 @@ interface FilePreviewModalProps {
   file: FileType;
   onClose: () => void;
   isShared?: boolean;
+  shareAccessToken?: string | null;
 }
 
 // Liste des types MIME éditables avec OnlyOffice
@@ -38,38 +39,43 @@ const isExecutable = (fileName: string) => {
   return exts.some(ext => fileName.toLowerCase().endsWith(ext));
 };
 
-function authFetch(url: string): Promise<Response> {
+function authFetch(url: string, shareAccessToken?: string | null): Promise<Response> {
   const token = localStorage.getItem('token');
-  return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  return fetch(url, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
+    },
+  });
 }
 
-function ImagePreview({ src, alt }: { src: string; alt: string }) {
+function ImagePreview({ src, alt, shareAccessToken }: { src: string; alt: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string;
-    authFetch(src)
+    authFetch(src, shareAccessToken)
       .then((r) => r.blob())
       .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [src]);
+  }, [src, shareAccessToken]);
 
   if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
   return <img src={blobUrl} alt={alt} className="max-w-full max-h-[70vh] object-contain rounded" />;
 }
 
-function VideoPreview({ src, mimeType }: { src: string; mimeType: string }) {
+function VideoPreview({ src, mimeType, shareAccessToken }: { src: string; mimeType: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string;
-    authFetch(src)
+    authFetch(src, shareAccessToken)
       .then((r) => r.blob())
       .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [src]);
+  }, [src, shareAccessToken]);
 
   if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
   return (
@@ -80,17 +86,17 @@ function VideoPreview({ src, mimeType }: { src: string; mimeType: string }) {
   );
 }
 
-function AudioPreview({ src, mimeType, fileName }: { src: string; mimeType: string; fileName: string }) {
+function AudioPreview({ src, mimeType, fileName, shareAccessToken }: { src: string; mimeType: string; fileName: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string;
-    authFetch(src)
+    authFetch(src, shareAccessToken)
       .then((r) => r.blob())
       .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [src]);
+  }, [src, shareAccessToken]);
 
   return (
     <div className="mb-4 p-6 bg-white dark:bg-gray-800 rounded-lg text-center">
@@ -110,12 +116,12 @@ function AudioPreview({ src, mimeType, fileName }: { src: string; mimeType: stri
   );
 }
 
-function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
+function CsvPreview({ downloadUrl, shareAccessToken }: { downloadUrl: string; shareAccessToken?: string | null }) {
   const [rows, setRows] = useState<string[][]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    authFetch(downloadUrl)
+    authFetch(downloadUrl, shareAccessToken)
       .then((r) => r.text())
       .then((text) => {
         const parsed = text.trim().split('\n').map((line) =>
@@ -124,7 +130,7 @@ function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
         setRows(parsed);
       })
       .catch(() => setError('Impossible de charger le fichier CSV'));
-  }, [downloadUrl]);
+  }, [downloadUrl, shareAccessToken]);
 
   if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
   if (rows.length === 0) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
@@ -160,7 +166,7 @@ function CsvPreview({ downloadUrl }: { downloadUrl: string }) {
   );
 }
 
-function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl: string; fileId: string; fileName: string; mimeType: string }) {
+function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite, shareAccessToken }: { downloadUrl: string; fileId: string; fileName: string; mimeType: string; canWrite: boolean; shareAccessToken?: string | null }) {
   const [content, setContent] = useState<string | null>(null);
   const [edited, setEdited] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
@@ -168,11 +174,14 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    authFetch(downloadUrl)
-      .then((r) => r.text())
+    authFetch(downloadUrl, shareAccessToken)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
       .then((text) => { setContent(text); setEdited(text); })
       .catch(() => setError('Impossible de charger le fichier'));
-  }, [downloadUrl]);
+  }, [downloadUrl, shareAccessToken]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -182,7 +191,12 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
       const formData = new FormData();
       formData.append('files', newFile);
       formData.append('replaceFileId', fileId);
-      await api.post('/files/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
+        },
+      });
       setContent(edited);
       setIsEditing(false);
       toast.success('Fichier sauvegardé');
@@ -217,14 +231,14 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
                 <Save className="w-3 h-3" /> {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
               </button>
             </>
-          ) : (
+          ) : canWrite ? (
             <button
               onClick={() => setIsEditing(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
               <Pencil className="w-3 h-3" /> Modifier
             </button>
-          )}
+          ) : null}
         </div>
       </div>
       {isEditing ? (
@@ -243,13 +257,13 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType }: { downloadUrl:
   );
 }
 
-function PdfPreview({ streamUrl, fileName }: { streamUrl: string; fileName: string }) {
+function PdfPreview({ streamUrl, fileName, shareAccessToken }: { streamUrl: string; fileName: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string;
-    authFetch(streamUrl)
+    authFetch(streamUrl, shareAccessToken)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.blob();
@@ -262,7 +276,7 @@ function PdfPreview({ streamUrl, fileName }: { streamUrl: string; fileName: stri
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [streamUrl]);
+  }, [streamUrl, shareAccessToken]);
 
   if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
   if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement du PDF...</p>;
@@ -278,26 +292,30 @@ function PdfPreview({ streamUrl, fileName }: { streamUrl: string; fileName: stri
   );
 }
 
-export default function FilePreviewModal({ file, onClose, isShared = false }: FilePreviewModalProps) {
+export default function FilePreviewModal({ file, onClose, isShared = false, shareAccessToken }: FilePreviewModalProps) {
   const { t } = useTranslation();
   const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments'); // Onglet actif
   const [commentCount, setCommentCount] = useState(0);
   const [showDocumentEditor, setShowDocumentEditor] = useState(false);
   
-  // Get actual write permissions from file object (set by parent component for shared files)
-  const canWrite = isShared && (file as any).canWrite !== undefined ? (file as any).canWrite : !isShared;
+  // Get actual write permissions from direct shares or inherited shared-folder permissions.
+  const sharedPermissions = (file as any)._sharedFolderPermissions;
+  const canWrite = isShared
+    ? Boolean((file as any).canWrite ?? (file as any)._canWrite ?? sharedPermissions?.canWrite)
+    : true;
+  const isPasswordProtectedSharedFile = isShared && Boolean((file as any).passwordProtected);
 
   const handleDownload = useCallback(async () => {
     try {
       if (isShared) {
-        await fileService.triggerSharedFileDownload(file.id, file.name);
+        await fileService.triggerSharedFileDownload(file.id, file.name, shareAccessToken || undefined);
       } else {
         await fileService.triggerDownload(file.id, file.name);
       }
     } catch {
       toast.error('Échec du téléchargement');
     }
-  }, [file.id, file.name, isShared]);
+  }, [file.id, file.name, isShared, shareAccessToken]);
 
   useEffect(() => {
     loadCommentCount();
@@ -306,7 +324,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
 
   const loadCommentCount = async () => {
     try {
-      const { count } = await commentService.countFileComments(file.id);
+      const { count } = await commentService.countFileComments(file.id, shareAccessToken);
       setCommentCount(count);
     } catch (error) {
       console.error('Erreur chargement nombre commentaires:', error);
@@ -339,14 +357,14 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
       case 'image':
         return (
           <div className="flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-900 rounded-lg">
-            <ImagePreview src={streamUrl} alt={file.name} />
+            <ImagePreview src={streamUrl} alt={file.name} shareAccessToken={shareAccessToken} />
           </div>
         );
 
       case 'video':
         return (
           <div className="bg-black rounded-lg overflow-hidden">
-            <VideoPreview src={streamUrl} mimeType={file.mimeType} />
+            <VideoPreview src={streamUrl} mimeType={file.mimeType} shareAccessToken={shareAccessToken} />
           </div>
         );
 
@@ -354,26 +372,46 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
         return (
           <div className="flex flex-col items-center justify-center p-8 bg-gray-100 dark:bg-gray-900 rounded-lg">
             <div className="w-full max-w-md">
-              <AudioPreview src={streamUrl} mimeType={file.mimeType} fileName={file.name} />
+              <AudioPreview src={streamUrl} mimeType={file.mimeType} fileName={file.name} shareAccessToken={shareAccessToken} />
             </div>
           </div>
         );
 
       case 'pdf':
-        return <PdfPreview streamUrl={streamUrl} fileName={file.name} />;
+        return <PdfPreview streamUrl={streamUrl} fileName={file.name} shareAccessToken={shareAccessToken} />;
 
       case 'markdown':
-        return <MarkdownPreview file={file} isShared={isShared} />;
+        return <MarkdownPreview file={file} isShared={isShared} shareAccessToken={shareAccessToken} />;
 
       case 'text':
         if (file.mimeType === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
-          return <CsvPreview downloadUrl={downloadUrl} />;
+          return <CsvPreview downloadUrl={downloadUrl} shareAccessToken={shareAccessToken} />;
         }
-        return <TextPreview downloadUrl={downloadUrl} fileId={file.id} fileName={file.name} mimeType={file.mimeType} />;
+        return <TextPreview downloadUrl={downloadUrl} fileId={file.id} fileName={file.name} mimeType={file.mimeType} canWrite={canWrite} shareAccessToken={shareAccessToken} />;
 
       default:
         // Pour les documents Office, afficher la prévisualisation avec OnlyOffice
         if (canEditDocument(file.mimeType)) {
+          if (isPasswordProtectedSharedFile) {
+            return (
+              <div className="flex flex-col items-center justify-center p-12 bg-gray-100 dark:bg-gray-900 rounded-lg text-center">
+                <AlertTriangle className="w-12 h-12 mb-4 text-amber-500" />
+                <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Aperçu Office indisponible
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Les documents Office protégés par mot de passe doivent être téléchargés pour cette version.
+                </p>
+                <button
+                  onClick={handleDownload}
+                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Télécharger le fichier
+                </button>
+              </div>
+            );
+          }
           return <OfficePreview file={file} />;
         }
         
@@ -424,7 +462,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
             </p>
           </div>
           <div className="flex items-center space-x-2 ml-4">
-            {canEditDocument(file.mimeType) && (
+            {canWrite && canEditDocument(file.mimeType) && !isPasswordProtectedSharedFile && (
               <button
                 onClick={() => setShowDocumentEditor(true)}
                 className="p-2 text-gray-600 dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-300 rounded-lg"
@@ -525,6 +563,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
                   onCommentCountChange={loadCommentCount}
                   isShared={isShared}
                   canWrite={canWrite}
+                  shareAccessToken={shareAccessToken}
                 />
               ) : (
                 <div className="h-full overflow-y-auto p-4">
@@ -533,6 +572,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false }: Fi
                     onVersionRestored={() => window.location.reload()}
                     isShared={isShared}
                     canWrite={canWrite}
+                    shareAccessToken={shareAccessToken}
                   />
                 </div>
               )}

@@ -19,7 +19,7 @@ export class VersionController {
       const userId = req.user!.id;
       const { fileId, versionId } = req.params;
 
-      const file = await VersionService.restoreVersion(versionId, fileId, userId);
+      const file = await VersionService.restoreVersion(versionId, fileId, userId, req.dekBuffer);
 
       res.status(200).json({ file, message: 'Version restaurée' });
     } catch (error) { next(error); }

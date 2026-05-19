@@ -13,6 +13,12 @@ interface NewFolderModalProps {
 export function NewFolderModal({ isOpen, folderName, onClose, onChange, onCreate }: NewFolderModalProps) {
   const { t } = useTranslation();
   if (!isOpen) return null;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (folderName.trim()) {
+      onCreate();
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 !mt-0" style={{ marginTop: 0 }}>
@@ -20,30 +26,32 @@ export function NewFolderModal({ isOpen, folderName, onClose, onChange, onCreate
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           {t('file_modals.new_folder.title')}
         </h3>
-        <input
-          type="text"
-          value={folderName}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={t('file_modals.new_folder.placeholder')}
-          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
-          onKeyPress={(e) => e.key === 'Enter' && onCreate()}
-          autoFocus
-        />
-        <div className="flex justify-end space-x-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            onClick={onCreate}
-            disabled={!folderName.trim()}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {t('file_modals.new_folder.create')}
-          </button>
-        </div>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={folderName}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={t('file_modals.new_folder.placeholder')}
+            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+            autoFocus
+          />
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={!folderName.trim()}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {t('file_modals.new_folder.create')}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -97,7 +105,13 @@ export function ShareModal({
         </div>
 
         {!shareLink ? (
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onCreateLink();
+            }}
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {t('file_modals.share_link.password_label')}
@@ -139,19 +153,20 @@ export function ShareModal({
 
             <div className="flex justify-end space-x-3 pt-4">
               <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 {t('common.cancel')}
               </button>
               <button
-                onClick={onCreateLink}
+                type="submit"
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 {t('file_modals.share_link.create_link')}
               </button>
             </div>
-          </div>
+          </form>
         ) : (
           <div className="space-y-4">
             <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">

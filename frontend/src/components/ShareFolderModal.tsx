@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Mail, Users, Eye, Edit3, Trash2, Share2, Shield, Copy, Check, Link as LinkIcon } from 'lucide-react';
+import { X, Mail, Users, Eye, EyeOff, Edit3, Trash2, Share2, Shield, Copy, Check, Link as LinkIcon, Lock, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { shareService } from '@/services/shareService';
 import { SharedFolder } from '@/types';
 import PermissionsManager from './PermissionsManager';
 import api from '@/services/api';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
+import { setFolderShareAccessToken } from '@/utils/shareAccessTokens';
 
 interface ShareFolderModalProps {
   folderId: string;
@@ -45,6 +48,13 @@ export default function ShareFolderModal({
   });
   const [inviteLink, setInviteLink] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [sharePassword, setSharePassword] = useState('');
+  const [showSharePassword, setShowSharePassword] = useState(false);
+  const [sharePasswordEdits, setSharePasswordEdits] = useState<Record<string, string>>({});
+  const [visibleSharePasswords, setVisibleSharePasswords] = useState<Record<string, boolean>>({});
+  const [updatingPasswordShareId, setUpdatingPasswordShareId] = useState<string | null>(null);
+  const { user } = useAuthStore();
+  const isPro = user?.plan && user.plan !== 'FREE';
 
   const searchTimeoutRef = useRef<number | undefined>();
 
@@ -141,7 +151,7 @@ export default function ShareFolderModal({
 
     setIsSharing(true);
     try {
-      const response = await shareService.shareFolder(folderId, email.trim(), customPermissions);
+      const response = await shareService.shareFolder(folderId, email.trim(), customPermissions, sharePassword || undefined);
       if (response && response.isNewUser) {
         toast.success(t('share_modal.invite_success', { email }));
       } else {
@@ -150,11 +160,72 @@ export default function ShareFolderModal({
       setEmail('');
       setSuggestions([]);
       setShowSuggestions(false);
+      setSharePassword('');
       loadSharedWith();
     } catch (error: any) {
       toast.error(error.response?.data?.error || t('share_modal.error_sharing'));
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleUpdateSharePassword = async (share: SharedFolder) => {
+    const password = sharePasswordEdits[share.id]?.trim();
+    if (!password) {
+      toast.error(t('share_modal.password_required'));
+      return;
+    }
+
+    setUpdatingPasswordShareId(share.id);
+    try {
+      await shareService.updateSharedFolderPermissions(share.id, {
+        canRead: share.canRead,
+        canWrite: share.canWrite,
+        canDelete: share.canDelete,
+        canShare: share.canShare,
+        password,
+      });
+      toast.success(t('share_modal.password_update_success'));
+      setFolderShareAccessToken(folderId, null);
+      setSharePasswordEdits((prev) => {
+        const next = { ...prev };
+        delete next[share.id];
+        return next;
+      });
+      await loadSharedWith();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('share_modal.password_update_error')));
+    } finally {
+      setUpdatingPasswordShareId(null);
+    }
+  };
+
+  const handleClearSharePassword = async (share: SharedFolder) => {
+    if (!confirm(t('share_modal.password_clear_confirm'))) return;
+
+    setUpdatingPasswordShareId(share.id);
+    try {
+      await shareService.updateSharedFolderPermissions(share.id, {
+        canRead: share.canRead,
+        canWrite: share.canWrite,
+        canDelete: share.canDelete,
+        canShare: share.canShare,
+        clearPassword: true,
+      });
+      toast.success(t('share_modal.password_clear_success'));
+      setFolderShareAccessToken(folderId, null);
+      await loadSharedWith();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t('share_modal.password_update_error')));
+    } finally {
+      setUpdatingPasswordShareId(null);
+    }
+  };
+
+  const handleShareSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSharing) {
+      void handleShare();
     }
   };
 
@@ -276,12 +347,59 @@ export default function ShareFolderModal({
             />
           </div>
 
-          {/* Section 3: Inviter par email avec autocomplete */}
+          {/* Section 3: Mot de passe (PRO) */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Lock className="w-4 h-4" />
+                {t('share_modal.password_title')}
+                <span className="ml-1 px-1.5 py-0.5 bg-gradient-to-r from-amber-400 to-orange-400 text-white text-xs font-bold rounded">
+                  PRO
+                </span>
+              </h3>
+            </div>
+            {isPro ? (
+              <div className="relative">
+                <input
+                  id="share-folder-password"
+                  type={showSharePassword ? 'text' : 'password'}
+                  value={sharePassword}
+                  onChange={(e) => setSharePassword(e.target.value)}
+                  placeholder={t('share_modal.password_placeholder')}
+                  className="w-full pr-10 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSharePassword(!showSharePassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  tabIndex={-1}
+                >
+                  {showSharePassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <Zap className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{t('share_modal.password_upgrade_title')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('share_modal.password_upgrade_desc')}</p>
+                </div>
+                <a
+                  href="/plans"
+                  className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
+                >
+                  {t('share_modal.upgrade_cta')}
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Inviter par email avec autocomplete */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               {t('share_modal.invite_email')}
             </h3>
-            <div className="relative">
+            <form className="relative" onSubmit={handleShareSubmit}>
               <div className="flex gap-2">
                 <div className="flex-1 relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -289,7 +407,6 @@ export default function ShareFolderModal({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleShare()}
                     placeholder={t('share_modal.email_placeholder')}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-600 focus:border-transparent"
                   />
@@ -299,6 +416,7 @@ export default function ShareFolderModal({
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {suggestions.map((user) => (
                         <button
+                          type="button"
                           key={user.id}
                           onClick={() => handleSelectSuggestion(user)}
                           className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center gap-3"
@@ -322,17 +440,17 @@ export default function ShareFolderModal({
                   )}
                 </div>
                 <button
-                  onClick={handleShare}
+                  type="submit"
                   disabled={isSharing || !email.trim()}
                   className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                 >
                   {isSharing ? t('share_modal.inviting_button') : t('share_modal.invite_button')}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
 
-          {/* Section 4: Lien d'invitation */}
+          {/* Section 5: Lien d'invitation */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               {t('share_modal.share_via_link')}
@@ -369,7 +487,7 @@ export default function ShareFolderModal({
             </p>
           </div>
 
-          {/* Section 5: Liste des personnes ayant accès */}
+          {/* Section 6: Liste des personnes ayant accès */}
           {sharedWith.length > 0 && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
@@ -379,36 +497,85 @@ export default function ShareFolderModal({
                 {sharedWith.map((share) => (
                   <div
                     key={share.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                    className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                        <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                          {share.sharedWith?.email[0].toUpperCase()}
-                        </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+                          <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                            {share.sharedWith?.email[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {getUserDisplayName(share.sharedWith)}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {share.sharedWith?.email}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {getUserDisplayName(share.sharedWith)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {share.sharedWith?.email}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                          {share.canWrite && <Edit3 className="w-3 h-3" />}
+                          {share.canDelete && <Trash2 className="w-3 h-3" />}
+                          {share.canShare && <Share2 className="w-3 h-3" />}
+                        </div>
+                        <button
+                          onClick={() => handleRemoveShare(share.id, share.sharedWith?.email || '')}
+                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          title={t('share_modal.remove_access_title')}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                        {share.canWrite && <Edit3 className="w-3 h-3" />}
-                        {share.canDelete && <Trash2 className="w-3 h-3" />}
-                        {share.canShare && <Share2 className="w-3 h-3" />}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 sm:w-36">
+                        <Lock className={`w-3.5 h-3.5 ${share.passwordProtected ? 'text-amber-500' : 'text-gray-400'}`} />
+                        <span>
+                          {share.passwordProtected ? t('share_modal.password_enabled') : t('share_modal.password_disabled')}
+                        </span>
                       </div>
-                      <button
-                        onClick={() => handleRemoveShare(share.id, share.sharedWith?.email || '')}
-                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title={t('share_modal.remove_access_title')}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      {isPro && (
+                        <>
+                          <div className="relative flex-1">
+                            <input
+                              type={visibleSharePasswords[share.id] ? 'text' : 'password'}
+                              value={sharePasswordEdits[share.id] || ''}
+                              onChange={(e) => setSharePasswordEdits((prev) => ({ ...prev, [share.id]: e.target.value }))}
+                              placeholder={share.passwordProtected ? t('share_modal.password_new_placeholder') : t('share_modal.password_placeholder')}
+                              className="w-full pr-10 pl-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setVisibleSharePasswords((prev) => ({ ...prev, [share.id]: !prev[share.id] }))}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              tabIndex={-1}
+                            >
+                              {visibleSharePasswords[share.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSharePassword(share)}
+                            disabled={updatingPasswordShareId === share.id || !sharePasswordEdits[share.id]?.trim()}
+                            className="px-3 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {t('share_modal.password_save')}
+                          </button>
+                          {share.passwordProtected && (
+                            <button
+                              type="button"
+                              onClick={() => handleClearSharePassword(share)}
+                              disabled={updatingPasswordShareId === share.id}
+                              className="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {t('share_modal.password_clear')}
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

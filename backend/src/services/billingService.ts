@@ -164,20 +164,39 @@ export class BillingService {
     };
   }
 
+  static async cancelCustomerSubscriptions(customerId: string) {
+    const stripe = this.getStripeClient();
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 100,
+    });
+
+    const cancelableSubscriptions = subscriptions.data.filter((subscription) => (
+      subscription.status !== 'canceled'
+      && subscription.status !== 'incomplete_expired'
+    ));
+
+    for (const subscription of cancelableSubscriptions) {
+      await stripe.subscriptions.cancel(subscription.id);
+    }
+
+    return { canceled: cancelableSubscriptions.length };
+  }
+
   static constructWebhookEvent(rawPayload: Buffer | string, signature?: string): Stripe.Event {
     const stripe = this.getStripeClient();
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    if (webhookSecret) {
-      if (!signature) {
-        throw new Error('Missing Stripe signature');
-      }
-      return stripe.webhooks.constructEvent(rawPayload, signature, webhookSecret);
+    if (!webhookSecret) {
+      throw new Error('Stripe webhook is not configured: STRIPE_WEBHOOK_SECRET is missing');
     }
 
-    const jsonPayload =
-      typeof rawPayload === 'string' ? rawPayload : rawPayload.toString('utf8');
-    return JSON.parse(jsonPayload) as Stripe.Event;
+    if (!signature) {
+      throw new Error('Missing Stripe signature');
+    }
+
+    return stripe.webhooks.constructEvent(rawPayload, signature, webhookSecret);
   }
 
   private static async applyPlanAndStatusByCustomerId(

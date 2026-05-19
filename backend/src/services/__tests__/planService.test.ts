@@ -1,6 +1,6 @@
 import { Plan } from '@prisma/client';
 import prisma from '../../config/database';
-import { PLAN_LIMITS, PlanService } from '../planService';
+import { PLAN_LIMITS, PlanService, PLAN_UPGRADE_REQUIRED_CODE } from '../planService';
 
 jest.mock('../../config/database', () => ({
   __esModule: true,
@@ -90,6 +90,27 @@ describe('PlanService', () => {
       await expect(PlanService.assertLimit('user-1', 'maxShares', maxShares)).rejects.toThrow(
         `Limite de ${maxShares} partages atteinte pour votre plan`
       );
+    });
+  });
+
+  describe('features', () => {
+    it('should reject AI access for FREE plan with an upgrade error', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ plan: Plan.FREE });
+
+      await expect(PlanService.assertFeature('user-1', 'aiChat')).rejects.toMatchObject({
+        code: PLAN_UPGRADE_REQUIRED_CODE,
+        feature: 'aiChat',
+        requiredPlan: Plan.PRO,
+        upgradePath: '/plans',
+      });
+    });
+
+    it('should allow premium features from PRO plan', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ plan: Plan.PRO });
+
+      await expect(PlanService.assertFeature('user-1', 'aiChat')).resolves.toBeUndefined();
+      await expect(PlanService.assertFeature('user-1', 'onlyoffice')).resolves.toBeUndefined();
+      await expect(PlanService.assertFeature('user-1', 'auditLogs')).resolves.toBeUndefined();
     });
   });
 });

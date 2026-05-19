@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { Plan, Role } from '@prisma/client';
+import { Plan } from '@prisma/client';
 import { AuthRequest } from '../types';
 import { BillingService } from '../services/billingService';
-import { PlanService } from '../services/planService';
-import prisma from '../config/database';
 import logger from '../config/logger';
 import { sendSuccess, sendError } from '../utils/response';
 
@@ -21,21 +19,18 @@ export class BillingController {
         return;
       }
 
-      // Simulation si Stripe n'est pas configuré (pour environnement de dev/test)
       if (!process.env.STRIPE_SECRET_KEY) {
-        logger.info(`Simulated Stripe Checkout for user ${userId} and plan ${plan}`);
-
-        const newLimit = PlanService.getStorageLimit(plan as Plan);
-        await prisma.user.update({
-          where: { id: userId },
-          data: { plan: plan as Plan, quotaLimit: newLimit },
-        });
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        sendSuccess(res, { url: `${frontendUrl}/plans?checkout=success` });
+        sendError(res, 'Stripe test is not configured', 503, 'BILLING_NOT_CONFIGURED');
         return;
       }
 
-      const session = await BillingService.createCheckoutSession(userId, plan);
+      const priceEnvName = `STRIPE_PRICE_${plan}_MONTHLY`;
+      if (!process.env[priceEnvName]) {
+        sendError(res, `Stripe price is not configured for plan ${plan}`, 503, 'BILLING_PRICE_NOT_CONFIGURED');
+        return;
+      }
+
+      const session = await BillingService.createCheckoutSession(userId, plan as Plan);
       sendSuccess(res, session);
     } catch (error) { next(error); }
   }
@@ -43,11 +38,7 @@ export class BillingController {
   static async changePlanFree(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const newLimit = PlanService.getStorageLimit(Plan.FREE);
-      await prisma.user.update({
-        where: { id: userId },
-        data: { plan: Plan.FREE, quotaLimit: newLimit },
-      });
+      await BillingService.downgradeToFree(userId);
       sendSuccess(res);
     } catch (error) { next(error); }
   }

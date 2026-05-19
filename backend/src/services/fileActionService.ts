@@ -6,6 +6,7 @@ import { SocketService } from './socketService';
 import { PlanService } from './planService';
 import { VaultService } from './vaultService';
 import { AppError } from '../middlewares/errorHandler';
+import { acceptedSharePermissionWhere, findSharedFolderAccessRoot } from '../middlewares/permissions';
 
 export class FileActionService {
   static async updateFile(fileId: string, userId: string, data: { name?: string }) {
@@ -47,21 +48,41 @@ export class FileActionService {
   }
 
   static async deleteFile(fileId: string, userId: string, permanent = false) {
-    const file = await prisma.file.findFirst({ where: { id: fileId, userId } });
+    const file = await prisma.file.findFirst({ where: { id: fileId } });
     if (!file) throw new AppError(404, 'File not found');
+    const isOwner = file.userId === userId;
+
+    if (!isOwner) {
+      if (permanent || file.isDeleted) {
+        throw new AppError(403, 'Only the owner can permanently delete this file');
+      }
+
+      const [directShare, folderShare] = await Promise.all([
+        prisma.sharedFile.findFirst({
+          where: { fileId, ...acceptedSharePermissionWhere(userId, 'delete') },
+        }),
+        file.folderId ? findSharedFolderAccessRoot(userId, file.folderId, 'delete') : Promise.resolve(null),
+      ]);
+
+      if (!directShare && !folderShare) {
+        throw new AppError(403, "Vous n'avez pas la permission de supprimer ce fichier");
+      }
+    } else {
+      await VaultService.assertUnlockedIfVault(userId, file.isVault);
+    }
 
     if (permanent || file.isDeleted) {
       await StorageService.deleteStorageFile(file.storagePath);
       // Supprimer les embeddings ChromaDB (best-effort — non bloquant)
       BrainService.deleteFile(fileId).catch(() => undefined);
       await prisma.file.delete({ where: { id: fileId } });
-      await PlanService.updateQuotaUsed(userId, -file.size);
+      await PlanService.updateQuotaUsed(file.userId, -file.size);
     } else {
       await prisma.file.update({ where: { id: fileId }, data: { isDeleted: true, deletedAt: new Date() } });
     }
 
     await AuditService.createLog(userId, 'DELETE', { fileName: file.name, fileId: file.id, permanent });
-    SocketService.emitToUser(userId, 'file_deleted', { fileId });
+    SocketService.emitToUser(file.userId, 'file_deleted', { fileId });
 
     return { message: 'File deleted successfully' };
   }

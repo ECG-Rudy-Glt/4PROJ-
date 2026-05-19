@@ -2,8 +2,33 @@ import prisma from '../config/database';
 import { SocketService } from './socketService';
 import { AuditService } from './auditService';
 import logger from '../config/logger';
-import { acceptedSharePermissionWhere } from '../middlewares/permissions';
+import { checkFilePermission } from '../middlewares/permissions';
 export class CommentService {
+  private static async assertReadableFile(fileId: string, userId: string) {
+    let hasAccess = false;
+
+    try {
+      hasAccess = await checkFilePermission(userId, fileId, 'read');
+    } catch {
+      hasAccess = false;
+    }
+
+    if (!hasAccess) {
+      throw new Error('Fichier non trouvé ou accès refusé');
+    }
+
+    const file = await prisma.file.findUnique({
+      where: { id: fileId },
+      select: { name: true },
+    });
+
+    if (!file) {
+      throw new Error('Fichier non trouvé ou accès refusé');
+    }
+
+    return file;
+  }
+
   /**
    * Créer un nouveau commentaire sur un fichier
    */
@@ -13,33 +38,7 @@ export class CommentService {
     content: string,
     parentId?: string
   ) {
-    // Vérifier que le fichier existe et appartient à l'utilisateur ou est partagé avec lui
-    const file = await prisma.file.findFirst({
-      where: {
-        id: fileId,
-        OR: [
-          { userId }, // L'utilisateur est propriétaire
-          {
-            // Ou le fichier est dans un dossier partagé avec l'utilisateur
-            folder: {
-              sharedWith: {
-                some: acceptedSharePermissionWhere(userId, 'read'),
-              },
-            },
-          },
-          {
-            // Ou le fichier est directement partagé avec l'utilisateur
-            sharedWith: {
-              some: acceptedSharePermissionWhere(userId, 'read'),
-            },
-          },
-        ],
-      },
-    });
-
-    if (!file) {
-      throw new Error('Fichier non trouvé ou accès refusé');
-    }
+    const file = await this.assertReadableFile(fileId, userId);
 
     // Si c'est une réponse, vérifier que le commentaire parent existe
     if (parentId) {
@@ -85,31 +84,7 @@ export class CommentService {
    * Récupérer tous les commentaires d'un fichier (avec leurs réponses)
    */
   static async getFileComments(fileId: string, userId: string) {
-    // Vérifier que l'utilisateur a accès au fichier
-    const file = await prisma.file.findFirst({
-      where: {
-        id: fileId,
-        OR: [
-          { userId },
-          {
-            folder: {
-              sharedWith: {
-                some: acceptedSharePermissionWhere(userId, 'read'),
-              },
-            },
-          },
-          {
-            sharedWith: {
-              some: acceptedSharePermissionWhere(userId, 'read'),
-            },
-          },
-        ],
-      },
-    });
-
-    if (!file) {
-      throw new Error('Fichier non trouvé ou accès refusé');
-    }
+    await this.assertReadableFile(fileId, userId);
 
     // Récupérer tous les commentaires (principaux et réponses)
     const comments = await prisma.comment.findMany({
@@ -207,30 +182,7 @@ export class CommentService {
   static async countFileComments(fileId: string, userId?: string) {
     // Si userId est fourni, vérifier l'accès
     if (userId) {
-      const file = await prisma.file.findFirst({
-        where: {
-          id: fileId,
-          OR: [
-            { userId },
-            {
-              folder: {
-                sharedWith: {
-                  some: acceptedSharePermissionWhere(userId, 'read'),
-                },
-              },
-            },
-            {
-              sharedWith: {
-                some: acceptedSharePermissionWhere(userId, 'read'),
-              },
-            },
-          ],
-        },
-      });
-
-      if (!file) {
-        throw new Error('Fichier non trouvé ou accès refusé');
-      }
+      await this.assertReadableFile(fileId, userId);
     }
 
     return await prisma.comment.count({

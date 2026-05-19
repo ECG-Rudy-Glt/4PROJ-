@@ -137,7 +137,7 @@ export class FolderService {
           throw new AppError(403, 'Folder not shared with you');
         }
 
-        return await prisma.folder.findMany({
+        const folders = await prisma.folder.findMany({
           where: {
             parentId,
             isDeleted: false,
@@ -150,6 +150,19 @@ export class FolderService {
             name: 'asc',
           },
         });
+
+        return folders.map((folder: any) => ({
+          ...folder,
+          _sharedFolderPermissions: {
+            canRead: sharedRoot.canRead,
+            canWrite: sharedRoot.canWrite,
+            canDelete: sharedRoot.canDelete,
+            canShare: sharedRoot.canShare,
+          },
+          _shareId: sharedRoot.id,
+          _sharedRootFolderId: sharedRoot.folderId,
+          passwordProtected: Boolean(sharedRoot.passwordHash),
+        }));
       }
 
       await VaultService.assertUnlockedIfVault(userId, parent.isVault);
@@ -306,7 +319,6 @@ export class FolderService {
     const folder = await prisma.folder.findFirst({
       where: {
         id: folderId,
-        userId,
       },
     });
 
@@ -314,7 +326,19 @@ export class FolderService {
       throw new AppError(404, 'Folder not found');
     }
 
-    await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    const isOwner = folder.userId === userId;
+    if (isOwner) {
+      await VaultService.assertUnlockedIfVault(userId, folder.isVault);
+    } else {
+      if (permanent || folder.isDeleted) {
+        throw new AppError(403, 'Only the owner can permanently delete this folder');
+      }
+
+      const sharedRoot = await findSharedFolderAccessRoot(userId, folderId, 'delete');
+      if (!sharedRoot) {
+        throw new AppError(403, "Vous n'avez pas la permission de supprimer ce dossier");
+      }
+    }
 
     if (permanent || folder.isDeleted) {
       // 1. Trouver tous les fichiers dans ce dossier et ses sous-dossiers pour suppression physique
@@ -380,7 +404,7 @@ export class FolderService {
     }).catch((e) => logger.error(e));
 
     // Socket event
-    SocketService.emitToUser(userId, 'folder_deleted', { folderId });
+    SocketService.emitToUser(folder.userId, 'folder_deleted', { folderId });
 
     return { message: 'Folder deleted successfully' };
   }

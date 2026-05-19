@@ -51,6 +51,7 @@ export default function SharedLinkPage() {
   const [bundleInfo, setBundleInfo] = useState<{ fileCount: number } | null>(null);
   const [password, setPassword] = useState('');
   const [needsPassword, setNeedsPassword] = useState(false);
+  const [shareAccessToken, setShareAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -62,9 +63,17 @@ export default function SharedLinkPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const loadSharedFile = async (pwd?: string) => {
+  useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const loadSharedFile = async (accessToken?: string | null) => {
     try {
-      const data = await shareService.getSharedFile(token!, pwd);
+      const data = await shareService.getSharedFile(token!, accessToken);
       setNeedsPassword(false);
 
       if (data.isBundle) {
@@ -77,10 +86,16 @@ export default function SharedLinkPage() {
       setSharedBy(data.sharedBy);
 
       if (data.file?.mimeType?.startsWith('image/')) {
-        setPreviewUrl(shareService.getSharedFileDownloadUrl(token!, pwd));
+        if (accessToken) {
+          const blob = await shareService.downloadSharedFile(token!, accessToken);
+          setPreviewUrl(URL.createObjectURL(blob));
+        } else {
+          setPreviewUrl(shareService.getSharedFileDownloadUrl(token!));
+        }
       }
     } catch (error: any) {
-      if (error.response?.data?.error === 'Password required') {
+      const errorCode = error.response?.data?.error || error.response?.data?.code;
+      if (error.response?.status === 423 || errorCode === 'SHARE_PASSWORD_REQUIRED' || errorCode === 'Password required') {
         setNeedsPassword(true);
       } else {
         toast.error(error.response?.data?.error || 'Échec du chargement du fichier');
@@ -90,19 +105,45 @@ export default function SharedLinkPage() {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    loadSharedFile(password);
+    try {
+      const result = await shareService.unlockPublicShare(token!, password);
+      setShareAccessToken(result.shareAccessToken);
+      await loadSharedFile(result.shareAccessToken);
+    } catch (error: any) {
+      setIsLoading(false);
+      toast.error(error.response?.data?.message || 'Mot de passe invalide');
+    }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setIsDownloading(true);
-    window.location.href = shareService.getSharedFileDownloadUrl(
-      token!,
-      needsPassword ? password : undefined
-    );
-    setTimeout(() => setIsDownloading(false), 2000);
+    try {
+      const blob = bundleInfo
+        ? await shareService.downloadBundleShareLink(token!, shareAccessToken)
+        : await shareService.downloadSharedFile(token!, shareAccessToken);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = bundleInfo ? `supfile-${token}.zip` : file?.name || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      const errorCode = error.response?.data?.error || error.response?.data?.code;
+      if (error.response?.status === 423 || errorCode === 'SHARE_PASSWORD_REQUIRED') {
+        setNeedsPassword(true);
+        setFile(null);
+        setBundleInfo(null);
+      } else {
+        toast.error(error.response?.data?.message || 'Échec du téléchargement');
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isLoading) {
@@ -181,14 +222,15 @@ export default function SharedLinkPage() {
                 </div>
               </div>
             )}
-            <a
-              href={`/api/share/${token}/download-bundle`}
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={isDownloading}
               className="flex items-center justify-center space-x-3 w-full py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
-              download
             >
               <Download className="w-5 h-5" />
-              <span>Télécharger l'archive</span>
-            </a>
+              <span>{isDownloading ? 'Téléchargement...' : "Télécharger l'archive"}</span>
+            </button>
           </div>
         </div>
       </div>

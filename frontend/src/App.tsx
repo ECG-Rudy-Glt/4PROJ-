@@ -20,6 +20,8 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import AdminPage from './pages/AdminPage';
 import OrganizationAdminPage from './pages/OrganizationAdminPage';
 import AuditPage from './pages/AuditPage';
+import NotFoundPage from './pages/NotFoundPage';
+import LegalPage from './pages/LegalPage';
 
 // Components
 import Layout from './components/Layout';
@@ -44,6 +46,10 @@ function App() {
       <Route path="/mfa-verify" element={<MFAVerificationPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
       <Route path="/share/:token" element={<SharedLinkPage />} />
+      <Route path="/legal" element={<LegalPage kind="legal" />} />
+      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+      <Route path="/terms" element={<LegalPage kind="terms" />} />
+      <Route path="/contact" element={<LegalPage kind="contact" />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
@@ -65,6 +71,8 @@ function App() {
           </Route>
         </Route>
       </Route>
+
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

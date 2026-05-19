@@ -1,0 +1,22 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SUPFILE - Stockage cloud souverain et securise</title>
+  <desc id="desc">Image de partage SUPFILE pour les moteurs de recherche et reseaux sociaux.</desc>
+  <rect width="1200" height="630" fill="#F7FAF8"/>
+  <rect x="70" y="70" width="1060" height="490" rx="36" fill="#FFFFFF" stroke="#D7E8D7" stroke-width="2"/>
+  <rect x="120" y="120" width="86" height="86" rx="22" fill="#2D5A27"/>
+  <path d="M148 160.5L163 145.5L178 160.5" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M163 146V181" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+  <path d="M138 185H188" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+  <text x="230" y="174" fill="#2D5A27" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800">SUPFILE</text>
+  <text x="120" y="292" fill="#0F1A19" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="900">Cloud souverain</text>
+  <text x="120" y="368" fill="#0F1A19" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="900">securise et collaboratif</text>
+  <text x="120" y="438" fill="#52605C" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="500">Stockage, partage, chiffrement, OnlyOffice et IA documentaire locale.</text>
+  <g>
+    <rect x="120" y="485" width="180" height="48" rx="24" fill="#EBF5EB"/>
+    <text x="145" y="517" fill="#2D5A27" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">RGPD</text>
+    <rect x="320" y="485" width="260" height="48" rx="24" fill="#FFF7E6"/>
+    <text x="345" y="517" fill="#8A5A00" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Heberge en France</text>
+    <rect x="600" y="485" width="270" height="48" rx="24" fill="#EEF2FF"/>
+    <text x="625" y="517" fill="#4F46E5" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Chiffrement AES-256</text>
+  </g>
+</svg>
