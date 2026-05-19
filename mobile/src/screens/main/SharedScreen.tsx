@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -37,6 +37,8 @@ interface PendingShare {
 
 export default function SharedScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<Tab>('pending');
   const [pending, setPending] = useState<PendingShare[]>([]);
   const [filesWithMe, setFilesWithMe] = useState<SharedFile[]>([]);
@@ -296,9 +298,9 @@ export default function SharedScreen() {
             {tab === 'withMe' ? `Par ${getUserName(partner)}` : `Avec ${getUserName(partner)}`}
           </Text>
           <View style={styles.permRow}>
-            {sf.canWrite && <PermBadge label="Écriture" />}
-            {sf.canDelete && <PermBadge label="Suppression" />}
-            {sf.canShare && <PermBadge label="Partage" />}
+            {sf.canWrite && <PermBadge label="Écriture" styles={styles} />}
+            {sf.canDelete && <PermBadge label="Suppression" styles={styles} />}
+            {sf.canShare && <PermBadge label="Partage" styles={styles} />}
           </View>
         </View>
         {tab === 'byMe' && (
@@ -496,7 +498,7 @@ export default function SharedScreen() {
   );
 }
 
-function PermBadge({ label }: { label: string }) {
+function PermBadge({ label, styles }: { label: string; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={styles.permBadge}>
       <Text style={styles.permText}>{label}</Text>
@@ -504,14 +506,14 @@ function PermBadge({ label }: { label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   title: {
     ...typography.h2,
-    color: colors.primary[600],
+    color: c.primary[600],
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
@@ -519,7 +521,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: spacing.lg,
     marginVertical: spacing.md,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
     borderRadius: borderRadius.lg,
     padding: 3,
   },
@@ -533,20 +535,20 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tabActive: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     ...shadows.sm,
   },
   tabText: {
     ...typography.caption,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     fontWeight: '500',
   },
   tabTextActive: {
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '600',
   },
   tabBadge: {
-    backgroundColor: colors.error,
+    backgroundColor: c.error,
     minWidth: 16,
     height: 16,
     borderRadius: borderRadius.full,
@@ -557,7 +559,7 @@ const styles = StyleSheet.create({
   tabBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: colors.white,
+    color: c.white,
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -566,7 +568,7 @@ const styles = StyleSheet.create({
   shareRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -577,24 +579,24 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: borderRadius.full,
-    backgroundColor: `${colors.primary[500]}15`,
+    backgroundColor: `${c.primary[500]}15`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   folderIconBg: {
-    backgroundColor: `${colors.accent.bright}15`,
+    backgroundColor: `${c.accent.bright}15`,
   },
   shareInfo: {
     flex: 1,
   },
   shareName: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     fontWeight: '500',
   },
   shareMeta: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     marginTop: 2,
   },
   permRow: {
@@ -604,7 +606,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   permBadge: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
@@ -612,7 +614,7 @@ const styles = StyleSheet.create({
   permText: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.primary[600],
+    color: c.primary[600],
   },
   actionBtns: {
     flexDirection: 'row',
@@ -622,7 +624,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.success,
+    backgroundColor: c.success,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -630,22 +632,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.error,
+    backgroundColor: c.error,
     justifyContent: 'center',
     alignItems: 'center',
   },
   folderModal: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   folderModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: c.neutral[200],
     gap: spacing.md,
   },
   folderModalClose: {
@@ -653,7 +655,7 @@ const styles = StyleSheet.create({
   },
   folderModalTitle: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   folderModalLoader: {

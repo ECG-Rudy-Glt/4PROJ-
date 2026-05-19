@@ -13,15 +13,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { vaultService, VaultStatus } from '../../services/vaultService';
 
 export default function VaultScreen() {
-  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function VaultScreen() {
       const res = await vaultService.getStatus();
       setStatus(res.status);
     } catch {
-      Toast.show({ type: 'error', text1: t('vault.error') });
+      Toast.show({ type: 'error', text1: 'Impossible de charger le statut du coffre' });
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export default function VaultScreen() {
 
   const handleSetup = async () => {
     if (!password || totp.length !== 6) {
-      Toast.show({ type: 'error', text1: t('vault.empty') });
+      Toast.show({ type: 'error', text1: 'Mot de passe et code TOTP requis' });
       return;
     }
     setActionLoading(true);
@@ -58,9 +60,9 @@ export default function VaultScreen() {
       setMode('idle');
       setPassword('');
       setTotp('');
-      Toast.show({ type: 'success', text1: t('vault.setup_success') });
+      Toast.show({ type: 'success', text1: 'Coffre activé' });
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || t('vault.error') });
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Erreur lors de l\'activation' });
     } finally {
       setActionLoading(false);
     }
@@ -68,7 +70,7 @@ export default function VaultScreen() {
 
   const handleUnlock = async () => {
     if (!password || totp.length !== 6) {
-      Toast.show({ type: 'error', text1: t('vault.empty') });
+      Toast.show({ type: 'error', text1: 'Mot de passe et code TOTP requis' });
       return;
     }
     setActionLoading(true);
@@ -78,27 +80,27 @@ export default function VaultScreen() {
       setMode('idle');
       setPassword('');
       setTotp('');
-      Toast.show({ type: 'success', text1: t('vault.unlock_success') });
+      Toast.show({ type: 'success', text1: 'Coffre déverrouillé' });
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || t('vault.error') });
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Mot de passe ou code invalide' });
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleLock = () => {
-    Alert.alert(t('vault.lock_btn'), t('common.confirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
+    Alert.alert('Verrouiller le coffre', 'Confirmer le verrouillage ?', [
+      { text: 'Annuler', style: 'cancel' },
       {
-        text: t('vault.lock_btn'),
+        text: 'Verrouiller',
         onPress: async () => {
           setActionLoading(true);
           try {
             const res = await vaultService.lock();
             setStatus(res.status);
-            Toast.show({ type: 'success', text1: t('vault.lock_success') });
+            Toast.show({ type: 'success', text1: 'Coffre verrouillé' });
           } catch {
-            Toast.show({ type: 'error', text1: t('vault.error') });
+            Toast.show({ type: 'error', text1: 'Erreur lors du verrouillage' });
           } finally {
             setActionLoading(false);
           }
@@ -109,7 +111,7 @@ export default function VaultScreen() {
 
   const handleRotate = async () => {
     if (!password || !newPassword || totp.length !== 6) {
-      Toast.show({ type: 'error', text1: t('vault.empty') });
+      Toast.show({ type: 'error', text1: 'Tous les champs sont requis' });
       return;
     }
     setActionLoading(true);
@@ -120,9 +122,9 @@ export default function VaultScreen() {
       setPassword('');
       setNewPassword('');
       setTotp('');
-      Toast.show({ type: 'success', text1: t('vault.change_success') });
+      Toast.show({ type: 'success', text1: 'Mot de passe du coffre modifié' });
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || t('vault.error') });
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Erreur' });
     } finally {
       setActionLoading(false);
     }
@@ -140,13 +142,13 @@ export default function VaultScreen() {
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content}>
-      <Text style={styles.pageTitle}>{t('vault.title')}</Text>
+      <Text style={styles.pageTitle}>Coffre-fort</Text>
 
       {needsMFA && (
         <View style={styles.warningCard}>
           <Ionicons name="warning-outline" size={20} color={colors.accent.warm} />
           <Text style={styles.warningText}>
-            {t('vault.warning_text')}
+            Le coffre-fort requiert l'authentification à deux facteurs (MFA). Activez le MFA dans les paramètres de sécurité.
           </Text>
         </View>
       )}
@@ -160,7 +162,7 @@ export default function VaultScreen() {
           />
         </View>
         <Text style={styles.statusTitle}>
-          {!status?.enabled ? t('vault.status_unset') : status.unlocked ? t('vault.status_unlocked') : t('vault.status_locked')}
+          {!status?.enabled ? 'Coffre non configuré' : status.unlocked ? 'Coffre déverrouillé' : 'Coffre verrouillé'}
         </Text>
         {status?.unlockUntil && (
           <Text style={styles.statusSub}>
@@ -177,14 +179,14 @@ export default function VaultScreen() {
       {!status?.enabled && !needsMFA && mode === 'idle' && (
         <TouchableOpacity style={styles.primaryBtn} onPress={() => setMode('setup')}>
           <Ionicons name="shield-checkmark-outline" size={18} color={colors.white} />
-          <Text style={styles.primaryBtnText}>{t('vault.setup_btn')}</Text>
+          <Text style={styles.primaryBtnText}>Configurer le coffre</Text>
         </TouchableOpacity>
       )}
 
       {status?.enabled && !status.unlocked && mode === 'idle' && (
         <TouchableOpacity style={styles.primaryBtn} onPress={() => setMode('unlock')} disabled={needsMFA}>
           <Ionicons name="lock-open-outline" size={18} color={colors.white} />
-          <Text style={styles.primaryBtnText}>{t('vault.unlock_btn')}</Text>
+          <Text style={styles.primaryBtnText}>Déverrouiller</Text>
         </TouchableOpacity>
       )}
 
@@ -192,47 +194,47 @@ export default function VaultScreen() {
         <View style={styles.row}>
           <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={handleLock} disabled={actionLoading}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.primary[600]} />
-            <Text style={styles.secondaryBtnText}>{t('vault.lock_btn')}</Text>
+            <Text style={styles.secondaryBtnText}>Verrouiller</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={() => setMode('rotate')}>
             <Ionicons name="key-outline" size={18} color={colors.primary[600]} />
-            <Text style={styles.secondaryBtnText}>{t('vault.change_password_btn')}</Text>
+            <Text style={styles.secondaryBtnText}>Changer le mdp</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {(mode === 'setup' || mode === 'unlock') && (
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>{mode === 'setup' ? t('vault.setup_btn') : t('vault.unlock_btn')}</Text>
-          <Text style={styles.label}>{t('vault.password_label')}</Text>
+          <Text style={styles.formTitle}>{mode === 'setup' ? 'Configuration du coffre' : 'Déverrouillage'}</Text>
+          <Text style={styles.label}>Mot de passe du coffre</Text>
           <TextInput
             style={styles.input}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            placeholder={t('vault.password_label')}
+            placeholder="Mot de passe"
             placeholderTextColor={colors.neutral[400]}
           />
-          <Text style={styles.label}>{t('auth.mfa.code_label')}</Text>
+          <Text style={styles.label}>Code TOTP (MFA)</Text>
           <TextInput
             style={styles.input}
             value={totp}
             onChangeText={setTotp}
-            placeholder={t('auth.mfa.code_placeholder')}
+            placeholder="6 chiffres"
             keyboardType="number-pad"
             maxLength={6}
             placeholderTextColor={colors.neutral[400]}
           />
           <View style={styles.row}>
             <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={() => { setMode('idle'); setPassword(''); setTotp(''); }}>
-              <Text style={styles.secondaryBtnText}>{t('common.cancel')}</Text>
+              <Text style={styles.secondaryBtnText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.primaryBtn, { flex: 1 }]}
               onPress={mode === 'setup' ? handleSetup : handleUnlock}
               disabled={actionLoading}
             >
-              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>{mode === 'setup' ? t('vault.setup_btn') : t('vault.unlock_btn')}</Text>}
+              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>{mode === 'setup' ? 'Configurer' : 'Déverrouiller'}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -240,19 +242,19 @@ export default function VaultScreen() {
 
       {mode === 'rotate' && (
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>{t('vault.change_password_btn')}</Text>
-          <Text style={styles.label}>{t('settings.old_password')}</Text>
-          <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder={t('settings.old_password')} placeholderTextColor={colors.neutral[400]} />
-          <Text style={styles.label}>{t('vault.new_password_label')}</Text>
-          <TextInput style={styles.input} secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholder={t('vault.new_password_label')} placeholderTextColor={colors.neutral[400]} />
-          <Text style={styles.label}>{t('auth.mfa.code_label')}</Text>
-          <TextInput style={styles.input} value={totp} onChangeText={setTotp} placeholder={t('auth.mfa.code_placeholder')} keyboardType="number-pad" maxLength={6} placeholderTextColor={colors.neutral[400]} />
+          <Text style={styles.formTitle}>Changer le mot de passe</Text>
+          <Text style={styles.label}>Mot de passe actuel</Text>
+          <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder="Actuel" placeholderTextColor={colors.neutral[400]} />
+          <Text style={styles.label}>Nouveau mot de passe</Text>
+          <TextInput style={styles.input} secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholder="Nouveau" placeholderTextColor={colors.neutral[400]} />
+          <Text style={styles.label}>Code TOTP</Text>
+          <TextInput style={styles.input} value={totp} onChangeText={setTotp} placeholder="6 chiffres" keyboardType="number-pad" maxLength={6} placeholderTextColor={colors.neutral[400]} />
           <View style={styles.row}>
             <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={() => { setMode('idle'); setPassword(''); setNewPassword(''); setTotp(''); }}>
-              <Text style={styles.secondaryBtnText}>{t('common.cancel')}</Text>
+              <Text style={styles.secondaryBtnText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.primaryBtn, { flex: 1 }]} onPress={handleRotate} disabled={actionLoading}>
-              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>{t('common.edit')}</Text>}
+              {actionLoading ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.primaryBtnText}>Modifier</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -261,11 +263,11 @@ export default function VaultScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg.secondary },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg.secondary },
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing['5xl'] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  pageTitle: { ...typography.h2, color: colors.primary[600], paddingVertical: spacing.md },
+  pageTitle: { ...typography.h2, color: c.primary[600], paddingVertical: spacing.md },
   warningCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -277,9 +279,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFD9B3',
   },
-  warningText: { ...typography.bodySmall, color: colors.neutral[700], flex: 1 },
+  warningText: { ...typography.bodySmall, color: c.neutral[700], flex: 1 },
   statusCard: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     alignItems: 'center',
@@ -287,26 +289,26 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   statusIcon: { marginBottom: spacing.md },
-  statusTitle: { ...typography.h3, color: colors.neutral[800] },
-  statusSub: { ...typography.bodySmall, color: colors.neutral[500], marginTop: spacing.xs },
+  statusTitle: { ...typography.h3, color: c.neutral[800] },
+  statusSub: { ...typography.bodySmall, color: c.neutral[500], marginTop: spacing.xs },
   formCard: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
     ...shadows.sm,
   },
-  formTitle: { ...typography.h4, color: colors.neutral[800], marginBottom: spacing.md },
-  label: { ...typography.label, color: colors.neutral[700], marginBottom: spacing.xs, marginTop: spacing.sm },
+  formTitle: { ...typography.h4, color: c.neutral[800], marginBottom: spacing.md },
+  label: { ...typography.label, color: c.neutral[700], marginBottom: spacing.xs, marginTop: spacing.sm },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     marginBottom: spacing.sm,
   },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
@@ -315,25 +317,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  primaryBtnText: { ...typography.button, color: colors.white },
+  primaryBtnText: { ...typography.button, color: c.white },
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: c.primary[200],
   },
-  secondaryBtnText: { ...typography.button, color: colors.primary[600] },
-  error: { color: colors.error },
+  secondaryBtnText: { ...typography.button, color: c.primary[600] },
+  error: { color: c.error },
 });

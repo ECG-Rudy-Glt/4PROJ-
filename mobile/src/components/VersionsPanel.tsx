@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -37,6 +37,8 @@ const formatDate = (iso: string): string => {
 };
 
 export default function VersionsPanel({ file, onClose, onRestored }: Props) {
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -155,14 +157,14 @@ export default function VersionsPanel({ file, onClose, onRestored }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   header: {
@@ -183,12 +185,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
     marginBottom: spacing.md,
   },
   title: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   centered: {
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
   },
   muted: {
     ...typography.body,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
     padding: spacing.xl,
   },
@@ -207,10 +209,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   badge: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -219,7 +221,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...typography.caption,
-    color: colors.primary[700],
+    color: c.primary[700],
     fontWeight: '700',
   },
   versionInfo: {
@@ -227,12 +229,12 @@ const styles = StyleSheet.create({
   },
   versionName: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     fontWeight: '500',
   },
   versionMeta: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     marginTop: 2,
   },
   actions: {

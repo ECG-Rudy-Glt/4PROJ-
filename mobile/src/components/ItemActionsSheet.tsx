@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -40,6 +40,8 @@ interface Props {
 
 export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
   const { t } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [subSheet, setSubSheet] = useState<
     'none' | 'rename' | 'move' | 'share' | 'tags' | 'versions' | 'comments'
   >('none');
@@ -49,6 +51,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
 
   const store = useFileStore();
 
+  // Reset state when target changes
   useEffect(() => {
     if (target) {
       setRenameValue(target.data.name);
@@ -83,7 +86,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       const res = await folderService.listAllFolders();
       setAllFolders(res.folders ?? []);
     } catch {
-      Toast.show({ type: 'error', text1: t('actions.folders_loading_error') });
+      Toast.show({ type: 'error', text1: 'Impossible de charger les dossiers' });
     } finally {
       setLoadingFolders(false);
     }
@@ -98,10 +101,10 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       } else {
         await store.renameFolder(target.data.id, v);
       }
-      Toast.show({ type: 'success', text1: t('actions.renamed') });
+      Toast.show({ type: 'success', text1: 'Renommé' });
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: t('actions.rename_error') });
+      Toast.show({ type: 'error', text1: 'Erreur lors du renommage' });
     }
   };
 
@@ -112,26 +115,28 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       } else {
         const destination = folderId ? allFolders.find((folder) => folder.id === folderId) : undefined;
         if (destination && isInvalidFolderDestination(destination)) {
-          Toast.show({ type: 'error', text1: t('actions.move_invalid') });
+          Toast.show({ type: 'error', text1: 'Destination invalide' });
           return;
         }
         await store.moveFolder(target.data.id, folderId);
       }
-      Toast.show({ type: 'success', text1: t('actions.moved') });
+      Toast.show({ type: 'success', text1: 'Déplacé' });
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: t('actions.move_error') });
+      Toast.show({ type: 'error', text1: 'Erreur lors du déplacement' });
     }
   };
 
   const handleDelete = () => {
     Alert.alert(
-      isFile ? t('actions.delete_file_title') : t('actions.delete_folder_title'),
-      isFile ? t('actions.delete_file_msg') : t('actions.delete_folder_msg'),
+      isFile ? 'Supprimer ce fichier ?' : 'Supprimer ce dossier ?',
+      isFile
+        ? 'Le fichier sera déplacé dans la corbeille.'
+        : 'Le dossier et tout son contenu seront supprimés.',
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: 'Annuler', style: 'cancel' },
         {
-          text: t('common.delete'),
+          text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -140,10 +145,10 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
               } else {
                 await store.deleteFolder(target.data.id);
               }
-              Toast.show({ type: 'success', text1: t('actions.deleted') });
+              Toast.show({ type: 'success', text1: 'Supprimé' });
               onClose();
             } catch {
-              Toast.show({ type: 'error', text1: t('actions.delete_error') });
+              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
             }
           },
         },
@@ -158,22 +163,23 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       await Linking.openURL(url);
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: t('actions.download_error') });
+      Toast.show({ type: 'error', text1: 'Impossible d\'ouvrir le fichier' });
     }
   };
 
   const handleDownloadZip = async () => {
     if (isFile) return;
     try {
-      Toast.show({ type: 'info', text1: t('actions.download_zip_preparing') });
+      Toast.show({ type: 'info', text1: 'Préparation du ZIP…' });
       const url = await folderService.downloadAsZip(target.data.id, target.data.name);
       await Linking.openURL(url);
       onClose();
     } catch {
-      Toast.show({ type: 'error', text1: t('actions.download_zip_error') });
+      Toast.show({ type: 'error', text1: 'Impossible de télécharger le dossier' });
     }
   };
 
+  // ── Sub sheet: Rename ─────────────────────────────────
   if (subSheet === 'rename') {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={() => setSubSheet('none')}>
@@ -182,22 +188,22 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>{t('actions.rename')}</Text>
+            <Text style={styles.dialogTitle}>Renommer</Text>
             <TextInput
               style={styles.input}
               value={renameValue}
               onChangeText={setRenameValue}
-              placeholder={t('actions.rename_placeholder')}
+              placeholder="Nouveau nom"
               placeholderTextColor={colors.neutral[400]}
               autoFocus
               selectTextOnFocus
             />
             <View style={styles.dialogActions}>
               <TouchableOpacity onPress={() => setSubSheet('none')} style={styles.btnGhost}>
-                <Text style={styles.btnGhostText}>{t('common.cancel')}</Text>
+                <Text style={styles.btnGhostText}>Annuler</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleRename} style={styles.btnPrimary}>
-                <Text style={styles.btnPrimaryText}>{t('common.validate')}</Text>
+                <Text style={styles.btnPrimaryText}>Valider</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -206,6 +212,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
+  // ── Sub sheet: Share ─────────────────────────────────
   if (subSheet === 'share') {
     return (
       <ShareModal
@@ -215,6 +222,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
+  // ── Sub sheet: Tags (files only) ─────────────────────
   if (subSheet === 'tags' && isFile) {
     return (
       <TagsPicker
@@ -224,6 +232,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
+  // ── Sub sheet: Versions (files only) ─────────────────
   if (subSheet === 'versions' && isFile) {
     return (
       <VersionsPanel
@@ -234,6 +243,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
+  // ── Sub sheet: Comments (files only) ─────────────────
   if (subSheet === 'comments' && isFile) {
     return (
       <CommentsPanel
@@ -243,13 +253,14 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
+  // ── Sub sheet: Move ──────────────────────────────────
   if (subSheet === 'move') {
     return (
       <Modal visible transparent animationType="slide" onRequestClose={() => setSubSheet('none')}>
         <View style={styles.overlay}>
           <View style={[styles.sheet, { maxHeight: '80%' }]}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{t('actions.move_to')}</Text>
+              <Text style={styles.sheetTitle}>Déplacer vers</Text>
               <TouchableOpacity onPress={() => setSubSheet('none')}>
                 <Ionicons name="close" size={24} color={colors.neutral[500]} />
               </TouchableOpacity>
@@ -257,21 +268,22 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
             <ScrollView style={{ maxHeight: 400 }}>
               <TouchableOpacity style={styles.folderItem} onPress={() => handleMoveTo(undefined)}>
                 <Ionicons name="home-outline" size={20} color={colors.primary[600]} />
-                <Text style={styles.folderItemText}>{t('actions.move_root')}</Text>
+                <Text style={styles.folderItemText}>Racine</Text>
               </TouchableOpacity>
-              {loadingFolders && <Text style={styles.muted}>{t('actions.move_loading')}</Text>}
-              {availableMoveFolders.map((f) => (
-                <TouchableOpacity
-                  key={f.id}
-                  style={styles.folderItem}
-                  onPress={() => handleMoveTo(f.id)}
-                >
-                  <Ionicons name="folder-outline" size={20} color={colors.accent.bright} />
-                  <Text style={styles.folderItemText} numberOfLines={1}>{formatFolderDestination(f)}</Text>
-                </TouchableOpacity>
-              ))}
+              {loadingFolders && <Text style={styles.muted}>Chargement…</Text>}
+              {availableMoveFolders
+                .map((f) => (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={styles.folderItem}
+                    onPress={() => handleMoveTo(f.id)}
+                  >
+                    <Ionicons name="folder-outline" size={20} color={colors.accent.bright} />
+                    <Text style={styles.folderItemText} numberOfLines={1}>{formatFolderDestination(f)}</Text>
+                  </TouchableOpacity>
+                ))}
               {!loadingFolders && availableMoveFolders.length === 0 && (
-                <Text style={styles.muted}>{t('actions.move_no_folders')}</Text>
+                <Text style={styles.muted}>Aucun autre dossier</Text>
               )}
             </ScrollView>
           </View>
@@ -280,6 +292,7 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     );
   }
 
+  // ── Main actions sheet ────────────────────────────────
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
@@ -297,35 +310,41 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
           {onSelect && (
             <ActionRow
               icon="checkmark-circle-outline"
-              label={t('actions.select')}
+              label="Sélectionner"
               onPress={() => { onSelect(); onClose(); }}
+              colors={colors}
+              styles={styles}
             />
           )}
-          <ActionRow icon="create-outline" label={t('actions.rename')} onPress={() => setSubSheet('rename')} />
+          <ActionRow icon="create-outline" label="Renommer" onPress={() => setSubSheet('rename')} colors={colors} styles={styles} />
           <ActionRow
             icon="move-outline"
-            label={t('actions.move')}
+            label="Déplacer"
             onPress={() => {
               setSubSheet('move');
               loadFolders();
             }}
+            colors={colors}
+            styles={styles}
           />
-          <ActionRow icon="share-social-outline" label={t('actions.share')} onPress={() => setSubSheet('share')} />
+          <ActionRow icon="share-social-outline" label="Partager" onPress={() => setSubSheet('share')} colors={colors} styles={styles} />
           {isFile ? (
             <>
-              <ActionRow icon="pricetags-outline" label={t('actions.tags')} onPress={() => setSubSheet('tags')} />
-              <ActionRow icon="chatbubble-outline" label={t('actions.comments')} onPress={() => setSubSheet('comments')} />
-              <ActionRow icon="time-outline" label={t('actions.versions')} onPress={() => setSubSheet('versions')} />
-              <ActionRow icon="download-outline" label={t('actions.download')} onPress={handleDownload} />
+              <ActionRow icon="pricetags-outline" label="Tags" onPress={() => setSubSheet('tags')} colors={colors} styles={styles} />
+              <ActionRow icon="chatbubble-outline" label="Commentaires" onPress={() => setSubSheet('comments')} colors={colors} styles={styles} />
+              <ActionRow icon="time-outline" label="Historique des versions" onPress={() => setSubSheet('versions')} colors={colors} styles={styles} />
+              <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} colors={colors} styles={styles} />
             </>
           ) : (
-            <ActionRow icon="archive-outline" label={t('actions.download_zip')} onPress={handleDownloadZip} />
+            <ActionRow icon="archive-outline" label="Télécharger en ZIP" onPress={handleDownloadZip} colors={colors} styles={styles} />
           )}
           <ActionRow
             icon="trash-outline"
-            label={t('actions.delete')}
+            label="Supprimer"
             destructive
             onPress={handleDelete}
+            colors={colors}
+            styles={styles}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -338,11 +357,15 @@ function ActionRow({
   label,
   onPress,
   destructive,
+  colors,
+  styles,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   destructive?: boolean;
+  colors: AppColors;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   const color = destructive ? colors.error : colors.neutral[800];
   return (
@@ -353,14 +376,14 @@ function ActionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     paddingTop: spacing.sm,
@@ -373,7 +396,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   sheetHeader: {
@@ -382,12 +405,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
     marginBottom: spacing.xs,
   },
   sheetTitle: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   actionRow: {
@@ -401,7 +424,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dialog: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     margin: spacing.xl,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
@@ -409,7 +432,7 @@ const styles = StyleSheet.create({
   },
   dialogTitle: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     marginBottom: spacing.lg,
   },
   dialogActions: {
@@ -419,14 +442,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
   },
   btnGhost: {
     paddingVertical: spacing.sm,
@@ -434,17 +457,17 @@ const styles = StyleSheet.create({
   },
   btnGhostText: {
     ...typography.button,
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   btnPrimary: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
   },
   btnPrimaryText: {
     ...typography.button,
-    color: colors.white,
+    color: c.white,
   },
   folderItem: {
     flexDirection: 'row',
@@ -453,16 +476,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   folderItemText: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   muted: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
     padding: spacing.lg,
   },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -21,6 +21,9 @@ interface Props {
 }
 
 export default function FolderRow({ folder, onPress, onLongPress, selected, selectionMode }: Props) {
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <TouchableOpacity
       style={[styles.row, selected && styles.rowSelected]}
@@ -30,7 +33,7 @@ export default function FolderRow({ folder, onPress, onLongPress, selected, sele
     >
       {selectionMode ? (
         <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-          {selected && <Ionicons name="checkmark" size={14} color={colors.white} />}
+          {selected && <Ionicons name="checkmark" size={14} color="#fff" />}
         </View>
       ) : (
         <View style={styles.iconCircle}>
@@ -48,55 +51,30 @@ export default function FolderRow({ folder, onPress, onLongPress, selected, sele
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.md,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: c.white, borderRadius: borderRadius.lg,
+    padding: spacing.md, marginBottom: spacing.sm, gap: spacing.md,
     ...shadows.sm,
   },
   rowSelected: {
-    backgroundColor: `${colors.primary[500]}10`,
-    borderWidth: 1.5,
-    borderColor: colors.primary[400],
+    backgroundColor: `${c.primary[500]}18`,
+    borderWidth: 1.5, borderColor: c.primary[500],
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.neutral[300],
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.white,
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 2, borderColor: c.neutral[300],
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: c.neutral[50],
   },
-  checkboxSelected: {
-    backgroundColor: colors.primary[600],
-    borderColor: colors.primary[600],
-  },
+  checkboxSelected: { backgroundColor: c.primary[600], borderColor: c.primary[600] },
   iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.full,
-    backgroundColor: `${colors.accent.bright}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 42, height: 42, borderRadius: borderRadius.full,
+    backgroundColor: `${c.accent.bright}22`,
+    justifyContent: 'center', alignItems: 'center',
   },
-  info: {
-    flex: 1,
-  },
-  name: {
-    ...typography.body,
-    color: colors.neutral[800],
-    fontWeight: '500',
-  },
-  meta: {
-    ...typography.caption,
-    color: colors.neutral[400],
-    marginTop: 2,
-  },
+  info: { flex: 1 },
+  name: { ...typography.body, color: c.neutral[800], fontWeight: '500' },
+  meta: { ...typography.caption, color: c.neutral[400], marginTop: 2 },
 });

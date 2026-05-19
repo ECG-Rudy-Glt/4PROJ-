@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme/colors';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -42,6 +42,8 @@ export default function TrashScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +64,7 @@ export default function TrashScreen() {
       });
       setItems(trashItems);
     } catch {
-      Toast.show({ type: 'error', text1: t('common.error') });
+      Toast.show({ type: 'error', text1: 'Erreur de chargement' });
     } finally {
       setLoading(false);
     }
@@ -80,20 +82,21 @@ export default function TrashScreen() {
         await folderService.restoreFolder(item.data.id);
       }
       await fetchDeleted();
-      Toast.show({ type: 'success', text1: t('trash.restored') });
+      Toast.show({ type: 'success', text1: item.kind === 'file' ? 'Fichier restauré' : 'Dossier restauré' });
     } catch {
-      Toast.show({ type: 'error', text1: t('trash.restore_error') });
+      Toast.show({ type: 'error', text1: 'Erreur lors de la restauration' });
     }
   };
 
   const handleDeletePermanent = (item: TrashItem) => {
+    const label = item.kind === 'file' ? 'Fichier' : 'Dossier';
     Alert.alert(
-      t('trash.delete_confirm_title'),
-      t('trash.delete_confirm_msg'),
+      'Supprimer définitivement',
+      `"${item.data.name}" sera supprimé définitivement. Cette action est irréversible.`,
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: 'Annuler', style: 'cancel' },
         {
-          text: t('common.delete'),
+          text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -103,9 +106,9 @@ export default function TrashScreen() {
                 await folderService.deleteFolder(item.data.id, true);
               }
               await fetchDeleted();
-              Toast.show({ type: 'success', text1: t('trash.deleted') });
+              Toast.show({ type: 'success', text1: `${label} supprimé définitivement` });
             } catch {
-              Toast.show({ type: 'error', text1: t('trash.delete_error') });
+              Toast.show({ type: 'error', text1: 'Erreur de suppression' });
             }
           },
         },
@@ -116,12 +119,12 @@ export default function TrashScreen() {
   const handleEmptyTrash = () => {
     if (items.length === 0) return;
     Alert.alert(
-      t('trash.empty_confirm_title'),
-      t('trash.empty_confirm_msg'),
+      'Vider la corbeille',
+      `Supprimer définitivement ${items.length} élément(s) ? Cette action est irréversible.`,
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: 'Annuler', style: 'cancel' },
         {
-          text: t('common.delete'),
+          text: 'Tout supprimer',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -133,9 +136,9 @@ export default function TrashScreen() {
                 )
               );
               setItems([]);
-              Toast.show({ type: 'success', text1: t('trash.title') });
+              Toast.show({ type: 'success', text1: 'Corbeille vidée' });
             } catch {
-              Toast.show({ type: 'error', text1: t('trash.delete_error') });
+              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
             }
           },
         },
@@ -149,11 +152,11 @@ export default function TrashScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.primary[600]} />
         </TouchableOpacity>
-        <Text style={styles.title}>{t('trash.title')}</Text>
+        <Text style={styles.title}>Corbeille</Text>
         {items.length > 0 && (
           <TouchableOpacity onPress={handleEmptyTrash} style={styles.emptyBtn}>
             <Ionicons name="trash-outline" size={18} color={colors.error} />
-            <Text style={styles.emptyBtnText}>{t('trash.empty_btn')}</Text>
+            <Text style={styles.emptyBtnText}>Vider</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -169,8 +172,8 @@ export default function TrashScreen() {
           !loading ? (
             <EmptyState
               icon="trash-outline"
-              title={t('trash.empty')}
-              subtitle={t('trash.empty')}
+              title="Corbeille vide"
+              subtitle="Les fichiers et dossiers supprimés apparaîtront ici"
             />
           ) : null
         }
@@ -187,7 +190,7 @@ export default function TrashScreen() {
               <Text style={styles.name} numberOfLines={1}>{item.data.name}</Text>
               <Text style={styles.meta}>
                 {item.kind === 'file' ? `${formatSize(item.data.size)} · ` : 'Dossier · '}
-                {item.data.deletedAt ? formatDate(item.data.deletedAt) : '–'}
+                Supprimé le {item.data.deletedAt ? formatDate(item.data.deletedAt) : '–'}
               </Text>
             </View>
             <TouchableOpacity onPress={() => handleRestore(item)} style={styles.actionBtn}>
@@ -203,10 +206,10 @@ export default function TrashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   header: {
     flexDirection: 'row',
@@ -220,7 +223,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    color: colors.primary[600],
+    color: c.primary[600],
     flex: 1,
   },
   emptyBtn: {
@@ -231,11 +234,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: c.error,
   },
   emptyBtnText: {
     ...typography.caption,
-    color: colors.error,
+    color: c.error,
     fontWeight: '600',
   },
   list: {
@@ -245,7 +248,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -256,7 +259,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -265,12 +268,12 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.body,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     fontWeight: '500',
   },
   meta: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     marginTop: 2,
   },
   actionBtn: {

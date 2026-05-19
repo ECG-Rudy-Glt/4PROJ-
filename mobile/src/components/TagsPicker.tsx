@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -28,6 +28,8 @@ interface Props {
 const PALETTE = ['#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B', '#10B981', '#06B6D4', '#6366F1'];
 
 export default function TagsPicker({ file, onClose }: Props) {
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -209,14 +211,14 @@ export default function TagsPicker({ file, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
@@ -228,7 +230,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   header: {
@@ -237,17 +239,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
     marginBottom: spacing.md,
   },
   title: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   label: {
     ...typography.caption,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     marginBottom: spacing.xs,
     fontWeight: '600',
   },
@@ -257,17 +259,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
   },
   createBtn: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
@@ -289,7 +291,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   paletteDotActive: {
-    borderColor: colors.neutral[800],
+    borderColor: c.neutral[800],
   },
   tagRow: {
     flexDirection: 'row',
@@ -300,7 +302,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   tagRowActive: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
   },
   colorDot: {
     width: 14,
@@ -309,19 +311,19 @@ const styles = StyleSheet.create({
   },
   tagName: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
     fontWeight: '500',
   },
   muted: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
     padding: spacing.lg,
   },
   hint: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
     marginTop: spacing.md,
   },
