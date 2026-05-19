@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -112,11 +112,13 @@ interface StripeWebViewProps {
 }
 
 function StripeWebView({ url, onSuccess, onCancel }: StripeWebViewProps) {
+  const colors = useColors();
+  const stripeStyles = React.useMemo(() => makeStripeStyles(colors), [colors]);
   return (
     <View style={StyleSheet.absoluteFill}>
       <View style={stripeStyles.header}>
         <TouchableOpacity onPress={onCancel} style={stripeStyles.backBtn}>
-          <Ionicons name="close" size={22} color={colors.white} />
+          <Ionicons name="close" size={22} color={colors.neutral[800]} />
         </TouchableOpacity>
         <Text style={stripeStyles.headerTitle}>Paiement sécurisé</Text>
         <View style={{ width: 36 }} />
@@ -141,23 +143,13 @@ function StripeWebView({ url, onSuccess, onCancel }: StripeWebViewProps) {
   );
 }
 
-const stripeStyles = StyleSheet.create({
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#1f2937', paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-  },
-  backBtn: { padding: spacing.xs },
-  headerTitle: { ...typography.body, color: colors.white, fontWeight: '600' },
-  loader: {
-    position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.white, gap: spacing.md,
-  },
-  loaderText: { ...typography.bodySmall, color: colors.neutral[500] },
-});
-
 // ── Composant principal ───────────────────────────────────────────────────────
 
+const GREEN = '#22c55e';
+
 export default function PlansModal({ visible, onClose }: Props) {
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const currentPlan = user?.plan ?? 'FREE';
@@ -354,12 +346,24 @@ export default function PlansModal({ visible, onClose }: Props) {
   );
 }
 
-const GREEN = '#22c55e';
+const makeStripeStyles = (c: AppColors) => StyleSheet.create({
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: c.bg.secondary, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+  },
+  backBtn: { padding: spacing.xs },
+  headerTitle: { ...typography.body, color: c.neutral[800], fontWeight: '600' },
+  loader: {
+    position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.white, gap: spacing.md,
+  },
+  loaderText: { ...typography.bodySmall, color: c.neutral[500] },
+});
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.bg.secondary,
   },
   header: {
     flexDirection: 'row',
@@ -367,13 +371,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   headerTitle: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
   },
   content: {
     padding: spacing.lg,
@@ -381,19 +385,18 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.bodySmall,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     marginBottom: spacing.xl,
     textAlign: 'center',
   },
 
-  // ── Carte ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     marginBottom: spacing.lg,
     borderWidth: 2,
-    borderColor: colors.neutral[100],
+    borderColor: c.neutral[100],
     ...shadows.sm,
   },
   cardCurrent: {
@@ -401,14 +404,13 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   cardPopular: {
-    borderColor: colors.primary[200],
+    borderColor: c.primary[200],
     ...shadows.md,
   },
 
-  // ── Badge populaire ──────────────────────────────────────────────────────────
   popularBadge: {
     alignSelf: 'center',
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingHorizontal: spacing.lg,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -421,7 +423,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
 
-  // ── En-tête plan ─────────────────────────────────────────────────────────────
   cardTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -429,27 +430,26 @@ const styles = StyleSheet.create({
   },
   planName: {
     ...typography.h3,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     fontWeight: '800',
   },
   planDescription: {
     ...typography.caption,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     marginTop: 2,
   },
   planPrice: {
     fontSize: 26,
     fontWeight: '900',
-    color: colors.neutral[900],
+    color: c.neutral[900],
     lineHeight: 30,
   },
   planPeriod: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'right',
   },
 
-  // ── Stockage ─────────────────────────────────────────────────────────────────
   storageRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -458,20 +458,19 @@ const styles = StyleSheet.create({
   },
   storageText: {
     ...typography.bodySmall,
-    color: colors.neutral[600],
+    color: c.neutral[600],
   },
   storageBold: {
     fontWeight: '700',
-    color: colors.primary[600],
+    color: c.primary[600],
   },
 
   divider: {
     height: 1,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
     marginVertical: spacing.md,
   },
 
-  // ── Features ─────────────────────────────────────────────────────────────────
   featureList: {
     gap: spacing.sm,
     marginBottom: spacing.lg,
@@ -491,20 +490,19 @@ const styles = StyleSheet.create({
   },
   featureText: {
     ...typography.bodySmall,
-    color: colors.neutral[700],
+    color: c.neutral[700],
     flex: 1,
   },
   featureTextDim: {
-    color: colors.neutral[400],
+    color: c.neutral[400],
   },
 
-  // ── Boutons ──────────────────────────────────────────────────────────────────
   btn: {
     paddingVertical: spacing.md + 2,
     borderRadius: borderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: c.primary[600],
     flexDirection: 'row',
     gap: spacing.xs,
   },
@@ -520,9 +518,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0fdf4',
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: GREEN,
     flexDirection: 'row',
     gap: spacing.xs,
   },
@@ -531,19 +529,18 @@ const styles = StyleSheet.create({
     color: GREEN,
   },
 
-  // ── Note admin ───────────────────────────────────────────────────────────────
   adminNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.xs,
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginTop: spacing.sm,
   },
   adminNoteText: {
     ...typography.caption,
-    color: colors.primary[700],
+    color: c.primary[700] ?? c.primary[600],
     flex: 1,
     lineHeight: 16,
   },
