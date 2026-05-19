@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal,
-  SafeAreaView, ActivityIndicator, Linking, Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -22,9 +23,9 @@ type PlanDef = {
   name: string;
   price: string;
   period?: string;
+  description: string;
   storage: string;
   popular?: boolean;
-  accentColor: string;
   features: Array<{ label: string; included: boolean }>;
 };
 
@@ -34,8 +35,8 @@ const PLANS: PlanDef[] = [
     name: 'Gratuit',
     price: '0 €',
     period: '/mois',
+    description: 'Pour découvrir SupFile',
     storage: '30 Go',
-    accentColor: '#2563eb',
     features: [
       { label: 'Stockage sécurisé', included: true },
       { label: 'Partage de base', included: true },
@@ -50,9 +51,9 @@ const PLANS: PlanDef[] = [
     name: 'Pro',
     price: '9,99 €',
     period: '/mois',
+    description: 'Pour les professionnels',
     storage: '200 Go',
     popular: true,
-    accentColor: '#7c3aed',
     features: [
       { label: 'Assistant Bobby (IA)', included: true },
       { label: 'Coffre-fort chiffré', included: true },
@@ -67,8 +68,8 @@ const PLANS: PlanDef[] = [
     name: 'Business',
     price: '24,99 €',
     period: '/mois',
+    description: 'Pour les équipes',
     storage: '2 To',
-    accentColor: '#ea580c',
     features: [
       { label: 'IA avancée', included: true },
       { label: 'Coffre-fort chiffré', included: true },
@@ -82,8 +83,8 @@ const PLANS: PlanDef[] = [
     id: 'ENTERPRISE',
     name: 'Entreprise',
     price: 'Sur devis',
+    description: 'Solutions sur mesure',
     storage: '10 To',
-    accentColor: '#0f766e',
     features: [
       { label: 'Tout Business inclus', included: true },
       { label: 'Organisations multi-comptes', included: true },
@@ -125,12 +126,8 @@ function StripeWebView({ url, onSuccess, onCancel }: StripeWebViewProps) {
         style={{ flex: 1 }}
         originWhitelist={['*']}
         onNavigationStateChange={(state) => {
-          // Détecter les redirections success/cancel de Stripe
-          if (state.url?.includes('checkout=success')) {
-            onSuccess();
-          } else if (state.url?.includes('checkout=cancel')) {
-            onCancel();
-          }
+          if (state.url?.includes('checkout=success')) onSuccess();
+          else if (state.url?.includes('checkout=cancel')) onCancel();
         }}
         startInLoadingState
         renderLoading={() => (
@@ -185,7 +182,6 @@ export default function PlansModal({ visible, onClose }: Props) {
 
     setLoading(plan.id);
     try {
-      // Downgrade vers FREE
       if (plan.id === 'FREE') {
         await api.post('/billing/downgrade-free');
         await refreshProfile();
@@ -194,7 +190,6 @@ export default function PlansModal({ visible, onClose }: Props) {
         return;
       }
 
-      // Tentative checkout Stripe
       try {
         const res = await api.post('/billing/checkout-session', { plan: plan.id });
         const { url } = res.data as { id: string; url: string | null };
@@ -205,7 +200,6 @@ export default function PlansModal({ visible, onClose }: Props) {
         }
       } catch (err: any) {
         const code = err?.response?.data?.code;
-        // Si Stripe n'est pas configuré → mode simulation (admin seulement)
         if (code === 'BILLING_NOT_CONFIGURED' || code === 'BILLING_PRICE_NOT_CONFIGURED') {
           if (isAdmin) {
             await api.put('/users/plan', { plan: plan.id });
@@ -214,11 +208,7 @@ export default function PlansModal({ visible, onClose }: Props) {
             setLoading(null);
             return;
           }
-          Toast.show({
-            type: 'info',
-            text1: 'Stripe non configuré',
-            text2: 'Le paiement n\'est pas encore disponible sur cette instance.',
-          });
+          Toast.show({ type: 'info', text1: 'Stripe non configuré', text2: 'Le paiement n\'est pas encore disponible.' });
           setLoading(null);
           return;
         }
@@ -265,70 +255,78 @@ export default function PlansModal({ visible, onClose }: Props) {
                 key={plan.id}
                 style={[
                   styles.card,
-                  isCurrent && { borderColor: plan.accentColor, borderWidth: 2 },
-                  plan.popular && styles.cardPopular,
+                  isCurrent && styles.cardCurrent,
+                  plan.popular && !isCurrent && styles.cardPopular,
                 ]}
               >
-                {/* Badge "Populaire" ou "Votre forfait" */}
-                {(plan.popular || isCurrent) && (
-                  <View style={[styles.badge, { backgroundColor: isCurrent ? plan.accentColor : plan.accentColor }]}>
-                    <Text style={styles.badgeText}>{isCurrent ? 'Votre forfait actuel' : 'Populaire'}</Text>
+                {/* Badge "Recommandé" */}
+                {plan.popular && (
+                  <View style={styles.popularBadge}>
+                    <Text style={styles.popularBadgeText}>RECOMMANDÉ</Text>
                   </View>
                 )}
 
-                {/* Titre + Prix */}
+                {/* En-tête plan */}
                 <View style={styles.cardTop}>
-                  <View style={[styles.iconCircle, { backgroundColor: plan.accentColor + '18' }]}>
-                    <Ionicons name="cloud-outline" size={22} color={plan.accentColor} />
-                  </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.planName, { color: plan.accentColor }]}>{plan.name}</Text>
-                    <Text style={styles.planStorage}>{plan.storage} de stockage</Text>
+                    <Text style={styles.planName}>{plan.name}</Text>
+                    <Text style={styles.planDescription}>{plan.description}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.planPrice, { color: plan.accentColor }]}>{plan.price}</Text>
+                    <Text style={styles.planPrice}>{plan.price}</Text>
                     {plan.period && <Text style={styles.planPeriod}>{plan.period}</Text>}
                   </View>
+                </View>
+
+                {/* Stockage */}
+                <View style={styles.storageRow}>
+                  <Ionicons name="server-outline" size={16} color={colors.primary[600]} />
+                  <Text style={styles.storageText}>
+                    <Text style={styles.storageBold}>{plan.storage}</Text>
+                    {' '}de stockage sécurisé
+                  </Text>
                 </View>
 
                 <View style={styles.divider} />
 
                 {/* Features */}
-                {plan.features.map((f, i) => (
-                  <View key={i} style={styles.featureRow}>
-                    <Ionicons
-                      name={f.included ? 'checkmark-circle' : 'close-circle-outline'}
-                      size={17}
-                      color={f.included ? '#16a34a' : colors.neutral[300]}
-                    />
-                    <Text style={[styles.featureText, !f.included && styles.featureTextDim]}>
-                      {f.label}
-                    </Text>
-                  </View>
-                ))}
+                <View style={styles.featureList}>
+                  {plan.features.map((f, i) => (
+                    <View key={i} style={styles.featureRow}>
+                      {f.included ? (
+                        <View style={styles.checkCircle}>
+                          <Ionicons name="checkmark" size={12} color="#fff" />
+                        </View>
+                      ) : (
+                        <Ionicons name="close" size={16} color={colors.neutral[300]} />
+                      )}
+                      <Text style={[styles.featureText, !f.included && styles.featureTextDim]}>
+                        {f.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
 
-                {/* Bouton action */}
-                {!isCurrent && (
+                {/* Bouton */}
+                {isCurrent ? (
+                  <View style={styles.btnCurrent}>
+                    <Ionicons name="checkmark-circle" size={16} color={GREEN} />
+                    <Text style={styles.btnCurrentText}>Forfait actuel</Text>
+                  </View>
+                ) : (
                   <TouchableOpacity
-                    style={[styles.btn, { backgroundColor: plan.accentColor }, isLoading && styles.btnDisabled]}
+                    style={[styles.btn, isLoading && styles.btnDisabled]}
                     onPress={() => handleSelect(plan)}
                     disabled={isLoading || loading !== null}
                     activeOpacity={0.85}
                   >
                     {isLoading
-                      ? <ActivityIndicator color={colors.white} size="small" />
+                      ? <ActivityIndicator color="#fff" size="small" />
                       : <Text style={styles.btnText}>
                           {plan.id === 'ENTERPRISE' ? 'Nous contacter' : 'Choisir ce forfait'}
                         </Text>
                     }
                   </TouchableOpacity>
-                )}
-
-                {isCurrent && (
-                  <View style={[styles.btn, styles.btnCurrent]}>
-                    <Ionicons name="checkmark-circle" size={18} color={plan.accentColor} />
-                    <Text style={[styles.btnText, { color: plan.accentColor }]}>Forfait actuel</Text>
-                  </View>
                 )}
               </View>
             );
@@ -344,7 +342,6 @@ export default function PlansModal({ visible, onClose }: Props) {
           )}
         </ScrollView>
 
-        {/* Stripe WebView en overlay */}
         {stripeUrl && (
           <StripeWebView
             url={stripeUrl}
@@ -357,49 +354,197 @@ export default function PlansModal({ visible, onClose }: Props) {
   );
 }
 
+const GREEN = '#22c55e';
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.neutral[50] },
+  safe: {
+    flex: 1,
+    backgroundColor: colors.neutral[50],
+  },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
   },
-  headerTitle: { ...typography.h4, color: colors.neutral[800] },
-  content: { padding: spacing.lg, paddingBottom: spacing['4xl'] },
-  subtitle: { ...typography.bodySmall, color: colors.neutral[500], marginBottom: spacing.xl, textAlign: 'center' },
+  headerTitle: {
+    ...typography.h4,
+    color: colors.neutral[800],
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing['4xl'],
+  },
+  subtitle: {
+    ...typography.bodySmall,
+    color: colors.neutral[500],
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+  },
+
+  // ── Carte ────────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: colors.white, borderRadius: borderRadius.xl,
-    padding: spacing.xl, marginBottom: spacing.lg,
-    ...shadows.md, borderWidth: 1, borderColor: colors.neutral[100],
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.neutral[100],
+    ...shadows.sm,
   },
-  cardPopular: { ...shadows.lg },
-  badge: {
-    alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: 3,
-    borderRadius: borderRadius.full, marginBottom: spacing.md,
+  cardCurrent: {
+    borderColor: GREEN,
+    ...shadows.md,
   },
-  badgeText: { ...typography.caption, color: colors.white, fontWeight: '700', fontSize: 11 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
-  iconCircle: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  planName: { ...typography.h4, fontWeight: '700' },
-  planStorage: { ...typography.caption, color: colors.neutral[500], marginTop: 2 },
-  planPrice: { ...typography.h4, fontWeight: '800' },
-  planPeriod: { ...typography.caption, color: colors.neutral[400] },
-  divider: { height: 1, backgroundColor: colors.neutral[100], marginVertical: spacing.md },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  featureText: { ...typography.bodySmall, color: colors.neutral[700], flex: 1 },
-  featureTextDim: { color: colors.neutral[400] },
+  cardPopular: {
+    borderColor: colors.primary[200],
+    ...shadows.md,
+  },
+
+  // ── Badge populaire ──────────────────────────────────────────────────────────
+  popularBadge: {
+    alignSelf: 'center',
+    backgroundColor: colors.primary[600],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.lg,
+  },
+  popularBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 1.5,
+  },
+
+  // ── En-tête plan ─────────────────────────────────────────────────────────────
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  planName: {
+    ...typography.h3,
+    color: colors.neutral[900],
+    fontWeight: '800',
+  },
+  planDescription: {
+    ...typography.caption,
+    color: colors.neutral[500],
+    marginTop: 2,
+  },
+  planPrice: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: colors.neutral[900],
+    lineHeight: 30,
+  },
+  planPeriod: {
+    ...typography.caption,
+    color: colors.neutral[400],
+    textAlign: 'right',
+  },
+
+  // ── Stockage ─────────────────────────────────────────────────────────────────
+  storageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  storageText: {
+    ...typography.bodySmall,
+    color: colors.neutral[600],
+  },
+  storageBold: {
+    fontWeight: '700',
+    color: colors.primary[600],
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: colors.neutral[100],
+    marginVertical: spacing.md,
+  },
+
+  // ── Features ─────────────────────────────────────────────────────────────────
+  featureList: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  checkCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
+    ...typography.bodySmall,
+    color: colors.neutral[700],
+    flex: 1,
+  },
+  featureTextDim: {
+    color: colors.neutral[400],
+  },
+
+  // ── Boutons ──────────────────────────────────────────────────────────────────
   btn: {
-    marginTop: spacing.lg, paddingVertical: spacing.md + 2,
-    borderRadius: borderRadius.lg, alignItems: 'center',
-    flexDirection: 'row', justifyContent: 'center', gap: spacing.xs,
+    paddingVertical: spacing.md + 2,
+    borderRadius: borderRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111827',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  btnCurrent: { backgroundColor: colors.neutral[50], borderWidth: 1, borderColor: colors.neutral[200] },
-  btnDisabled: { opacity: 0.55 },
-  btnText: { ...typography.button, color: colors.white },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  btnText: {
+    ...typography.button,
+    color: '#fff',
+  },
+  btnCurrent: {
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  btnCurrentText: {
+    ...typography.button,
+    color: GREEN,
+  },
+
+  // ── Note admin ───────────────────────────────────────────────────────────────
   adminNote: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs,
-    backgroundColor: colors.primary[50], borderRadius: borderRadius.lg,
-    padding: spacing.md, marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: colors.primary[50],
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
   },
-  adminNoteText: { ...typography.caption, color: colors.primary[700], flex: 1, lineHeight: 16 },
+  adminNoteText: {
+    ...typography.caption,
+    color: colors.primary[700],
+    flex: 1,
+    lineHeight: 16,
+  },
 });

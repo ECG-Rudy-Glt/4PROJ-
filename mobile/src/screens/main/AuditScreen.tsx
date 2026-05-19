@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,7 +64,7 @@ const AUDIT_CATEGORIES: { key: AuditCategory; label: string; actions?: string[] 
   { key: 'sharing', label: 'Partage', actions: ['SHARE', 'UNSHARE'] },
 ];
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 export default function AuditScreen() {
   const insets = useSafeAreaInsets();
@@ -94,8 +93,9 @@ export default function AuditScreen() {
 
   useEffect(() => {
     setLoading(true);
+    setLogs([]);
     fetchLogs(0);
-  }, [fetchLogs]);
+  }, [fetchLogs, category]);
 
   const handleLoadMore = () => {
     if (loadingMore || logs.length >= total) return;
@@ -144,12 +144,7 @@ export default function AuditScreen() {
         <Text style={styles.pageTitle}>Journal d'activité</Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
-        contentContainerStyle={styles.filterContent}
-      >
+      <View style={styles.filterRow}>
         {AUDIT_CATEGORIES.map((c) => {
           const active = category === c.key;
           return (
@@ -162,7 +157,7 @@ export default function AuditScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {loading ? (
         <View style={styles.center}>
@@ -204,14 +199,14 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: spacing.md },
   pageTitle: { ...typography.h3, color: colors.primary[600] },
   filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[100],
-  },
-  filterContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
   },
   filterChip: {
     paddingHorizontal: spacing.md,
@@ -223,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[600],
   },
   filterLabel: {
-    ...typography.caption,
+    ...typography.bodySmall,
     color: colors.neutral[600],
     fontWeight: '500',
   },

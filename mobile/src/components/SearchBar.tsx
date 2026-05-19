@@ -8,7 +8,6 @@ import {
   Text,
   Modal,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,18 +35,23 @@ const TYPE_FILTERS: { key: TypeFilter; label: string; icon: keyof typeof Ionicon
   { key: 'audio', label: 'Audio', icon: 'musical-notes-outline' },
 ];
 
+const DOC_EXTS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'odt', 'ods']);
+
 function matchesFilter(file: FileItem, filter: TypeFilter): boolean {
   if (filter === 'all') return true;
-  const mime = file.mimeType ?? '';
-  const ext = file.name.toLowerCase().split('.').pop() ?? '';
-  if (filter === 'image') return mime.startsWith('image/');
+  const mime = (file.mimeType ?? '').toLowerCase();
+  const ext = (file.name.toLowerCase().split('.').pop()) ?? '';
+  if (filter === 'image') return mime.startsWith('image/') && mime !== 'image/heic' && mime !== 'image/heif';
   if (filter === 'video') return mime.startsWith('video/');
   if (filter === 'audio') return mime.startsWith('audio/');
   if (filter === 'document') {
     return (
-      mime.startsWith('application/') ||
+      DOC_EXTS.has(ext) ||
       mime === 'text/plain' ||
-      ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'].includes(ext)
+      mime.includes('pdf') ||
+      mime.includes('word') ||
+      mime.includes('spreadsheet') ||
+      mime.includes('presentation')
     );
   }
   return true;
@@ -118,12 +122,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
         </View>
 
         {/* Type filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterContent}
-        >
+        <View style={styles.filterRow}>
           {TYPE_FILTERS.map((f) => {
             const active = typeFilter === f.key;
             return (
@@ -137,7 +136,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
 
         {loading && (
           <View style={styles.loadingWrap}>
@@ -146,6 +145,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
         )}
 
         <FlatList
+          key={typeFilter}
           data={results}
           keyExtractor={(f) => f.id}
           contentContainerStyle={styles.list}
@@ -218,19 +218,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[100],
   },
-  filterContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[600],
   },
   filterLabel: {
-    ...typography.caption,
+    ...typography.bodySmall,
     color: colors.neutral[600],
     fontWeight: '500',
   },
