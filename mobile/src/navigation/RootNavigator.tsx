@@ -7,6 +7,7 @@ import { colors } from '../theme/colors';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import MfaVerifyScreen from '../screens/auth/MfaVerifyScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import TabNavigator from './TabNavigator';
 import TrashScreen from '../screens/main/TrashScreen';
 import AdminScreen from '../screens/main/AdminScreen';
@@ -68,6 +69,7 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           <Stack.Screen name="MfaVerify" component={MfaVerifyScreen} />
         </>
       )}

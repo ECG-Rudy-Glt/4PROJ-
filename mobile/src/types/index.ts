@@ -286,6 +286,7 @@ export interface Comment {
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
   MfaVerify: { tempToken: string; userId: string; mfaSetupRequired?: boolean; qrCode?: string; secret?: string };
   Main: undefined;
   Trash: undefined;

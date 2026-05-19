@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -81,9 +82,11 @@ export default function LoginScreen() {
       >
         {/* Logo / titre */}
         <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>S</Text>
-          </View>
+          <Image
+            source={require('../../../assets/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Bienvenue sur SUPFILE</Text>
           <Text style={styles.subtitle}>Connectez-vous pour accéder à vos fichiers</Text>
         </View>
@@ -133,6 +136,10 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.forgotRow} onPress={() => navigation.navigate('ForgotPassword')}>
+            <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+          </TouchableOpacity>
+
           {/* Lien inscription */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Vous n'avez pas de compte ? </Text>
@@ -161,19 +168,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing['2xl'],
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[600],
-    justifyContent: 'center',
-    alignItems: 'center',
+  logo: {
+    width: 80,
+    height: 80,
     marginBottom: spacing.lg,
-    ...shadows.lg,
-  },
-  logoText: {
-    ...typography.h1,
-    color: colors.white,
   },
   title: {
     ...typography.h3,
@@ -239,6 +237,15 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.button,
     color: colors.white,
+  },
+  forgotRow: {
+    alignItems: 'flex-end',
+    marginTop: spacing.sm,
+  },
+  forgotText: {
+    ...typography.caption,
+    color: colors.primary[600],
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import Toast from 'react-native-toast-message';
 import { useSocket } from '../hooks/useSocket';
 import { useNotificationStore } from '../stores/useNotificationStore';
+import { useFileStore } from '../stores/useFileStore';
 
 const getDataString = (data: Record<string, unknown> | undefined, key: string): string | undefined => {
   const value = data?.[key];
@@ -60,6 +61,8 @@ const formatNotificationToast = (notification: any) => {
 export default function SocketListener() {
   const socket = useSocket();
   const fetch = useNotificationStore((s) => s.fetch);
+  const fetchContents = useFileStore((s) => s.fetchContents);
+  const currentFolderId = useFileStore((s) => s.currentFolderId);
 
   // Initial load when socket comes up
   useEffect(() => {
@@ -74,20 +77,32 @@ export default function SocketListener() {
       fetch();
     };
 
-    const refreshOnly = () => {
-      fetch();
+    const refreshFiles = () => {
+      fetchContents(currentFolderId);
     };
 
     socket.on('notification_new', handleNotification);
     socket.on('notification:new', handleNotification);
-    socket.on('share_received', refreshOnly);
+    socket.on('share_received', () => { fetch(); fetchContents(currentFolderId); });
+    socket.on('file_uploaded', refreshFiles);
+    socket.on('file_updated', refreshFiles);
+    socket.on('file_deleted', refreshFiles);
+    socket.on('folder_created', refreshFiles);
+    socket.on('folder_deleted', refreshFiles);
+    socket.on('folder_updated', refreshFiles);
 
     return () => {
       socket.off('notification_new', handleNotification);
       socket.off('notification:new', handleNotification);
-      socket.off('share_received', refreshOnly);
+      socket.off('share_received');
+      socket.off('file_uploaded', refreshFiles);
+      socket.off('file_updated', refreshFiles);
+      socket.off('file_deleted', refreshFiles);
+      socket.off('folder_created', refreshFiles);
+      socket.off('folder_deleted', refreshFiles);
+      socket.off('folder_updated', refreshFiles);
     };
-  }, [socket, fetch]);
+  }, [socket, fetch, fetchContents, currentFolderId]);
 
   return null;
 }

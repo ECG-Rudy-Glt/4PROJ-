@@ -22,6 +22,18 @@ import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
 import { FileItem } from '../types';
 import { fileService } from '../services/fileService';
+import DocumentEditorModal from './DocumentEditorModal';
+
+const OFFICE_MIMES = new Set([
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+]);
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -104,6 +116,9 @@ export default function FilePreviewModal({
   const [downloading, setDownloading] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+
+  const canEdit = !!file && OFFICE_MIMES.has(file.mimeType ?? '') && !readOnly;
 
   const isImage = !!file && (file.mimeType?.startsWith('image/') ?? false);
   const isVideo = !!file && (file.mimeType?.startsWith('video/') ?? false);
@@ -239,6 +254,9 @@ export default function FilePreviewModal({
 
           <View style={[styles.actions, isFullscreen && styles.actionsCompact]}>
             <ActionButton icon="download-outline" label="Télécharger" onPress={handleDownload} loading={downloading} />
+            {canEdit && (
+              <ActionButton icon="create-outline" label="Modifier" onPress={() => setShowEditor(true)} color={colors.primary[600]} />
+            )}
             {!readOnly && onToggleFavorite && (
               <ActionButton
                 icon={file.isFavorite ? 'star' : 'star-outline'}
@@ -254,6 +272,12 @@ export default function FilePreviewModal({
           </View>
         </ScrollView>
       </View>
+
+      <DocumentEditorModal
+        file={file}
+        visible={showEditor}
+        onClose={() => setShowEditor(false)}
+      />
     </Modal>
   );
 }

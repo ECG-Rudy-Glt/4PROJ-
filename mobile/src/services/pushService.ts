@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import api from './api';
 
@@ -7,6 +8,15 @@ export interface PushSubscription {
   id: string;
   endpoint: string;
   createdAt: string;
+}
+
+function getProjectId(): string | undefined {
+  // Priorité : extra.eas.projectId (injecté par `eas init`) puis easConfig
+  return (
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    (Constants as any).easConfig?.projectId ??
+    undefined
+  );
 }
 
 async function getExpoPushToken(): Promise<string> {
@@ -33,7 +43,15 @@ async function getExpoPushToken(): Promise<string> {
     });
   }
 
-  const tokenData = await Notifications.getExpoPushTokenAsync();
+  const projectId = getProjectId();
+  if (!projectId) {
+    throw new Error(
+      'Projet Expo non initialisé.\n' +
+      'Exécutez "npx eas init" dans le dossier mobile pour activer les notifications push.'
+    );
+  }
+
+  const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
   return tokenData.data;
 }
 

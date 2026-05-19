@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +20,24 @@ import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { authService } from '../../services/authService';
 import { RootStackParamList } from '../../types';
+
+function validatePassword(password: string) {
+  return {
+    length: password.length >= 12,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+}
+
+const PASSWORD_RULES = [
+  { key: 'length' as const, label: 'Au moins 12 caractères' },
+  { key: 'uppercase' as const, label: 'Une majuscule' },
+  { key: 'lowercase' as const, label: 'Une minuscule' },
+  { key: 'number' as const, label: 'Un chiffre' },
+  { key: 'special' as const, label: 'Un caractère spécial' },
+];
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
@@ -33,13 +52,16 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const pwdChecks = validatePassword(password);
+  const isPasswordValid = Object.values(pwdChecks).every(Boolean);
+
   const handleRegister = async () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
       Toast.show({ type: 'error', text1: 'Veuillez remplir tous les champs' });
       return;
     }
-    if (password.length < 8) {
-      Toast.show({ type: 'error', text1: 'Le mot de passe doit contenir au moins 8 caractères' });
+    if (!isPasswordValid) {
+      Toast.show({ type: 'error', text1: 'Mot de passe trop faible', text2: 'Respectez toutes les règles ci-dessous' });
       return;
     }
     if (password !== confirmPassword) {
@@ -87,9 +109,11 @@ export default function RegisterScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>S</Text>
-          </View>
+          <Image
+            source={require('../../../assets/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Créer un compte</Text>
           <Text style={styles.subtitle}>Rejoignez SUPFILE et stockez vos fichiers en toute sécurité</Text>
         </View>
@@ -151,6 +175,19 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
 
+          {password.length > 0 && (
+            <View style={styles.passwordRules}>
+              {PASSWORD_RULES.map((rule) => (
+                <Text
+                  key={rule.key}
+                  style={[styles.ruleText, pwdChecks[rule.key] ? styles.ruleValid : styles.ruleInvalid]}
+                >
+                  {pwdChecks[rule.key] ? '✓' : '✗'} {rule.label}
+                </Text>
+              ))}
+            </View>
+          )}
+
           <Text style={styles.label}>Confirmer le mot de passe</Text>
           <TextInput
             style={styles.input}
@@ -201,19 +238,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing['2xl'],
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[600],
-    justifyContent: 'center',
-    alignItems: 'center',
+  logo: {
+    width: 80,
+    height: 80,
     marginBottom: spacing.lg,
-    ...shadows.lg,
-  },
-  logoText: {
-    ...typography.h1,
-    color: colors.white,
   },
   title: {
     ...typography.h3,
@@ -300,5 +328,20 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.primary[600],
     fontWeight: '600',
+  },
+  passwordRules: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    gap: 2,
+  },
+  ruleText: {
+    ...typography.caption,
+    fontSize: 12,
+  },
+  ruleValid: {
+    color: colors.primary[600],
+  },
+  ruleInvalid: {
+    color: colors.neutral[400],
   },
 });

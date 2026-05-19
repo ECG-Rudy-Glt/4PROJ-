@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../../theme/colors';
+import { useColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -42,11 +42,14 @@ const getCategoryIcon = (mimeType: string): keyof typeof Ionicons.glyphMap => {
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const user = useAuthStore((s) => s.user);
   const { data, loading, fetch } = useDashboardStore();
   const navigation = useNavigation<any>();
   const [showSearch, setShowSearch] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+
+  const styles = makeStyles(colors);
 
   useEffect(() => {
     fetch();
@@ -57,6 +60,10 @@ export default function DashboardScreen() {
   }, []);
 
   const quotaPercent = data ? Math.round((data.quotaUsed / data.quotaLimit) * 100) : 0;
+
+  // Répartition par type
+  const byType = data?.fileStats?.byMimeType ?? {};
+  const typeEntries = Object.entries(byType).slice(0, 4);
 
   return (
     <ScrollView
@@ -77,11 +84,31 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Stats rapides */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Ionicons name="document-outline" size={22} color={colors.primary[500]} />
+          <Text style={styles.statValue}>{data?.fileStats?.totalFiles ?? '–'}</Text>
+          <Text style={styles.statLabel}>Total fichiers</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Ionicons name="server-outline" size={22} color={colors.accent.bright} />
+          <Text style={styles.statValue}>{data?.fileStats ? formatSize(data.fileStats.totalSize) : '–'}</Text>
+          <Text style={styles.statLabel}>Espace utilisé</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Ionicons name="images-outline" size={22} color={colors.accent.warm} />
+          <Text style={styles.statValue}>{data?.quotaLimit ? formatSize(data.quotaLimit) : '–'}</Text>
+          <Text style={styles.statLabel}>Taille totale</Text>
+        </View>
+      </View>
+
       {/* Carte quota */}
       <View style={styles.quotaCard}>
         <View style={styles.quotaHeader}>
-          <Ionicons name="cloud-outline" size={22} color={colors.primary[600]} />
+          <Ionicons name="cloud-outline" size={20} color={colors.primary[600]} />
           <Text style={styles.quotaTitle}>Stockage</Text>
+          <Text style={styles.quotaPercent}>{quotaPercent}%</Text>
         </View>
         <View style={styles.progressBarBg}>
           <View
@@ -95,33 +122,33 @@ export default function DashboardScreen() {
           />
         </View>
         <Text style={styles.quotaText}>
-          {data ? `${formatSize(data.quotaUsed)} / ${formatSize(data.quotaLimit)}` : '...'}{' '}
-          <Text style={styles.quotaPercent}>({quotaPercent}%)</Text>
+          {data ? `${formatSize(data.quotaUsed)} utilisés sur ${formatSize(data.quotaLimit)}` : '...'}
         </Text>
       </View>
 
-      {/* Stats rapides */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Ionicons name="document-outline" size={24} color={colors.primary[500]} />
-          <Text style={styles.statValue}>{data?.fileStats?.totalFiles ?? '–'}</Text>
-          <Text style={styles.statLabel}>Fichiers</Text>
+      {/* Répartition par type */}
+      {typeEntries.length > 0 && (
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Répartition par type</Text>
+          {typeEntries.map(([mime, count]) => {
+            const icon = getCategoryIcon(mime);
+            const fileCount = (count as { count: number; size: number }).count;
+            const pct = data?.fileStats?.totalFiles
+              ? Math.round((fileCount / data.fileStats.totalFiles) * 100)
+              : 0;
+            return (
+              <View key={mime} style={styles.typeRow}>
+                <Ionicons name={icon} size={16} color={colors.primary[500]} style={{ width: 20 }} />
+                <Text style={styles.typeLabel} numberOfLines={1}>{mime.split('/')[1] ?? mime}</Text>
+                <View style={styles.typeBarBg}>
+                  <View style={[styles.typeBarFill, { width: `${pct}%` }]} />
+                </View>
+                <Text style={styles.typeCount}>{String(fileCount)}</Text>
+              </View>
+            );
+          })}
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="server-outline" size={24} color={colors.accent.bright} />
-          <Text style={styles.statValue}>{data?.fileStats ? formatSize(data.fileStats.totalSize) : '–'}</Text>
-          <Text style={styles.statLabel}>Utilisé</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Ionicons name="images-outline" size={24} color={colors.accent.warm} />
-          <Text style={styles.statValue}>
-            {data?.fileStats?.byMimeType
-              ? Object.keys(data.fileStats.byMimeType).length
-              : '–'}
-          </Text>
-          <Text style={styles.statLabel}>Types</Text>
-        </View>
-      </View>
+      )}
 
       {/* Fichiers récents */}
       <View style={styles.sectionHeader}>
@@ -169,150 +196,195 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.secondary,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['4xl'],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
-  },
-  greeting: {
-    ...typography.h2,
-    color: colors.primary[600],
-  },
-  subGreeting: {
-    ...typography.bodySmall,
-    color: colors.neutral[500],
-    marginTop: 2,
-  },
-  searchBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  quotaCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.md,
-  },
-  quotaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  quotaTitle: {
-    ...typography.h4,
-    color: colors.neutral[800],
-  },
-  progressBarBg: {
-    height: 8,
-    backgroundColor: colors.neutral[100],
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  quotaText: {
-    ...typography.bodySmall,
-    color: colors.neutral[600],
-  },
-  quotaPercent: {
-    color: colors.neutral[400],
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.xs,
-    ...shadows.sm,
-  },
-  statValue: {
-    ...typography.h4,
-    color: colors.neutral[800],
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.neutral[500],
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    color: colors.neutral[800],
-  },
-  seeAll: {
-    ...typography.bodySmall,
-    color: colors.primary[600],
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing['3xl'],
-    gap: spacing.md,
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.neutral[400],
-  },
-  fileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-    ...shadows.sm,
-  },
-  fileIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fileInfo: {
-    flex: 1,
-  },
-  fileName: {
-    ...typography.body,
-    color: colors.neutral[800],
-    fontWeight: '500',
-  },
-  fileMeta: {
-    ...typography.caption,
-    color: colors.neutral[400],
-    marginTop: 2,
-  },
-});
+function makeStyles(colors: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg.secondary,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing['4xl'],
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.lg,
+      marginTop: spacing.lg,
+    },
+    greeting: {
+      ...typography.h2,
+      color: colors.primary[600],
+    },
+    subGreeting: {
+      ...typography.bodySmall,
+      color: colors.neutral[500],
+      marginTop: 2,
+    },
+    searchBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: borderRadius.full,
+      backgroundColor: colors.white,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...shadows.sm,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      alignItems: 'center',
+      gap: spacing.xs,
+      ...shadows.sm,
+    },
+    statValue: {
+      ...typography.h4,
+      color: colors.neutral[800],
+      fontSize: 14,
+    },
+    statLabel: {
+      ...typography.caption,
+      color: colors.neutral[500],
+      textAlign: 'center',
+      fontSize: 10,
+    },
+    quotaCard: {
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.xl,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      ...shadows.md,
+    },
+    quotaHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    quotaTitle: {
+      ...typography.h4,
+      color: colors.neutral[800],
+      flex: 1,
+    },
+    progressBarBg: {
+      height: 8,
+      backgroundColor: colors.neutral[100],
+      borderRadius: borderRadius.full,
+      overflow: 'hidden',
+      marginBottom: spacing.sm,
+    },
+    progressBarFill: {
+      height: '100%',
+      borderRadius: borderRadius.full,
+    },
+    quotaText: {
+      ...typography.bodySmall,
+      color: colors.neutral[500],
+    },
+    quotaPercent: {
+      ...typography.bodySmall,
+      color: colors.neutral[400],
+      fontWeight: '600',
+    },
+    sectionCard: {
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.xl,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      ...shadows.sm,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    sectionTitle: {
+      ...typography.h4,
+      color: colors.neutral[800],
+      marginBottom: spacing.sm,
+    },
+    seeAll: {
+      ...typography.bodySmall,
+      color: colors.primary[600],
+      fontWeight: '600',
+    },
+    typeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    typeLabel: {
+      ...typography.caption,
+      color: colors.neutral[600],
+      width: 60,
+    },
+    typeBarBg: {
+      flex: 1,
+      height: 6,
+      backgroundColor: colors.neutral[100],
+      borderRadius: borderRadius.full,
+      overflow: 'hidden',
+    },
+    typeBarFill: {
+      height: '100%',
+      backgroundColor: colors.primary[400],
+      borderRadius: borderRadius.full,
+    },
+    typeCount: {
+      ...typography.caption,
+      color: colors.neutral[400],
+      width: 24,
+      textAlign: 'right',
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: spacing['3xl'],
+      gap: spacing.md,
+    },
+    emptyText: {
+      ...typography.body,
+      color: colors.neutral[400],
+    },
+    fileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      gap: spacing.md,
+      ...shadows.sm,
+    },
+    fileIconCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: borderRadius.full,
+      backgroundColor: colors.primary[50],
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    fileInfo: {
+      flex: 1,
+    },
+    fileName: {
+      ...typography.body,
+      color: colors.neutral[800],
+      fontWeight: '500',
+    },
+    fileMeta: {
+      ...typography.caption,
+      color: colors.neutral[400],
+      marginTop: 2,
+    },
+  });
+}
