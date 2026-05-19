@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -37,6 +38,7 @@ interface PendingShare {
 
 export default function SharedScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('pending');
   const [pending, setPending] = useState<PendingShare[]>([]);
   const [filesWithMe, setFilesWithMe] = useState<SharedFile[]>([]);
@@ -113,11 +115,11 @@ export default function SharedScreen() {
           ? await shareService.acceptSharedFolder(share.id)
           : await shareService.rejectSharedFolder(share.id);
       }
-      Toast.show({ type: 'success', text1: accepted ? 'Partage accepté' : 'Partage refusé' });
+      Toast.show({ type: 'success', text1: accepted ? t('shared.accepted') : t('shared.rejected') });
       setPending((prev) => prev.filter((s) => s.id !== share.id));
       if (accepted) fetchData();
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur' });
+      Toast.show({ type: 'error', text1: t('common.error') });
     } finally {
       setActionId(null);
     }
@@ -125,12 +127,12 @@ export default function SharedScreen() {
 
   const confirmPendingAction = (share: PendingShare, accepted: boolean) => {
     Alert.alert(
-      accepted ? 'Accepter ce partage ?' : 'Refuser ce partage ?',
+      accepted ? t('shared.accept_confirm') : t('shared.reject_confirm'),
       share.name,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: accepted ? 'Accepter' : 'Refuser',
+          text: accepted ? t('shared.accept_btn') : t('shared.reject_btn'),
           style: accepted ? 'default' : 'destructive',
           onPress: () => handlePendingAction(share, accepted),
         },
@@ -139,20 +141,20 @@ export default function SharedScreen() {
   };
 
   const handleRevokeShare = (type: 'file' | 'folder', shareId: string, name: string) => {
-    Alert.alert('Révoquer le partage', `Révoquer le partage de "${name}" ?`, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('shared.revoke_title'), t('shared.revoke_confirm', { name }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Révoquer', style: 'destructive', onPress: async () => {
+        text: t('shared.revoke_btn'), style: 'destructive', onPress: async () => {
           try {
             if (type === 'file') {
               await shareService.removeSharedFile(shareId);
             } else {
               await shareService.removeSharedFolder(shareId);
             }
-            Toast.show({ type: 'success', text1: 'Partage révoqué' });
+            Toast.show({ type: 'success', text1: t('shared.revoked') });
             fetchData();
           } catch {
-            Toast.show({ type: 'error', text1: 'Erreur' });
+            Toast.show({ type: 'error', text1: t('common.error') });
           }
         },
       },
@@ -165,7 +167,7 @@ export default function SharedScreen() {
       const data = await shareService.getSharedFolderContents(folderId, rootFolderId);
       setFolderContents(data);
     } catch {
-      Toast.show({ type: 'error', text1: 'Impossible de charger le contenu du dossier' });
+      Toast.show({ type: 'error', text1: t('shared.folder_load_error') });
     } finally {
       setFolderContentsLoading(false);
     }
@@ -200,7 +202,7 @@ export default function SharedScreen() {
   };
 
   const getUserName = (user?: { email: string; firstName?: string; lastName?: string }) => {
-    if (!user) return 'Inconnu';
+    if (!user) return t('shared.unknown');
     if (user.firstName) return `${user.firstName} ${user.lastName || ''}`.trim();
     return user.email;
   };
@@ -225,7 +227,7 @@ export default function SharedScreen() {
       </View>
       <View style={styles.shareInfo}>
         <Text style={styles.shareName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.shareMeta}>De {getUserName(item.sharedBy)}</Text>
+        <Text style={styles.shareMeta}>{t('shared.from', { name: getUserName(item.sharedBy) })}</Text>
         {item.fileSize != null && (
           <Text style={styles.shareMeta}>
             {(item.fileSize / 1024 / 1024).toFixed(2)} MB
@@ -264,10 +266,10 @@ export default function SharedScreen() {
     const handlePress = () => {
       if (isFolder && tab === 'withMe') {
         const sf = item.data as SharedFolder;
-        openSharedFolder(sf.folderId, name || 'Dossier');
+        openSharedFolder(sf.folderId, name || t('common.loading'));
       } else if (!isFolder) {
         if (!fileItem) {
-          Toast.show({ type: 'error', text1: 'Fichier introuvable' });
+          Toast.show({ type: 'error', text1: t('shared.file_not_found') });
           return;
         }
         const isShared = tab === 'withMe';
@@ -293,12 +295,12 @@ export default function SharedScreen() {
         <View style={styles.shareInfo}>
           <Text style={styles.shareName} numberOfLines={1}>{name || '–'}</Text>
           <Text style={styles.shareMeta}>
-            {tab === 'withMe' ? `Par ${getUserName(partner)}` : `Avec ${getUserName(partner)}`}
+            {tab === 'withMe' ? t('shared.by', { name: getUserName(partner) }) : t('shared.with', { name: getUserName(partner) })}
           </Text>
           <View style={styles.permRow}>
-            {sf.canWrite && <PermBadge label="Écriture" />}
-            {sf.canDelete && <PermBadge label="Suppression" />}
-            {sf.canShare && <PermBadge label="Partage" />}
+            {sf.canWrite && <PermBadge label={t('shared.perm_write')} />}
+            {sf.canDelete && <PermBadge label={t('shared.perm_delete')} />}
+            {sf.canShare && <PermBadge label={t('shared.perm_share')} />}
           </View>
         </View>
         {tab === 'byMe' && (
@@ -315,7 +317,7 @@ export default function SharedScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Partages</Text>
+      <Text style={styles.title}>{t('shared.title')}</Text>
 
       {/* Tabs */}
       <View style={styles.tabs}>
@@ -324,7 +326,7 @@ export default function SharedScreen() {
           onPress={() => setTab('pending')}
         >
           <Text style={[styles.tabText, tab === 'pending' && styles.tabTextActive]}>
-            En attente
+            {t('shared.tab_pending')}
           </Text>
           {pending.length > 0 && (
             <View style={styles.tabBadge}>
@@ -337,7 +339,7 @@ export default function SharedScreen() {
           onPress={() => setTab('withMe')}
         >
           <Text style={[styles.tabText, tab === 'withMe' && styles.tabTextActive]}>
-            Avec moi
+            {t('shared.tab_with_me')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -345,7 +347,7 @@ export default function SharedScreen() {
           onPress={() => setTab('byMe')}
         >
           <Text style={[styles.tabText, tab === 'byMe' && styles.tabTextActive]}>
-            Par moi
+            {t('shared.tab_by_me')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -362,8 +364,8 @@ export default function SharedScreen() {
             !loading ? (
               <EmptyState
                 icon="checkmark-circle-outline"
-                title="Aucun partage en attente"
-                subtitle="Vous n'avez aucune invitation en attente"
+                title={t('shared.empty_pending_title')}
+                subtitle={t('shared.empty_pending_sub')}
               />
             ) : null
           }
@@ -383,10 +385,8 @@ export default function SharedScreen() {
             !loading ? (
               <EmptyState
                 icon="people-outline"
-                title="Aucun partage"
-                subtitle={tab === 'withMe'
-                  ? "Aucun fichier partagé avec vous"
-                  : "Vous n'avez partagé aucun fichier"}
+                title={t('shared.empty_shared_title')}
+                subtitle={tab === 'withMe' ? t('shared.empty_with_me') : t('shared.empty_by_me')}
               />
             ) : null
           }
@@ -446,7 +446,7 @@ export default function SharedScreen() {
               keyExtractor={(item) => `${item.kind}-${item.data.id}`}
               contentContainerStyle={styles.list}
               ListEmptyComponent={
-                <EmptyState icon="folder-open-outline" title="Dossier vide" subtitle="Ce dossier ne contient aucun fichier" />
+                <EmptyState icon="folder-open-outline" title={t('shared.folder_empty_title')} subtitle={t('shared.folder_empty_sub')} />
               }
               renderItem={({ item }) => (
                 <TouchableOpacity

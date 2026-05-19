@@ -19,11 +19,11 @@
 | MFA dans les paramètres | ✅ Complet | 🟡 Partiel | Pas de désactivation, codes, trusted devices |
 | Comptes multiples | ✅ Complet | ✅ Complet | — |
 | Administration | ✅ Complet | 🟡 Partiel | Pas d'export CSV |
-| Coffre-fort (Vault) | ✅ Complet | ❌ Absent | — |
-| Journal d'audit | ✅ Complet | ❌ Absent | — |
+| Coffre-fort (Vault) | ✅ Complet | ✅ Complet | — |
+| Journal d'audit | ✅ Complet | ✅ Complet | — |
 | Organisations | ✅ Complet | ❌ Absent | — |
-| Plans & Billing (Stripe) | ✅ Complet | ❌ Absent | — |
-| Assistant IA Bobby | ✅ Complet | ❌ Absent | — |
+| Plans & Billing (Stripe) | ✅ Complet | ✅ Complet | — |
+| Assistant IA Bobby | ✅ Complet | ✅ Complet | — |
 
 ---
 
@@ -43,7 +43,7 @@
 | MFA TOTP — vérification à la connexion | ✅ | ✅ |
 | Gestion session JWT sécurisée (SecureStore) | ✅ | ✅ |
 | Déconnexion globale (toutes sessions) | ✅ | ✅ |
-| Trusted devices (liste & révocation) | ✅ | ❌ |
+| Trusted devices (liste & révocation) | ✅ | ✅ |
 
 ---
 
@@ -67,7 +67,7 @@
 | Tri (nom, date, taille) | ✅ | ❌ |
 | Filtres avancés (type MIME, date, taille) | ✅ | ❌ |
 | Filtre par tag | ✅ | ✅ |
-| Téléchargement de dossier en ZIP | ✅ | ❌ |
+| Téléchargement de dossier en ZIP | ✅ | ✅ |
 | Actualisation temps réel (WebSocket) | ✅ | ✅ |
 
 ---
@@ -93,7 +93,7 @@
 | Audio (MP3, streaming) | ✅ | ✅ |
 | PDF (via WebView) | ✅ | ✅ |
 | Texte brut / Markdown | ✅ | ❌ |
-| Documents Office (OnlyOffice) | ✅ | ❌ |
+| Documents Office (OnlyOffice) | ✅ | ✅ |
 | Téléchargement depuis la prévisualisation | ✅ | ✅ |
 
 ---

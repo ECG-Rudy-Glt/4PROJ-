@@ -18,6 +18,7 @@ import { useColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
+import { useTranslation } from 'react-i18next';
 import { aiService, ChatMessage } from '../../services/aiService';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { isFeatureAvailableForPlan } from '../../constants/plans';
@@ -35,6 +36,7 @@ interface Message {
 
 export default function AIScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const userPlan = useAuthStore((state) => state.user?.plan);
   const canUseAi = isFeatureAvailableForPlan(userPlan, 'aiChat');
   const [showPlans, setShowPlans] = useState(false);
@@ -43,7 +45,7 @@ export default function AIScreen() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Bonjour, je suis Bobby. Comment puis-je vous aider avec vos fichiers ?',
+      text: t('ai.initial_message'),
       sender: 'ai',
       timestamp: new Date(),
     },
@@ -61,7 +63,7 @@ export default function AIScreen() {
     const text = input.trim();
     if (!text || loading) return;
     if (!canUseAi) {
-      Toast.show({ type: 'info', text1: 'Bobby nécessite le plan PRO ou supérieur' });
+      Toast.show({ type: 'info', text1: t('ai.plan_required') });
       return;
     }
 
@@ -85,9 +87,9 @@ export default function AIScreen() {
       ]);
     } catch (error: any) {
       if (error?.response?.data?.code === 'PLAN_UPGRADE_REQUIRED') {
-        Toast.show({ type: 'info', text1: 'Bobby nécessite le plan PRO ou supérieur' });
+        Toast.show({ type: 'info', text1: t('ai.plan_required') });
       } else {
-        Toast.show({ type: 'error', text1: 'Erreur de connexion avec Bobby' });
+        Toast.show({ type: 'error', text1: t('ai.connection_error') });
       }
     } finally {
       setLoading(false);
@@ -97,7 +99,7 @@ export default function AIScreen() {
   const openPlans = () => setShowPlans(true);
 
   const formatTime = (d: Date) =>
-    d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <KeyboardAvoidingView
@@ -109,7 +111,7 @@ export default function AIScreen() {
         <ExpoImage source={loading ? BOBBY_WORKING : BOBBY_IDLE} style={styles.headerAvatar} contentFit="contain" />
         <View>
           <Text style={styles.headerTitle}>Bobby</Text>
-          <Text style={styles.headerSub}>{loading ? 'En train de répondre...' : 'Assistant IA'}</Text>
+          <Text style={styles.headerSub}>{loading ? t('ai.header_sub_loading') : t('ai.header_sub_idle')}</Text>
         </View>
       </View>
 
@@ -124,12 +126,10 @@ export default function AIScreen() {
             <View style={styles.upgradeIcon}>
               <Ionicons name="sparkles" size={28} color={colors.primary[600]} />
             </View>
-            <Text style={styles.upgradeTitle}>Bobby est inclus à partir du plan PRO</Text>
-            <Text style={styles.upgradeText}>
-              Passez à un plan supérieur pour utiliser l'assistant IA, analyser vos fichiers et lancer des recherches intelligentes.
-            </Text>
+            <Text style={styles.upgradeTitle}>{t('ai.upgrade_title')}</Text>
+            <Text style={styles.upgradeText}>{t('ai.upgrade_text')}</Text>
             <TouchableOpacity style={styles.upgradeButton} onPress={openPlans}>
-              <Text style={styles.upgradeButtonText}>Voir les plans</Text>
+              <Text style={styles.upgradeButtonText}>{t('ai.upgrade_btn')}</Text>
             </TouchableOpacity>
           </View>
         ) : messages.map((msg) => (
@@ -157,7 +157,7 @@ export default function AIScreen() {
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder={canUseAi ? 'Posez une question sur vos fichiers...' : 'Plan PRO requis pour utiliser Bobby'}
+          placeholder={canUseAi ? t('ai.placeholder_active') : t('ai.placeholder_locked')}
           placeholderTextColor={colors.neutral[400]}
           multiline
           maxLength={1000}

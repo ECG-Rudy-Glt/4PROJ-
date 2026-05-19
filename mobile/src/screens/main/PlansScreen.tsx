@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import Toast from 'react-native-toast-message';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { billingService } from '../../services/billingService';
 import { Plan } from '../../types';
 
 type PlanDef = {
@@ -88,6 +91,23 @@ const PLANS: PlanDef[] = [
 export default function PlansScreen() {
   const navigation = useNavigation();
   const currentPlan = useAuthStore((s) => s.user?.plan) ?? 'FREE';
+  const [checkoutLoading, setCheckoutLoading] = useState<Plan | null>(null);
+
+  const handleUpgrade = async (planId: Plan) => {
+    if (planId === 'ENTERPRISE') {
+      await WebBrowser.openBrowserAsync('mailto:contact@supfile.fr');
+      return;
+    }
+    setCheckoutLoading(planId);
+    try {
+      const { url } = await billingService.createCheckoutSession(planId);
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Impossible d\'ouvrir le paiement' });
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -144,13 +164,15 @@ export default function PlansScreen() {
 
               {!isCurrent && (
                 <TouchableOpacity
-                  style={[styles.upgradeBtn, { backgroundColor: plan.color }]}
-                  onPress={() => {}}
+                  style={[styles.upgradeBtn, { backgroundColor: plan.color }, checkoutLoading === plan.id && { opacity: 0.7 }]}
+                  onPress={() => handleUpgrade(plan.id)}
                   activeOpacity={0.8}
+                  disabled={checkoutLoading !== null}
                 >
-                  <Text style={styles.upgradeBtnText}>
-                    {plan.id === 'ENTERPRISE' ? 'Nous contacter' : 'Choisir ce forfait'}
-                  </Text>
+                  {checkoutLoading === plan.id
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.upgradeBtnText}>{plan.id === 'ENTERPRISE' ? 'Nous contacter' : 'Choisir ce forfait'}</Text>
+                  }
                 </TouchableOpacity>
               )}
             </View>

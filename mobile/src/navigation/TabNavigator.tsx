@@ -16,6 +16,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const tabIcons: Record<string, { focused: keyof typeof Ionicons.glyphMap; default: keyof typeof Ionicons.glyphMap }> = {
   Dashboard: { focused: 'home', default: 'home-outline' },
   Files: { focused: 'folder', default: 'folder-outline' },
+  Favorites: { focused: 'heart', default: 'heart-outline' },
   Shared: { focused: 'people', default: 'people-outline' },
   AI: { focused: 'hardware-chip', default: 'hardware-chip-outline' },
   Settings: { focused: 'settings', default: 'settings-outline' },
@@ -50,6 +51,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: t('tabs.dashboard') }} />
       <Tab.Screen name="Files" component={FilesScreen} options={{ tabBarLabel: t('tabs.files') }} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: t('tabs.favorites') }} />
       <Tab.Screen name="Shared" component={SharedScreen} options={{ tabBarLabel: t('tabs.shared') }} />
       <Tab.Screen name="AI" component={AIScreen} options={{ tabBarLabel: t('tabs.ai') }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tabs.profile') }} />

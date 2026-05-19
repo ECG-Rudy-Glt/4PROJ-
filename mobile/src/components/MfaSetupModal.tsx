@@ -11,6 +11,8 @@ import {
   Alert,
   ActivityIndicator,
   Share as RNShare,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -41,9 +43,11 @@ export default function MfaSetupModal({ visible, onClose }: Props) {
 
   useEffect(() => {
     if (visible) {
+      setStep('loading');
       setCode('');
       setSetup(null);
       setBackupCodes([]);
+      setStatus(null);
       loadStatus();
     }
   }, [visible]);
@@ -145,6 +149,10 @@ export default function MfaSetupModal({ visible, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={styles.kavContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.grabber} />
@@ -306,11 +314,15 @@ export default function MfaSetupModal({ visible, onClose }: Props) {
           </ScrollView>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  kavContainer: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

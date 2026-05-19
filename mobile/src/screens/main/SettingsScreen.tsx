@@ -29,6 +29,7 @@ import { shadows } from '../../theme/shadows';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { authService } from '../../services/authService';
+import { mfaService } from '../../services/mfaService';
 import { RootStackParamList, TabParamList } from '../../types';
 import NotificationCenter from '../../components/NotificationCenter';
 import MfaSetupModal from '../../components/MfaSetupModal';
@@ -82,6 +83,9 @@ export default function SettingsScreen() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [trustedDevices, setTrustedDevices] = useState<any[]>([]);
+  const [loadingTrustedDevices, setLoadingTrustedDevices] = useState(false);
+  const [showTrustedDevices, setShowTrustedDevices] = useState(false);
   const { lang, setLang } = useI18nStore();
   const [language, setLanguageLocal] = useState<'fr' | 'en'>((user as any)?.language ?? lang);
 
@@ -101,11 +105,46 @@ export default function SettingsScreen() {
     setAppLanguage(l);
   };
 
+  const loadTrustedDevices = async () => {
+    setLoadingTrustedDevices(true);
+    try {
+      const devices = await mfaService.getTrustedDevices();
+      setTrustedDevices(devices);
+    } catch {
+      Toast.show({ type: 'error', text1: t('common.error') });
+    } finally {
+      setLoadingTrustedDevices(false);
+    }
+  };
+
+  const handleRevokeTrustedDevice = (deviceId: string) => {
+    Alert.alert(
+      t('settings.trusted_devices_revoke'),
+      t('settings.trusted_devices_revoke_confirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.trusted_devices_revoke'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mfaService.revokeTrustedDevice(deviceId);
+              Toast.show({ type: 'success', text1: t('settings.trusted_devices_revoked') });
+              loadTrustedDevices();
+            } catch {
+              Toast.show({ type: 'error', text1: t('settings.trusted_devices_revoke_error') });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const loadSessions = async () => {
     setLoadingSessions(true);
     try {
       const res = await api.get('/auth/sessions');
-      setSessions(res.data?.data ?? []);
+      setSessions(Array.isArray(res.data) ? res.data : []);
     } catch {
       Toast.show({ type: 'error', text1: t('common.error') });
     } finally {
@@ -493,6 +532,49 @@ export default function SettingsScreen() {
               <Ionicons name="log-out-outline" size={16} color={colors.error} />
               <Text style={styles.logoutAllText}>{t('settings.sessions_logout_all')}</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => {
+            setShowTrustedDevices((prev) => !prev);
+            if (!showTrustedDevices) loadTrustedDevices();
+          }}
+        >
+          <Ionicons name="phone-portrait-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.trusted_devices')}</Text>
+          <Ionicons name={showTrustedDevices ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        {showTrustedDevices && (
+          <View style={styles.sessionsSection}>
+            {loadingTrustedDevices ? (
+              <ActivityIndicator color={colors.primary[600]} />
+            ) : trustedDevices.length === 0 ? (
+              <Text style={styles.emptyText}>{t('settings.trusted_devices_empty')}</Text>
+            ) : (
+              trustedDevices.map((d: any) => (
+                <View key={d.id} style={styles.sessionRow}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={colors.neutral[400]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sessionDevice}>{d.deviceName ?? t('common.unknown_device')}</Text>
+                    <Text style={styles.sessionMeta}>
+                      IP : {d.ipAddress ?? '–'} · {t('settings.trusted_devices_last_used', { date: d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleDateString('fr-FR') : '–' })}
+                    </Text>
+                    <Text style={styles.sessionMeta}>
+                      {t('settings.trusted_devices_expires', { date: d.expiresAt ? new Date(d.expiresAt).toLocaleDateString('fr-FR') : '–' })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleRevokeTrustedDevice(d.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
           </View>
         )}
       </View>

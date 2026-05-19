@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -12,6 +13,7 @@ import FilePreviewModal from '../../components/FilePreviewModal';
 
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
@@ -40,7 +42,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Favoris</Text>
+      <Text style={styles.title}>{t('favorites.title')}</Text>
 
       <FlatList
         data={files}
@@ -53,8 +55,8 @@ export default function FavoritesScreen() {
           !loading ? (
             <EmptyState
               icon="star-outline"
-              title="Aucun favori"
-              subtitle="Marquez des fichiers comme favoris pour les retrouver ici"
+              title={t('favorites.empty_title')}
+              subtitle={t('favorites.empty_sub')}
             />
           ) : null
         }
