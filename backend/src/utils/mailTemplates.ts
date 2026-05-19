@@ -375,27 +375,48 @@ export const getPasswordResetEmail = (lang: string, userName: string, resetLink:
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${subject}</title>
     </head>
-    <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#1f2937;">
+    <body style="margin:0;padding:0;background:#F5F3EF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1F2937;">
       <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>
-      <div style="max-width:620px;margin:0 auto;padding:24px 16px;">
-        <div style="text-align:center;margin-bottom:20px;">
-          ${logoUrl ? `<img src="${logoUrl}" alt="SupFile Logo" style="width:180px;max-width:100%;height:auto;">` : '<h1 style="margin:0;color:#4f46e5;">SupFile</h1>'}
+      <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
+
+        <!-- Header -->
+        <div style="background:#254441;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
+          ${logoUrl
+            ? `<img src="${logoUrl}" alt="SupFile" style="height:36px;max-width:160px;">`
+            : '<span style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">SupFile</span>'
+          }
         </div>
-        <div style="background:#ffffff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,0.08);padding:28px;">
-          <h2 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#4f46e5;text-align:center;">${title}</h2>
-          <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#4b5563;">${greeting}</p>
-          <p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#4b5563;">${description}</p>
-          <div style="text-align:center;margin:24px 0;">
-            <a href="${resetLink}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">${ctaText}</a>
+
+        <!-- Card -->
+        <div style="background:#ffffff;padding:36px 32px;box-shadow:0 4px 24px rgba(37,68,65,0.10);">
+
+          <!-- Icon -->
+          <div style="text-align:center;margin-bottom:24px;">
+            <div style="display:inline-block;background:#e6f2f1;border-radius:50%;width:64px;height:64px;line-height:64px;text-align:center;font-size:28px;">🔐</div>
           </div>
-          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;text-align:center;">
-            <p style="margin:0;font-size:14px;color:#9a3412;">⚠️ ${warning}</p>
+
+          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#254441;text-align:center;">${title}</h2>
+          <p style="margin:0 0 24px;font-size:14px;color:#6B7280;text-align:center;">${greeting}</p>
+
+          <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#374151;">${description}</p>
+
+          <!-- CTA -->
+          <div style="text-align:center;margin:0 0 28px;">
+            <a href="${resetLink}" style="display:inline-block;background:#254441;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.2px;">${ctaText}</a>
+          </div>
+
+          <!-- Warning -->
+          <div style="background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:6px;padding:12px 16px;">
+            <p style="margin:0;font-size:13px;color:#92400E;font-weight:500;">⏱ ${warning}</p>
           </div>
         </div>
-        <div style="text-align:center;margin-top:18px;color:#6b7280;font-size:12px;line-height:1.6;">
-          <p style="margin:0 0 8px;">${ignoreText}</p>
-          <p style="margin:0;">${footer}</p>
+
+        <!-- Footer -->
+        <div style="background:#e6f2f1;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:12px;color:#4B5563;">${ignoreText}</p>
+          <p style="margin:0;font-size:11px;color:#9CA3AF;">${footer}</p>
         </div>
+
       </div>
     </body>
     </html>

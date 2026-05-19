@@ -299,9 +299,6 @@
 
 | Priorité | Fonctionnalité manquante | Complexité |
 | :--- | :--- | :---: |
-| 🔴 Haute | Filtres avancés dans la recherche (type, date, taille) | Faible |R
-| 🔴 Haute | Tri des fichiers (nom, date, taille) | Faible |R
-| 🔴 Haute | Vider la corbeille (bouton global) | Faible |R
 | 🔴 Haute | Filtres dans le journal d'audit 
 | Faible |R
 | 🔴 Haute | Partage publique 
@@ -310,10 +307,5 @@
 | Faible |
 | 🟠 Moyenne | Mot de passe oublié / réinitialisation | Faible |
 | 🟠 Moyenne | Prévisualisation texte / Markdown | Faible |
-| 🟠 Moyenne | Édition de tag (renommer, recolorer) | Faible |
-| 🟠 Moyenne | Flux d'activité dans le Dashboard | Moyenne |
 | 🟠 Moyenne | Téléchargement dossier en ZIP | Faible |
-| 🟠 Moyenne | Export CSV admin | Faible |
 | 🟠 Moyenne | Gestion trusted devices (liste & révocation) | Faible |
-| 🟡 Basse | OAuth Google / GitHub | Moyenne |
-| 🟡 Basse | Organisations | Élevée |

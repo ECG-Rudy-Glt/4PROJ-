@@ -119,7 +119,7 @@ app.use([
   '/api/mfa/verify-backup-code',
 ], rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: process.env.NODE_ENV === 'production' ? 5 : 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many sensitive requests, please try again later.' },

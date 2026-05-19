@@ -202,7 +202,7 @@ export class AuthController {
 
   static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { token, newPassword, mfaCode } = req.body;
+      const { token, newPassword, mfaCode, forceReset } = req.body;
       if (!token || !newPassword) {
         sendError(res, 'Token et nouveau mot de passe requis', 400);
         return;
@@ -213,7 +213,7 @@ export class AuthController {
         return;
       }
 
-      const result = await AuthService.resetPassword(token, newPassword, mfaCode);
+      const result = await AuthService.resetPassword(token, newPassword, mfaCode, !!forceReset);
       sendSuccess(res, result);
     } catch (error) {
       next(error);
