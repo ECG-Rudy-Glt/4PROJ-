@@ -5,6 +5,8 @@ import api from '@/services/api';
 
 interface OfficePreviewProps {
   file: File;
+  isDelegatedSession?: boolean;
+  onDownload?: () => void;
 }
 
 declare global {
@@ -16,7 +18,7 @@ declare global {
 // Erreurs OnlyOffice connues sur ARM64 (Mac Apple Silicon)
 const ARM64_ERROR_CODES = [-85, -88, -4];
 
-export const OfficePreview: React.FC<OfficePreviewProps> = ({ file }) => {
+export const OfficePreview: React.FC<OfficePreviewProps> = ({ file, isDelegatedSession = false, onDownload }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isArm64Error, setIsArm64Error] = useState(false);
@@ -33,6 +35,34 @@ export const OfficePreview: React.FC<OfficePreviewProps> = ({ file }) => {
     }
     return <FileText className="w-16 h-16 text-blue-500" />;
   };
+
+  // Delegated/switch sessions never carry the owner's DEK → OnlyOffice always returns 401.
+  // Show a clear UX message instead of crashing.
+  if (isDelegatedSession) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-gray-100 dark:bg-gray-900 rounded-lg p-8">
+        {getFileIcon()}
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4 mb-2">
+          Aperçu Office indisponible
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 text-center mb-1 max-w-md">
+          Ce document est chiffré et ne peut pas être prévisualisé dans une session déléguée.
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-500 text-center mb-5 max-w-md">
+          Connectez-vous directement au compte propriétaire pour accéder à la prévisualisation OnlyOffice.
+        </p>
+        {onDownload && (
+          <button
+            onClick={onDownload}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Download className="w-5 h-5" />
+            Télécharger le fichier
+          </button>
+        )}
+      </div>
+    );
+  }
 
   const handleDownload = async () => {
     try {

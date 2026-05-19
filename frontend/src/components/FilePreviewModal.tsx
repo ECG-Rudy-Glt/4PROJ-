@@ -11,6 +11,7 @@ import { commentService } from '@/services/commentService';
 import { DocumentEditor } from './DocumentEditor';
 import { OfficePreview } from './OfficePreview';
 import MarkdownPreview from './MarkdownPreview';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 interface FilePreviewModalProps {
   file: FileType;
@@ -19,17 +20,16 @@ interface FilePreviewModalProps {
   shareAccessToken?: string | null;
 }
 
-// Liste des types MIME éditables avec OnlyOffice
 const editableMimeTypes = [
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/msword', // .doc
-  'application/vnd.oasis.opendocument.text', // .odt
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/vnd.ms-excel', // .xls
-  'application/vnd.oasis.opendocument.spreadsheet', // .ods
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-  'application/vnd.ms-powerpoint', // .ppt
-  'application/vnd.oasis.opendocument.presentation', // .odp
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.oasis.opendocument.presentation',
 ];
 
 const canEditDocument = (mimeType: string) => editableMimeTypes.includes(mimeType);
@@ -41,9 +41,11 @@ const isExecutable = (fileName: string) => {
 
 function authFetch(url: string, shareAccessToken?: string | null): Promise<Response> {
   const token = localStorage.getItem('token');
+  const switchSessionId = localStorage.getItem('switchSessionId');
   return fetch(url, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(switchSessionId ? { 'x-switch-session': switchSessionId } : {}),
       ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
     },
   });
@@ -51,7 +53,6 @@ function authFetch(url: string, shareAccessToken?: string | null): Promise<Respo
 
 function ImagePreview({ src, alt, shareAccessToken }: { src: string; alt: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
   useEffect(() => {
     let objectUrl: string;
     authFetch(src, shareAccessToken)
@@ -60,14 +61,12 @@ function ImagePreview({ src, alt, shareAccessToken }: { src: string; alt: string
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [src, shareAccessToken]);
-
   if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
   return <img src={blobUrl} alt={alt} className="max-w-full max-h-[70vh] object-contain rounded" />;
 }
 
 function VideoPreview({ src, mimeType, shareAccessToken }: { src: string; mimeType: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
   useEffect(() => {
     let objectUrl: string;
     authFetch(src, shareAccessToken)
@@ -76,7 +75,6 @@ function VideoPreview({ src, mimeType, shareAccessToken }: { src: string; mimeTy
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [src, shareAccessToken]);
-
   if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
   return (
     <video controls className="w-full max-h-[70vh]" preload="metadata" src={blobUrl}>
@@ -88,7 +86,6 @@ function VideoPreview({ src, mimeType, shareAccessToken }: { src: string; mimeTy
 
 function AudioPreview({ src, mimeType, fileName, shareAccessToken }: { src: string; mimeType: string; fileName: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
   useEffect(() => {
     let objectUrl: string;
     authFetch(src, shareAccessToken)
@@ -97,7 +94,6 @@ function AudioPreview({ src, mimeType, fileName, shareAccessToken }: { src: stri
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [src, shareAccessToken]);
-
   return (
     <div className="mb-4 p-6 bg-white dark:bg-gray-800 rounded-lg text-center">
       <svg className="w-20 h-20 mx-auto mb-3 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
@@ -119,7 +115,6 @@ function AudioPreview({ src, mimeType, fileName, shareAccessToken }: { src: stri
 function CsvPreview({ downloadUrl, shareAccessToken }: { downloadUrl: string; shareAccessToken?: string | null }) {
   const [rows, setRows] = useState<string[][]>([]);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     authFetch(downloadUrl, shareAccessToken)
       .then((r) => r.text())
@@ -131,22 +126,17 @@ function CsvPreview({ downloadUrl, shareAccessToken }: { downloadUrl: string; sh
       })
       .catch(() => setError('Impossible de charger le fichier CSV'));
   }, [downloadUrl, shareAccessToken]);
-
   if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
   if (rows.length === 0) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
-
   const headers = rows[0];
   const body = rows.slice(1);
-
   return (
     <div className="overflow-auto max-h-[65vh] rounded-lg border border-gray-200 dark:border-gray-700">
       <table className="min-w-full text-sm">
         <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
           <tr>
             {headers.map((h, i) => (
-              <th key={i} className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">
-                {h}
-              </th>
+              <th key={i} className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
@@ -154,9 +144,7 @@ function CsvPreview({ downloadUrl, shareAccessToken }: { downloadUrl: string; sh
           {body.map((row, i) => (
             <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
               {headers.map((_, j) => (
-                <td key={j} className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                  {row[j] ?? ''}
-                </td>
+                <td key={j} className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row[j] ?? ''}</td>
               ))}
             </tr>
           ))}
@@ -172,17 +160,12 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite, shareA
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     authFetch(downloadUrl, shareAccessToken)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
       .then((text) => { setContent(text); setEdited(text); })
       .catch(() => setError('Impossible de charger le fichier'));
   }, [downloadUrl, shareAccessToken]);
-
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -192,10 +175,7 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite, shareA
       formData.append('files', newFile);
       formData.append('replaceFileId', fileId);
       await api.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
-        },
+        headers: { 'Content-Type': 'multipart/form-data', ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}) },
       });
       setContent(edited);
       setIsEditing(false);
@@ -206,10 +186,8 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite, shareA
       setIsSaving(false);
     }
   };
-
   if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
   if (content === null) return <p className="text-gray-400 text-sm p-4">Chargement...</p>;
-
   return (
     <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between px-3 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -217,37 +195,22 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite, shareA
         <div className="flex items-center gap-2">
           {isEditing ? (
             <>
-              <button
-                onClick={() => { setEdited(content); setIsEditing(false); }}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              >
+              <button onClick={() => { setEdited(content); setIsEditing(false); }} className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                 <X className="w-3 h-3" /> Annuler
               </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors disabled:opacity-50">
                 <Save className="w-3 h-3" /> {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
               </button>
             </>
           ) : canWrite ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            >
+            <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
               <Pencil className="w-3 h-3" /> Modifier
             </button>
           ) : null}
         </div>
       </div>
       {isEditing ? (
-        <textarea
-          value={edited}
-          onChange={(e) => setEdited(e.target.value)}
-          className="w-full h-[60vh] p-4 text-sm font-mono bg-gray-950 text-gray-200 focus:outline-none resize-none"
-          spellCheck={false}
-        />
+        <textarea value={edited} onChange={(e) => setEdited(e.target.value)} className="w-full h-[60vh] p-4 text-sm font-mono bg-gray-950 text-gray-200 focus:outline-none resize-none" spellCheck={false} />
       ) : (
         <div className="bg-gray-950 overflow-auto max-h-[60vh]">
           <pre className="p-4 text-sm text-gray-200 font-mono whitespace-pre-wrap break-words">{content}</pre>
@@ -260,45 +223,32 @@ function TextPreview({ downloadUrl, fileId, fileName, mimeType, canWrite, shareA
 function PdfPreview({ streamUrl, fileName, shareAccessToken }: { streamUrl: string; fileName: string; shareAccessToken?: string | null }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     let objectUrl: string;
     authFetch(streamUrl, shareAccessToken)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.blob();
-      })
-      .then((blob) => {
-        objectUrl = URL.createObjectURL(blob);
-        setBlobUrl(objectUrl);
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+      .then((blob) => { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); })
       .catch(() => setError('Impossible de charger le PDF'));
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [streamUrl, shareAccessToken]);
-
   if (error) return <p className="text-red-500 text-sm p-4">{error}</p>;
   if (!blobUrl) return <p className="text-gray-400 text-sm p-4">Chargement du PDF...</p>;
-
   return (
     <div className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-      <iframe
-        src={`${blobUrl}#toolbar=1`}
-        className="w-full h-[70vh]"
-        title={fileName}
-      />
+      <iframe src={`${blobUrl}#toolbar=1`} className="w-full h-[70vh]" title={fileName} />
     </div>
   );
 }
 
 export default function FilePreviewModal({ file, onClose, isShared = false, shareAccessToken }: FilePreviewModalProps) {
   const { t } = useTranslation();
-  const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments'); // Onglet actif
+  const { sessionContext } = useAuthStore();
+  const isDelegatedSession = Boolean(sessionContext?.authType && sessionContext.authType !== 'DIRECT');
+
+  const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments');
   const [commentCount, setCommentCount] = useState(0);
   const [showDocumentEditor, setShowDocumentEditor] = useState(false);
-  
-  // Get actual write permissions from direct shares or inherited shared-folder permissions.
+
   const sharedPermissions = (file as any)._sharedFolderPermissions;
   const canWrite = isShared
     ? Boolean((file as any).canWrite ?? (file as any)._canWrite ?? sharedPermissions?.canWrite)
@@ -337,17 +287,11 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
     if (mimeType.startsWith('audio/')) return 'audio';
     if (mimeType === 'application/pdf') return 'pdf';
     if (mimeType === 'text/markdown' || mimeType === 'text/x-markdown') return 'markdown';
-    if (mimeType.startsWith('text/') ||
-        mimeType === 'application/json' ||
-        mimeType === 'application/javascript' ||
-        mimeType === 'application/xml') return 'text';
+    if (mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType === 'application/javascript' || mimeType === 'application/xml') return 'text';
     return 'other';
   };
 
-  // Also check file extension for markdown
-  const isMarkdownFile = file.name.toLowerCase().endsWith('.md') || 
-                         file.name.toLowerCase().endsWith('.markdown');
-
+  const isMarkdownFile = file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.markdown');
   const fileType = isMarkdownFile ? 'markdown' : getFileType(file.mimeType);
   const streamUrl = isShared ? fileService.getSharedFileStreamUrl(file.id) : fileService.getStreamUrl(file.id);
   const downloadUrl = isShared ? fileService.getSharedFileDownloadUrl(file.id) : fileService.getDownloadUrl(file.id);
@@ -360,14 +304,12 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
             <ImagePreview src={streamUrl} alt={file.name} shareAccessToken={shareAccessToken} />
           </div>
         );
-
       case 'video':
         return (
           <div className="bg-black rounded-lg overflow-hidden">
             <VideoPreview src={streamUrl} mimeType={file.mimeType} shareAccessToken={shareAccessToken} />
           </div>
         );
-
       case 'audio':
         return (
           <div className="flex flex-col items-center justify-center p-8 bg-gray-100 dark:bg-gray-900 rounded-lg">
@@ -376,70 +318,40 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
             </div>
           </div>
         );
-
       case 'pdf':
         return <PdfPreview streamUrl={streamUrl} fileName={file.name} shareAccessToken={shareAccessToken} />;
-
       case 'markdown':
         return <MarkdownPreview file={file} isShared={isShared} shareAccessToken={shareAccessToken} />;
-
       case 'text':
         if (file.mimeType === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
           return <CsvPreview downloadUrl={downloadUrl} shareAccessToken={shareAccessToken} />;
         }
         return <TextPreview downloadUrl={downloadUrl} fileId={file.id} fileName={file.name} mimeType={file.mimeType} canWrite={canWrite} shareAccessToken={shareAccessToken} />;
-
       default:
-        // Pour les documents Office, afficher la prévisualisation avec OnlyOffice
         if (canEditDocument(file.mimeType)) {
           if (isPasswordProtectedSharedFile) {
             return (
               <div className="flex flex-col items-center justify-center p-12 bg-gray-100 dark:bg-gray-900 rounded-lg text-center">
                 <AlertTriangle className="w-12 h-12 mb-4 text-amber-500" />
-                <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Aperçu Office indisponible
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Les documents Office protégés par mot de passe doivent être téléchargés pour cette version.
-                </p>
-                <button
-                  onClick={handleDownload}
-                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                >
+                <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">Aperçu Office indisponible</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Les documents Office protégés par mot de passe doivent être téléchargés pour cette version.</p>
+                <button onClick={handleDownload} className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
                   <Download className="w-4 h-4 mr-2" />
                   Télécharger le fichier
                 </button>
               </div>
             );
           }
-          return <OfficePreview file={file} />;
+          return <OfficePreview file={file} isDelegatedSession={isDelegatedSession} onDownload={handleDownload} />;
         }
-        
         return (
           <div className="flex flex-col items-center justify-center p-12 bg-gray-100 dark:bg-gray-900 rounded-lg">
-            <svg
-              className="w-24 h-24 mb-4 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
+            <svg className="w-24 h-24 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Aperçu non disponible
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {file.mimeType}
-            </p>
-            <button
-              onClick={handleDownload}
-              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-            >
+            <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">Aperçu non disponible</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{file.mimeType}</p>
+            <button onClick={handleDownload} className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
               <Download className="w-4 h-4 mr-2" />
               Télécharger le fichier
             </button>
@@ -454,43 +366,28 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-              {file.name}
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{file.name}</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {(Number(file.size) / (1024 * 1024)).toFixed(2)} Mo • {file.mimeType}
             </p>
           </div>
           <div className="flex items-center space-x-2 ml-4">
-            {canWrite && canEditDocument(file.mimeType) && !isPasswordProtectedSharedFile && (
-              <button
-                onClick={() => setShowDocumentEditor(true)}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-300 rounded-lg"
-                title="Éditer le document"
-              >
+            {canWrite && canEditDocument(file.mimeType) && !isPasswordProtectedSharedFile && !isDelegatedSession && (
+              <button onClick={() => setShowDocumentEditor(true)} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-300 rounded-lg" title="Éditer le document">
                 <Edit3 className="w-5 h-5" />
               </button>
             )}
-            <button
-              onClick={handleDownload}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              title={t('common.download')}
-            >
+            <button onClick={handleDownload} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title={t('common.download')}>
               <Download className="w-5 h-5" />
             </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              title="Fermer"
-            >
+            <button onClick={onClose} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Fermer">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Content with Preview and Side Panel */}
+        {/* Content */}
         <div className="flex-1 overflow-hidden flex">
-          {/* Preview Content */}
           <div className="w-2/3 overflow-auto p-4 border-r border-gray-200 dark:border-gray-700">
             {isExecutable(file.name) && (
               <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
@@ -498,9 +395,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
                   <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-red-800 dark:text-red-300">
-                    {t('common.warning')} : {t('common.dangerous_file')}
-                  </h4>
+                  <h4 className="text-sm font-bold text-red-800 dark:text-red-300">{t('common.warning')} : {t('common.dangerous_file')}</h4>
                   <p className="text-xs text-red-700 dark:text-red-400 mt-1">
                     {t('common.dangerous_file_format', { ext: file.name.split('.').pop()?.toUpperCase() })}
                     <br />
@@ -512,17 +407,12 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
             {renderPreview()}
           </div>
 
-          {/* Right Side Panel with Tabs */}
+          {/* Right Side Panel */}
           <div className="w-1/3 overflow-hidden flex flex-col">
-            {/* Tab Headers */}
             <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setActivePanel('comments')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-                  activePanel === 'comments'
-                    ? 'text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${activePanel === 'comments' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <MessageCircle className="w-4 h-4" />
@@ -533,47 +423,25 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
                     </span>
                   )}
                 </div>
-                {activePanel === 'comments' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />
-                )}
+                {activePanel === 'comments' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />}
               </button>
               <button
                 onClick={() => setActivePanel('versions')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-                  activePanel === 'versions'
-                    ? 'text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${activePanel === 'versions' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <History className="w-4 h-4" />
                   <span>{t('common.versions_tab')}</span>
                 </div>
-                {activePanel === 'versions' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />
-                )}
+                {activePanel === 'versions' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />}
               </button>
             </div>
-
-            {/* Tab Content */}
             <div className="flex-1 overflow-hidden">
               {activePanel === 'comments' ? (
-                <CommentsPanel 
-                  fileId={file.id} 
-                  onCommentCountChange={loadCommentCount}
-                  isShared={isShared}
-                  canWrite={canWrite}
-                  shareAccessToken={shareAccessToken}
-                />
+                <CommentsPanel fileId={file.id} onCommentCountChange={loadCommentCount} isShared={isShared} canWrite={canWrite} shareAccessToken={shareAccessToken} />
               ) : (
                 <div className="h-full overflow-y-auto p-4">
-                  <VersionHistory 
-                    fileId={file.id} 
-                    onVersionRestored={() => window.location.reload()}
-                    isShared={isShared}
-                    canWrite={canWrite}
-                    shareAccessToken={shareAccessToken}
-                  />
+                  <VersionHistory fileId={file.id} onVersionRestored={() => window.location.reload()} isShared={isShared} canWrite={canWrite} shareAccessToken={shareAccessToken} />
                 </div>
               )}
             </div>
@@ -581,12 +449,8 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
         </div>
       </div>
 
-      {/* Document Editor Modal */}
       {showDocumentEditor && (
-        <DocumentEditor
-          file={file}
-          onClose={() => setShowDocumentEditor(false)}
-        />
+        <DocumentEditor file={file} onClose={() => setShowDocumentEditor(false)} />
       )}
     </div>
   );
