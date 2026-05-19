@@ -4,10 +4,10 @@
 | Domaine | Web | Mobile | Écart |
 | :--- | :---: | :---: | :--- |
 | Authentification | ✅ Complet | 🟡 Partiel | OAuth, reset password, trusted devices |
-| Gestionnaire de fichiers | ✅ Complet | 🟡 Partiel | Pas de tri, pas de filtres avancés (date / taille / mime), pas de DL en ZIP |
+| Gestionnaire de fichiers | ✅ Complet | 🟡 Partiel | Pas de filtres avancés (date / taille), pas de DL en ZIP |
 | Corbeille | ✅ Complet | ✅ Complet | — |
 | Prévisualisation | ✅ Complet | 🟡 Partiel | Pas de texte/Markdown, pas d'OnlyOffice |
-| Recherche | ✅ Complet | 🟡 Partiel | Pas de filtres avancés (type / date / taille) |
+| Recherche | ✅ Complet | 🟡 Partiel | Pas de filtres par date / taille |
 | Favoris | ✅ Complet | ✅ Complet | — |
 | Partage & Collaboration | ✅ Complet | ✅ Complet | Bundle multi-fichiers : mobile only |
 | Tags | ✅ Complet | 🟡 Partiel | Pas d'édition (renommage / recoloriage) |
@@ -20,7 +20,7 @@
 | Comptes multiples | ✅ Complet | ✅ Complet | — |
 | Administration | ✅ Complet | 🟡 Partiel | Pas d'export CSV |
 | Coffre-fort (Vault) | ✅ Complet | ✅ Complet | — |
-| Journal d'audit | ✅ Complet | 🟡 Partiel | Pas de filtres ni d'export CSV |
+| Journal d'audit | ✅ Complet | 🟡 Partiel | Filtres par catégorie ✅, pas d'export CSV |
 | Organisations | ✅ Complet | ❌ Absent | — |
 | Plans & Billing (Stripe) | ✅ Complet | ✅ Complet | — |
 | Assistant IA Bobby | ✅ Complet | ✅ Complet | — |
@@ -64,8 +64,8 @@
 | Drag & Drop upload | ✅ | — | N/A mobile |
 | Drag & Drop déplacement | ✅ | — | N/A mobile |
 | Sélection multiple + actions batch | ✅ | ✅ | Déplacer, partager, supprimer |
-| Tri (nom, date, taille) | ✅ | ❌ | Pas implémenté |
-| Filtres avancés (type MIME, date, taille) | ✅ | ❌ | Pas implémenté |
+| Tri (nom, date, taille) | ✅ | ✅ | ActionSheet via bouton ↕ dans le header |
+| Filtres avancés (type MIME, date, taille) | ✅ | 🟡 | Filtre type ✅ (chips), date/taille ❌ |
 | Filtre par tag | ✅ | ✅ | Chips horizontaux |
 | Téléchargement de dossier en ZIP | ✅ | ❌ | Pas implémenté |
 | Actualisation temps réel (WebSocket) | ✅ | ✅ | `SocketListener` |
@@ -81,7 +81,7 @@
 | Restaurer un dossier | ✅ | ✅ | `folderService.restoreFolder` |
 | Suppression définitive d'un fichier | ✅ | ✅ | |
 | Suppression définitive d'un dossier | ✅ | ✅ | |
-| Vider la corbeille (tout supprimer) | ✅ | ❌ | Pas de bouton global |
+| Vider la corbeille (tout supprimer) | ✅ | ✅ | Bouton "Vider" dans le header |
 
 ---
 
@@ -104,7 +104,7 @@
 | Fonctionnalité | Web | Mobile | Notes |
 | :--- | :---: | :---: | :--- |
 | Recherche globale par nom de fichier | ✅ | ✅ | `SearchBar` modal |
-| Filtre par type MIME | ✅ | ❌ | |
+| Filtre par type MIME | ✅ | ✅ | Chips : Images / Documents / Vidéos / Audio |
 | Filtre par date (de → à) | ✅ | ❌ | |
 | Filtre par taille (min / max) | ✅ | ❌ | |
 | Recherche par tag | ✅ | ✅ | Via filtre de tag dans FilesScreen |
@@ -259,7 +259,7 @@
 | Fonctionnalité | Web | Mobile | Notes |
 | :--- | :---: | :---: | :--- |
 | Voir les logs d'activité | ✅ | ✅ | `AuditScreen` — pagination infinie |
-| Filtres (action, date, utilisateur) | ✅ | ❌ | Pas implémenté sur mobile |
+| Filtres (action, date, utilisateur) | ✅ | 🟡 | Filtres par catégorie ✅, date/utilisateur ❌ |
 | Export CSV | ✅ | ❌ | Pas implémenté sur mobile |
 
 ---
@@ -299,10 +299,6 @@
 
 | Priorité | Fonctionnalité manquante | Complexité |
 | :--- | :--- | :---: |
-| 🔴 Haute | Filtres avancés dans la recherche (type, date, taille) | Faible |
-| 🔴 Haute | Tri des fichiers (nom, date, taille) | Faible |
-| 🔴 Haute | Vider la corbeille (bouton global) | Faible |
-| 🔴 Haute | Filtres dans le journal d'audit | Faible |
 | 🟠 Moyenne | Mot de passe oublié / réinitialisation | Faible |
 | 🟠 Moyenne | Prévisualisation texte / Markdown | Faible |
 | 🟠 Moyenne | Édition de tag (renommer, recolorer) | Faible |

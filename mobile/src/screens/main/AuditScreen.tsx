@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +54,17 @@ const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   VAULT_LOCK: 'lock-closed-outline',
 };
 
+type AuditCategory = 'all' | 'files' | 'folders' | 'auth' | 'security' | 'sharing';
+
+const AUDIT_CATEGORIES: { key: AuditCategory; label: string; actions?: string[] }[] = [
+  { key: 'all', label: 'Tout' },
+  { key: 'files', label: 'Fichiers', actions: ['UPLOAD', 'DELETE', 'RESTORE', 'DOWNLOAD', 'MOVE_FILE', 'RENAME_FILE'] },
+  { key: 'folders', label: 'Dossiers', actions: ['CREATE_FOLDER', 'DELETE_FOLDER'] },
+  { key: 'auth', label: 'Connexions', actions: ['LOGIN', 'LOGOUT'] },
+  { key: 'security', label: 'Sécurité', actions: ['PASSWORD_CHANGE', 'PROFILE_UPDATE', 'VAULT_SETUP', 'VAULT_UNLOCK', 'VAULT_LOCK'] },
+  { key: 'sharing', label: 'Partage', actions: ['SHARE', 'UNSHARE'] },
+];
+
 const PAGE_SIZE = 20;
 
 export default function AuditScreen() {
@@ -62,15 +74,14 @@ export default function AuditScreen() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [category, setCategory] = useState<AuditCategory>('all');
 
   const fetchLogs = useCallback(async (offset = 0) => {
     try {
       const res = await auditService.getUserLogs({ limit: PAGE_SIZE, offset });
-      if (offset === 0) {
-        setLogs(res.logs);
-      } else {
-        setLogs((prev) => [...prev, ...res.logs]);
-      }
+      const allLogs = offset === 0 ? res.logs : [...logs, ...res.logs];
+      if (offset === 0) setLogs(res.logs);
+      else setLogs(allLogs);
       setTotal(res.total);
     } catch {
       // silently fail
@@ -78,9 +89,11 @@ export default function AuditScreen() {
       setLoading(false);
       setLoadingMore(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    setLoading(true);
     fetchLogs(0);
   }, [fetchLogs]);
 
@@ -89,6 +102,11 @@ export default function AuditScreen() {
     setLoadingMore(true);
     fetchLogs(logs.length);
   };
+
+  const categoryActions = AUDIT_CATEGORIES.find((c) => c.key === category)?.actions;
+  const filteredLogs = categoryActions
+    ? logs.filter((l) => categoryActions.includes(l.action))
+    : logs;
 
   const renderItem = ({ item }: { item: AuditLog }) => {
     const icon = ACTION_ICONS[item.action] ?? 'ellipse-outline';
@@ -126,13 +144,33 @@ export default function AuditScreen() {
         <Text style={styles.pageTitle}>Journal d'activité</Text>
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterRow}
+        contentContainerStyle={styles.filterContent}
+      >
+        {AUDIT_CATEGORIES.map((c) => {
+          const active = category === c.key;
+          return (
+            <TouchableOpacity
+              key={c.key}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+              onPress={() => setCategory(c.key)}
+            >
+              <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{c.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary[600]} />
         </View>
       ) : (
         <FlatList
-          data={logs}
+          data={filteredLogs}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -165,6 +203,33 @@ const styles = StyleSheet.create({
   },
   backBtn: { marginRight: spacing.md },
   pageTitle: { ...typography.h3, color: colors.primary[600] },
+  filterRow: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
+  },
+  filterContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.neutral[100],
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary[600],
+  },
+  filterLabel: {
+    ...typography.caption,
+    color: colors.neutral[600],
+    fontWeight: '500',
+  },
+  filterLabelActive: {
+    color: '#fff',
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   list: { padding: spacing.lg, gap: spacing.sm },
   logItem: {

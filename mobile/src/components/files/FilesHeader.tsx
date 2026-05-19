@@ -18,11 +18,12 @@ interface Props {
   onSelectAll: () => void;
   onSearch: () => void;
   onNewFolder: () => void;
+  onSort: () => void;
 }
 
 export default function FilesHeader({
-  title, selectionMode, selectedCount, canGoBack, uploading, paddingTop,
-  onGoBack, onExitSelection, onSelectAll, onSearch, onNewFolder,
+  title, selectionMode, selectedCount, canGoBack, paddingTop,
+  onGoBack, onExitSelection, onSelectAll, onSearch, onNewFolder, onSort,
 }: Props) {
   const colors = useColors();
   const styles = makeStyles(colors);
@@ -47,6 +48,9 @@ export default function FilesHeader({
       </View>
       {!selectionMode && (
         <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+          <TouchableOpacity onPress={onSort} style={styles.btn}>
+            <Ionicons name="swap-vertical-outline" size={22} color={colors.primary[600]} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onSearch} style={styles.btn}>
             <Ionicons name="search-outline" size={22} color={colors.primary[600]} />
           </TouchableOpacity>

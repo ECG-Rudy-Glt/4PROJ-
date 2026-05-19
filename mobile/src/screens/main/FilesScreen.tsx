@@ -7,6 +7,8 @@ import {
   Animated,
   StyleSheet,
   TouchableOpacity,
+  ActionSheetIOS,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,6 +69,7 @@ export default function FilesScreen() {
   const [showBatchShare, setShowBatchShare] = useState(false);
   const [batchMoveFolders, setBatchMoveFolders] = useState<Folder[]>([]);
   const [batchMoveFoldersLoading, setBatchMoveFoldersLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<'name-asc' | 'name-desc' | 'date-desc' | 'date-asc' | 'size-desc' | 'size-asc'>('date-desc');
 
   useFocusEffect(
     useCallback(() => {
@@ -262,6 +265,25 @@ export default function FilesScreen() {
     }
   };
 
+  // ── Sort ──────────────────────────────────────────────────────────────────
+
+  const SORT_OPTIONS = ['Nom A→Z', 'Nom Z→A', 'Plus récent', 'Plus ancien', 'Taille ↓', 'Taille ↑', 'Annuler'] as const;
+  const SORT_KEYS = ['name-asc', 'name-desc', 'date-desc', 'date-asc', 'size-desc', 'size-asc'] as const;
+
+  const handleSort = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: [...SORT_OPTIONS], cancelButtonIndex: 6 },
+        (idx) => { if (idx < 6) setSortKey(SORT_KEYS[idx]); }
+      );
+    } else {
+      Alert.alert('Trier par', undefined,
+        SORT_KEYS.map((k, i) => ({ text: SORT_OPTIONS[i], onPress: () => setSortKey(k) }))
+          .concat([{ text: 'Annuler', onPress: () => {} }])
+      );
+    }
+  };
+
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const safeBreadcrumbs = breadcrumbs ?? [];
@@ -273,9 +295,20 @@ export default function FilesScreen() {
     ? files.filter((f) => f.tags?.some((ft) => ft.tagId === activeTagId))
     : files;
 
+  const sortedFiles = [...filteredFiles].sort((a, b) => {
+    switch (sortKey) {
+      case 'name-asc': return a.name.localeCompare(b.name);
+      case 'name-desc': return b.name.localeCompare(a.name);
+      case 'date-asc': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case 'date-desc': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      case 'size-asc': return a.size - b.size;
+      case 'size-desc': return b.size - a.size;
+    }
+  });
+
   const items = [
     ...(activeTagId ? [] : folders.map((f) => ({ type: 'folder' as const, data: f }))),
-    ...filteredFiles.map((f) => ({ type: 'file' as const, data: f })),
+    ...sortedFiles.map((f) => ({ type: 'file' as const, data: f })),
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -292,6 +325,7 @@ export default function FilesScreen() {
         onGoBack={handleGoBack}
         onExitSelection={exitSelectionMode}
         onSelectAll={() => setSelectedIds(new Set(items.map((it) => it.data.id)))}
+        onSort={handleSort}
         onSearch={() => setShowSearch(true)}
         onNewFolder={() => setShowNewFolder(true)}
       />
