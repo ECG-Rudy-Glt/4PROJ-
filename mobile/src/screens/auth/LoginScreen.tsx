@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  useColorScheme,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,6 +33,10 @@ export default function LoginScreen() {
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<Nav>();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const isDark = useColorScheme() === 'dark';
+  const logoSource = isDark
+    ? require('../../../assets/logo-dark.png')
+    : require('../../../assets/logo-light.png');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,7 +90,7 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={require('../../../assets/icon.png')}
+            source={logoSource}
             style={styles.logo}
             resizeMode="contain"
           />
