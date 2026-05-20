@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { auditService, AuditLog, AuditAction, ActivityStats } from '@/services/auditService';
 import {
   Upload, Trash2, RotateCcw, Download, Share2, FolderPlus,
@@ -10,6 +11,8 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { isFeatureAvailableForPlan } from '@/constants/plans';
 
 const ACTION_ICONS: { [key in AuditAction]: JSX.Element } = {
   UPLOAD: <Upload className="w-4 h-4" />,
@@ -109,6 +112,8 @@ const getActionIcon = (action: AuditAction) =>
 
 export default function ActivityLog() {
   const { t, i18n } = useTranslation();
+  const userPlan = useAuthStore((state: ReturnType<typeof useAuthStore.getState>) => state.user?.plan);
+  const auditAvailable = isFeatureAvailableForPlan(userPlan, 'auditLogs');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [stats, setStats] = useState<ActivityStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,10 +126,11 @@ export default function ActivityLog() {
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
+    if (!auditAvailable) return;
     loadLogs();
     loadStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filterAction, filterDays]);
+  }, [auditAvailable, page, filterAction, filterDays]);
 
   const loadLogs = async () => {
     setIsLoading(true);
@@ -143,7 +149,9 @@ export default function ActivityLog() {
       setTotal(result.total);
     } catch (error: any) {
       console.error('Erreur chargement logs:', error);
-      toast.error('Échec du chargement de l\'historique');
+      if (error?.response?.status !== 403) {
+        toast.error('Échec du chargement de l\'historique');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -192,6 +200,28 @@ export default function ActivityLog() {
   };
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+
+  if (!auditAvailable) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 text-center shadow-sm">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+          <Activity className="w-6 h-6 text-primary-600 dark:text-primary-300" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+          {t('plan_upgrade.audit_title')}
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+          {t('plan_upgrade.audit_description')}
+        </p>
+        <Link
+          to="/plans"
+          className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+        >
+          {t('plan_upgrade.cta')}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
