@@ -182,7 +182,7 @@ const makeStyles = (c: AppColors) => StyleSheet.create({
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
     paddingBottom: spacing.xl,
-    maxHeight: '85%',
+    height: '75%',
     ...shadows['2xl'],
   },
   grabber: {
