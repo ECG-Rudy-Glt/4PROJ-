@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
 import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -24,9 +25,11 @@ export default function FavoritesScreen() {
 
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchFavorites();
+    }, [fetchFavorites])
+  );
 
   const handleToggleFavorite = async (fileId: string) => {
     await toggleFavorite(fileId);
