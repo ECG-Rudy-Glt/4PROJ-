@@ -110,7 +110,14 @@
       "date_asc": "Plus anciens",
       "size_desc": "Plus volumineux",
       "size_asc": "Plus petits"
-    }
+    },
+    "preview_unavailable": "Aperçu non disponible",
+    "preview_office_unavailable": "Aperçu Office indisponible",
+    "preview_office_protected_desc": "Les documents Office protégés par mot de passe doivent être téléchargés pour cette version.",
+    "preview_office_delegated_desc": "Ce document est chiffré et ne peut pas être prévisualisé dans une session déléguée.",
+    "preview_office_delegated_hint": "Connectez-vous directement au compte propriétaire pour accéder à la prévisualisation OnlyOffice.",
+    "preview_office_arm64_desc": "L'environnement OnlyOffice ne prend pas en charge cette architecture.",
+    "download_file": "Télécharger le fichier"
   },
   "upload": {
     "in_progress": "Téléversement en cours...",
@@ -379,7 +386,9 @@
     "reauth_required": "Re-authentification requise : reliez à nouveau ce compte",
     "switch_success": "Retour sur {{email}}",
     "assume_success": "Vous agissez au nom de {{email}}",
-    "error_loading": "Impossible de charger les données"
+    "error_loading": "Impossible de charger les données",
+    "description": "Gérez les délégations et les comptes liés (basculer entre vos comptes).",
+    "open_manager": "Ouvrir le gestionnaire d'accès"
   },
   "chatbot": {
     "welcome": "Salut ! Je suis **Bobby**, ton assistant IA intégré à **SUPFILE** 🛠️\n\nVoici ce que je peux faire pour toi :\n\n• **Lister** tes fichiers (\"Montre-moi mes documents\")\n• **Rechercher** des fichiers (\"Trouve mes PDF\")\n• **Analyser** un fichier (\"Qu'est-ce que rapport.pdf ?\")\n• **Organiser** (\"Trie mes photos par date\")\n\nDis-moi simplement ce que tu cherches ! 🚀",
