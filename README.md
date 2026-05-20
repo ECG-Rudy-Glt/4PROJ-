@@ -55,11 +55,28 @@ make dev
 # Mode production locale
 make start
 
+# Avec profil IA activé
+make start AI=1
+
 # Voir toutes les commandes disponibles
 make help
 ```
 
-**Sur Windows**, utilisez PowerShell : `.\scripts\START.ps1` (prod) ou `.\scripts\hot-start.sh` via Git Bash (dev).
+**Sur Windows sans `make`**, utilisez PowerShell directement :
+
+```powershell
+# Développement
+.\scripts\hot-start.ps1
+
+# Production
+.\scripts\START.ps1
+
+# Production avec IA
+.\scripts\START.ps1 -Ai
+
+# Mobile
+.\scripts\start-mobile.ps1
+```
 
 Le premier démarrage télécharge le modèle Ollama (~1,6 Go). L'application est disponible dès que le service `backend` est `healthy`.
 
@@ -69,19 +86,86 @@ Le premier démarrage télécharge le modèle Ollama (~1,6 Go). L'application es
 | Backend API | http://localhost:5001 |
 | Swagger UI | http://localhost:5001/api-docs |
 | MinIO Console | http://localhost:9001 |
+| OnlyOffice | http://localhost:8080 |
 
-### Commandes utiles
+---
 
-```bash
-make logs            # Suivre les logs de production
-make logs-dev        # Suivre les logs de dev
-make stop            # Arrêter les services de production
-make stop-dev        # Arrêter les services de dev
-make db-push         # Synchroniser le schéma Prisma (dev)
-make pull-model      # Télécharger le modèle Ollama par défaut
-make backup          # Sauvegarder PostgreSQL et MinIO (VPS)
-make clean           # Tout arrêter et supprimer les volumes
-```
+## Commandes Make
+
+### Développement (Docker)
+
+| Commande | Description |
+|---|---|
+| `make dev` | Démarre en mode hot-reload (IP auto-détectée, .env configuré automatiquement) |
+| `make stop-dev` | Arrête les services de développement |
+| `make logs-dev` | Suit les logs de tous les containers dev en temps réel |
+| `make db-push` | Synchronise le schéma Prisma avec la base de données |
+
+### Production (Docker)
+
+| Commande | Description |
+|---|---|
+| `make start` | Démarre les services en mode production |
+| `make start AI=1` | Démarre en production avec le profil IA (Ollama) activé |
+| `make stop` | Arrête les services de production |
+| `make logs` | Suit les logs de production en temps réel |
+
+### Mobile (Expo)
+
+| Commande | Description |
+|---|---|
+| `make mobile` | Démarre le serveur Expo (installe les dépendances automatiquement) |
+| `make mobile-android` | Lance l'app sur un appareil/émulateur Android |
+| `make mobile-ios` | Lance l'app sur le simulateur iOS (macOS uniquement) |
+| `make mobile-web` | Lance l'app dans le navigateur web |
+| `make mobile-install` | Installe uniquement les dépendances npm du projet mobile |
+| `make mobile-clean` | Nettoie le cache Expo et réinstalle les dépendances |
+| `make mobile-tunnel` | Démarre Expo en mode tunnel (accès externe via QR code) |
+
+**Prérequis mobile :**
+- Node.js 20+ et npm
+- Pour Android : Android Studio avec un émulateur ou appareil USB
+- Pour iOS : macOS avec Xcode et simulateur
+- Expo Go app sur votre téléphone pour le développement rapide
+
+### Configuration
+
+| Commande | Description |
+|---|---|
+| `make configure-network` | Détecte l'IP locale et met à jour le fichier .env |
+| `make status` | Affiche l'état des containers Docker en cours d'exécution |
+
+### IA / Machine Learning
+
+| Commande | Description |
+|---|---|
+| `make pull-model` | Télécharge le modèle Ollama par défaut (gemma2:2b) |
+| `make pull-model MODEL=nom` | Télécharge un modèle spécifique (ex: `MODEL=qwen2.5:0.5b`) |
+
+### Maintenance
+
+| Commande | Description |
+|---|---|
+| `make clean` | Arrête tous les services et supprime les volumes Docker |
+| `make backup` | Sauvegarde PostgreSQL et MinIO (Unix/Linux uniquement) |
+| `make restore POSTGRES=<file> MINIO=<file>` | Restaure depuis une sauvegarde |
+
+### Équivalents PowerShell (Windows sans make)
+
+| Make | PowerShell |
+|---|---|
+| `make dev` | `.\scripts\hot-start.ps1` |
+| `make start` | `.\scripts\START.ps1` |
+| `make start AI=1` | `.\scripts\START.ps1 -Ai` |
+| `make mobile` | `.\scripts\start-mobile.ps1` |
+| `make mobile-android` | `.\scripts\start-mobile.ps1 -Platform android` |
+| `make mobile-web` | `.\scripts\start-mobile.ps1 -Platform web` |
+| `make mobile-install` | `.\scripts\start-mobile.ps1 -InstallOnly` |
+| `make mobile-clean` | `.\scripts\start-mobile.ps1 -Clean` |
+| `make mobile-tunnel` | `.\scripts\start-mobile.ps1 -Tunnel` |
+| `make configure-network` | `.\scripts\configure-network.ps1` |
+| `make stop-dev` | `docker compose -f docker-compose.dev.yml down` |
+| `make stop` | `docker compose -f docker-compose.yml down` |
 
 ---
 
@@ -373,4 +457,4 @@ Ouvrez une issue privée ou contactez l'équipe directement. Ne publiez pas de v
 
 ---
 
-*Dernière mise à jour : Avril 2026*
+*Dernière mise à jour : Mai 2026*
