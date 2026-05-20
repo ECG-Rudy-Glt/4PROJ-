@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
+    "start": "node -e \"const os = require('os'); const { execSync } = require('child_process'); if (os.platform() === 'win32') { execSync('powershell -ExecutionPolicy Bypass -File start-mobile.ps1', { stdio: 'inherit' }); } else { execSync('bash start-mobile.sh', { stdio: 'inherit' }); }\"",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
