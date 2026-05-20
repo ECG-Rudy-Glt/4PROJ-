@@ -1,6 +1,6 @@
 const { spawnSync } = require('node:child_process');
 
-const DATABASE_URL = 'postgresql://postgres:postgres_itest@127.0.0.1:15433/supfile_test?schema=supfile_itest';
+const DATABASE_URL = 'postgresql://postgres:postgres_itest@[IP_ADDRESS]/supfile_test?schema=supfile_itest';
 
 if (!DATABASE_URL.includes('supfile_test') || !DATABASE_URL.includes('schema=supfile_itest')) {
   throw new Error('Refusing to run integration db push outside the isolated test database');

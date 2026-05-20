@@ -205,7 +205,7 @@ export default function ResetPasswordScreen() {
           {/* Avertissement DEK/coffre */}
           {dekRequired && (
             <View style={styles.warningBox}>
-              <Text style={styles.warningTitle}>⚠️ {t('auth.reset_password.dek_title')}</Text>
+              <Text style={styles.warningTitle}>{t('auth.reset_password.dek_title')}</Text>
               <Text style={styles.warningMsg}>{t('auth.reset_password.dek_msg')}</Text>
               <TouchableOpacity
                 style={styles.checkRow}

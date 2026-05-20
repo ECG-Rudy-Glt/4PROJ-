@@ -153,9 +153,7 @@ export default function MfaVerifyScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>🔐</Text>
-          </View>
+
           <Text style={styles.title}>
             {mfaSetupRequired ? t('auth.mfa.setup_title') : t('auth.mfa.verify_title')}
           </Text>

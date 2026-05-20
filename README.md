@@ -8,10 +8,31 @@ SUPFile est une alternative française à Dropbox et Google Drive : stockage chi
 
 ### Prérequis
 
-- [Docker](https://docs.docker.com/get-docker/)  24
-- [Docker Compose](https://docs.docker.com/compose/install/)  2.20
+- [Docker](https://docs.docker.com/get-docker/) 24+
+- [Docker Compose](https://docs.docker.com/compose/install/) 2.20+
+- `make` — natif sur Linux/macOS, à installer sur Windows (voir ci-dessous)
 - 8 Go de RAM minimum (16 Go recommandé avec Ollama actif)
 - 20 Go d'espace disque libre
+
+**Installation de `make` sur Windows** (terminal administrateur requis) :
+
+```powershell
+# Via Chocolatey
+choco install make
+
+# Via winget
+winget install GnuWin32.Make
+```
+
+Sans `make`, les scripts sont directement utilisables :
+
+```powershell
+# Production (PowerShell)
+.\scripts\START.ps1
+
+# Développement (Git Bash)
+bash scripts/hot-start.sh
+```
 
 ### Installation
 
@@ -23,18 +44,44 @@ cd supfile
 # 2. Copier et configurer les variables d'environnement
 cp .env.example .env
 # Éditer .env avec vos valeurs (voir section Variables d'environnement)
-
-# 3. Lancer tous les services
-docker compose up -d
-
-# 4. Accéder à l'application
-# Frontend : http://localhost:3000
-# Backend API : http://localhost:5001
-# Swagger UI : http://localhost:5001/api-docs
-# MinIO Console : http://localhost:9001
 ```
 
+### Lancement
+
+```bash
+# Mode développement (hot reload, IP auto-détectée)
+make dev
+
+# Mode production locale
+make start
+
+# Voir toutes les commandes disponibles
+make help
+```
+
+**Sur Windows**, utilisez PowerShell : `.\scripts\START.ps1` (prod) ou `.\scripts\hot-start.sh` via Git Bash (dev).
+
 Le premier démarrage télécharge le modèle Ollama (~1,6 Go). L'application est disponible dès que le service `backend` est `healthy`.
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:5001 |
+| Swagger UI | http://localhost:5001/api-docs |
+| MinIO Console | http://localhost:9001 |
+
+### Commandes utiles
+
+```bash
+make logs            # Suivre les logs de production
+make logs-dev        # Suivre les logs de dev
+make stop            # Arrêter les services de production
+make stop-dev        # Arrêter les services de dev
+make db-push         # Synchroniser le schéma Prisma (dev)
+make pull-model      # Télécharger le modèle Ollama par défaut
+make backup          # Sauvegarder PostgreSQL et MinIO (VPS)
+make clean           # Tout arrêter et supprimer les volumes
+```
 
 ---
 

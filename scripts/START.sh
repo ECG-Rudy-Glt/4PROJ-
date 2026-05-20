@@ -73,13 +73,19 @@ FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 BACKEND_PORT="${BACKEND_PORT:-5001}"
 ONLYOFFICE_PORT="${ONLYOFFICE_PORT:-8080}"
 
+PROFILE_ARG=""
+if [ "${AI:-0}" = "1" ] || [ "${1:-}" = "--ai" ]; then
+  PROFILE_ARG="--profile ai"
+  echo "Activation du profil AI..."
+fi
+
 echo "Build et démarrage avec ${COMPOSE_FILE}..."
 echo ""
 
-if ! $DOCKER_COMPOSE -f "$COMPOSE_FILE" up -d --build; then
+if ! $DOCKER_COMPOSE -f "$COMPOSE_FILE" $PROFILE_ARG up -d --build; then
   echo ""
   echo "Error: Échec du démarrage. Logs :"
-  echo "   $DOCKER_COMPOSE -f $COMPOSE_FILE logs --tail=200"
+  echo "   $DOCKER_COMPOSE -f $COMPOSE_FILE $PROFILE_ARG logs --tail=200"
   exit 1
 fi
 
