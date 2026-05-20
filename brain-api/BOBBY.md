@@ -1,4 +1,4 @@
-# 🧠 brain-api — Documentation
+# brain-api — Documentation
 
 Microservice Python dédié à l'IA de SUPFile (l'assistant **Bobby**).  
 Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement par le backend Node.js** — jamais directement par le frontend.

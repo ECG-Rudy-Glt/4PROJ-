@@ -50,7 +50,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${process.env.API_URL}/api/auth/google/callback`,
+        callbackURL: `${process.env.OAUTH_CALLBACK_BASE || process.env.API_URL}/api/auth/google/callback`,
       },
       async (_accessToken, _refreshToken, profile: OAuth2Profile, done) => {
         try {
@@ -105,7 +105,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
       {
         clientID: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        callbackURL: `${process.env.API_URL}/api/auth/github/callback`,
+        callbackURL: `${process.env.OAUTH_CALLBACK_BASE || process.env.API_URL}/api/auth/github/callback`,
       },
       async (_accessToken: string, _refreshToken: string, profile: any, done: any) => {
         try {

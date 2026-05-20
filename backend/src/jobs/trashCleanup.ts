@@ -4,17 +4,14 @@ import fs from 'fs/promises';
 import { PlanService } from '../services/planService';
 import logger from '../config/logger';
 
-// Cron job qui s'exécute tous les jours à 2h du matin
 export const startTrashCleanupJob = () => {
   cron.schedule('0 2 * * *', async () => {
-    logger.info('️  Démarrage de la purge automatique de la corbeille...');
+    logger.info('Démarrage de la purge automatique de la corbeille...');
 
     try {
-      // Date limite : il y a 90 jours
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-      // Récupérer tous les fichiers supprimés depuis plus de 90 jours
       const oldDeletedFiles = await prisma.file.findMany({
         where: {
           isDeleted: true,
@@ -33,31 +30,29 @@ export const startTrashCleanupJob = () => {
       });
 
       if (oldDeletedFiles.length === 0) {
-        logger.info(' Aucun fichier à purger');
+        logger.info('Aucun fichier à purger');
         return;
       }
 
-      logger.info(` ${oldDeletedFiles.length} fichier(s) à purger`);
+      logger.info(`${oldDeletedFiles.length} fichier(s) à purger`);
 
       let purgedCount = 0;
       let errorCount = 0;
 
       for (const file of oldDeletedFiles) {
         try {
-          // Supprimer le fichier physique
           try {
             await fs.unlink(file.storagePath);
-            logger.info(`   Fichier supprimé : ${file.name}`);
+            logger.info(`Fichier supprimé : ${file.name}`);
           } catch (err) {
-            console.warn(`  ️  Impossible de supprimer le fichier physique : ${file.name}`, err);
+            console.warn(`Impossible de supprimer le fichier physique : ${file.name}`, err);
           }
 
-          // Supprimer la miniature si elle existe
           if (file.thumbnailPath) {
             try {
               await fs.unlink(file.thumbnailPath);
-            } catch (err) {
-              // Ignorer les erreurs de suppression de miniature
+            } catch {
+              // thumbnail deletion is best-effort
             }
           }
 
@@ -69,14 +64,13 @@ export const startTrashCleanupJob = () => {
 
           purgedCount++;
         } catch (error) {
-          logger.error(`   Erreur lors de la purge de ${file.name}: ${error}`);
+          logger.error(`Erreur lors de la purge de ${file.name}: ${error}`);
           errorCount++;
         }
       }
 
-      logger.info(` Purge terminée : ${purgedCount} fichier(s) purgé(s), ${errorCount} erreur(s)`);
+      logger.info(`Purge terminée : ${purgedCount} fichier(s) purgé(s), ${errorCount} erreur(s)`);
 
-      // Purger les DOSSIERS
       const oldDeletedFolders = await prisma.folder.findMany({
         where: {
           isDeleted: true,
@@ -87,10 +81,9 @@ export const startTrashCleanupJob = () => {
       });
 
       if (oldDeletedFolders.length > 0) {
-        logger.info(` ${oldDeletedFolders.length} dossier(s) à purger`);
+        logger.info(`${oldDeletedFolders.length} dossier(s) à purger`);
         for (const folder of oldDeletedFolders) {
           try {
-            // 1. Trouver tous les fichiers dans ce dossier et ses sous-dossiers
             const filesInFolder = await prisma.file.findMany({
               where: {
                 OR: [
@@ -108,39 +101,31 @@ export const startTrashCleanupJob = () => {
               }
             });
 
-            // 2. Supprimer physiquement chaque fichier
             for (const file of filesInFolder) {
               try {
                 await fs.unlink(file.storagePath);
                 if (file.thumbnailPath) await fs.unlink(file.thumbnailPath).catch(() => {});
-                
-                // Mettre à jour le quota pour CHAQUE fichier supprimé physiquement
                 await PlanService.updateQuotaUsed(file.userId, -file.size);
-                
-                // Supprimer l'enregistrement du fichier (facultatif si onDelete: Cascade est activé, 
-                // mais sûr car File -> Folder est onDelete: SetNull dans le schéma actuel!)
-                // ATTENTION: Notre schéma indique onDelete: SetNull pour File -> Folder.
-                // Donc on DOIT supprimer les fichiers manuellement!
+                // File->Folder is onDelete: SetNull in the schema, so files must be deleted manually.
                 await prisma.file.delete({ where: { id: file.id } });
               } catch (err) {
-                logger.error(`      Erreur purge fichier ${file.id} dans dossier ${folder.id}: ${err}`);
+                logger.error(`Erreur purge fichier ${file.id} dans dossier ${folder.id}: ${err}`);
               }
             }
 
-            // 3. Supprimer le dossier (cela supprimera récursivement les sous-dossiers via onDelete: Cascade)
             await prisma.folder.delete({
               where: { id: folder.id },
             });
-            logger.info(`   Dossier et contenu purgés : ${folder.name}`);
+            logger.info(`Dossier et contenu purgés : ${folder.name}`);
           } catch (err) {
-            logger.error(`   Erreur lors de la purge du dossier ${folder.id}: ${err}`);
+            logger.error(`Erreur lors de la purge du dossier ${folder.id}: ${err}`);
           }
         }
       }
     } catch (error) {
-      logger.error(` Erreur lors de la purge automatique: ${error}`);
+      logger.error(`Erreur lors de la purge automatique: ${error}`);
     }
   });
 
-  logger.info(' Job de purge automatique démarré (tous les jours à 2h)');
+  logger.info('Job de purge automatique démarré (tous les jours à 2h)');
 };

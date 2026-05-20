@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Fix uploads directory permissions on volume mount (volume may be owned by root)
+# Fix uploads directory permissions on volume mount
 mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails
 chown -R node:node /app/uploads 2>/dev/null || true
 

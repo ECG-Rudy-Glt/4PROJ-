@@ -391,10 +391,6 @@ export const getPasswordResetEmail = (lang: string, userName: string, resetLink:
         <!-- Card -->
         <div style="background:#ffffff;padding:36px 32px;box-shadow:0 4px 24px rgba(37,68,65,0.10);">
 
-          <!-- Icon -->
-          <div style="text-align:center;margin-bottom:24px;">
-            <div style="display:inline-block;background:#e6f2f1;border-radius:50%;width:64px;height:64px;line-height:64px;text-align:center;font-size:28px;">🔐</div>
-          </div>
 
           <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#254441;text-align:center;">${title}</h2>
           <p style="margin:0 0 24px;font-size:14px;color:#6B7280;text-align:center;">${greetingHtml}</p>
