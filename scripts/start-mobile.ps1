@@ -126,6 +126,17 @@ function Get-AvailablePort {
 # IP Detection
 # -----------------------------------------------------------------------------
 function Get-LocalIP {
+    # Try resolving via default internet gateway route first to get the active internet interface
+    try {
+        $route = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($route) {
+            $ip = (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
+            if ($ip) {
+                return $ip
+            }
+        }
+    } catch {}
+
     $addresses = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
         ($_.IPAddress -notmatch "^127\.") -and
         ($_.IPAddress -notmatch "^169\.254\.") -and
