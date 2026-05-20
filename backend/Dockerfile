@@ -1,4 +1,4 @@
-# ── Stage 1: Build ────────────────────────────────────────────────────────────
+# Stage 1: Build
 FROM node:20-alpine AS builder
 
 RUN apk add --no-cache openssl libc6-compat
@@ -12,7 +12,7 @@ COPY . .
 
 RUN npx prisma generate && npm run build
 
-# ── Stage 2: Runtime (hardened) ───────────────────────────────────────────────
+# Stage 2: Runtime
 FROM node:20-alpine
 
 RUN apk add --no-cache openssl libc6-compat su-exec
@@ -30,9 +30,6 @@ COPY --chown=node:node entrypoint.sh ./
 RUN chmod +x entrypoint.sh \
  && mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails
 
-# Run as non-root (fixes CIS Docker Benchmark DI-0008 / Semgrep missing-user)
-# entrypoint.sh reçoit les droits root via docker-compose (user: root) pour
-# corriger les permissions du volume uploads, puis drop sur node via su-exec
 USER node
 
 EXPOSE 5001

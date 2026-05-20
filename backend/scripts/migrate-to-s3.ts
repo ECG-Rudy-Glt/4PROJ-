@@ -1,26 +1,8 @@
-/**
- * Script de migration : déplace les fichiers locaux existants vers MinIO.
- *
- * Usage (depuis le dossier backend) :
- *   npx tsx scripts/migrate-to-s3.ts
- *
- * Options :
- *   --dry-run   Affiche ce qui serait migré sans rien modifier
- *   --batch=50  Nombre de fichiers traités par lot (défaut: 50)
- *
- * Comportement :
- *   - Traite les fichiers dont storagePath commence par "/", "./" ou "uploads/" (chemins locaux)
- *   - Uploade l'objet déjà chiffré vers S3 (pas de re-chiffrement)
- *   - Met à jour storagePath en base avec la clé S3
- *   - Passe les fichiers déjà en S3 (storagePath = "files/…")
- *   - Continue en cas d'erreur sur un fichier (log + compteur)
- */
 
 import '../src/config/environment';
 import path from 'path';
 import fs from 'fs';
-// Run from backend/: cd backend && npx tsx scripts/migrate-to-s3.ts
-// @ts-ignore — resolved at runtime from backend/node_modules
+
 import { PrismaClient } from '../node_modules/@prisma/client';
 import { StorageService } from '../src/services/storageService';
 
@@ -104,7 +86,6 @@ async function migrateFiles() {
     console.log(`  Lot traité : ${offset}/${totalFiles}`);
   }
 
-  // ── Versions ─────────────────────────────────────────────────────────────
   console.log('\n--- Versions de fichiers ---');
   const versions = await prisma.fileVersion.findMany({
     select: { id: true, fileId: true, storagePath: true, name: true },
@@ -150,7 +131,6 @@ async function migrateFiles() {
     }
   }
 
-  // ── Résumé ───────────────────────────────────────────────────────────────
   console.log('\n═══════════════════════════════════════════════════════');
   console.log(' Résumé');
   console.log('═══════════════════════════════════════════════════════');
@@ -162,7 +142,7 @@ async function migrateFiles() {
   console.log(`  Versions en erreur: ${vErrors}`);
 
   if (DRY_RUN) {
-    console.log('\n  ⚠  DRY-RUN : aucune modification effectuée.');
+    console.log('\n    DRY-RUN : aucune modification effectuée.');
     console.log('     Relancez sans --dry-run pour appliquer la migration.');
   } else if (errors === 0 && vErrors === 0) {
     console.log('\n  ✓  Migration terminée sans erreur.');

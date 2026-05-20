@@ -39,7 +39,6 @@ const requireDirectSession = (req: AuthRequest, res: Response, next: NextFunctio
   next();
 };
 
-// Local auth
 router.post(
   '/register',
   validate([
@@ -61,7 +60,6 @@ router.post(
 router.post('/refresh', AuthController.refresh);
 router.post('/logout', AuthController.logout);
 
-// Password Reset
 router.post('/forgot-password', AuthController.requestPasswordReset);
 router.post('/reset-password-info', AuthController.getResetTokenInfo);
 router.get('/reset-password-info', AuthController.getResetTokenInfo);
@@ -69,10 +67,8 @@ router.post('/reset-password', AuthController.resetPassword);
 
 router.get('/providers', AuthController.getOAuthProviders);
 
-// Global Logout
 router.post('/logout-all', authenticate, AuthController.logoutAll);
 
-// Profile
 router.get('/profile', authenticate, UserProfileController.getProfile);
 router.put('/profile', authenticate, UserProfileController.updateProfile);
 router.post('/avatar', authenticate, avatarUpload.single('avatar'), UserProfileController.uploadAvatar);
@@ -87,7 +83,6 @@ router.post(
   UserProfileController.changePassword
 );
 
-// RGPD - Export des données
 router.get('/export-data', authenticate, DataExportController.exportUserData);
 router.delete(
   '/account',
@@ -101,7 +96,6 @@ router.delete(
   AuthController.deleteAccount
 );
 
-// OAuth2 routes
 router.get(
   '/google',
   requireOAuthProvider('google'),

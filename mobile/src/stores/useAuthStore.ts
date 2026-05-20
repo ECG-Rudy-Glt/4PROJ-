@@ -43,7 +43,19 @@ export const useAuthStore = create<AuthState>((set) => ({
         if (switchSession) {
           api.defaults.headers.common['X-Switch-Session'] = switchSession;
         }
-        set({ token, isAuthenticated: true, isLoading: false, hydrated: true });
+        // Validate token by fetching profile
+        try {
+          const { user, session } = await authService.getProfile();
+          set({ token, user, sessionContext: session, isAuthenticated: true, isLoading: false, hydrated: true });
+        } catch (err: unknown) {
+          // Token invalid - clear auth state
+          await SecureStore.deleteItemAsync('token');
+          await SecureStore.deleteItemAsync('refreshToken');
+          await SecureStore.deleteItemAsync('switchSessionId');
+          delete api.defaults.headers.common['Authorization'];
+          delete api.defaults.headers.common['X-Switch-Session'];
+          set({ user: null, token: null, sessionContext: null, isAuthenticated: false, isLoading: false, hydrated: true });
+        }
       } else {
         set({ isAuthenticated: false, isLoading: false, hydrated: true });
       }

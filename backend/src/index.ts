@@ -37,7 +37,7 @@ import accountAccessRoutes from './routes/accountAccessRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import pushRoutes from './routes/pushRoutes';
 
-// Fix BigInt serialization
+// BigInt is not JSON-serializable by default; numeric conversion is sufficient here.
 (BigInt.prototype as any).toJSON = function () {
   return Number(this);
 };
@@ -51,7 +51,6 @@ const ENFORCE_HTTPS = process.env.ENFORCE_HTTPS === 'true';
 SocketService.init(httpServer);
 app.set('trust proxy', 1);
 
-// HTTPS redirect
 if (ENFORCE_HTTPS) {
   app.use((req, res, next) => {
     const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
@@ -64,13 +63,11 @@ if (ENFORCE_HTTPS) {
   });
 }
 
-// Request logging
 app.use((req, _res, next) => {
   logger.info({ method: req.method, url: redactUrl(req.originalUrl) });
   next();
 });
 
-// Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   hsts: ENFORCE_HTTPS ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
@@ -78,7 +75,6 @@ app.use(helmet({
   xFrameOptions: false,
 }));
 
-// CORS
 app.use(cors({
   origin: (origin, callback) => {
     if (ENFORCE_HTTPS && origin && origin.startsWith('http://') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
@@ -94,7 +90,6 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting
 app.use('/api/', rateLimit({
   windowMs: 60 * 1000,
   max: 500,
@@ -137,7 +132,7 @@ app.use([
   message: { error: 'Too many unlock attempts, please try again later.' },
 }));
 
-// Body parsing. File uploads are multipart and handled by multer on the upload route.
+// File uploads are multipart and handled by multer on the upload route.
 app.use(express.json({
   limit: process.env.JSON_BODY_LIMIT || '1mb',
   verify: (req: any, _res, buf) => {
@@ -148,22 +143,17 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: process.env.URLENCODED_BODY_LIMIT || '100kb' }));
 
-// Passport
 app.use(passport.initialize());
 
-// Static files
 const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
 app.use('/uploads', express.static(uploadDir));
 
-// Health check
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/folders', folderRoutes);
@@ -185,12 +175,10 @@ app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);
 
-// 404
 app.use((_req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Error handler
 app.use(errorHandler);
 
 httpServer.listen(PORT, '0.0.0.0', () => {

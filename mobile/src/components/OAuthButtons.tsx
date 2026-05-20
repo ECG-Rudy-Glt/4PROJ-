@@ -1,34 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
-import api from '../services/api';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const BASE = (process.env.EXPO_PUBLIC_API_URL ?? 'https://supfile.fr').replace(/\/api\/?$/, '');
-
-type Providers = { google: boolean; github: boolean };
 
 interface Props {
   onTokenReceived: (token: string) => void;
 }
 
 export default function OAuthButtons({ onTokenReceived }: Props) {
-  const [providers, setProviders] = useState<Providers | null>(null);
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [loading, setLoading] = useState<'google' | 'github' | null>(null);
-
-  useEffect(() => {
-    api.get('/auth/providers')
-      .then((res) => setProviders(res.data?.data ?? res.data))
-      .catch(() => setProviders({ google: false, github: false }));
-  }, []);
-
-  if (!providers || (!providers.google && !providers.github)) return null;
 
   const handleOAuth = async (provider: 'google' | 'github') => {
     setLoading(provider);
@@ -42,7 +33,7 @@ export default function OAuthButtons({ onTokenReceived }: Props) {
         if (token) onTokenReceived(decodeURIComponent(token));
       }
     } catch {
-      // user cancelled or error
+      // user cancelled ou erreur réseau
     } finally {
       setLoading(null);
     }
@@ -56,57 +47,57 @@ export default function OAuthButtons({ onTokenReceived }: Props) {
         <View style={styles.dividerLine} />
       </View>
 
-      <View style={[styles.row, providers.google && providers.github ? styles.row2 : styles.row1]}>
-        {providers.google && (
-          <TouchableOpacity
-            style={styles.btn}
-            onPress={() => handleOAuth('google')}
-            disabled={!!loading}
-            activeOpacity={0.8}
-          >
-            {loading === 'google' ? (
-              <ActivityIndicator size="small" color={colors.neutral[600]} />
-            ) : (
-              <>
-                <GoogleIcon />
-                <Text style={styles.btnText}>Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+      <View style={styles.row}>
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => handleOAuth('google')}
+          disabled={!!loading}
+          activeOpacity={0.8}
+        >
+          {loading === 'google' ? (
+            <ActivityIndicator size="small" color={colors.neutral[600]} />
+          ) : (
+            <>
+              <GoogleIcon />
+              <Text style={styles.btnText}>Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
-        {providers.github && (
-          <TouchableOpacity
-            style={styles.btn}
-            onPress={() => handleOAuth('github')}
-            disabled={!!loading}
-            activeOpacity={0.8}
-          >
-            {loading === 'github' ? (
-              <ActivityIndicator size="small" color={colors.neutral[600]} />
-            ) : (
-              <>
-                <Ionicons name="logo-github" size={18} color={colors.neutral[700]} />
-                <Text style={styles.btnText}>GitHub</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => handleOAuth('github')}
+          disabled={!!loading}
+          activeOpacity={0.8}
+        >
+          {loading === 'github' ? (
+            <ActivityIndicator size="small" color={colors.neutral[600]} />
+          ) : (
+            <>
+              <Ionicons name="logo-github" size={18} color={colors.neutral[700]} />
+              <Text style={styles.btnText}>GitHub</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
+const GOOGLE_LOGO_URI = 'https://developers.google.com/identity/images/g-logo.png';
+
 function GoogleIcon() {
   return (
-    <View style={{ width: 18, height: 18 }}>
-      {/* Simple colored G using text — no SVG needed */}
-      <Text style={{ fontSize: 14, fontWeight: '700', color: '#4285F4', lineHeight: 18 }}>G</Text>
-    </View>
+    <Image
+      source={{ uri: GOOGLE_LOGO_URI }}
+      style={{ width: 18, height: 18 }}
+      contentFit="contain"
+      cachePolicy="disk"
+    />
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   wrapper: {
     marginTop: spacing.xl,
     gap: spacing.md,
@@ -119,20 +110,15 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
   },
   dividerText: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
   },
   row: {
-    gap: spacing.sm,
-  },
-  row1: {
-    flexDirection: 'column',
-  },
-  row2: {
     flexDirection: 'row',
+    gap: spacing.sm,
   },
   btn: {
     flex: 1,
@@ -140,16 +126,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     ...shadows.sm,
   },
   btnText: {
     ...typography.body,
-    color: colors.neutral[700],
+    color: c.neutral[700],
     fontWeight: '500',
   },
 });
