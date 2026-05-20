@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
-import { fileService } from '../../services/fileService';
+import { useFileStore } from '../../stores/useFileStore';
 import { FileItem } from '../../types';
 import FileRow from '../../components/FileRow';
 import EmptyState from '../../components/EmptyState';
@@ -16,29 +16,20 @@ export default function FavoritesScreen() {
   const { t } = useTranslation();
   const colors = useColors();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
-  const fetchFavorites = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { files } = await fileService.getFavoriteFiles();
-      setFiles(files);
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const favorites = useFileStore((s) => s.favorites);
+  const loading = useFileStore((s) => s.loading);
+  const fetchFavorites = useFileStore((s) => s.fetchFavorites);
+  const toggleFavorite = useFileStore((s) => s.toggleFavorite);
+
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   useEffect(() => {
     fetchFavorites();
-  }, []);
+  }, [fetchFavorites]);
 
   const handleToggleFavorite = async (fileId: string) => {
-    await fileService.toggleFavorite(fileId);
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    await toggleFavorite(fileId);
     if (previewFile?.id === fileId) setPreviewFile(null);
   };
 
@@ -47,7 +38,7 @@ export default function FavoritesScreen() {
       <Text style={styles.title}>{t('favorites.title')}</Text>
 
       <FlatList
-        data={files}
+        data={favorites}
         keyExtractor={(f) => f.id}
         contentContainerStyle={styles.list}
         refreshControl={
