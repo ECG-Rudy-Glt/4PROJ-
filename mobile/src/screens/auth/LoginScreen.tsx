@@ -53,6 +53,10 @@ export default function LoginScreen() {
     try {
       const result = await authService.login({ email: email.trim(), password });
 
+      if (!result || typeof result !== 'object') {
+        throw new Error('Réponse du serveur invalide');
+      }
+
       if (
         ('mfaRequired' in result && result.mfaRequired) ||
         ('mfaSetupRequired' in result && (result as any).mfaSetupRequired)

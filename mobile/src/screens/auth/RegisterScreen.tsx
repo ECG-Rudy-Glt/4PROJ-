@@ -75,6 +75,9 @@ export default function RegisterScreen() {
         email: email.trim(), password,
         firstName: firstName.trim(), lastName: lastName.trim(),
       });
+      if (!result || typeof result !== 'object') {
+        throw new Error('Réponse du serveur invalide');
+      }
       if ('mfaSetupRequired' in result && result.mfaSetupRequired) {
         navigation.navigate('MfaVerify', {
           tempToken: result.tempToken,
