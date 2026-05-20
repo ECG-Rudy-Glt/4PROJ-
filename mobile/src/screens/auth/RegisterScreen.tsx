@@ -76,7 +76,7 @@ export default function RegisterScreen() {
         firstName: firstName.trim(), lastName: lastName.trim(),
       });
       if (!result || typeof result !== 'object') {
-        throw new Error('Réponse du serveur invalide');
+        throw new Error('Réponse du serveur invalide: ' + typeof result + ' - ' + JSON.stringify(result));
       }
       if ('mfaSetupRequired' in result && result.mfaSetupRequired) {
         navigation.navigate('MfaVerify', {
