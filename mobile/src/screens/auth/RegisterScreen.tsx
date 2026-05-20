@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, useColorScheme,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,6 +39,11 @@ export default function RegisterScreen() {
   const navigation = useNavigation<Nav>();
   const colors = useColors();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
+  const isDark = useColorScheme() === 'dark';
+  const logoSource = isDark
+    ? require('../../../assets/logo-dark.png')
+    : require('../../../assets/logo-light.png');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -95,7 +100,7 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Créer un compte</Text>
           <Text style={styles.subtitle}>Rejoignez SUPFILE et stockez vos fichiers en toute sécurité</Text>
         </View>

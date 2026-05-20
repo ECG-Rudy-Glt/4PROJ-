@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, useColorScheme,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,6 +22,11 @@ export default function ForgotPasswordScreen() {
   const navigation = useNavigation<Nav>();
   const colors = useColors();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
+  const isDark = useColorScheme() === 'dark';
+  const logoSource = isDark
+    ? require('../../../assets/logo-dark.png')
+    : require('../../../assets/logo-light.png');
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +52,7 @@ export default function ForgotPasswordScreen() {
     <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Mot de passe oublié</Text>
           <Text style={styles.subtitle}>
             Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation.

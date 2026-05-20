@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, useColorScheme,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,6 +33,11 @@ export default function ResetPasswordScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
   const token = route.params?.token ?? '';
+
+  const isDark = useColorScheme() === 'dark';
+  const logoSource = isDark
+    ? require('../../../assets/logo-dark.png')
+    : require('../../../assets/logo-light.png');
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -109,7 +114,7 @@ export default function ResetPasswordScreen() {
       <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
-            <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           </View>
           <View style={styles.card}>
             <View style={styles.errorBox}>
@@ -131,7 +136,7 @@ export default function ResetPasswordScreen() {
       <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
-            <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           </View>
           <View style={styles.card}>
             <View style={styles.successBox}>
@@ -151,7 +156,7 @@ export default function ResetPasswordScreen() {
     <KeyboardAvoidingView style={styles.wrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Image source={require('../../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>{t('auth.reset_password.title')}</Text>
           <Text style={styles.subtitle}>{t('auth.reset_password.subtitle')}</Text>
         </View>
