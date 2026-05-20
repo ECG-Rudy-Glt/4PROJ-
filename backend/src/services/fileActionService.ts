@@ -106,11 +106,14 @@ export class FileActionService {
     if (!file) throw new AppError(404, 'Fichier introuvable');
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
 
-    return prisma.file.update({
+    const updatedFile = await prisma.file.update({
       where: { id: fileId },
       data: { isFavorite: !file.isFavorite },
       include: { folder: true },
     });
+
+    SocketService.emitToUser(userId, 'file_updated', updatedFile);
+    return updatedFile;
   }
 
   static async incrementViewCount(fileId: string) {

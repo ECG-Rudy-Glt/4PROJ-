@@ -10,7 +10,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources: { fr: { translation: fr }, en: { translation: en } },
-    lng: deviceLang === 'en' ? 'en' : 'fr',
+    lng: 'fr',
     fallbackLng: 'fr',
     interpolation: { escapeValue: false },
     compatibilityJSON: 'v4',

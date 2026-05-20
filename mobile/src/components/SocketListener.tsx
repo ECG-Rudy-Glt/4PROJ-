@@ -61,8 +61,7 @@ const formatNotificationToast = (notification: any) => {
 export default function SocketListener() {
   const socket = useSocket();
   const fetch = useNotificationStore((s) => s.fetch);
-  const fetchContents = useFileStore((s) => s.fetchContents);
-  const currentFolderId = useFileStore((s) => s.currentFolderId);
+  const refresh = useFileStore((s) => s.refresh);
 
   // Initial load when socket comes up
   useEffect(() => {
@@ -78,12 +77,12 @@ export default function SocketListener() {
     };
 
     const refreshFiles = () => {
-      fetchContents(currentFolderId);
+      refresh();
     };
 
     socket.on('notification_new', handleNotification);
     socket.on('notification:new', handleNotification);
-    socket.on('share_received', () => { fetch(); fetchContents(currentFolderId); });
+    socket.on('share_received', () => { fetch(); refresh(); });
     socket.on('file_uploaded', refreshFiles);
     socket.on('file_updated', refreshFiles);
     socket.on('file_deleted', refreshFiles);
@@ -102,7 +101,7 @@ export default function SocketListener() {
       socket.off('folder_deleted', refreshFiles);
       socket.off('folder_updated', refreshFiles);
     };
-  }, [socket, fetch, fetchContents, currentFolderId]);
+  }, [socket, fetch, refresh]);
 
   return null;
 }

@@ -162,14 +162,14 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {data?.recentFiles.length === 0 && (
+      {data?.recentFiles?.length === 0 && (
         <View style={styles.emptyState}>
           <Ionicons name="cloud-upload-outline" size={48} color={colors.neutral[300]} />
           <Text style={styles.emptyText}>{t('dashboard.empty_files')}</Text>
         </View>
       )}
 
-      {data?.recentFiles.map((file) => (
+      {data?.recentFiles?.map((file) => (
         <TouchableOpacity
           key={file.id}
           style={styles.fileRow}
