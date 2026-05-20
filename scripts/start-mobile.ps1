@@ -126,10 +126,23 @@ function Get-AvailablePort {
 # IP Detection
 # -----------------------------------------------------------------------------
 function Get-LocalIP {
+    # Essaye de trouver l'IP liee a la route par defaut (internet/passerelle)
+    $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($route) {
+        $ip = (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
+        if ($ip) { return $ip }
+    }
+    
+    # Fallback sur les interfaces physiques non-virtuelles
     $addresses = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
         ($_.IPAddress -notmatch "^127\.") -and
         ($_.IPAddress -notmatch "^169\.254\.") -and
-        ($_.PrefixOrigin -ne "WellKnown")
+        ($_.InterfaceAlias -notmatch "VMware") -and
+        ($_.InterfaceAlias -notmatch "WSL") -and
+        ($_.InterfaceAlias -notmatch "vEthernet") -and
+        ($_.InterfaceAlias -notmatch "Virtual") -and
+        ($_.InterfaceAlias -notmatch "Loopback") -and
+        ($_.InterfaceAlias -notmatch "Bluetooth")
     }
     $ip = ($addresses | Select-Object -First 1).IPAddress
     if (-not $ip) {
