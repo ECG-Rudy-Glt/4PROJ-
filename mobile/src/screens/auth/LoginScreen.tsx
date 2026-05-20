@@ -54,7 +54,7 @@ export default function LoginScreen() {
       const result = await authService.login({ email: email.trim(), password });
 
       if (!result || typeof result !== 'object') {
-        throw new Error('Réponse du serveur invalide: ' + typeof result + ' - ' + JSON.stringify(result));
+        throw new Error('Réponse du serveur invalide');
       }
 
       if (
