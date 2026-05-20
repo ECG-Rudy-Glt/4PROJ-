@@ -127,12 +127,16 @@ function Get-AvailablePort {
 # -----------------------------------------------------------------------------
 function Get-LocalIP {
     # Essaye de trouver l'IP liee a la route par defaut (internet/passerelle)
-    $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($route) {
-        $ip = (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
-        if ($ip) { return $ip }
-    }
-    
+    try {
+        $route = Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($route) {
+            $ip = (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
+            if ($ip) {
+                return $ip
+            }
+        }
+    } catch {}
+
     # Fallback sur les interfaces physiques non-virtuelles
     $addresses = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
         ($_.IPAddress -notmatch "^127\.") -and

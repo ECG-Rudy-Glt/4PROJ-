@@ -6,12 +6,14 @@ import { folderService } from '../services/folderService';
 interface FileState {
   files: FileItem[];
   folders: Folder[];
+  favorites: FileItem[];
   breadcrumbs: Breadcrumb[];
   currentFolderId: string | undefined;
   loading: boolean;
   error: string | null;
 
   fetchContents: (folderId?: string) => Promise<void>;
+  fetchFavorites: () => Promise<void>;
   navigateToFolder: (folderId?: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   renameFile: (fileId: string, name: string) => Promise<void>;
@@ -28,6 +30,7 @@ interface FileState {
 const initialState = {
   files: [] as FileItem[],
   folders: [] as Folder[],
+  favorites: [] as FileItem[],
   breadcrumbs: [] as Breadcrumb[],
   currentFolderId: undefined as string | undefined,
   loading: false,
@@ -59,6 +62,16 @@ export const useFileStore = create<FileState>((set, get) => ({
       });
     } catch {
       set({ error: 'Impossible de charger les fichiers', loading: false });
+    }
+  },
+
+  fetchFavorites: async () => {
+    set({ loading: true, error: null });
+    try {
+      const { files } = await fileService.getFavoriteFiles();
+      set({ favorites: files, loading: false });
+    } catch {
+      set({ error: 'Impossible de charger les favoris', loading: false });
     }
   },
 
@@ -104,14 +117,33 @@ export const useFileStore = create<FileState>((set, get) => ({
 
   toggleFavorite: async (fileId) => {
     const { file } = await fileService.toggleFavorite(fileId);
-    set((state) => ({
-      files: state.files.map((f) => (f.id === fileId ? { ...f, isFavorite: file.isFavorite } : f)),
-    }));
+    set((state) => {
+      const updatedFiles = state.files.map((f) => (f.id === fileId ? { ...f, isFavorite: file.isFavorite } : f));
+      let updatedFavorites = [...state.favorites];
+
+      if (file.isFavorite) {
+        const exists = updatedFavorites.some((f) => f.id === fileId);
+        if (!exists) {
+          const fileObj = state.files.find((f) => f.id === fileId) || file;
+          updatedFavorites.push({ ...fileObj, isFavorite: true });
+        }
+      } else {
+        updatedFavorites = updatedFavorites.filter((f) => f.id !== fileId);
+      }
+
+      return {
+        files: updatedFiles,
+        favorites: updatedFavorites,
+      };
+    });
   },
 
   refresh: async () => {
     const { currentFolderId } = get();
-    await get().fetchContents(currentFolderId);
+    await Promise.all([
+      get().fetchContents(currentFolderId),
+      get().fetchFavorites(),
+    ]);
   },
 
   reset: () => set(initialState),

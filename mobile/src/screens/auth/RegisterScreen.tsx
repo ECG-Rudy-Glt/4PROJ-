@@ -42,8 +42,8 @@ export default function RegisterScreen() {
 
   const isDark = useColorScheme() === 'dark';
   const logoSource = isDark
-    ? require('../../../assets/logo-dark.png')
-    : require('../../../assets/logo-light.png');
+    ? require('../../assets/logo-dark.png')
+    : require('../../assets/logo-light.png');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -75,6 +75,9 @@ export default function RegisterScreen() {
         email: email.trim(), password,
         firstName: firstName.trim(), lastName: lastName.trim(),
       });
+      if (!result || typeof result !== 'object') {
+        throw new Error('Réponse du serveur invalide');
+      }
       if ('mfaSetupRequired' in result && result.mfaSetupRequired) {
         navigation.navigate('MfaVerify', {
           tempToken: result.tempToken,

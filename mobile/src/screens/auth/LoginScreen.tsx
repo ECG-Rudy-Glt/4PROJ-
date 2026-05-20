@@ -35,8 +35,8 @@ export default function LoginScreen() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const isDark = useColorScheme() === 'dark';
   const logoSource = isDark
-    ? require('../../../assets/logo-dark.png')
-    : require('../../../assets/logo-light.png');
+    ? require('../../assets/logo-dark.png')
+    : require('../../assets/logo-light.png');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +52,10 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const result = await authService.login({ email: email.trim(), password });
+
+      if (!result || typeof result !== 'object') {
+        throw new Error('Réponse du serveur invalide');
+      }
 
       if (
         ('mfaRequired' in result && result.mfaRequired) ||

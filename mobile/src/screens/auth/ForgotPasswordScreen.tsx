@@ -25,8 +25,8 @@ export default function ForgotPasswordScreen() {
 
   const isDark = useColorScheme() === 'dark';
   const logoSource = isDark
-    ? require('../../../assets/logo-dark.png')
-    : require('../../../assets/logo-light.png');
+    ? require('../../assets/logo-dark.png')
+    : require('../../assets/logo-light.png');
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
