@@ -1,7 +1,7 @@
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
     SHELL := cmd.exe
-    POWERSHELL := powershell.exe -ExecutionPolicy Bypass -File
+    POWERSHELL := powershell.exe -ExecutionPolicy Bypass -NoProfile -File
     NULL_REDIRECT := 2>nul
     CHECK_NODE := where node >nul 2>nul
     CHECK_NPM := where npm >nul 2>nul

@@ -15,10 +15,15 @@ param(
     [string]$Platform = "default",
     [switch]$InstallOnly,
     [switch]$Clean,
-    [switch]$Tunnel
+    [switch]$Tunnel,
+    [int]$Port = 8081
 )
 
 $ErrorActionPreference = "Stop"
+
+# Disable Expo telemetry prompts (anonymous mode question)
+$env:EXPO_NO_TELEMETRY = "1"
+$env:CI = "0"
 
 # Navigate to project root
 Set-Location -Path "$PSScriptRoot\.."
@@ -76,6 +81,45 @@ function Test-Prerequisites {
     }
     Write-Host "  Mobile directory: OK" -ForegroundColor Green
     Write-Host ""
+}
+
+# -----------------------------------------------------------------------------
+# Port Management
+# -----------------------------------------------------------------------------
+function Test-PortInUse {
+    param([int]$Port)
+    $connection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+    return $null -ne $connection
+}
+
+function Stop-ProcessOnPort {
+    param([int]$PortNum)
+    $connections = Get-NetTCPConnection -LocalPort $PortNum -ErrorAction SilentlyContinue
+    if ($connections) {
+        $processIds = $connections | Select-Object -ExpandProperty OwningProcess -Unique
+        foreach ($procId in $processIds) {
+            try {
+                $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+                if ($proc) {
+                    Write-Host "  Killing process $($proc.ProcessName) (PID: $procId) on port $PortNum" -ForegroundColor Yellow
+                    Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+                }
+            } catch {}
+        }
+        Start-Sleep -Milliseconds 500
+    }
+}
+
+function Get-AvailablePort {
+    param([int]$StartPort = 8081)
+    $port = $StartPort
+    while ($port -lt ($StartPort + 10)) {
+        if (-not (Test-PortInUse -Port $port)) {
+            return $port
+        }
+        $port++
+    }
+    return $StartPort
 }
 
 # -----------------------------------------------------------------------------
@@ -217,7 +261,8 @@ function Start-Expo {
     param(
         [string]$IP,
         [string]$Platform,
-        [bool]$UseTunnel
+        [bool]$UseTunnel,
+        [int]$ExpoPort = 8081
     )
 
     Push-Location $MobileDir
@@ -226,7 +271,7 @@ function Start-Expo {
         $env:REACT_NATIVE_PACKAGER_HOSTNAME = $IP
 
         # Build expo command
-        $expoArgs = @("expo", "start", "--clear")
+        $expoArgs = @("expo", "start", "--clear", "--port", $ExpoPort)
 
         if ($UseTunnel) {
             $expoArgs += "--tunnel"
@@ -243,6 +288,7 @@ function Start-Expo {
         Write-Host "=========================================" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Local IP: $IP" -ForegroundColor White
+        Write-Host "  Port:     $ExpoPort" -ForegroundColor White
         Write-Host "  Backend:  http://${IP}:5001" -ForegroundColor White
         if ($UseTunnel) {
             Write-Host "  Mode:     Tunnel (for external access)" -ForegroundColor White
@@ -285,21 +331,30 @@ $DetectedIP = Get-LocalIP
 
 if ($DetectedIP) {
     Write-Host "IP detected: $DetectedIP" -ForegroundColor Green
-    Write-Host ""
-    $UseDetected = Read-Host "Use this IP address? (Y/n)"
-    if ($UseDetected -match "^[Nn]$") {
-        $FinalIP = Read-Host "Enter IP address manually"
-    } else {
-        $FinalIP = $DetectedIP
-    }
+    $FinalIP = $DetectedIP
 } else {
-    Write-Host "WARNING: Could not auto-detect IP address" -ForegroundColor Yellow
-    Write-Host ""
-    $FinalIP = Read-Host "Enter IP address manually"
+    Write-Host "Could not auto-detect IP, using localhost" -ForegroundColor Yellow
+    $FinalIP = "localhost"
 }
 
-if (-not $FinalIP) {
-    $FinalIP = "localhost"
+Write-Host ""
+
+# Handle port
+Write-Host "Checking port $Port..." -ForegroundColor Yellow
+if (Test-PortInUse -Port $Port) {
+    Write-Host "Port $Port is in use, killing existing process..." -ForegroundColor Yellow
+    Stop-ProcessOnPort -Port $Port
+    Start-Sleep -Milliseconds 500
+
+    # Recheck if port is now free
+    if (Test-PortInUse -Port $Port) {
+        $Port = Get-AvailablePort -StartPort ($Port + 1)
+        Write-Host "Using alternative port: $Port" -ForegroundColor Yellow
+    } else {
+        Write-Host "Port $Port is now available" -ForegroundColor Green
+    }
+} else {
+    Write-Host "Port $Port is available" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -321,4 +376,4 @@ if ($InstallOnly) {
 }
 
 # Start Expo
-Start-Expo -IP $FinalIP -Platform $Platform -UseTunnel $Tunnel.IsPresent
+Start-Expo -IP $FinalIP -Platform $Platform -UseTunnel $Tunnel.IsPresent -ExpoPort $Port
