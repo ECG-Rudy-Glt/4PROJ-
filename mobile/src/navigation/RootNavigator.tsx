@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import * as Linking from 'expo-linking';
+import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../stores/useAuthStore';
 import { authService } from '../services/authService';
 import { useColors } from '../theme/useColors';
@@ -48,6 +49,11 @@ export default function RootNavigator() {
       if (!url.includes('auth/callback')) return;
       try {
         const parsed = new URL(url);
+        const error = parsed.searchParams.get('error');
+        if (error) {
+          Toast.show({ type: 'error', text1: 'Connexion OAuth échouée', text2: decodeURIComponent(error) });
+          return;
+        }
         const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ''));
         const token = hashParams.get('token') || parsed.searchParams.get('token');
         if (!token) return;
@@ -55,7 +61,7 @@ export default function RootNavigator() {
         const { user, session } = await authService.getProfileWithToken(decoded);
         await setAuth(decoded, user, session, undefined);
       } catch {
-        // ignore
+        Toast.show({ type: 'error', text1: 'Connexion OAuth échouée', text2: 'Veuillez réessayer' });
       }
     };
 
