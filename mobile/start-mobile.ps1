@@ -36,17 +36,10 @@ $DetectedIP = Get-LocalIP
 
 if ($DetectedIP) {
     Write-Host "Adresse IP reseau active detectee : $DetectedIP" -ForegroundColor Green
-    Write-Host ""
-    $UseDetected = Read-Host "Utiliser cette adresse IP pour Metro/Expo Go ? (O/n)"
-    if ($UseDetected -match "^[Nn]$") {
-        $FinalIP = Read-Host "Entrez l'adresse IP de votre reseau local (ex: 192.168.1.77)"
-    } else {
-        $FinalIP = $DetectedIP
-    }
+    $FinalIP = $DetectedIP
 } else {
-    Write-Host "Attention: Impossible de detecter automatiquement votre IP active" -ForegroundColor Yellow
-    Write-Host ""
-    $FinalIP = Read-Host "Entrez l'adresse IP de votre reseau local (ex: 192.168.1.77)"
+    Write-Host "Attention: Impossible de detecter automatiquement votre IP active. Utilisation de localhost." -ForegroundColor Yellow
+    $FinalIP = "localhost"
 }
 
 if (-not $FinalIP) {
