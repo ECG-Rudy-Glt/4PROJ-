@@ -35,8 +35,8 @@ export default function LoginScreen() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const isDark = useColorScheme() === 'dark';
   const logoSource = isDark
-    ? require('../../../assets/logo-dark.png')
-    : require('../../../assets/logo-light.png');
+    ? require('../../assets/logo-dark.png')
+    : require('../../assets/logo-light.png');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

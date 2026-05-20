@@ -42,8 +42,8 @@ export default function RegisterScreen() {
 
   const isDark = useColorScheme() === 'dark';
   const logoSource = isDark
-    ? require('../../../assets/logo-dark.png')
-    : require('../../../assets/logo-light.png');
+    ? require('../../assets/logo-dark.png')
+    : require('../../assets/logo-light.png');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');

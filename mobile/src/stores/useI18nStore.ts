@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { translations, Lang } from '../i18n/translations';
+import i18n from '../i18n';
 
 interface I18nState {
   lang: Lang;
@@ -14,7 +15,10 @@ export const useI18nStore = create<I18nState>()(
     (set) => ({
       lang: 'fr',
       t: translations.fr,
-      setLang: (lang: Lang) => set({ lang, t: translations[lang] }),
+      setLang: (lang: Lang) => {
+        i18n.changeLanguage(lang);
+        set({ lang, t: translations[lang] });
+      },
     }),
     {
       name: 'i18n-storage',
@@ -23,6 +27,7 @@ export const useI18nStore = create<I18nState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.t = translations[state.lang];
+          i18n.changeLanguage(state.lang);
         }
       },
     }
