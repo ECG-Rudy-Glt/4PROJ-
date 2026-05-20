@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
@@ -83,9 +84,16 @@ export default function OAuthButtons({ onTokenReceived }: Props) {
   );
 }
 
+const GOOGLE_LOGO_URI = 'https://developers.google.com/identity/images/g-logo.png';
+
 function GoogleIcon() {
   return (
-    <Text style={{ fontSize: 15, fontWeight: '800', color: '#4285F4', lineHeight: 18 }}>G</Text>
+    <Image
+      source={{ uri: GOOGLE_LOGO_URI }}
+      style={{ width: 18, height: 18 }}
+      contentFit="contain"
+      cachePolicy="disk"
+    />
   );
 }
 
