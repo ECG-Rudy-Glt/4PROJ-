@@ -387,7 +387,7 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  static async requestPasswordReset(email: string, requestLanguage?: string) {
+  static async requestPasswordReset(email: string, requestLanguage?: string, platform?: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       // Don't throw error to prevent email enumeration
@@ -413,7 +413,9 @@ export class AuthService {
 
     // Determine language: use user.language, fallback to requestLanguage or 'fr'
     const lang = user.language || requestLanguage || 'fr';
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const resetLink = platform === 'mobile'
+      ? `supfile://reset-password?token=${token}`
+      : `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
     try {
       const sent = await MailService.sendPasswordResetMail(user.email, user.firstName || 'Utilisateur', resetLink, lang);
@@ -444,7 +446,7 @@ export class AuthService {
     };
   }
 
-  static async resetPassword(token: string, newPassword: string, mfaCode?: string) {
+  static async resetPassword(token: string, newPassword: string, mfaCode?: string, forceReset = false) {
     const resetToken = await prisma.passwordResetToken.findUnique({
       where: { token: this.hashPasswordResetToken(token) },
       include: { user: true }
@@ -456,7 +458,7 @@ export class AuthService {
 
     const user = resetToken.user;
 
-    if (user.encryptedDek || user.vaultEnabled || user.vaultPasswordHash) {
+    if ((user.encryptedDek || user.vaultEnabled || user.vaultPasswordHash) && !forceReset) {
       throw new AppError(
         409,
         'La réinitialisation du mot de passe nécessite une clé de récupération pour préserver vos données chiffrées.',
@@ -464,15 +466,15 @@ export class AuthService {
       );
     }
 
-    // MFA Verification if enabled
-    if (user.mfaEnabled) {
+    // MFA Verification — skipped on forceReset (email token is sufficient proof)
+    if (user.mfaEnabled && !forceReset) {
       if (!mfaCode) {
         throw new AppError(401, "Code MFA requis.");
       }
-      
+
       const isTotpValid = await mfaService.verifyUserTOTPCode(user.id, mfaCode);
       let isBackupValid = false;
-      
+
       if (!isTotpValid) {
         isBackupValid = await mfaService.verifyBackupCode(user.id, mfaCode);
       }
@@ -490,11 +492,21 @@ export class AuthService {
       data: {
         password: hashedPassword,
         tokenVersion: { increment: 1 },
+        // forceReset : on efface le DEK et le coffre pour repartir proprement
+        ...(forceReset ? {
+          encryptedDek: null,
+          kekSalt: null,
+          vaultEnabled: false,
+          vaultPasswordHash: null,
+        } : {}),
       }
     });
 
     // Delete token
     await prisma.passwordResetToken.delete({ where: { id: resetToken.id } });
+
+    // Invalidate all existing sessions (JWT + refresh tokens)
+    await this.revokeAllRefreshTokens(user.id);
 
     try {
       await MailService.sendPasswordChangeNotification(user.email, user.firstName || 'Utilisateur', user.language);

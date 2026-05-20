@@ -13,12 +13,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
 import { FileItem, Folder } from '../types';
 import { shareService, SharePermissions } from '../services/shareService';
+import { useAuthStore } from '../stores/useAuthStore';
 
 type Target =
   | { kind: 'file'; data: FileItem }
@@ -33,6 +35,12 @@ interface Props {
 type Mode = 'user' | 'link';
 
 export default function ShareModal({ target, targets: targetsProp, onClose }: Props) {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const canUsePassword = user?.plan !== 'FREE';
+
   const [mode, setMode] = useState<Mode>('user');
   const [email, setEmail] = useState('');
   const [perms, setPerms] = useState<SharePermissions>({ canRead: true });
@@ -180,10 +188,10 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                 />
 
                 <Text style={[styles.label, { marginTop: spacing.lg }]}>Permissions</Text>
-                <PermToggle label="Lecture" active={!!perms.canRead} onToggle={() => togglePerm('canRead')} />
-                <PermToggle label="Écriture" active={!!perms.canWrite} onToggle={() => togglePerm('canWrite')} />
-                <PermToggle label="Suppression" active={!!perms.canDelete} onToggle={() => togglePerm('canDelete')} />
-                <PermToggle label="Partage" active={!!perms.canShare} onToggle={() => togglePerm('canShare')} />
+                <PermToggle label="Lecture" active={!!perms.canRead} onToggle={() => togglePerm('canRead')} colors={colors} styles={styles} />
+                <PermToggle label="Écriture" active={!!perms.canWrite} onToggle={() => togglePerm('canWrite')} colors={colors} styles={styles} />
+                <PermToggle label="Suppression" active={!!perms.canDelete} onToggle={() => togglePerm('canDelete')} colors={colors} styles={styles} />
+                <PermToggle label="Partage" active={!!perms.canShare} onToggle={() => togglePerm('canShare')} colors={colors} styles={styles} />
 
                 <TouchableOpacity
                   style={[styles.primaryBtn, loading && styles.btnDisabled]}
@@ -207,15 +215,22 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                         {`${fileTargets.length} fichier(s) — les dossiers seront ignorés.`}
                       </Text>
                     )}
-                    <Text style={styles.label}>Mot de passe (optionnel)</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Laisser vide pour aucun"
-                      placeholderTextColor={colors.neutral[400]}
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                    />
+                    <Text style={styles.label}>Protection par mot de passe</Text>
+                    {canUsePassword ? (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Laisser vide pour aucun"
+                        placeholderTextColor={colors.neutral[400]}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                      />
+                    ) : (
+                      <View style={styles.proBanner}>
+                        <Ionicons name="lock-closed" size={16} color={colors.primary[600]} />
+                        <Text style={styles.proText}>Fonctionnalité PRO — Passez à un abonnement supérieur pour protéger vos liens par mot de passe.</Text>
+                      </View>
+                    )}
 
                     <Text style={[styles.label, { marginTop: spacing.lg }]}>Téléchargements max (optionnel)</Text>
                     <TextInput
@@ -258,7 +273,7 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
   );
 }
 
-function PermToggle({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {
+function PermToggle({ label, active, onToggle, colors, styles }: { label: string; active: boolean; onToggle: () => void; colors: AppColors; styles: ReturnType<typeof makeStyles> }) {
   return (
     <TouchableOpacity style={styles.permRow} onPress={onToggle} activeOpacity={0.7}>
       <Ionicons
@@ -271,14 +286,14 @@ function PermToggle({ label, active, onToggle }: { label: string; active: boolea
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.lg,
@@ -293,7 +308,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   header: {
@@ -302,17 +317,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   title: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   tabs: {
     flexDirection: 'row',
     marginVertical: spacing.md,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
     borderRadius: borderRadius.lg,
     padding: 3,
   },
@@ -323,33 +338,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     ...shadows.sm,
   },
   tabText: {
     ...typography.bodySmall,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     fontWeight: '500',
   },
   tabTextActive: {
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '600',
   },
   label: {
     ...typography.caption,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     marginBottom: spacing.xs,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
   },
   permRow: {
     flexDirection: 'row',
@@ -359,11 +374,11 @@ const styles = StyleSheet.create({
   },
   permLabel: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
   },
   primaryBtn: {
     flexDirection: 'row',
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
     alignItems: 'center',
@@ -373,26 +388,41 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     ...typography.button,
-    color: colors.white,
+    color: c.white,
   },
   btnDisabled: {
     opacity: 0.6,
   },
   linkResult: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     gap: spacing.sm,
   },
   linkText: {
     ...typography.bodySmall,
-    color: colors.primary[700],
+    color: c.primary[700],
     fontFamily: 'Menlo',
   },
   muted: {
     ...typography.body,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     textAlign: 'center',
     padding: spacing.xl,
+  },
+  proBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: c.primary[50],
+    borderWidth: 1,
+    borderColor: c.primary[200],
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+  },
+  proText: {
+    ...typography.bodySmall,
+    color: c.primary[600],
+    flex: 1,
   },
 });

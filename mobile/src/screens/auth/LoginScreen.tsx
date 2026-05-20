@@ -9,21 +9,27 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { RootStackParamList, MfaRequiredResponse } from '../../types';
+import OAuthButtons from '../../components/OAuthButtons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<Nav>();
   const setAuth = useAuthStore((s) => s.setAuth);
 
@@ -34,7 +40,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Toast.show({ type: 'error', text1: 'Veuillez remplir tous les champs' });
+      Toast.show({ type: 'error', text1: t('auth.login.error_empty') });
       return;
     }
 
@@ -42,7 +48,6 @@ export default function LoginScreen() {
     try {
       const result = await authService.login({ email: email.trim(), password });
 
-      // MFA requis (vérification du code) ou setup MFA obligatoire
       if (
         ('mfaRequired' in result && result.mfaRequired) ||
         ('mfaSetupRequired' in result && (result as any).mfaSetupRequired)
@@ -58,13 +63,12 @@ export default function LoginScreen() {
         return;
       }
 
-      // Connexion directe
       if ('token' in result && 'user' in result) {
         await setAuth(result.token, result.user, result.authContext, result.refreshToken);
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Identifiants incorrects';
-      Toast.show({ type: 'error', text1: 'Erreur de connexion', text2: msg });
+      const msg = err?.response?.data?.error || err?.message || t('auth.login.error_invalid');
+      Toast.show({ type: 'error', text1: t('auth.login.error_prefix'), text2: msg });
     } finally {
       setLoading(false);
     }
@@ -79,21 +83,21 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo / titre */}
         <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>S</Text>
-          </View>
-          <Text style={styles.title}>Bienvenue sur SUPFILE</Text>
-          <Text style={styles.subtitle}>Connectez-vous pour accéder à vos fichiers</Text>
+          <Image
+            source={require('../../../assets/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>{t('auth.login.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.login.subtitle')}</Text>
         </View>
 
-        {/* Formulaire */}
         <View style={styles.card}>
-          <Text style={styles.label}>Adresse e-mail</Text>
+          <Text style={styles.label}>{t('auth.login.email_label')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="nom@exemple.com"
+            placeholder={t('auth.login.email_placeholder')}
             placeholderTextColor={colors.neutral[400]}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -102,7 +106,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
           />
 
-          <Text style={styles.label}>Mot de passe</Text>
+          <Text style={styles.label}>{t('auth.login.password_label')}</Text>
           <View style={styles.passwordRow}>
             <TextInput
               style={[styles.input, styles.passwordInput]}
@@ -116,7 +120,7 @@ export default function LoginScreen() {
               style={styles.eyeBtn}
               onPress={() => setShowPassword((v) => !v)}
             >
-              <Text style={styles.eyeText}>{showPassword ? 'Masquer' : 'Voir'}</Text>
+              <Text style={styles.eyeText}>{showPassword ? t('auth.login.hide_password') : t('auth.login.show_password')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -127,17 +131,31 @@ export default function LoginScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Se connecter</Text>
+              <Text style={styles.buttonText}>{t('auth.login.submit')}</Text>
             )}
           </TouchableOpacity>
 
-          {/* Lien inscription */}
+          <TouchableOpacity style={styles.forgotRow} onPress={() => navigation.navigate('ForgotPassword')}>
+            <Text style={styles.forgotText}>{t('auth.login.forgot_password')}</Text>
+          </TouchableOpacity>
+
+          <OAuthButtons
+            onTokenReceived={async (token) => {
+              try {
+                const { user, session } = await authService.getProfileWithToken(token);
+                await setAuth(token, user, session, undefined);
+              } catch {
+                Toast.show({ type: 'error', text1: t('auth.oauth.error') });
+              }
+            }}
+          />
+
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Vous n'avez pas de compte ? </Text>
+            <Text style={styles.footerText}>{t('auth.login.no_account')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.link}>S'inscrire</Text>
+              <Text style={styles.link}>{t('auth.login.signup')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -146,10 +164,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.bg.secondary,
   },
   scrollContent: {
     flexGrow: 1,
@@ -161,51 +179,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing['2xl'],
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[600],
-    justifyContent: 'center',
-    alignItems: 'center',
+  logo: {
+    width: 80,
+    height: 80,
     marginBottom: spacing.lg,
-    ...shadows.lg,
-  },
-  logoText: {
-    ...typography.h1,
-    color: colors.white,
   },
   title: {
     ...typography.h3,
-    color: colors.primary[600],
+    color: c.primary[600],
     marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.bodySmall,
-    color: colors.neutral[500],
+    color: c.neutral[500],
     textAlign: 'center',
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     ...shadows.xl,
   },
   label: {
     ...typography.label,
-    color: colors.neutral[700],
+    color: c.neutral[700],
     marginBottom: spacing.xs,
     marginTop: spacing.md,
   },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
   },
   passwordRow: {
     position: 'relative',
@@ -222,11 +231,11 @@ const styles = StyleSheet.create({
   },
   eyeText: {
     ...typography.caption,
-    color: colors.primary[500],
+    color: c.primary[500],
     fontWeight: '600',
   },
   button: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg,
     alignItems: 'center',
@@ -238,7 +247,16 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     ...typography.button,
-    color: colors.white,
+    color: '#fff',
+  },
+  forgotRow: {
+    alignItems: 'flex-end',
+    marginTop: spacing.sm,
+  },
+  forgotText: {
+    ...typography.caption,
+    color: c.primary[600],
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
@@ -247,11 +265,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     ...typography.bodySmall,
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   link: {
     ...typography.bodySmall,
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '600',
   },
 });

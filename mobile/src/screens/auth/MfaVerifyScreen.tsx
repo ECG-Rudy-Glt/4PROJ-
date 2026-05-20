@@ -15,7 +15,8 @@ import {
 import { useRoute, RouteProp } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors, useIsDark } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -30,6 +31,10 @@ type Route = RouteProp<RootStackParamList, 'MfaVerify'>;
 const CODE_LENGTH = 6;
 
 export default function MfaVerifyScreen() {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const isDark = useIsDark();
+  const styles = React.useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const route = useRoute<Route>();
   const { tempToken, mfaSetupRequired } = route.params;
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -39,7 +44,6 @@ export default function MfaVerifyScreen() {
   const [setupData, setSetupData] = useState<MFASetupResponse | null>(null);
   const [loadingSetup, setLoadingSetup] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
-  // Guard : n'appeler setupMFA qu'une seule fois même si l'effet re-run (Fast Refresh)
   const setupCalled = useRef(false);
 
   useEffect(() => {
@@ -55,7 +59,7 @@ export default function MfaVerifyScreen() {
       } catch (err: any) {
         Toast.show({
           type: 'error',
-          text1: 'Erreur de configuration MFA',
+          text1: t('common.error'),
           text2: err?.response?.data?.error || err?.message,
         });
       } finally {
@@ -102,28 +106,25 @@ export default function MfaVerifyScreen() {
   const handleVerify = async () => {
     const code = digits.join('');
     if (code.length !== CODE_LENGTH) {
-      Toast.show({ type: 'error', text1: 'Veuillez entrer le code complet' });
+      Toast.show({ type: 'error', text1: t('auth.mfa.error_empty') });
       return;
     }
 
     setLoading(true);
     try {
       if (mfaSetupRequired && setupData) {
-        // Valider la configuration MFA avec le code saisi
         const { token, refreshToken } = await mfaService.verifySetup(
           code,
           setupData.secret,
           setupData.backupCodes,
           false,
         ) as { token: string; refreshToken?: string };
-        // Récupérer le profil avec le nouveau token
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const profile = await authService.getProfile();
         await setAuth(token, profile.user, profile.session, refreshToken);
         await SecureStore.deleteItemAsync('tempToken');
-        Toast.show({ type: 'success', text1: 'Double authentification configurée !' });
+        Toast.show({ type: 'success', text1: t('common.success') });
       } else {
-        // MFA déjà configuré — vérification du code
         const { token, refreshToken } = await authService.verifyMfa({
           tempToken,
           code,
@@ -133,11 +134,11 @@ export default function MfaVerifyScreen() {
         const profile = await authService.getProfile();
         await setAuth(token, profile.user, profile.session, refreshToken);
         await SecureStore.deleteItemAsync('tempToken');
-        Toast.show({ type: 'success', text1: 'Authentification réussie' });
+        Toast.show({ type: 'success', text1: t('common.success') });
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Code invalide';
-      Toast.show({ type: 'error', text1: 'Erreur', text2: msg });
+      const msg = err?.response?.data?.error || t('auth.mfa.error_invalid');
+      Toast.show({ type: 'error', text1: t('common.error'), text2: msg });
       setDigits(Array(CODE_LENGTH).fill(''));
       inputs.current[0]?.focus();
     } finally {
@@ -156,22 +157,19 @@ export default function MfaVerifyScreen() {
             <Text style={styles.iconText}>🔐</Text>
           </View>
           <Text style={styles.title}>
-            {mfaSetupRequired ? 'Configurer la double authentification' : 'Vérification MFA'}
+            {mfaSetupRequired ? t('auth.mfa.setup_title') : t('auth.mfa.verify_title')}
           </Text>
           <Text style={styles.subtitle}>
-            {mfaSetupRequired
-              ? "Ajoutez SupFile à votre application d'authentification"
-              : "Entrez le code à 6 chiffres de votre application d'authentification"}
+            {mfaSetupRequired ? t('auth.mfa.setup_subtitle') : t('auth.mfa.verify_subtitle')}
           </Text>
         </View>
 
         <View style={styles.card}>
-          {/* Setup MFA : QR code */}
           {mfaSetupRequired && (
             loadingSetup ? (
               <View style={styles.qrLoading}>
                 <ActivityIndicator color={colors.primary[600]} />
-                <Text style={styles.qrLoadingText}>Génération du QR code…</Text>
+                <Text style={styles.qrLoadingText}>{t('auth.mfa.qr_loading')}</Text>
               </View>
             ) : setupData ? (
               <View style={styles.qrSection}>
@@ -182,44 +180,40 @@ export default function MfaVerifyScreen() {
                       Linking.openURL(setupData.otpauthUrl).catch(() => {
                         Toast.show({
                           type: 'error',
-                          text1: 'Impossible d\'ouvrir l\'app',
-                          text2: 'Copiez la clé secrète ci-dessous et ajoutez-la manuellement.',
+                          text1: t('common.error'),
+                          text2: t('auth.mfa.copy_secret'),
                         });
                       });
                     }
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.addAuthButtonText}>Ajouter à mon app d'authentification</Text>
+                  <Text style={styles.addAuthButtonText}>{t('auth.mfa.add_to_app')}</Text>
                 </TouchableOpacity>
 
                 <View style={styles.secretBox}>
-                  <Text style={styles.secretLabel}>Ou copiez la clé secrète :</Text>
+                  <Text style={styles.secretLabel}>{t('auth.mfa.copy_secret')}</Text>
                   <Text style={styles.secretCode} selectable>{setupData.secret}</Text>
                   <TouchableOpacity
                     style={styles.copyButton}
                     onPress={() => {
                       Clipboard.setString(setupData.secret);
-                      Toast.show({ type: 'success', text1: 'Clé copiée !' });
+                      Toast.show({ type: 'success', text1: t('auth.mfa.copied') });
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.copyButtonText}>Copier la clé</Text>
+                    <Text style={styles.copyButtonText}>{t('auth.mfa.copy')}</Text>
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.warningBox}>
-                  <Text style={styles.warningText}>
-                    ⚠️ Appuyez sur le bouton ci-dessus pour ajouter SupFile à votre app d'authentification (Google Authenticator, Authy, Apple Mots de passe…).{'\n'}
-                    Si vous avez déjà une entrée "SupFile", supprimez-la avant d'ajouter celle-ci.
-                  </Text>
+                  <Text style={styles.warningText}>{t('auth.mfa.warning')}</Text>
                 </View>
               </View>
             ) : null
           )}
 
-          {/* Champs OTP */}
-          <Text style={styles.label}>Code de vérification</Text>
+          <Text style={styles.label}>{t('auth.mfa.code_label')}</Text>
           <View style={styles.codeRow}>
             {digits.map((digit, i) => (
               <TextInput
@@ -227,7 +221,7 @@ export default function MfaVerifyScreen() {
                 ref={(el) => { inputs.current[i] = el; }}
                 style={[styles.codeInput, digit ? styles.codeInputFilled : null]}
                 value={digit}
-                onChangeText={(t) => handleDigitChange(t, i)}
+                onChangeText={(text) => handleDigitChange(text, i)}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, i)}
                 keyboardType="number-pad"
                 maxLength={CODE_LENGTH}
@@ -244,11 +238,9 @@ export default function MfaVerifyScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>
-                {mfaSetupRequired ? 'Confirmer la configuration' : 'Vérifier'}
-              </Text>
+              <Text style={styles.buttonText}>{t('auth.mfa.submit')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -257,8 +249,8 @@ export default function MfaVerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: colors.primary[50] },
+const makeStyles = (c: AppColors, isDark: boolean) => StyleSheet.create({
+  wrapper: { flex: 1, backgroundColor: c.bg.secondary },
   scrollContent: {
     flexGrow: 1, justifyContent: 'center',
     paddingHorizontal: spacing.xl, paddingVertical: spacing['3xl'],
@@ -266,49 +258,51 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginBottom: spacing['2xl'] },
   iconCircle: {
     width: 64, height: 64, borderRadius: borderRadius.full,
-    backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: c.white, justifyContent: 'center', alignItems: 'center',
     marginBottom: spacing.lg, ...shadows.lg,
   },
   iconText: { fontSize: 28 },
-  title: { ...typography.h3, color: colors.primary[600], marginBottom: spacing.xs, textAlign: 'center' },
-  subtitle: { ...typography.bodySmall, color: colors.neutral[500], textAlign: 'center', paddingHorizontal: spacing.lg },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.xl },
+  title: { ...typography.h3, color: c.primary[600], marginBottom: spacing.xs, textAlign: 'center' },
+  subtitle: { ...typography.bodySmall, color: c.neutral[500], textAlign: 'center', paddingHorizontal: spacing.lg },
+  card: { backgroundColor: c.white, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.xl },
   qrSection: { alignItems: 'center', marginBottom: spacing.xl },
   qrLoading: { alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl },
-  qrLoadingText: { ...typography.bodySmall, color: colors.neutral[500] },
+  qrLoadingText: { ...typography.bodySmall, color: c.neutral[500] },
   addAuthButton: {
-    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    backgroundColor: c.primary[600], borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg, paddingHorizontal: spacing.xl,
     alignItems: 'center', width: '100%', marginBottom: spacing.lg, ...shadows.md,
   },
-  addAuthButtonText: { ...typography.button, color: colors.white },
-  secretBox: { backgroundColor: colors.neutral[50], borderRadius: borderRadius.md, padding: spacing.md, width: '100%' },
-  secretLabel: { ...typography.caption, color: colors.neutral[500], marginBottom: spacing.xs },
-  secretCode: { ...typography.body, fontWeight: '600', color: colors.primary[600], textAlign: 'center', letterSpacing: 2 },
+  addAuthButtonText: { ...typography.button, color: '#fff' },
+  secretBox: { backgroundColor: c.neutral[50], borderRadius: borderRadius.md, padding: spacing.md, width: '100%' },
+  secretLabel: { ...typography.caption, color: c.neutral[500], marginBottom: spacing.xs },
+  secretCode: { ...typography.body, fontWeight: '600', color: c.primary[600], textAlign: 'center', letterSpacing: 2 },
   copyButton: {
-    marginTop: spacing.sm, backgroundColor: colors.neutral[200],
+    marginTop: spacing.sm, backgroundColor: c.neutral[200],
     borderRadius: borderRadius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
     alignSelf: 'center',
   },
-  copyButtonText: { ...typography.caption, color: colors.neutral[700], fontWeight: '600' },
-  hint: { ...typography.caption, color: colors.neutral[400], textAlign: 'center', marginTop: spacing.md },
+  copyButtonText: { ...typography.caption, color: c.neutral[700], fontWeight: '600' },
   warningBox: {
-    backgroundColor: '#FEF3C7', borderRadius: borderRadius.md,
+    backgroundColor: isDark ? 'rgba(251,191,36,0.12)' : '#FEF3C7',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? '#FBBF24' : 'transparent',
+    borderRadius: borderRadius.md,
     padding: spacing.md, marginTop: spacing.md, width: '100%',
   },
-  warningText: { ...typography.caption, color: '#92400E', lineHeight: 18 },
-  label: { ...typography.label, color: colors.neutral[700], marginBottom: spacing.md },
+  warningText: { ...typography.caption, color: isDark ? c.warning : '#92400E', lineHeight: 18 },
+  label: { ...typography.label, color: c.neutral[700], marginBottom: spacing.md },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.xl },
   codeInput: {
-    flex: 1, height: 56, backgroundColor: colors.neutral[50],
-    borderWidth: 2, borderColor: colors.neutral[200], borderRadius: borderRadius.lg,
-    textAlign: 'center', fontSize: 22, fontWeight: '700', color: colors.neutral[900],
+    flex: 1, height: 56, backgroundColor: c.neutral[50],
+    borderWidth: 2, borderColor: c.neutral[200], borderRadius: borderRadius.lg,
+    textAlign: 'center', fontSize: 22, fontWeight: '700', color: c.neutral[900],
   },
-  codeInputFilled: { borderColor: colors.primary[500], backgroundColor: colors.primary[50] },
+  codeInputFilled: { borderColor: c.primary[500], backgroundColor: c.primary[50] },
   button: {
-    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    backgroundColor: c.primary[600], borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg, alignItems: 'center', ...shadows.md,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { ...typography.button, color: colors.white },
+  buttonText: { ...typography.button, color: '#fff' },
 });

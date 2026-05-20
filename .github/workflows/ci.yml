@@ -3,9 +3,9 @@ name: CI Pipeline
 # Déclenchement sur push et PR vers les branches principales
 on:
   push:
-    branches: [ main]
+    branches: [ main, rgt_mobile2 ]
   pull_request:
-    branches: [ main]
+    branches: [ main, rgt_mobile2 ]
 
 # Permissions globales : lecture seule par défaut (principe de moindre privilège)
 # Les jobs qui ont besoin de plus de droits les déclarent localement (ex: docker-push)

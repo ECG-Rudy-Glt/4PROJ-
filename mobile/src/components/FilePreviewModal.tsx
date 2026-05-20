@@ -16,12 +16,24 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { WebView } from 'react-native-webview';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
 import { FileItem } from '../types';
 import { fileService } from '../services/fileService';
+import DocumentEditorModal from './DocumentEditorModal';
+
+const OFFICE_MIMES = new Set([
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+]);
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -59,7 +71,7 @@ function MediaPlayer({ uri, isAudio }: { uri: string; isAudio: boolean }) {
 
   return (
     <VideoView
-      style={isAudio ? styles.audioPlayer : styles.videoFill}
+      style={isAudio ? { width: SCREEN_WIDTH - spacing.lg * 2, height: 80 } : { width: SCREEN_WIDTH, height: 460 }}
       player={player}
       allowsFullscreen={!isAudio}
       allowsPictureInPicture={!isAudio}
@@ -73,9 +85,9 @@ function PdfViewer({ uri }: { uri: string }) {
   return (
     <View style={{ flex: 1, width: '100%' }}>
       {!loaded && (
-        <View style={[StyleSheet.absoluteFill, styles.loaderWrap]}>
+        <View style={[StyleSheet.absoluteFill, { alignItems: 'center', gap: spacing.md, justifyContent: 'center' }]}>
           <ActivityIndicator color="white" size="large" />
-          <Text style={styles.loadingText}>Chargement du PDF…</Text>
+          <Text style={{ ...typography.caption, color: 'rgba(255,255,255,0.6)' }}>Chargement du PDF…</Text>
         </View>
       )}
       <WebView
@@ -101,9 +113,15 @@ export default function FilePreviewModal({
   downloadToCache,
   readOnly = false,
 }: Props) {
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const [downloading, setDownloading] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+
+  const canEdit = !!file && OFFICE_MIMES.has(file.mimeType ?? '') && !readOnly;
 
   const isImage = !!file && (file.mimeType?.startsWith('image/') ?? false);
   const isVideo = !!file && (file.mimeType?.startsWith('video/') ?? false);
@@ -165,7 +183,6 @@ export default function FilePreviewModal({
 
     if (!streamUrl) return null;
 
-    // ── Image ────────────────────────────────────────────────────────────────
     if (isImage) {
       return (
         <Image
@@ -177,17 +194,14 @@ export default function FilePreviewModal({
       );
     }
 
-    // ── Vidéo ou Audio ───────────────────────────────────────────────────────
     if (isVideo || isAudio) {
       return <MediaPlayer uri={streamUrl} isAudio={isAudio} />;
     }
 
-    // ── PDF ──────────────────────────────────────────────────────────────────
     if (isPdf) {
       return <PdfViewer uri={streamUrl} />;
     }
 
-    // ── Autre document ───────────────────────────────────────────────────────
     return (
       <View style={styles.docWrap}>
         <View style={styles.iconCircle}>
@@ -196,7 +210,7 @@ export default function FilePreviewModal({
         <Text style={styles.docName} numberOfLines={2}>{file.name}</Text>
         <Text style={styles.docMeta}>{file.mimeType}</Text>
         <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(streamUrl)} activeOpacity={0.8}>
-          <Ionicons name="open-outline" size={18} color={colors.white} />
+          <Ionicons name="open-outline" size={18} color="#fff" />
           <Text style={styles.openBtnText}>Ouvrir</Text>
         </TouchableOpacity>
       </View>
@@ -229,31 +243,42 @@ export default function FilePreviewModal({
           {/* Infos + actions */}
           {!isFullscreen && (
             <View style={styles.infoCard}>
-              <InfoRow label="Taille" value={formatSize(file.size)} />
-              <InfoRow label="Type" value={file.mimeType} />
-              <InfoRow label="Créé le" value={formatDate(file.createdAt)} />
-              <InfoRow label="Modifié le" value={formatDate(file.updatedAt)} />
-              {file.folder && <InfoRow label="Dossier" value={file.folder.name} />}
+              <InfoRow label="Taille" value={formatSize(file.size)} styles={styles} />
+              <InfoRow label="Type" value={file.mimeType} styles={styles} />
+              <InfoRow label="Créé le" value={formatDate(file.createdAt)} styles={styles} />
+              <InfoRow label="Modifié le" value={formatDate(file.updatedAt)} styles={styles} />
+              {file.folder && <InfoRow label="Dossier" value={file.folder.name} styles={styles} />}
             </View>
           )}
 
           <View style={[styles.actions, isFullscreen && styles.actionsCompact]}>
-            <ActionButton icon="download-outline" label="Télécharger" onPress={handleDownload} loading={downloading} />
+            <ActionButton icon="download-outline" label="Télécharger" onPress={handleDownload} loading={downloading} styles={styles} colors={colors} />
+            {canEdit && (
+              <ActionButton icon="create-outline" label="Modifier" onPress={() => setShowEditor(true)} color={colors.primary[600]} styles={styles} colors={colors} />
+            )}
             {!readOnly && onToggleFavorite && (
               <ActionButton
                 icon={file.isFavorite ? 'star' : 'star-outline'}
                 label="Favori"
                 onPress={() => onToggleFavorite(file.id)}
                 color={file.isFavorite ? colors.accent.bright : undefined}
+                styles={styles}
+                colors={colors}
               />
             )}
-            {!readOnly && <ActionButton icon="share-outline" label="Partager" onPress={handleShare} />}
+            {!readOnly && <ActionButton icon="share-outline" label="Partager" onPress={handleShare} styles={styles} colors={colors} />}
             {!readOnly && onDelete && (
-              <ActionButton icon="trash-outline" label="Supprimer" onPress={handleDelete} color={colors.error} />
+              <ActionButton icon="trash-outline" label="Supprimer" onPress={handleDelete} color={colors.error} styles={styles} colors={colors} />
             )}
           </View>
         </ScrollView>
       </View>
+
+      <DocumentEditorModal
+        file={file}
+        visible={showEditor}
+        onClose={() => setShowEditor(false)}
+      />
     </Modal>
   );
 }
@@ -268,7 +293,9 @@ function getDocIcon(mimeType: string): keyof typeof Ionicons.glyphMap {
   return 'document-outline';
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+type Styles = ReturnType<typeof makeStyles>;
+
+function InfoRow({ label, value, styles }: { label: string; value: string; styles: Styles }) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -277,12 +304,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ActionButton({ icon, label, onPress, color, loading }: {
+function ActionButton({ icon, label, onPress, color, loading, styles, colors }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   color?: string;
   loading?: boolean;
+  styles: Styles;
+  colors: AppColors;
 }) {
   return (
     <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7}>
@@ -294,16 +323,16 @@ function ActionButton({ icon, label, onPress, color, loading }: {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg.secondary },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg.secondary },
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.neutral[200],
+    backgroundColor: c.white,
+    borderBottomWidth: 1, borderBottomColor: c.neutral[200],
   },
   closeBtn: { padding: spacing.xs },
-  headerTitle: { ...typography.h4, color: colors.neutral[800], flex: 1, textAlign: 'center' },
+  headerTitle: { ...typography.h4, color: c.neutral[800], flex: 1, textAlign: 'center' },
   scrollContent: { paddingBottom: spacing['3xl'] },
   scrollFullscreen: { flex: 1, paddingBottom: 0 },
   previewBox: {
@@ -313,7 +342,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.lg,
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
-    backgroundColor: colors.neutral[900],
+    backgroundColor: c.bg.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -325,37 +354,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loaderWrap: { alignItems: 'center', gap: spacing.md, justifyContent: 'center' },
-  loadingText: { ...typography.caption, color: colors.neutral[400] },
+  loadingText: { ...typography.caption, color: c.neutral[400] },
   imageFill: { width: SCREEN_WIDTH - spacing.lg * 2, height: 300 },
-  videoFill: { width: SCREEN_WIDTH, height: 460 },
-  audioPlayer: { width: SCREEN_WIDTH - spacing.lg * 2, height: 80 },
   docWrap: { alignItems: 'center', gap: spacing.md, padding: spacing.xl },
   iconCircle: {
     width: 96, height: 96,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     justifyContent: 'center', alignItems: 'center',
   },
-  docName: { ...typography.body, color: colors.white, textAlign: 'center', fontWeight: '600' },
-  docMeta: { ...typography.caption, color: colors.neutral[400] },
+  docName: { ...typography.body, color: c.neutral[800], textAlign: 'center', fontWeight: '600' },
+  docMeta: { ...typography.caption, color: c.neutral[400] },
   openBtn: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: colors.primary[600], borderRadius: borderRadius.lg,
+    backgroundColor: c.primary[600], borderRadius: borderRadius.lg,
     paddingVertical: spacing.md, paddingHorizontal: spacing.xl, marginTop: spacing.sm,
   },
-  openBtnText: { ...typography.button, color: colors.white },
+  openBtnText: { ...typography.button, color: '#fff' },
   infoCard: {
-    backgroundColor: colors.white, marginHorizontal: spacing.lg,
+    backgroundColor: c.white, marginHorizontal: spacing.lg,
     borderRadius: borderRadius.xl, padding: spacing.lg, ...shadows.md,
     marginBottom: spacing.lg,
   },
   infoRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
+    paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.neutral[100],
   },
-  infoLabel: { ...typography.bodySmall, color: colors.neutral[500] },
+  infoLabel: { ...typography.bodySmall, color: c.neutral[500] },
   infoValue: {
-    ...typography.bodySmall, color: colors.neutral[800],
+    ...typography.bodySmall, color: c.neutral[800],
     fontWeight: '500', maxWidth: '60%', textAlign: 'right',
   },
   actions: {
@@ -364,9 +391,9 @@ const styles = StyleSheet.create({
   },
   actionsCompact: {
     paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    borderTopWidth: 1, borderTopColor: colors.neutral[200],
+    backgroundColor: c.white,
+    borderTopWidth: 1, borderTopColor: c.neutral[200],
   },
   actionBtn: { alignItems: 'center', gap: spacing.xs },
-  actionLabel: { ...typography.caption, color: colors.primary[600], fontWeight: '500' },
+  actionLabel: { ...typography.caption, color: c.primary[600], fontWeight: '500' },
 });

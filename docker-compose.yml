@@ -197,8 +197,9 @@ services:
 
   # ── LLM inference engine ──────────────────────────────────────────────────
   ollama:
-    image: ollama/ollama:0.5.4
+    image: ollama/ollama:latest
     container_name: supfile-ollama
+    profiles: [ai]
     volumes:
       - ollama_data:/root/.ollama   # model weights persist here
     deploy:
@@ -211,8 +212,9 @@ services:
 
   # ── Pull Ollama model on first start (no-op if already present) ─────────
   ollama-init:
-    image: ollama/ollama:0.5.4
+    image: ollama/ollama:latest
     container_name: supfile-ollama-init
+    profiles: [ai]
     volumes:
       - ollama_data:/root/.ollama
     environment:
@@ -233,6 +235,7 @@ services:
   brain-api:
     build: ./brain-api
     container_name: supfile-brain
+    profiles: [ai]
     environment:
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}

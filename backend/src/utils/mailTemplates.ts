@@ -342,32 +342,92 @@ export const getAccountStatusEmail = (
 
 export const getPasswordResetEmail = (lang: string, userName: string, resetLink: string) => {
   const isEn = lang.startsWith('en');
-  return renderTransactionalEmail({
-    lang,
-    subject: isEn ? 'Reset your SupFile password' : 'Réinitialisation de votre mot de passe SupFile',
-    preheader: isEn
-      ? 'Use this secure link to reset your password. Link valid for 1 hour.'
-      : 'Utilisez ce lien sécurisé pour réinitialiser votre mot de passe. Lien valable 1 heure.',
-    title: isEn ? 'Password reset request' : 'Réinitialisation de votre mot de passe',
-    paragraphs: isEn
-      ? [
-        `Hello ${userName},`,
-        'We received a request to reset your SupFile password. Click the button below to create a new one.',
-        'This link will expire in 1 hour.',
-        'If you did not request this reset, you can safely ignore this email.',
-      ]
-      : [
-        `Bonjour ${userName},`,
-        'Nous avons reçu une demande de réinitialisation de votre mot de passe SupFile. Cliquez sur le bouton ci-dessous pour en créer un nouveau.',
-        'Ce lien expirera dans 1 heure.',
-        'Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet email.',
-      ],
-    ctaLink: resetLink,
-    ctaText: isEn ? 'Reset my password' : 'Réinitialiser mon mot de passe',
-    footerNote: isEn
-      ? 'This email contains a short-lived reset link. SupFile will never ask for your password by email.'
-      : 'Cet email contient un lien de réinitialisation temporaire. SupFile ne vous demandera jamais votre mot de passe par email.',
-  });
+  const logoUrl = mailLogoUrl();
+  const currentYear = new Date().getFullYear();
+  const subject = isEn ? 'Reset your SupFile password' : 'Réinitialisation de votre mot de passe SupFile';
+  const preheader = isEn
+    ? 'Use this secure link to reset your password. Link valid for 1 hour.'
+    : 'Utilisez ce lien sécurisé pour réinitialiser votre mot de passe. Lien valable 1 heure.';
+  const greetingHtml = isEn ? `Hello ${escapeHtml(userName)},` : `Bonjour ${escapeHtml(userName)},`;
+  const resetLinkHtml = escapeHtml(resetLink);
+  const title = isEn ? 'Password reset request' : 'Réinitialisation de votre mot de passe';
+  const description = isEn
+    ? 'We received a request to reset your SupFile password. Click the button below to create a new one.'
+    : 'Nous avons reçu une demande de réinitialisation de votre mot de passe SupFile. Cliquez sur le bouton ci-dessous pour en créer un nouveau.';
+  const warning = isEn
+    ? 'This link will expire in 1 hour.'
+    : 'Ce lien expirera dans 1 heure.';
+  const ctaText = isEn ? 'Reset my password' : 'Réinitialiser mon mot de passe';
+  const ignoreText = isEn
+    ? 'If you did not request this reset, you can safely ignore this email.'
+    : 'Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet email.';
+  const footer = isEn
+    ? `© ${currentYear} SupFile. All rights reserved.`
+    : `© ${currentYear} SupFile. Tous droits réservés.`;
+  const text = isEn
+    ? `Password reset request for your SupFile account.\n\n${warning}\n\nReset link: ${resetLink}\n\n${ignoreText}`
+    : `Demande de réinitialisation de mot de passe pour votre compte SupFile.\n\n${warning}\n\nLien de réinitialisation : ${resetLink}\n\n${ignoreText}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="${isEn ? 'en' : 'fr'}">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#F5F3EF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1F2937;">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>
+      <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
+
+        <!-- Header -->
+        <div style="background:#254441;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
+          ${logoUrl
+            ? `<img src="${logoUrl}" alt="SupFile" style="height:36px;max-width:160px;">`
+            : '<span style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">SupFile</span>'
+          }
+        </div>
+
+        <!-- Card -->
+        <div style="background:#ffffff;padding:36px 32px;box-shadow:0 4px 24px rgba(37,68,65,0.10);">
+
+          <!-- Icon -->
+          <div style="text-align:center;margin-bottom:24px;">
+            <div style="display:inline-block;background:#e6f2f1;border-radius:50%;width:64px;height:64px;line-height:64px;text-align:center;font-size:28px;">🔐</div>
+          </div>
+
+          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#254441;text-align:center;">${title}</h2>
+          <p style="margin:0 0 24px;font-size:14px;color:#6B7280;text-align:center;">${greetingHtml}</p>
+
+          <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#374151;">${description}</p>
+
+          <!-- CTA -->
+          <div style="text-align:center;margin:0 0 28px;">
+            <a href="${resetLinkHtml}" style="display:inline-block;background:#254441;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.2px;">${ctaText}</a>
+          </div>
+
+          <!-- Warning -->
+          <div style="background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:6px;padding:12px 16px;">
+            <p style="margin:0;font-size:13px;color:#92400E;font-weight:500;">⏱ ${warning}</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background:#e6f2f1;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:12px;color:#4B5563;">${ignoreText}</p>
+          <p style="margin:0;font-size:11px;color:#9CA3AF;">${footer}</p>
+        </div>
+
+      </div>
+    </body>
+    </html>
+  `;
+
+  return {
+    subject,
+    html,
+    text,
+  };
 };
 
 export const getWelcomeEmail = (lang: string, userName: string) => {

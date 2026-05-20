@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useColors, useIsDark, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -29,12 +29,26 @@ const getCategoryIcon = (mimeType: string): keyof typeof Ionicons.glyphMap => {
   return 'document-outline';
 };
 
-const getCategoryColor = (mimeType: string): string => {
-  if (mimeType.startsWith('image/')) return '#3B82F6';
-  if (mimeType.startsWith('video/')) return '#8B5CF6';
-  if (mimeType.startsWith('audio/')) return '#EC4899';
-  if (mimeType.includes('pdf')) return '#EF4444';
-  return colors.primary[500];
+const CATEGORY_COLORS_LIGHT: Record<string, string> = {
+  image: '#3B82F6',
+  video: '#8B5CF6',
+  audio: '#EC4899',
+  pdf:   '#EF4444',
+};
+const CATEGORY_COLORS_DARK: Record<string, string> = {
+  image: '#60A5FA',
+  video: '#A78BFA',
+  audio: '#F472B6',
+  pdf:   '#F87171',
+};
+
+const getCategoryColor = (mimeType: string, isDark: boolean): string => {
+  const palette = isDark ? CATEGORY_COLORS_DARK : CATEGORY_COLORS_LIGHT;
+  if (mimeType.startsWith('image/')) return palette.image;
+  if (mimeType.startsWith('video/')) return palette.video;
+  if (mimeType.startsWith('audio/')) return palette.audio;
+  if (mimeType.includes('pdf')) return palette.pdf;
+  return isDark ? '#4A9E96' : '#254441';
 };
 
 interface Props {
@@ -48,8 +62,14 @@ interface Props {
   highlightTagId?: string;
 }
 
-export default function FileRow({ file, onPress, onLongPress, showFavorite, onToggleFavorite, selected, selectionMode, highlightTagId }: Props) {
-  const iconColor = getCategoryColor(file.mimeType);
+export default function FileRow({
+  file, onPress, onLongPress, showFavorite, onToggleFavorite,
+  selected, selectionMode, highlightTagId,
+}: Props) {
+  const colors = useColors();
+  const isDark = useIsDark();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const iconColor = getCategoryColor(file.mimeType, isDark);
   const tags = file.tags ?? [];
 
   return (
@@ -61,10 +81,10 @@ export default function FileRow({ file, onPress, onLongPress, showFavorite, onTo
     >
       {selectionMode ? (
         <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-          {selected && <Ionicons name="checkmark" size={14} color={colors.white} />}
+          {selected && <Ionicons name="checkmark" size={14} color="#fff" />}
         </View>
       ) : (
-        <View style={[styles.iconCircle, { backgroundColor: `${iconColor}15` }]}>
+        <View style={[styles.iconCircle, { backgroundColor: `${iconColor}22` }]}>
           <Ionicons name={getCategoryIcon(file.mimeType)} size={20} color={iconColor} />
         </View>
       )}
@@ -79,11 +99,7 @@ export default function FileRow({ file, onPress, onLongPress, showFavorite, onTo
             {tags.map((ft) => (
               <View
                 key={ft.tagId}
-                style={[
-                  styles.tagChip,
-                  { backgroundColor: ft.tag.color },
-                  highlightTagId === ft.tagId && styles.tagChipHighlight,
-                ]}
+                style={[styles.tagChip, { backgroundColor: ft.tag.color }, highlightTagId === ft.tagId && styles.tagChipHighlight]}
               >
                 <Text style={styles.tagChipText}>{ft.tag.name}</Text>
               </View>
@@ -105,74 +121,35 @@ export default function FileRow({ file, onPress, onLongPress, showFavorite, onTo
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.md,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: c.white, borderRadius: borderRadius.lg,
+    padding: spacing.md, marginBottom: spacing.sm, gap: spacing.md,
     ...shadows.sm,
   },
   rowSelected: {
-    backgroundColor: `${colors.primary[500]}10`,
-    borderWidth: 1.5,
-    borderColor: colors.primary[400],
+    backgroundColor: `${c.primary[500]}18`,
+    borderWidth: 1.5, borderColor: c.primary[500],
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.neutral[300],
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.white,
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 2, borderColor: c.neutral[300],
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: c.neutral[50],
   },
   checkboxSelected: {
-    backgroundColor: colors.primary[600],
-    borderColor: colors.primary[600],
+    backgroundColor: c.primary[600], borderColor: c.primary[600],
   },
   iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 42, height: 42, borderRadius: borderRadius.full,
+    justifyContent: 'center', alignItems: 'center',
   },
-  info: {
-    flex: 1,
-  },
-  name: {
-    ...typography.body,
-    color: colors.neutral[800],
-    fontWeight: '500',
-  },
-  meta: {
-    ...typography.caption,
-    color: colors.neutral[400],
-    marginTop: 2,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 4,
-  },
-  tagChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    opacity: 0.85,
-  },
-  tagChipHighlight: {
-    opacity: 1,
-  },
-  tagChipText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '600',
-  },
+  info: { flex: 1 },
+  name: { ...typography.body, color: c.neutral[800], fontWeight: '500' },
+  meta: { ...typography.caption, color: c.neutral[400], marginTop: 2 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  tagChip: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, opacity: 0.9 },
+  tagChipHighlight: { opacity: 1 },
+  tagChipText: { fontSize: 10, color: '#fff', fontWeight: '600' },
 });

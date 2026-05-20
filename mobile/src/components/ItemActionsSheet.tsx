@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -38,6 +39,9 @@ interface Props {
 }
 
 export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [subSheet, setSubSheet] = useState<
     'none' | 'rename' | 'move' | 'share' | 'tags' | 'versions' | 'comments'
   >('none');
@@ -160,6 +164,18 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
       onClose();
     } catch {
       Toast.show({ type: 'error', text1: 'Impossible d\'ouvrir le fichier' });
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (isFile) return;
+    try {
+      Toast.show({ type: 'info', text1: 'Préparation du ZIP…' });
+      const url = await folderService.downloadAsZip(target.data.id, target.data.name);
+      await Linking.openURL(url);
+      onClose();
+    } catch {
+      Toast.show({ type: 'error', text1: 'Impossible de télécharger le dossier' });
     }
   };
 
@@ -296,9 +312,11 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
               icon="checkmark-circle-outline"
               label="Sélectionner"
               onPress={() => { onSelect(); onClose(); }}
+              colors={colors}
+              styles={styles}
             />
           )}
-          <ActionRow icon="create-outline" label="Renommer" onPress={() => setSubSheet('rename')} />
+          <ActionRow icon="create-outline" label="Renommer" onPress={() => setSubSheet('rename')} colors={colors} styles={styles} />
           <ActionRow
             icon="move-outline"
             label="Déplacer"
@@ -306,21 +324,27 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
               setSubSheet('move');
               loadFolders();
             }}
+            colors={colors}
+            styles={styles}
           />
-          <ActionRow icon="share-social-outline" label="Partager" onPress={() => setSubSheet('share')} />
-          {isFile && (
+          <ActionRow icon="share-social-outline" label="Partager" onPress={() => setSubSheet('share')} colors={colors} styles={styles} />
+          {isFile ? (
             <>
-              <ActionRow icon="pricetags-outline" label="Tags" onPress={() => setSubSheet('tags')} />
-              <ActionRow icon="chatbubble-outline" label="Commentaires" onPress={() => setSubSheet('comments')} />
-              <ActionRow icon="time-outline" label="Historique des versions" onPress={() => setSubSheet('versions')} />
-              <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} />
+              <ActionRow icon="pricetags-outline" label="Tags" onPress={() => setSubSheet('tags')} colors={colors} styles={styles} />
+              <ActionRow icon="chatbubble-outline" label="Commentaires" onPress={() => setSubSheet('comments')} colors={colors} styles={styles} />
+              <ActionRow icon="time-outline" label="Historique des versions" onPress={() => setSubSheet('versions')} colors={colors} styles={styles} />
+              <ActionRow icon="download-outline" label="Télécharger" onPress={handleDownload} colors={colors} styles={styles} />
             </>
+          ) : (
+            <ActionRow icon="archive-outline" label="Télécharger en ZIP" onPress={handleDownloadZip} colors={colors} styles={styles} />
           )}
           <ActionRow
             icon="trash-outline"
             label="Supprimer"
             destructive
             onPress={handleDelete}
+            colors={colors}
+            styles={styles}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -333,11 +357,15 @@ function ActionRow({
   label,
   onPress,
   destructive,
+  colors,
+  styles,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   destructive?: boolean;
+  colors: AppColors;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   const color = destructive ? colors.error : colors.neutral[800];
   return (
@@ -348,14 +376,14 @@ function ActionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     paddingTop: spacing.sm,
@@ -368,7 +396,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.neutral[200],
+    backgroundColor: c.neutral[200],
     marginBottom: spacing.md,
   },
   sheetHeader: {
@@ -377,12 +405,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
     marginBottom: spacing.xs,
   },
   sheetTitle: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   actionRow: {
@@ -396,7 +424,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dialog: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     margin: spacing.xl,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
@@ -404,7 +432,7 @@ const styles = StyleSheet.create({
   },
   dialogTitle: {
     ...typography.h4,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     marginBottom: spacing.lg,
   },
   dialogActions: {
@@ -414,14 +442,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
   },
   btnGhost: {
     paddingVertical: spacing.sm,
@@ -429,17 +457,17 @@ const styles = StyleSheet.create({
   },
   btnGhostText: {
     ...typography.button,
-    color: colors.neutral[500],
+    color: c.neutral[500],
   },
   btnPrimary: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
   },
   btnPrimaryText: {
     ...typography.button,
-    color: colors.white,
+    color: c.white,
   },
   folderItem: {
     flexDirection: 'row',
@@ -448,16 +476,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: c.neutral[100],
   },
   folderItemText: {
     ...typography.body,
-    color: colors.neutral[800],
+    color: c.neutral[800],
     flex: 1,
   },
   muted: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
     padding: spacing.lg,
   },

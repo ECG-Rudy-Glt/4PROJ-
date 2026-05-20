@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
-import { shadows } from '../theme/shadows';
 import { fileService } from '../services/fileService';
 import { FileItem } from '../types';
 import FileRow from './FileRow';
@@ -26,17 +26,53 @@ interface Props {
   onFilePress?: (file: FileItem) => void;
 }
 
+type TypeFilter = 'all' | 'image' | 'document' | 'video' | 'audio';
+
+const TYPE_FILTERS: { key: TypeFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'all', label: 'Tout', icon: 'apps-outline' },
+  { key: 'image', label: 'Images', icon: 'image-outline' },
+  { key: 'document', label: 'Documents', icon: 'document-text-outline' },
+  { key: 'video', label: 'Vidéos', icon: 'videocam-outline' },
+  { key: 'audio', label: 'Audio', icon: 'musical-notes-outline' },
+];
+
+const DOC_EXTS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'odt', 'ods']);
+
+function matchesFilter(file: FileItem, filter: TypeFilter): boolean {
+  if (filter === 'all') return true;
+  const mime = (file.mimeType ?? '').toLowerCase();
+  const ext = (file.name.toLowerCase().split('.').pop()) ?? '';
+  if (filter === 'image') return mime.startsWith('image/') && mime !== 'image/heic' && mime !== 'image/heif';
+  if (filter === 'video') return mime.startsWith('video/');
+  if (filter === 'audio') return mime.startsWith('audio/');
+  if (filter === 'document') {
+    return (
+      DOC_EXTS.has(ext) ||
+      mime === 'text/plain' ||
+      mime.includes('pdf') ||
+      mime.includes('word') ||
+      mime.includes('spreadsheet') ||
+      mime.includes('presentation')
+    );
+  }
+  return true;
+}
+
 export default function SearchBar({ visible, onClose, onFilePress }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<FileItem[]>([]);
+  const [allResults, setAllResults] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
 
   const handleSearch = useCallback(async (text: string) => {
     setQuery(text);
     if (text.trim().length < 2) {
-      setResults([]);
+      setAllResults([]);
       setSearched(false);
       return;
     }
@@ -45,9 +81,9 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
     setSearched(true);
     try {
       const { files } = await fileService.searchFiles(text.trim());
-      setResults(files);
+      setAllResults(files);
     } catch {
-      setResults([]);
+      setAllResults([]);
     } finally {
       setLoading(false);
     }
@@ -55,15 +91,17 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
 
   const handleClose = () => {
     setQuery('');
-    setResults([]);
+    setAllResults([]);
     setSearched(false);
+    setTypeFilter('all');
     onClose();
   };
+
+  const results = allResults.filter((f) => matchesFilter(f, typeFilter));
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Search bar */}
         <View style={styles.searchRow}>
           <View style={styles.inputWrapper}>
             <Ionicons name="search" size={18} color={colors.neutral[400]} />
@@ -87,7 +125,23 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Results */}
+        {/* Type filters */}
+        <View style={styles.filterRow}>
+          {TYPE_FILTERS.map((f) => {
+            const active = typeFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+                onPress={() => setTypeFilter(f.key)}
+              >
+                <Ionicons name={f.icon} size={14} color={active ? '#fff' : colors.neutral[600]} />
+                <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{f.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {loading && (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={colors.primary[600]} />
@@ -95,6 +149,7 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
         )}
 
         <FlatList
+          key={typeFilter}
           data={results}
           keyExtractor={(f) => f.id}
           contentContainerStyle={styles.list}
@@ -127,10 +182,10 @@ export default function SearchBar({ visible, onClose, onFilePress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   searchRow: {
     flexDirection: 'row',
@@ -138,15 +193,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: c.neutral[200],
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -155,7 +210,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     paddingVertical: 0,
   },
   cancelBtn: {
@@ -163,8 +218,38 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     ...typography.body,
-    color: colors.primary[600],
+    color: c.primary[600],
     fontWeight: '500',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: c.white,
+    borderBottomWidth: 1,
+    borderBottomColor: c.neutral[100],
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: c.neutral[100],
+  },
+  filterChipActive: {
+    backgroundColor: c.primary[600],
+  },
+  filterLabel: {
+    ...typography.bodySmall,
+    color: c.neutral[600],
+    fontWeight: '500',
+  },
+  filterLabelActive: {
+    color: '#fff',
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -182,7 +267,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     ...typography.bodySmall,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     textAlign: 'center',
   },
 });

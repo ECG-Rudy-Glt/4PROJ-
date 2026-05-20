@@ -12,14 +12,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { vaultService, VaultStatus } from '../../services/vaultService';
 
 export default function VaultScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -259,11 +263,11 @@ export default function VaultScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg.secondary },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg.secondary },
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing['5xl'] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  pageTitle: { ...typography.h2, color: colors.primary[600], paddingVertical: spacing.md },
+  pageTitle: { ...typography.h2, color: c.primary[600], paddingVertical: spacing.md },
   warningCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -275,9 +279,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFD9B3',
   },
-  warningText: { ...typography.bodySmall, color: colors.neutral[700], flex: 1 },
+  warningText: { ...typography.bodySmall, color: c.neutral[700], flex: 1 },
   statusCard: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     alignItems: 'center',
@@ -285,26 +289,26 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   statusIcon: { marginBottom: spacing.md },
-  statusTitle: { ...typography.h3, color: colors.neutral[800] },
-  statusSub: { ...typography.bodySmall, color: colors.neutral[500], marginTop: spacing.xs },
+  statusTitle: { ...typography.h3, color: c.neutral[800] },
+  statusSub: { ...typography.bodySmall, color: c.neutral[500], marginTop: spacing.xs },
   formCard: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
     ...shadows.sm,
   },
-  formTitle: { ...typography.h4, color: colors.neutral[800], marginBottom: spacing.md },
-  label: { ...typography.label, color: colors.neutral[700], marginBottom: spacing.xs, marginTop: spacing.sm },
+  formTitle: { ...typography.h4, color: c.neutral[800], marginBottom: spacing.md },
+  label: { ...typography.label, color: c.neutral[700], marginBottom: spacing.xs, marginTop: spacing.sm },
   input: {
-    backgroundColor: colors.neutral[50],
+    backgroundColor: c.neutral[50],
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     ...typography.body,
-    color: colors.neutral[900],
+    color: c.neutral[900],
     marginBottom: spacing.sm,
   },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
@@ -313,25 +317,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  primaryBtnText: { ...typography.button, color: colors.white },
+  primaryBtnText: { ...typography.button, color: c.white },
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: c.primary[200],
   },
-  secondaryBtnText: { ...typography.button, color: colors.primary[600] },
-  error: { color: colors.error },
+  secondaryBtnText: { ...typography.button, color: c.primary[600] },
+  error: { color: c.error },
 });

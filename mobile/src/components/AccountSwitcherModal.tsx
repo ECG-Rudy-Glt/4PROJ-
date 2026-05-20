@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import Toast from 'react-native-toast-message';
-import { colors } from '../theme/colors';
+import { useColors, AppColors } from '../theme/useColors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import { shadows } from '../theme/shadows';
@@ -39,6 +39,8 @@ type Tab = 'links' | 'delegations';
 export default function AccountSwitcherModal({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { user, sessionContext, setAuth } = useAuthStore();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [tab, setTab] = useState<Tab>('links');
   const [loading, setLoading] = useState(false);
@@ -381,99 +383,99 @@ export default function AccountSwitcherModal({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg.secondary },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg.secondary },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
-    backgroundColor: colors.white,
+    borderBottomWidth: 1, borderBottomColor: c.neutral[100],
+    backgroundColor: c.white,
   },
-  title: { ...typography.h3, color: colors.neutral[900] },
+  title: { ...typography.h3, color: c.neutral[900] },
   closeBtn: { padding: spacing.xs },
   sessionBanner: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: colors.primary[50],
+    backgroundColor: c.primary[50],
     paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
   },
-  sessionEmail: { ...typography.bodySmall, color: colors.neutral[800], flex: 1, fontWeight: '600' },
-  sessionType: { ...typography.caption, color: colors.primary[600] },
+  sessionEmail: { ...typography.bodySmall, color: c.neutral[800], flex: 1, fontWeight: '600' },
+  sessionType: { ...typography.caption, color: c.primary[600] },
   switchBackBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingHorizontal: spacing.sm, paddingVertical: 4,
     borderRadius: borderRadius.md,
   },
-  switchBackText: { ...typography.caption, color: colors.white, fontWeight: '700' },
+  switchBackText: { ...typography.caption, color: c.white, fontWeight: '700' },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.neutral[100],
+    backgroundColor: c.white,
+    borderBottomWidth: 1, borderBottomColor: c.neutral[100],
   },
   tab: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary[600] },
-  tabText: { ...typography.bodySmall, color: colors.neutral[400] },
-  tabTextActive: { color: colors.primary[600], fontWeight: '700' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: c.primary[600] },
+  tabText: { ...typography.bodySmall, color: c.neutral[400] },
+  tabTextActive: { color: c.primary[600], fontWeight: '700' },
   body: { flex: 1 },
   bodyContent: { padding: spacing.lg, paddingBottom: spacing['5xl'] },
   card: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
     ...shadows.sm,
   },
   cardInfo: { flex: 1 },
-  cardEmail: { ...typography.body, color: colors.neutral[900], fontWeight: '600' },
-  cardSub: { ...typography.caption, color: colors.neutral[500], marginTop: 2 },
+  cardEmail: { ...typography.body, color: c.neutral[900], fontWeight: '600' },
+  cardSub: { ...typography.caption, color: c.neutral[500], marginTop: 2 },
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   switchBtn: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
   },
-  switchBtnText: { ...typography.caption, color: colors.white, fontWeight: '700' },
-  empty: { ...typography.bodySmall, color: colors.neutral[400], textAlign: 'center', marginVertical: spacing.md },
-  subTitle: { ...typography.h4, color: colors.neutral[700], marginBottom: spacing.sm },
+  switchBtnText: { ...typography.caption, color: c.white, fontWeight: '700' },
+  empty: { ...typography.bodySmall, color: c.neutral[400], textAlign: 'center', marginVertical: spacing.md },
+  subTitle: { ...typography.h4, color: c.neutral[700], marginBottom: spacing.sm },
   addBtn: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
-    borderWidth: 1, borderColor: colors.primary[200], borderStyle: 'dashed',
+    borderWidth: 1, borderColor: c.primary[200], borderStyle: 'dashed',
     paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     marginTop: spacing.sm,
   },
-  addBtnText: { ...typography.body, color: colors.primary[600] },
+  addBtnText: { ...typography.body, color: c.primary[600] },
   formCard: {
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     ...shadows.sm,
     gap: spacing.sm,
   },
-  formTitle: { ...typography.h4, color: colors.neutral[800] },
+  formTitle: { ...typography.h4, color: c.neutral[800] },
   input: {
-    backgroundColor: colors.neutral[50],
-    borderWidth: 1, borderColor: colors.neutral[200],
+    backgroundColor: c.neutral[50],
+    borderWidth: 1, borderColor: c.neutral[200],
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    ...typography.body, color: colors.neutral[900],
+    ...typography.body, color: c.neutral[900],
   },
   formRow: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end', marginTop: spacing.xs },
   cancelBtn: {
     paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.neutral[200],
+    borderRadius: borderRadius.lg, borderWidth: 1, borderColor: c.neutral[200],
   },
-  cancelText: { ...typography.body, color: colors.neutral[600] },
+  cancelText: { ...typography.body, color: c.neutral[600] },
   saveBtn: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: c.primary[600],
     paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
     borderRadius: borderRadius.lg,
   },
-  saveBtnText: { ...typography.body, color: colors.white, fontWeight: '700' },
+  saveBtnText: { ...typography.body, color: c.white, fontWeight: '700' },
   permRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   permToggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  permLabel: { ...typography.bodySmall, color: colors.neutral[700] },
+  permLabel: { ...typography.bodySmall, color: c.neutral[700] },
 });

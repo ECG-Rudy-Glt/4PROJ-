@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Share,
   Image,
+  Switch,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,19 +20,25 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors } from '../../theme/useColors';
+import { useThemeStore } from '../../stores/useThemeStore';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { authService } from '../../services/authService';
+import { mfaService } from '../../services/mfaService';
 import { RootStackParamList, TabParamList } from '../../types';
 import NotificationCenter from '../../components/NotificationCenter';
 import MfaSetupModal from '../../components/MfaSetupModal';
 import AccountSwitcherModal from '../../components/AccountSwitcherModal';
+import PlansModal from '../../components/PlansModal';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { pushService } from '../../services/pushService';
+import { useI18nStore } from '../../stores/useI18nStore';
+import { setLanguage as setAppLanguage } from '../../i18n';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type TabNav = BottomTabNavigationProp<TabParamList>;
@@ -44,12 +52,15 @@ const formatQuota = (bytes: number): string => {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const { mode: themeMode, setMode: setThemeMode } = useThemeStore();
   const navigation = useNavigation<Nav>();
   const tabNavigation = useNavigation<TabNav>();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const { t } = useTranslation();
 
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || '');
@@ -58,25 +69,93 @@ export default function SettingsScreen() {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showMfa, setShowMfa] = useState(false);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPwd, setChangingPwd] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [trustedDevices, setTrustedDevices] = useState<any[]>([]);
+  const [loadingTrustedDevices, setLoadingTrustedDevices] = useState(false);
+  const [showTrustedDevices, setShowTrustedDevices] = useState(false);
+  const { lang, setLang } = useI18nStore();
+  const [language, setLanguageLocal] = useState<'fr' | 'en'>((user as any)?.language ?? lang);
+
+  const styles = makeStyles(colors);
 
   useEffect(() => {
     pushService.getPermissionStatus().then((status) => {
       setPushEnabled(status === 'granted');
     });
+    // Refresh profile to get accurate mfaEnabled
+    authService.getProfile().then(({ user: fresh }) => setUser(fresh)).catch(() => {});
   }, []);
+
+  const setLanguage = (l: 'fr' | 'en') => {
+    setLanguageLocal(l);
+    setLang(l);
+    setAppLanguage(l);
+  };
+
+  const loadTrustedDevices = async () => {
+    setLoadingTrustedDevices(true);
+    try {
+      const devices = await mfaService.getTrustedDevices();
+      setTrustedDevices(devices);
+    } catch {
+      Toast.show({ type: 'error', text1: t('common.error') });
+    } finally {
+      setLoadingTrustedDevices(false);
+    }
+  };
+
+  const handleRevokeTrustedDevice = (deviceId: string) => {
+    Alert.alert(
+      t('settings.trusted_devices_revoke'),
+      t('settings.trusted_devices_revoke_confirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.trusted_devices_revoke'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mfaService.revokeTrustedDevice(deviceId);
+              Toast.show({ type: 'success', text1: t('settings.trusted_devices_revoked') });
+              loadTrustedDevices();
+            } catch {
+              Toast.show({ type: 'error', text1: t('settings.trusted_devices_revoke_error') });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const loadSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      const res = await api.get('/auth/sessions');
+      setSessions(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      Toast.show({ type: 'error', text1: t('common.error') });
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Toast.show({ type: 'error', text1: 'Permission refusée pour la galerie' });
+      Toast.show({ type: 'error', text1: t('settings.avatar_permission') });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -91,9 +170,9 @@ export default function SettingsScreen() {
     try {
       const { user: updated } = await authService.uploadAvatar(uri);
       setUser(updated);
-      Toast.show({ type: 'success', text1: 'Avatar mis à jour' });
+      Toast.show({ type: 'success', text1: t('settings.avatar_updated') });
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors de l\'upload' });
+      Toast.show({ type: 'error', text1: t('settings.avatar_error') });
     } finally {
       setUploadingAvatar(false);
     }
@@ -105,7 +184,7 @@ export default function SettingsScreen() {
       const fileUri = await authService.exportUserData();
       await Share.share({ url: fileUri, message: 'Export RGPD de vos données SupFile' });
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: err?.response?.data?.error || 'Erreur lors de l\'export' });
+      Toast.show({ type: 'error', text1: err?.response?.data?.error || t('settings.export_error') });
     } finally {
       setExporting(false);
     }
@@ -117,12 +196,13 @@ export default function SettingsScreen() {
       const { user: updated } = await authService.updateProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-      });
+        language,
+      } as any);
       setUser(updated);
       setEditing(false);
-      Toast.show({ type: 'success', text1: 'Profil mis à jour' });
+      Toast.show({ type: 'success', text1: t('settings.profile_updated') });
     } catch {
-      Toast.show({ type: 'error', text1: 'Erreur lors de la mise à jour' });
+      Toast.show({ type: 'error', text1: t('settings.profile_error') });
     } finally {
       setSaving(false);
     }
@@ -130,11 +210,15 @@ export default function SettingsScreen() {
 
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword) {
-      Toast.show({ type: 'error', text1: 'Veuillez remplir les deux champs' });
+      Toast.show({ type: 'error', text1: t('settings.password_empty') });
       return;
     }
-    if (newPassword.length < 8) {
-      Toast.show({ type: 'error', text1: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
+    if (newPassword !== confirmPassword) {
+      Toast.show({ type: 'error', text1: t('settings.password_mismatch') });
+      return;
+    }
+    if (newPassword.length < 12) {
+      Toast.show({ type: 'error', text1: t('settings.password_too_short') });
       return;
     }
     setChangingPwd(true);
@@ -143,9 +227,10 @@ export default function SettingsScreen() {
       setShowPasswordChange(false);
       setOldPassword('');
       setNewPassword('');
-      Toast.show({ type: 'success', text1: 'Mot de passe modifié' });
+      setConfirmPassword('');
+      Toast.show({ type: 'success', text1: t('settings.password_changed') });
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: err.response?.data?.error || 'Erreur' });
+      Toast.show({ type: 'error', text1: err.response?.data?.error || t('common.error') });
     } finally {
       setChangingPwd(false);
     }
@@ -157,25 +242,84 @@ export default function SettingsScreen() {
       if (pushEnabled) {
         await pushService.unsubscribe();
         setPushEnabled(false);
-        Toast.show({ type: 'success', text1: 'Notifications désactivées' });
+        Toast.show({ type: 'success', text1: t('settings.push_disabled') });
       } else {
+        const status = await pushService.getPermissionStatus();
+        if (status === 'denied') {
+          Alert.alert(
+            t('settings.push_blocked_title'),
+            t('settings.push_blocked_msg'),
+            [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('settings.open_settings'), onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
         await pushService.subscribe();
         setPushEnabled(true);
-        Toast.show({ type: 'success', text1: 'Notifications activées' });
+        Toast.show({ type: 'success', text1: t('settings.push_enabled') });
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erreur';
+      const message = err instanceof Error ? err.message : t('common.error');
       Toast.show({ type: 'error', text1: message });
     } finally {
       setPushLoading(false);
     }
   };
 
+  const handleLogoutAll = async () => {
+    Alert.alert(
+      t('settings.sessions_logout_all_title'),
+      t('settings.sessions_logout_all_msg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.sessions_logout_all'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.post('/auth/logout-all');
+              logout();
+            } catch {
+              Toast.show({ type: 'error', text1: t('common.error') });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      t('settings.delete_account_title'),
+      t('settings.delete_account_msg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.delete_account_confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await api.delete('/auth/account');
+              logout();
+            } catch (err: any) {
+              Toast.show({ type: 'error', text1: err?.response?.data?.error || t('settings.delete_account_error') });
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = () => {
-    Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('settings.logout'), t('common.confirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Déconnexion',
+        text: t('settings.logout'),
         style: 'destructive',
         onPress: () => logout(),
       },
@@ -183,10 +327,11 @@ export default function SettingsScreen() {
   };
 
   const initials = [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+  const quotaPercent = user ? Math.min(Math.round((user.quotaUsed / user.quotaLimit) * 100), 100) : 0;
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content}>
-      <Text style={styles.pageTitle}>Profil</Text>
+      <Text style={styles.pageTitle}>{t('settings.profile_section')}</Text>
 
       {/* Avatar + nom */}
       <View style={styles.profileCard}>
@@ -198,25 +343,24 @@ export default function SettingsScreen() {
           )}
           {uploadingAvatar && (
             <View style={styles.avatarOverlay}>
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color="#FFFFFF" />
             </View>
           )}
         </TouchableOpacity>
-        <Text style={styles.userName}>
-          {user?.firstName} {user?.lastName}
-        </Text>
+        <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
         {user?.plan && (
           <View style={styles.planBadge}>
             <Text style={styles.planText}>{user.plan}</Text>
           </View>
         )}
+        <Text style={styles.accountId}>ID : {user?.id?.slice(0, 8)}…</Text>
       </View>
 
-      {/* Édition profil */}
+      {/* Informations personnelles */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Informations personnelles</Text>
+          <Text style={styles.sectionTitle}>{t('settings.personal_info')}</Text>
           <TouchableOpacity onPress={() => setEditing(!editing)}>
             <Ionicons name={editing ? 'close' : 'create-outline'} size={20} color={colors.primary[600]} />
           </TouchableOpacity>
@@ -224,64 +368,246 @@ export default function SettingsScreen() {
 
         {editing ? (
           <>
-            <Text style={styles.label}>Prénom</Text>
-            <TextInput
-              style={styles.input}
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Prénom"
-              placeholderTextColor={colors.neutral[400]}
-            />
-            <Text style={styles.label}>Nom</Text>
-            <TextInput
-              style={styles.input}
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Nom"
-              placeholderTextColor={colors.neutral[400]}
-            />
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSaveProfile}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={styles.saveBtnText}>Enregistrer</Text>
-              )}
+            <Text style={styles.label}>{t('settings.firstname')}</Text>
+            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder={t('settings.firstname')} placeholderTextColor={colors.neutral[400]} />
+            <Text style={styles.label}>{t('settings.lastname')}</Text>
+            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder={t('settings.lastname')} placeholderTextColor={colors.neutral[400]} />
+            <Text style={styles.label}>{t('settings.language')}</Text>
+            <View style={styles.langRow}>
+              <TouchableOpacity
+                style={[styles.langBtn, language === 'fr' && styles.langBtnActive]}
+                onPress={() => setLanguage('fr')}
+              >
+                <Text style={[styles.langBtnText, language === 'fr' && styles.langBtnTextActive]}>🇫🇷 {t('settings.lang_fr')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.langBtn, language === 'en' && styles.langBtnActive]}
+                onPress={() => setLanguage('en')}
+              >
+                <Text style={[styles.langBtnText, language === 'en' && styles.langBtnTextActive]}>🇬🇧 {t('settings.lang_en')}</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={handleSaveProfile} disabled={saving}>
+              {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveBtnText}>{t('common.save')}</Text>}
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <SettingsRow icon="person-outline" label="Prénom" value={user?.firstName || '–'} />
-            <SettingsRow icon="person-outline" label="Nom" value={user?.lastName || '–'} />
-            <SettingsRow icon="mail-outline" label="Email" value={user?.email || '–'} />
+            <SettingsRow colors={colors} icon="person-outline" label={t('settings.firstname')} value={user?.firstName || '–'} />
+            <SettingsRow colors={colors} icon="person-outline" label={t('settings.lastname')} value={user?.lastName || '–'} />
+            <SettingsRow colors={colors} icon="mail-outline" label={t('settings.email')} value={user?.email || '–'} />
+            <SettingsRow colors={colors} icon="language-outline" label={t('settings.language')} value={lang === 'en' ? `🇬🇧 ${t('settings.lang_en')}` : `🇫🇷 ${t('settings.lang_fr')}`} />
           </>
+        )}
+      </View>
+
+      {/* Thème */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('settings.theme_section')}</Text>
+        <View style={styles.themeRow}>
+          {(['light', 'dark', 'system'] as const).map((m) => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.themeBtn, themeMode === m && styles.themeBtnActive]}
+              onPress={() => setThemeMode(m)}
+            >
+              <Ionicons
+                name={m === 'light' ? 'sunny-outline' : m === 'dark' ? 'moon-outline' : 'phone-portrait-outline'}
+                size={18}
+                color={themeMode === m ? '#FFFFFF' : colors.neutral[500]}
+              />
+              <Text style={[styles.themeBtnText, themeMode === m && styles.themeBtnTextActive]}>
+                {m === 'light' ? t('settings.theme_light') : m === 'dark' ? t('settings.theme_dark') : t('settings.theme_system')}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Stockage */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('settings.storage_section')}</Text>
+        <SettingsRow colors={colors} icon="cloud-outline" label={t('dashboard.stat_used')} value={user ? formatQuota(user.quotaUsed) : '–'} />
+        <SettingsRow colors={colors} icon="pie-chart-outline" label={t('dashboard.quota_title')} value={user ? formatQuota(user.quotaLimit) : '–'} />
+        <View style={styles.storageBar}>
+          <View style={[styles.storageBarFill, { width: `${quotaPercent}%` }]} />
+        </View>
+        <Text style={styles.storagePercent}>{quotaPercent}%</Text>
+        <TouchableOpacity style={styles.menuRow} onPress={() => setShowPlans(true)}>
+          <Ionicons name="diamond-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.upgrade_plan')}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Sécurité */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('settings.security_section')}</Text>
+
+        <TouchableOpacity style={styles.menuRow} onPress={() => setShowMfa(true)}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.mfa')}</Text>
+          <View style={[styles.statusPill, user?.mfaEnabled ? styles.statusPillOn : styles.statusPillOff]}>
+            <Text style={[styles.statusPillText, user?.mfaEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
+              {user?.mfaEnabled ? t('common.active') : t('common.inactive')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Vault')}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('vault.title')}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuRow} onPress={() => setShowPasswordChange(!showPasswordChange)}>
+          <Ionicons name="key-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.change_password')}</Text>
+          <Ionicons name={showPasswordChange ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        {showPasswordChange && (
+          <View style={styles.passwordSection}>
+            <Text style={styles.label}>{t('settings.old_password')}</Text>
+            <TextInput style={styles.input} secureTextEntry value={oldPassword} onChangeText={setOldPassword} placeholder="••••••••" placeholderTextColor={colors.neutral[400]} />
+            <Text style={styles.label}>{t('settings.new_password')}</Text>
+            <TextInput style={styles.input} secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholder={t('auth.register.rule_length')} placeholderTextColor={colors.neutral[400]} />
+            <Text style={styles.label}>{t('settings.confirm_password')}</Text>
+            <TextInput style={styles.input} secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholder={t('settings.confirm_password')} placeholderTextColor={colors.neutral[400]} />
+            <TouchableOpacity style={[styles.saveBtn, changingPwd && styles.saveBtnDisabled]} onPress={handleChangePassword} disabled={changingPwd}>
+              {changingPwd ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveBtnText}>{t('settings.password_change_title')}</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => {
+            setShowSessions(true);
+            loadSessions();
+          }}
+        >
+          <Ionicons name="desktop-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.sessions')}</Text>
+          <Ionicons name={showSessions ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        {showSessions && (
+          <View style={styles.sessionsSection}>
+            <Text style={styles.sessionsDesc}>{t('settings.sessions_logout_all_msg')}</Text>
+            {loadingSessions ? (
+              <ActivityIndicator color={colors.primary[600]} />
+            ) : sessions.length === 0 ? (
+              <Text style={styles.emptyText}>{t('settings.sessions_loading')}</Text>
+            ) : (
+              sessions.map((s: any) => (
+                <View key={s.id} style={styles.sessionRow}>
+                  <Ionicons name="phone-portrait-outline" size={18} color={colors.neutral[400]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sessionDevice}>{s.deviceInfo ?? t('common.unknown_device')}</Text>
+                    <Text style={styles.sessionMeta}>IP : {s.ipAddress ?? '–'} · {s.createdAt ? new Date(s.createdAt).toLocaleDateString('fr-FR') : ''}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(t('settings.sessions_logout_all'), t('common.confirm'), [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        { text: t('settings.sessions_logout_all'), style: 'destructive', onPress: async () => {
+                          try {
+                            await api.delete(`/auth/sessions/${s.id}`);
+                            Toast.show({ type: 'success', text1: t('settings.session_revoked') });
+                            loadSessions();
+                          } catch { Toast.show({ type: 'error', text1: t('settings.session_revoke_error') }); }
+                        }},
+                      ]);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+            <TouchableOpacity style={styles.logoutAllBtn} onPress={handleLogoutAll}>
+              <Ionicons name="log-out-outline" size={16} color={colors.error} />
+              <Text style={styles.logoutAllText}>{t('settings.sessions_logout_all')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => {
+            setShowTrustedDevices((prev) => !prev);
+            if (!showTrustedDevices) loadTrustedDevices();
+          }}
+        >
+          <Ionicons name="phone-portrait-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.trusted_devices')}</Text>
+          <Ionicons name={showTrustedDevices ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        {showTrustedDevices && (
+          <View style={styles.sessionsSection}>
+            {loadingTrustedDevices ? (
+              <ActivityIndicator color={colors.primary[600]} />
+            ) : trustedDevices.length === 0 ? (
+              <Text style={styles.emptyText}>{t('settings.trusted_devices_empty')}</Text>
+            ) : (
+              trustedDevices.map((d: any) => (
+                <View key={d.id} style={styles.sessionRow}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={colors.neutral[400]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sessionDevice}>{d.deviceName ?? t('common.unknown_device')}</Text>
+                    <Text style={styles.sessionMeta}>
+                      IP : {d.ipAddress ?? '–'} · {t('settings.trusted_devices_last_used', { date: d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleDateString('fr-FR') : '–' })}
+                    </Text>
+                    <Text style={styles.sessionMeta}>
+                      {t('settings.trusted_devices_expires', { date: d.expiresAt ? new Date(d.expiresAt).toLocaleDateString('fr-FR') : '–' })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleRevokeTrustedDevice(d.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
         )}
       </View>
 
       {/* Raccourcis */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Raccourcis</Text>
+        <Text style={styles.sectionTitle}>{t('settings.shortcuts_section')}</Text>
 
-        <TouchableOpacity style={styles.menuRow} onPress={handleTogglePush} disabled={pushLoading}>
-          <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Notifications push</Text>
-          {pushLoading ? (
-            <ActivityIndicator size="small" color={colors.primary[600]} />
-          ) : (
-            <View style={[styles.statusPill, pushEnabled ? styles.statusPillOn : styles.statusPillOff]}>
-              <Text style={[styles.statusPillText, pushEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-                {pushEnabled ? 'Actif' : 'Inactif'}
-              </Text>
-            </View>
+        <View style={styles.menuRow}>
+          <Ionicons name="notifications-outline" size={20} color={pushService.isSupported() ? colors.primary[600] : colors.neutral[300]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuLabel, !pushService.isSupported() && { color: colors.neutral[400] }]}>{t('settings.push_notifications')}</Text>
+            {!pushService.isSupported() && (
+              <Text style={styles.pushUnsupported}>{t('settings.push_blocked_msg')}</Text>
+            )}
+          </View>
+          {pushService.isSupported() && (
+            pushLoading ? (
+              <ActivityIndicator size="small" color={colors.primary[600]} />
+            ) : (
+              <Switch
+                value={pushEnabled}
+                onValueChange={handleTogglePush}
+                trackColor={{ false: colors.neutral[200], true: colors.primary[400] }}
+                thumbColor={pushEnabled ? colors.primary[600] : colors.neutral[400]}
+              />
+            )
           )}
-        </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowNotifs(true)}>
           <Ionicons name="notifications-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Notifications</Text>
+          <Text style={styles.menuLabel}>{t('settings.notifications_center')}</Text>
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -292,127 +618,38 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Trash')}>
           <Ionicons name="trash-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Corbeille</Text>
+          <Text style={styles.menuLabel}>{t('settings.trash')}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuRow} onPress={() => setShowAccountSwitcher(true)}>
           <Ionicons name="swap-horizontal-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Comptes liés & délégations</Text>
+          <Text style={styles.menuLabel}>{t('settings.linked_accounts')}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Audit')}>
+          <Ionicons name="list-outline" size={20} color={colors.primary[600]} />
+          <Text style={styles.menuLabel}>{t('settings.audit_logs')}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
         </TouchableOpacity>
 
         {user?.role === 'ADMIN' && (
           <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Admin')}>
             <Ionicons name="shield-outline" size={20} color={colors.primary[600]} />
-            <Text style={styles.menuLabel}>Panel administrateur</Text>
+            <Text style={styles.menuLabel}>{t('settings.admin_panel')}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Sécurité */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Sécurité</Text>
-
-        <TouchableOpacity style={styles.menuRow} onPress={() => setShowMfa(true)}>
-          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Double authentification (MFA)</Text>
-          <View style={[styles.statusPill, user?.mfaEnabled ? styles.statusPillOn : styles.statusPillOff]}>
-            <Text style={[styles.statusPillText, user?.mfaEnabled ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-              {user?.mfaEnabled ? 'Actif' : 'Inactif'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Vault')}>
-          <Ionicons name="lock-closed-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Coffre-fort chiffré</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuRow}
-          onPress={() => setShowPasswordChange(!showPasswordChange)}
-        >
-          <Ionicons name="key-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Changer le mot de passe</Text>
-          <Ionicons name={showPasswordChange ? 'chevron-up' : 'chevron-down'} size={18} color={colors.neutral[300]} />
-        </TouchableOpacity>
-
-        {showPasswordChange && (
-          <View style={styles.passwordSection}>
-            <Text style={styles.label}>Mot de passe actuel</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={oldPassword}
-              onChangeText={setOldPassword}
-              placeholder="••••••••"
-              placeholderTextColor={colors.neutral[400]}
-            />
-            <Text style={styles.label}>Nouveau mot de passe</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="8 caractères minimum"
-              placeholderTextColor={colors.neutral[400]}
-            />
-            <TouchableOpacity
-              style={[styles.saveBtn, changingPwd && styles.saveBtnDisabled]}
-              onPress={handleChangePassword}
-              disabled={changingPwd}
-            >
-              {changingPwd ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={styles.saveBtnText}>Modifier</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Stockage */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Stockage</Text>
-        <SettingsRow
-          icon="cloud-outline"
-          label="Utilisé"
-          value={user ? formatQuota(user.quotaUsed) : '–'}
-        />
-        <SettingsRow
-          icon="pie-chart-outline"
-          label="Limite"
-          value={user ? formatQuota(user.quotaLimit) : '–'}
-        />
-        <View style={styles.storageBar}>
-          <View
-            style={[
-              styles.storageBarFill,
-              {
-                width: `${user ? Math.min(Math.round((user.quotaUsed / user.quotaLimit) * 100), 100) : 0}%`,
-              },
-            ]}
-          />
-        </View>
-      </View>
-
       {/* RGPD */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Confidentialité (RGPD)</Text>
-        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('Audit')}>
-          <Ionicons name="list-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Journal d'activité</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.neutral[300]} />
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>{t('settings.rgpd_section')}</Text>
 
         <TouchableOpacity style={styles.menuRow} onPress={handleExportData} disabled={exporting}>
           <Ionicons name="download-outline" size={20} color={colors.primary[600]} />
-          <Text style={styles.menuLabel}>Exporter mes données</Text>
+          <Text style={styles.menuLabel}>{t('settings.export_data')}</Text>
           {exporting ? (
             <ActivityIndicator size="small" color={colors.primary[600]} />
           ) : (
@@ -421,10 +658,25 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Zone dangereuse */}
+      <View style={[styles.section, styles.dangerSection]}>
+        <Text style={[styles.sectionTitle, { color: colors.error }]}>{t('settings.danger_section')}</Text>
+        <TouchableOpacity style={styles.dangerBtn} onPress={handleDeleteAccount} disabled={deletingAccount}>
+          {deletingAccount ? (
+            <ActivityIndicator color={colors.error} size="small" />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+              <Text style={styles.dangerBtnText}>{t('settings.delete_account')}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Déconnexion */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color={colors.error} />
-        <Text style={styles.logoutText}>Se déconnecter</Text>
+        <Text style={styles.logoutText}>{t('settings.logout')}</Text>
       </TouchableOpacity>
 
       <NotificationCenter
@@ -437,11 +689,13 @@ export default function SettingsScreen() {
       />
       <MfaSetupModal visible={showMfa} onClose={() => setShowMfa(false)} />
       <AccountSwitcherModal visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
+      <PlansModal visible={showPlans} onClose={() => setShowPlans(false)} />
     </ScrollView>
   );
 }
 
-function SettingsRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+function SettingsRow({ colors, icon, label, value }: { colors: ReturnType<typeof useColors>; icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const styles = makeStyles(colors);
   return (
     <View style={styles.infoRow}>
       <Ionicons name={icon} size={18} color={colors.neutral[400]} />
@@ -451,217 +705,349 @@ function SettingsRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyph
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.secondary,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['5xl'],
-  },
-  pageTitle: {
-    ...typography.h2,
-    color: colors.primary[600],
-    paddingVertical: spacing.md,
-  },
-  profileCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    ...shadows.md,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[600],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  avatarText: {
-    ...typography.h2,
-    color: colors.white,
-  },
-  userName: {
-    ...typography.h3,
-    color: colors.neutral[800],
-  },
-  userEmail: {
-    ...typography.bodySmall,
-    color: colors.neutral[500],
-    marginTop: 2,
-  },
-  planBadge: {
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    marginTop: spacing.sm,
-  },
-  planText: {
-    ...typography.caption,
-    color: colors.primary[600],
-    fontWeight: '700',
-  },
-  section: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    color: colors.neutral[800],
-    marginBottom: spacing.sm,
-  },
-  label: {
-    ...typography.label,
-    color: colors.neutral[700],
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  input: {
-    backgroundColor: colors.neutral[50],
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    ...typography.body,
-    color: colors.neutral[900],
-  },
-  saveBtn: {
-    backgroundColor: colors.primary[600],
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  saveBtnDisabled: {
-    opacity: 0.6,
-  },
-  saveBtnText: {
-    ...typography.button,
-    color: colors.white,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-    gap: spacing.sm,
-  },
-  infoLabel: {
-    ...typography.bodySmall,
-    color: colors.neutral[500],
-    width: 60,
-  },
-  infoValue: {
-    ...typography.body,
-    color: colors.neutral[800],
-    flex: 1,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  menuLabel: {
-    ...typography.body,
-    color: colors.neutral[800],
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: colors.error,
-    minWidth: 20,
-    height: 20,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    ...shadows.sm,
-  },
-  logoutText: {
-    ...typography.button,
-    color: colors.error,
-  },
-  passwordSection: {
-    marginTop: spacing.sm,
-  },
-  storageBar: {
-    height: 8,
-    backgroundColor: colors.neutral[100],
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-    marginTop: spacing.md,
-  },
-  storageBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary[500],
-    borderRadius: borderRadius.full,
-  },
-  avatarImage: {
-    width: 72,
-    height: 72,
-    borderRadius: borderRadius.full,
-  },
-  avatarOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    marginRight: spacing.xs,
-  },
-  statusPillOn: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusPillOff: {
-    backgroundColor: colors.neutral[100],
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statusPillTextOn: {
-    color: '#065F46',
-  },
-  statusPillTextOff: {
-    color: colors.neutral[500],
-  },
-});
+function makeStyles(colors: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg.secondary,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing['5xl'],
+    },
+    pageTitle: {
+      ...typography.h2,
+      color: colors.primary[600],
+      paddingVertical: spacing.md,
+    },
+    profileCard: {
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      alignItems: 'center',
+      marginBottom: spacing.lg,
+      ...shadows.md,
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: borderRadius.full,
+      backgroundColor: colors.primary[600],
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    avatarText: {
+      ...typography.h2,
+      color: '#FFFFFF',
+    },
+    avatarImage: {
+      width: 72,
+      height: 72,
+      borderRadius: borderRadius.full,
+    },
+    avatarOverlay: {
+      position: 'absolute',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      borderRadius: borderRadius.full,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    userName: {
+      ...typography.h3,
+      color: colors.neutral[800],
+    },
+    userEmail: {
+      ...typography.bodySmall,
+      color: colors.neutral[500],
+      marginTop: 2,
+    },
+    accountId: {
+      ...typography.caption,
+      color: colors.neutral[400],
+      marginTop: spacing.xs,
+    },
+    planBadge: {
+      backgroundColor: colors.primary[50],
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
+      marginTop: spacing.sm,
+    },
+    planText: {
+      ...typography.caption,
+      color: colors.primary[600],
+      fontWeight: '700',
+    },
+    section: {
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.xl,
+      padding: spacing.lg,
+      marginBottom: spacing.lg,
+      ...shadows.sm,
+    },
+    dangerSection: {
+      borderWidth: 1,
+      borderColor: colors.error + '40',
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    sectionTitle: {
+      ...typography.h4,
+      color: colors.neutral[800],
+      marginBottom: spacing.sm,
+    },
+    label: {
+      ...typography.label,
+      color: colors.neutral[700],
+      marginBottom: spacing.xs,
+      marginTop: spacing.sm,
+    },
+    input: {
+      backgroundColor: colors.neutral[50],
+      borderWidth: 1,
+      borderColor: colors.neutral[200],
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      ...typography.body,
+      color: colors.neutral[900],
+    },
+    langRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    langBtn: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.neutral[200],
+      alignItems: 'center',
+    },
+    langBtnActive: {
+      backgroundColor: colors.primary[600],
+      borderColor: colors.primary[600],
+    },
+    langBtnText: {
+      ...typography.bodySmall,
+      color: colors.neutral[600],
+    },
+    langBtnTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '600',
+    },
+    themeRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    themeBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.neutral[200],
+    },
+    themeBtnActive: {
+      backgroundColor: colors.primary[600],
+      borderColor: colors.primary[600],
+    },
+    themeBtnText: {
+      ...typography.caption,
+      color: colors.neutral[600],
+      fontWeight: '500',
+    },
+    themeBtnTextActive: {
+      color: '#FFFFFF',
+    },
+    saveBtn: {
+      backgroundColor: colors.primary[600],
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      marginTop: spacing.lg,
+    },
+    saveBtnDisabled: {
+      opacity: 0.6,
+    },
+    saveBtnText: {
+      ...typography.button,
+      color: '#FFFFFF',
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.neutral[100],
+      gap: spacing.sm,
+    },
+    infoLabel: {
+      ...typography.bodySmall,
+      color: colors.neutral[500],
+      width: 70,
+    },
+    infoValue: {
+      ...typography.body,
+      color: colors.neutral[800],
+      flex: 1,
+    },
+    menuRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      gap: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.neutral[100],
+    },
+    menuLabel: {
+      ...typography.body,
+      color: colors.neutral[800],
+      flex: 1,
+    },
+    badge: {
+      backgroundColor: colors.error,
+      minWidth: 20,
+      height: 20,
+      borderRadius: borderRadius.full,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 6,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    logoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.lg,
+      backgroundColor: colors.white,
+      borderRadius: borderRadius.xl,
+      ...shadows.sm,
+      marginBottom: spacing.lg,
+    },
+    logoutText: {
+      ...typography.button,
+      color: colors.error,
+    },
+    passwordSection: {
+      marginTop: spacing.sm,
+    },
+    storageBar: {
+      height: 8,
+      backgroundColor: colors.neutral[100],
+      borderRadius: borderRadius.full,
+      overflow: 'hidden',
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+    },
+    storageBarFill: {
+      height: '100%',
+      backgroundColor: colors.primary[500],
+      borderRadius: borderRadius.full,
+    },
+    storagePercent: {
+      ...typography.caption,
+      color: colors.neutral[400],
+      marginBottom: spacing.sm,
+    },
+    statusPill: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.full,
+      marginRight: spacing.xs,
+    },
+    statusPillOn: {
+      backgroundColor: '#D1FAE5',
+    },
+    statusPillOff: {
+      backgroundColor: colors.neutral[100],
+    },
+    statusPillText: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    statusPillTextOn: {
+      color: '#065F46',
+    },
+    statusPillTextOff: {
+      color: colors.neutral[500],
+    },
+    sessionsSection: {
+      marginTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    sessionsDesc: {
+      ...typography.caption,
+      color: colors.neutral[500],
+      marginBottom: spacing.sm,
+      lineHeight: 18,
+    },
+    sessionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.neutral[100],
+    },
+    sessionDevice: {
+      ...typography.bodySmall,
+      color: colors.neutral[800],
+      fontWeight: '500',
+    },
+    sessionMeta: {
+      ...typography.caption,
+      color: colors.neutral[400],
+    },
+    logoutAllBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.sm,
+    },
+    logoutAllText: {
+      ...typography.bodySmall,
+      color: colors.error,
+    },
+    emptyText: {
+      ...typography.bodySmall,
+      color: colors.neutral[400],
+      textAlign: 'center',
+      paddingVertical: spacing.sm,
+    },
+    pushUnsupported: {
+      ...typography.caption,
+      color: colors.neutral[400],
+      marginTop: 2,
+    },
+    dangerBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.error + '60',
+    },
+    dangerBtnText: {
+      ...typography.body,
+      color: colors.error,
+    },
+  });
+}

@@ -20,6 +20,8 @@ export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [dekRequired, setDekRequired] = useState(false);
+  const [forceReset, setForceReset] = useState(false);
 
   useEffect(() => {
     const checkToken = async () => {
@@ -58,14 +60,18 @@ export default function ResetPasswordPage() {
       await api.post('/auth/reset-password', {
         token,
         newPassword,
-        mfaCode: mfaRequired ? mfaCode : undefined
+        mfaCode: mfaRequired ? mfaCode : undefined,
+        forceReset: forceReset || undefined,
       });
       setIsSuccess(true);
       toast.success(t('login.reset_password_success', 'Votre mot de passe a été réinitialisé avec succès.'));
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
       const apiError = err.response?.data?.error as string | undefined;
-      if (apiError?.toLowerCase().includes('mfa')) {
+      const code = err.response?.data?.code as string | undefined;
+      if (code === 'DEK_RECOVERY_REQUIRED' || code === 'VAULT_RECOVERY_REQUIRED') {
+        setDekRequired(true);
+      } else if (apiError?.toLowerCase().includes('mfa')) {
         toast.error(t('login.reset_password_mfa_invalid', 'Code MFA invalide. Veuillez réessayer.'));
       } else {
         toast.error(apiError || t('login.failed', 'Une erreur est survenue'));
@@ -186,9 +192,31 @@ export default function ResetPasswordPage() {
             )}
           </div>
 
+          {dekRequired && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4 space-y-3">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                ⚠️ Données chiffrées détectées
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Votre compte utilise le chiffrement de fichiers. Sans clé de récupération, réinitialiser le mot de passe effacera votre clé de chiffrement — vos fichiers chiffrés existants ne seront plus accessibles.
+              </p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={forceReset}
+                  onChange={(e) => setForceReset(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                  Je comprends, réinitialiser quand même (les fichiers chiffrés ne seront plus accessibles)
+                </span>
+              </label>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting || !newPassword || !confirmPassword || (mfaRequired && !mfaCode)}
+            disabled={isSubmitting || !newPassword || !confirmPassword || (mfaRequired && !mfaCode) || (dekRequired && !forceReset)}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
             {isSubmitting ? t('login.reset_password_loading', 'Réinitialisation...') : t('settings.change_password', 'Enregistrer le mot de passe')}

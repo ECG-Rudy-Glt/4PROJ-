@@ -3,9 +3,11 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Toast from 'react-native-toast-message';
+import './src/i18n';
 import RootNavigator from './src/navigation/RootNavigator';
 import SocketListener from './src/components/SocketListener';
 import { useAuthStore } from './src/stores/useAuthStore';
+import { navigationRef } from './src/navigation/navigationRef';
 
 function AuthedSocket() {
   const isAuth = useAuthStore((s) => s.isAuthenticated);
@@ -15,7 +17,7 @@ function AuthedSocket() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="auto" />
         <RootNavigator />
         <AuthedSocket />

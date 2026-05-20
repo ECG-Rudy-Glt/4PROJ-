@@ -1,34 +1,69 @@
 import React, { useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useAuthStore } from '../stores/useAuthStore';
 import { authService } from '../services/authService';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/useColors';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import MfaVerifyScreen from '../screens/auth/MfaVerifyScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import TabNavigator from './TabNavigator';
 import TrashScreen from '../screens/main/TrashScreen';
 import AdminScreen from '../screens/main/AdminScreen';
 import VaultScreen from '../screens/main/VaultScreen';
 import AuditScreen from '../screens/main/AuditScreen';
 import { RootStackParamList } from '../types';
+import { navigationRef } from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const colors = useColors();
   const { isAuthenticated, isLoading, hydrated } = useAuthStore();
   const hydrate = useAuthStore((s) => s.hydrate);
+  const setAuth = useAuthStore((s) => s.setAuth);
   const setUser = useAuthStore((s) => s.setUser);
   const setSessionContext = useAuthStore((s) => s.setSessionContext);
   const logout = useAuthStore((s) => s.logout);
 
-  // Hydrater le token au lancement
   useEffect(() => {
     hydrate();
   }, []);
 
-  // Charger le profil une fois authentifié
+  useEffect(() => {
+    const handleUrl = async (url: string) => {
+      if (url.includes('reset-password')) {
+        try {
+          const parsed = new URL(url);
+          const token = parsed.searchParams.get('token');
+          if (token && navigationRef.isReady()) {
+            navigationRef.navigate('ResetPassword', { token });
+          }
+        } catch { /* ignore */ }
+        return;
+      }
+      if (!url.includes('auth/callback')) return;
+      try {
+        const parsed = new URL(url);
+        const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+        const token = hashParams.get('token') || parsed.searchParams.get('token');
+        if (!token) return;
+        const decoded = decodeURIComponent(token);
+        const { user, session } = await authService.getProfileWithToken(decoded);
+        await setAuth(decoded, user, session, undefined);
+      } catch {
+        // ignore
+      }
+    };
+
+    Linking.getInitialURL().then((url) => { if (url) handleUrl(url); });
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     if (!hydrated || !isAuthenticated) return;
     authService
@@ -38,8 +73,6 @@ export default function RootNavigator() {
         if (session) setSessionContext(session);
       })
       .catch((err) => {
-        // Ne déconnecter que si le token est explicitement rejeté (401)
-        // Une erreur réseau ne doit pas déconnecter l'utilisateur
         if (err?.response?.status === 401) {
           logout();
         }
@@ -63,12 +96,15 @@ export default function RootNavigator() {
           <Stack.Screen name="Admin" component={AdminScreen} />
           <Stack.Screen name="Vault" component={VaultScreen} />
           <Stack.Screen name="Audit" component={AuditScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </>
       ) : (
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           <Stack.Screen name="MfaVerify" component={MfaVerifyScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </>
       )}
     </Stack.Navigator>

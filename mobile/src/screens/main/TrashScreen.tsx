@@ -12,7 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
-import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
+import { useColors, AppColors } from '../../theme/useColors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
@@ -38,8 +39,11 @@ const formatDate = (iso: string): string => {
 };
 
 export default function TrashScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const colors = useColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -112,6 +116,36 @@ export default function TrashScreen() {
     );
   };
 
+  const handleEmptyTrash = () => {
+    if (items.length === 0) return;
+    Alert.alert(
+      'Vider la corbeille',
+      `Supprimer définitivement ${items.length} élément(s) ? Cette action est irréversible.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Tout supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Promise.all(
+                items.map((item) =>
+                  item.kind === 'file'
+                    ? fileService.deleteFile(item.data.id, true)
+                    : folderService.deleteFolder(item.data.id, true)
+                )
+              );
+              setItems([]);
+              Toast.show({ type: 'success', text1: 'Corbeille vidée' });
+            } catch {
+              Toast.show({ type: 'error', text1: 'Erreur lors de la suppression' });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -119,6 +153,12 @@ export default function TrashScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.primary[600]} />
         </TouchableOpacity>
         <Text style={styles.title}>Corbeille</Text>
+        {items.length > 0 && (
+          <TouchableOpacity onPress={handleEmptyTrash} style={styles.emptyBtn}>
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
+            <Text style={styles.emptyBtnText}>Vider</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -166,10 +206,10 @@ export default function TrashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.secondary,
+    backgroundColor: c.bg.secondary,
   },
   header: {
     flexDirection: 'row',
@@ -183,7 +223,23 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    color: colors.primary[600],
+    color: c.primary[600],
+    flex: 1,
+  },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: c.error,
+  },
+  emptyBtnText: {
+    ...typography.caption,
+    color: c.error,
+    fontWeight: '600',
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -192,7 +248,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: c.white,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -203,7 +259,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: c.neutral[100],
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -212,12 +268,12 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.body,
-    color: colors.neutral[600],
+    color: c.neutral[600],
     fontWeight: '500',
   },
   meta: {
     ...typography.caption,
-    color: colors.neutral[400],
+    color: c.neutral[400],
     marginTop: 2,
   },
   actionBtn: {

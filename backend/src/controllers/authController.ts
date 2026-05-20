@@ -161,10 +161,20 @@ export class AuthController {
     try {
       const user = req.user!;
       const token = generateToken(user.id, user.email, user.tokenVersion || 1);
+      const state = typeof req.query?.state === 'string' ? req.query.state : '';
+      if (state === 'mobile') {
+        res.redirect(`supfile://auth/callback#token=${encodeURIComponent(token)}`);
+        return;
+      }
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(token)}`);
     } catch (error) {
       const msg = encodeURIComponent(error instanceof Error ? error.message : 'Unknown error');
+      const state = typeof req.query?.state === 'string' ? req.query.state : '';
+      if (state === 'mobile') {
+        res.redirect(`supfile://auth/callback?error=${msg}`);
+        return;
+      }
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/auth/callback?error=${msg}`);
     }
@@ -172,13 +182,13 @@ export class AuthController {
 
   static async requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, lang } = req.body;
+      const { email, lang, platform } = req.body;
       if (!validateEmail(email)) {
         sendError(res, "L'adresse e-mail doit être dans un format valide (ex: nom@domaine.com)", 400);
         return;
       }
 
-      const result = await AuthService.requestPasswordReset(email, lang);
+      const result = await AuthService.requestPasswordReset(email, lang, platform);
       sendSuccess(res, result);
     } catch (error) {
       next(error);
@@ -202,7 +212,7 @@ export class AuthController {
 
   static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { token, newPassword, mfaCode } = req.body;
+      const { token, newPassword, mfaCode, forceReset } = req.body;
       if (!token || !newPassword) {
         sendError(res, 'Token et nouveau mot de passe requis', 400);
         return;
@@ -213,7 +223,7 @@ export class AuthController {
         return;
       }
 
-      const result = await AuthService.resetPassword(token, newPassword, mfaCode);
+      const result = await AuthService.resetPassword(token, newPassword, mfaCode, !!forceReset);
       sendSuccess(res, result);
     } catch (error) {
       next(error);
