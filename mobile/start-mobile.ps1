@@ -49,7 +49,7 @@ if (-not $FinalIP) {
 
 # Mise a jour du fichier .env
 $envFile = ".env"
-$apiVal = "EXPO_PUBLIC_API_URL=http://$FinalIP:5001/api"
+$apiVal = "EXPO_PUBLIC_API_URL=http://${FinalIP}:5001/api"
 Set-Content -Path $envFile -Value $apiVal
 Write-Host ".env mis a jour : $apiVal" -ForegroundColor Green
 
