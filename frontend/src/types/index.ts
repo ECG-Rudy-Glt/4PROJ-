@@ -81,6 +81,7 @@ export interface File {
   originalName: string;
   mimeType: string;
   size: number;
+  checksum?: string | null;
   storagePath: string;
   thumbnailPath?: string;
   category?: string; // 'image', 'video', 'doc', 'audio', 'other'
