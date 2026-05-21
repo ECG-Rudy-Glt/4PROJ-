@@ -1,7 +1,7 @@
 """
 Thin wrapper around the Ollama REST API.
 Ollama runs as a separate container (ollama/ollama) and handles
-model loading / inference — no llama.cpp compilation needed here.
+model loading / inference - no llama.cpp compilation needed here.
 """
 
 import os

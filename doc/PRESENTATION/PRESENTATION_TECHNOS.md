@@ -1,4 +1,4 @@
-# SUPFile — Stack technique complète
+# SUPFile - Stack technique complète
 
 ---
 
@@ -167,7 +167,7 @@
 | Techno | Version | Rôle |
 |---|---|---|
 | Ollama | 0.5.4 | Serveur LLM local (container séparé) |
-| gemma2:2b | — | Modèle de langage (LLM) |
+| gemma2:2b | - | Modèle de langage (LLM) |
 | ChromaDB | 0.6 | Base vectorielle (persistance embeddings) |
 | fastembed | 0.3 | Génération embeddings (paraphrase-multilingual-MiniLM-L12-v2) |
 
@@ -178,8 +178,8 @@
 ### Conteneurisation
 | Techno | Version | Rôle |
 |---|---|---|
-| Docker | — | Conteneurisation |
-| Docker Compose | — | Orchestration multi-services |
+| Docker | - | Conteneurisation |
+| Docker Compose | - | Orchestration multi-services |
 
 ### Services tiers
 | Techno | Version | Rôle |
@@ -217,13 +217,13 @@
 ### APIs natives
 | Techno | Version | Rôle |
 |---|---|---|
-| expo-secure-store | — | Stockage chiffré des tokens (iOS Keychain / Android Keystore) |
-| expo-document-picker | — | Sélection fichiers système |
-| expo-image-picker | — | Accès galerie photo / caméra |
-| expo-file-system | — | Opérations fichiers locaux |
+| expo-secure-store | - | Stockage chiffré des tokens (iOS Keychain / Android Keystore) |
+| expo-document-picker | - | Sélection fichiers système |
+| expo-image-picker | - | Accès galerie photo / caméra |
+| expo-file-system | - | Opérations fichiers locaux |
 | expo-video | 3.0.16 | Lecture vidéo native |
 | react-native-webview | 13.15.0 | Prévisualisation PDF & Office |
-| react-native-toast-message | — | Notifications toast |
+| react-native-toast-message | - | Notifications toast |
 
 ---
 

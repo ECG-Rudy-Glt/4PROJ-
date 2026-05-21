@@ -212,7 +212,7 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                   <>
                     {isMulti && fileTargets.length < targets.length && (
                       <Text style={[styles.muted, { textAlign: 'left', paddingHorizontal: 0, paddingTop: 0, paddingBottom: spacing.md }]}>
-                        {`${fileTargets.length} fichier(s) — les dossiers seront ignorés.`}
+                        {`${fileTargets.length} fichier(s) - les dossiers seront ignorés.`}
                       </Text>
                     )}
                     <Text style={styles.label}>Protection par mot de passe</Text>
@@ -228,7 +228,7 @@ export default function ShareModal({ target, targets: targetsProp, onClose }: Pr
                     ) : (
                       <View style={styles.proBanner}>
                         <Ionicons name="lock-closed" size={16} color={colors.primary[600]} />
-                        <Text style={styles.proText}>Fonctionnalité PRO — Passez à un abonnement supérieur pour protéger vos liens par mot de passe.</Text>
+                        <Text style={styles.proText}>Fonctionnalité PRO - Passez à un abonnement supérieur pour protéger vos liens par mot de passe.</Text>
                       </View>
                     )}
 

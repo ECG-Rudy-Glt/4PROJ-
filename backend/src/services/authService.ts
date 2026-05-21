@@ -63,7 +63,7 @@ export class AuthService {
     try {
       wrappedDek = KekService.wrapDek(dek);
     } catch (err) {
-      logger.warn({ err }, '[AuthService.register] DEK_WRAP_SECRET absent — wrappedDek omis du JWT');
+      logger.warn({ err }, '[AuthService.register] DEK_WRAP_SECRET absent - wrappedDek omis du JWT');
     }
     const token = generateToken(user.id, user.email, user.tokenVersion, { wrappedDek });
 
@@ -466,7 +466,7 @@ export class AuthService {
       );
     }
 
-    // MFA Verification — skipped on forceReset (email token is sufficient proof)
+    // MFA Verification - skipped on forceReset (email token is sufficient proof)
     if (user.mfaEnabled && !forceReset) {
       if (!mfaCode) {
         throw new AppError(401, "Code MFA requis.");

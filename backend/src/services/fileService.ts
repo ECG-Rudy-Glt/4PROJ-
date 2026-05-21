@@ -1,4 +1,4 @@
-// Logic split into focused services — this file is a backwards-compatible facade
+// Logic split into focused services - this file is a backwards-compatible facade
 export { FileUploadService } from './fileUploadService';
 export { FileQueryService } from './fileQueryService';
 export { FileActionService } from './fileActionService';

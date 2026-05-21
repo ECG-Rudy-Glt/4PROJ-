@@ -1,6 +1,3 @@
-# Script de configuration reseau pour SUPFILE (Windows PowerShell)
-# Ce script aide a configurer l'application pour l'acces reseau local.
-
 Set-Location -Path "$PSScriptRoot\.."
 
 Write-Host "=========================================" -ForegroundColor Cyan

@@ -653,7 +653,7 @@
     "password_clear_success": "Mot de passe du partage retiré",
     "password_update_error": "Échec de la mise à jour du mot de passe",
     "password_clear_confirm": "Retirer le mot de passe de ce partage ?",
-    "password_upgrade_title": "Protection par mot de passe — Fonctionnalité PRO",
+    "password_upgrade_title": "Protection par mot de passe - Fonctionnalité PRO",
     "password_upgrade_desc": "Passez au plan PRO pour protéger vos partages par mot de passe.",
     "upgrade_cta": "Passer à PRO"
   },
@@ -834,8 +834,8 @@
       "full_audit": "Historique d'audit complet",
       "sla": "SLA entreprise",
       "ai_bobby": "IA Bobby embarquée",
-      "ai_bobby_basic": "IA Bobby — gemma3:2b",
-      "ai_bobby_advanced": "IA Bobby — gemma3:9b",
+      "ai_bobby_basic": "IA Bobby - gemma3:2b",
+      "ai_bobby_advanced": "IA Bobby - gemma3:9b",
       "ai_bobby_dedicated": "LLM dédié sur mesure",
       "onlyoffice": "Édition OnlyOffice intégrée",
       "versioning_10": "10 versions de fichiers",
@@ -844,8 +844,8 @@
       "sharing_basic": "Partage par lien",
       "sharing_advanced": "Partage avancé (mdp + expiration)",
       "community_support": "Support communautaire",
-      "email_support_48h": "Support email — réponse 48h",
-      "email_support_24h": "Support email — réponse 24h",
+      "email_support_48h": "Support email - réponse 48h",
+      "email_support_24h": "Support email - réponse 24h",
       "account_manager": "Account manager dédié",
       "france_hosting": "Données hébergées en France"
     }

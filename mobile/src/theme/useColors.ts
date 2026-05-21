@@ -23,7 +23,7 @@ export const darkColors = {
     brightDark:'#F7DC80',
   },
   bg: {
-    primary:   '#0F1117',  // fond principal — très sombre
+    primary:   '#0F1117',  // fond principal - très sombre
     secondary: '#161C26',  // fond listes/sections
     tertiary:  '#0D2320',  // fond accent teal
   },

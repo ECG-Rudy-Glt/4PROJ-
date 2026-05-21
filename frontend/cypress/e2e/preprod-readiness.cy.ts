@@ -1,6 +1,6 @@
 import { createBaseUser, interceptAppShell } from './helpers/appMocks';
 
-describe('Preprod readiness — OAuth providers', () => {
+describe('Preprod readiness - OAuth providers', () => {
   it('shows only configured OAuth providers on login', () => {
     cy.intercept('GET', '**/api/auth/providers', {
       statusCode: 200,
@@ -15,7 +15,7 @@ describe('Preprod readiness — OAuth providers', () => {
   });
 });
 
-describe('Preprod readiness — Stripe test checkout', () => {
+describe('Preprod readiness - Stripe test checkout', () => {
   it('redirects to the Stripe checkout URL returned by the backend', () => {
     cy.on('uncaught:exception', () => false);
 
@@ -42,7 +42,7 @@ describe('Preprod readiness — Stripe test checkout', () => {
   });
 });
 
-describe('Preprod readiness — public legal pages', () => {
+describe('Preprod readiness - public legal pages', () => {
   it('serves legal, privacy, terms and contact pages without authentication', () => {
     cy.visit('/legal');
     cy.contains(/mentions/i).should('be.visible');

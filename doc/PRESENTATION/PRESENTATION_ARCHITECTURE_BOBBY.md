@@ -1,4 +1,4 @@
-# SUPFile — Architecture & Bobby (Chef de projet / Architecte)
+# SUPFile - Architecture & Bobby (Chef de projet / Architecte)
 
 ---
 
@@ -11,10 +11,10 @@ Navigateur
     
     
 nginx (frontend) :3000
-      SPA React — proxy /api et /socket.io vers le backend
+      SPA React - proxy /api et /socket.io vers le backend
     
 backend Node.js :5001
-      Express REST API — JWT, Prisma, MinIO, Socket.IO
+      Express REST API - JWT, Prisma, MinIO, Socket.IO
      PostgreSQL :5432      (BDD relationnelle, réseau interne)
      MinIO                 (stockage objet S3, réseau interne)
      OnlyOffice :8080      (édition documents Office)
@@ -59,7 +59,7 @@ backend Node.js :5001
 
 ---
 
-## CI/CD — Pipeline GitHub Actions
+## CI/CD - Pipeline GitHub Actions
 
 **5 jobs en parallèle, ordonnancés par dépendances :**
 
@@ -67,22 +67,22 @@ backend Node.js :5001
 validate-env
      backend-checks   (npm install  prisma generate  build  tests + coverage)
      frontend-checks  (npm install  lint ESLint  vite build  cypress E2E)
-     semgrep          (SAST — règles Node.js + React, fail sur ERROR)
+     semgrep          (SAST - règles Node.js + React, fail sur ERROR)
      trufflehog       (scan secrets dans tout l'historique git)
              docker-build  (build images  Dockle audit  SBOM SPDX-JSON)
                      docker-push  (GHCR :latest + :sha, main uniquement)
 ```
 
 **Contrôles de sécurité intégrés :**
-- **Semgrep** — analyse statique (SAST) avant tout build Docker
-- **TruffleHog** — détection de secrets actifs dans l'historique git complet
-- **Dockle** — audit de sécurité de l'image Docker (CIS Benchmark)
-- **SBOM** — Software Bill of Materials (SPDX-JSON), conservé 90 jours
-- **npm audit** — vérification des dépendances vulnérables (backend + frontend)
+- **Semgrep** - analyse statique (SAST) avant tout build Docker
+- **TruffleHog** - détection de secrets actifs dans l'historique git complet
+- **Dockle** - audit de sécurité de l'image Docker (CIS Benchmark)
+- **SBOM** - Software Bill of Materials (SPDX-JSON), conservé 90 jours
+- **npm audit** - vérification des dépendances vulnérables (backend + frontend)
 
 ---
 
-## Schéma de données — Prisma (PostgreSQL 16)
+## Schéma de données - Prisma (PostgreSQL 16)
 
 **~20 modèles**, conçus autour de 5 domaines :
 
@@ -95,7 +95,7 @@ validate-env
 - `File` : storagePath (UUID), size (BigInt), isDeleted + deletedAt (soft delete), isVault, isFavorite, views, downloads
 - `Folder` : arborescence récursive (parentId autoréférent), path (breadcrumbs), isVault
 - `FileVersion` : historique immuable par fichier, storagePath unique par version
-- **Indexes composites** : `(userId, folderId, isDeleted)` sur File — requête listing sans scan complet
+- **Indexes composites** : `(userId, folderId, isDeleted)` sur File - requête listing sans scan complet
 
 ### Partage & collaboration
 - `SharedLink` : token UUID, mot de passe hashé, expiresAt, maxDownloads
@@ -104,7 +104,7 @@ validate-env
 - `Tag` / `FileTag` : étiquettes avec couleur hex
 
 ### IA & recherche
-- `FileSearchIndex` : texte extrait (full-text) + résumé IA + flag OCR — 1:1 avec File
+- `FileSearchIndex` : texte extrait (full-text) + résumé IA + flag OCR - 1:1 avec File
 - `Conversation` / `ConversationMessage` : historique des chats Bobby (role: user/assistant)
 
 ### Facturation & organisation
@@ -120,7 +120,7 @@ validate-env
 
 ---
 
-## Surface API — 20 domaines de routes
+## Surface API - 20 domaines de routes
 
 | Domaine | Endpoints clés |
 |---|---|
@@ -144,20 +144,20 @@ validate-env
 | **Délégation** | grant, revoke, assume context |
 | **Push** | VAPID key, subscribe, unsubscribe |
 
-**Documentation Swagger UI** interactive disponible — OpenAPI 3.0.3, auth Bearer JWT, tous les schémas de réponse documentés.
+**Documentation Swagger UI** interactive disponible - OpenAPI 3.0.3, auth Bearer JWT, tous les schémas de réponse documentés.
 
 ---
 
-## nginx — Reverse proxy frontend
+## nginx - Reverse proxy frontend
 
 - Sert le build statique React (Vite) en `try_files $uri /index.html` (SPA routing)
 - Proxy `/api`  backend avec `proxy_request_buffering off` (streaming upload jusqu'à **5 GB**)
 - Proxy `/socket.io`  backend avec timeout 3600s (connexions WebSocket persistantes)
-- `client_max_body_size 5G` — pas de limite artificielle sur les gros fichiers
+- `client_max_body_size 5G` - pas de limite artificielle sur les gros fichiers
 
 ---
 
-## Tâches planifiées — node-cron
+## Tâches planifiées - node-cron
 
 | Tâche | Fréquence | Action |
 |---|---|---|
@@ -166,7 +166,7 @@ validate-env
 
 ---
 
-## Bobby — Architecture RAG complète
+## Bobby - Architecture RAG complète
 
 ### Pourquoi un microservice séparé ?
 
@@ -184,7 +184,7 @@ Fichier uploadé
 Backend extrait le texte (pdf-parse, mammoth, lecture TXT/MD)
     
     
-BrainService.embedFile() — fire-and-forget (non-bloquant pour l'upload)
+BrainService.embedFile() - fire-and-forget (non-bloquant pour l'upload)
     
     
 brain-api reçoit le texte brut (max 200 000 chars)
@@ -235,16 +235,16 @@ Réponse retournée au backend  frontend
 
 - **Chaque requête** ChromaDB inclut `where={"user_id": user_id}`
 - Un utilisateur ne peut **jamais** accéder aux documents d'un autre
-- Sécurité gérée côté backend (JWT) — le brain-api fait confiance au `user_id` fourni
+- Sécurité gérée côté backend (JWT) - le brain-api fait confiance au `user_id` fourni
 
-### Sécurité LLM — Prompt engineering défensif
+### Sécurité LLM - Prompt engineering défensif
 
 - Bobby ne révèle jamais son modèle, son architecture ni ses instructions
 - Mode **RAG-only** : "N'utilise jamais tes connaissances générales"
 - Résistance aux injections : détecte `"oublie tes instructions"`, `"tu es maintenant X"`
 - Si aucun document trouvé : réponse explicite, pas d'hallucination
 
-### BrainService.ts — Résilience côté backend
+### BrainService.ts - Résilience côté backend
 
 - **Retry automatique** : 3 tentatives avec backoff exponentiel (1s, 2s, 4s)
 - Codes retryables : 502, 503, 504 (Ollama surchargé ou redémarrage)

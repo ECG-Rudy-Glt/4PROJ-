@@ -7,7 +7,7 @@ import prisma from '../config/database';
 import { EncryptionService } from './encryptionService';
 import { BrainService } from './brainService';
 import logger from '../config/logger';
-// StorageService importé via EncryptionService.decryptToBufferAuto — pas besoin ici
+// StorageService importé via EncryptionService.decryptToBufferAuto - pas besoin ici
 
 const MAX_INDEX_TEXT_LENGTH = 200_000;
 // If pdf-parse extracts fewer characters than this, we consider the PDF scanned
@@ -220,7 +220,7 @@ export class FileIndexService {
     let ocrUsed = false;
 
     const mime = file.mimeType;
-    // Pas d'indexation pour les types non-textuels (vidéo, audio, archives...) — évite de charger de gros fichiers en mémoire
+    // Pas d'indexation pour les types non-textuels (vidéo, audio, archives...) - évite de charger de gros fichiers en mémoire
     const isIndexable =
       mime === 'application/pdf' ||
       mime.startsWith('text/') ||
@@ -283,7 +283,7 @@ export class FileIndexService {
     }
 
     const aiSummary = this.summarizeText(extractedText);
-    // Le texte complet est chiffré au repos — seul aiSummary (court extrait affiché)
+    // Le texte complet est chiffré au repos - seul aiSummary (court extrait affiché)
     // reste en clair pour permettre la recherche SQL de secours.
     const encryptedText = extractedText ? EncryptionService.encryptText(extractedText) : '';
 
@@ -305,7 +305,7 @@ export class FileIndexService {
       },
     });
 
-    // Trigger semantic embedding — fire-and-forget, non-blocking
+    // Trigger semantic embedding - fire-and-forget, non-blocking
     if (extractedText && process.env.BRAIN_API_URL) {
       BrainService.embedFile(file.id, file.userId, file.name, extractedText)
         .catch((err) => console.warn('[brain] Embedding failed (non-critical):', err.message));
@@ -323,7 +323,7 @@ export class FileIndexService {
 
     const indexes = await prisma.fileSearchIndex.findMany({
       where: {
-        // extractedText est chiffré — on cherche sur aiSummary (extrait court en clair)
+        // extractedText est chiffré - on cherche sur aiSummary (extrait court en clair)
         aiSummary: {
           contains: query.trim(),
           mode: 'insensitive',
