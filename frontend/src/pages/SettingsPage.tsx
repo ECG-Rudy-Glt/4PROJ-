@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
-import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut, Check, X } from 'lucide-react';
+import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut, Check, X, Activity } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
 import { vaultService, VaultStatus } from '@/services/vaultService';
 import { formatBytes } from '@/utils/bytes';
-import { isVaultAvailableForPlan } from '@/constants/plans';
+import { isFeatureAvailableForPlan, isVaultAvailableForPlan } from '@/constants/plans';
 import { useVaultStore } from '@/stores/useVaultStore';
 import ActivityLog from '@/components/ActivityLog';
 import AccountSwitcherModal from '@/components/AccountSwitcherModal';
@@ -42,6 +42,7 @@ export default function SettingsPage() {
   const quotaPercentage = quotaLimit > 0 ? (quotaUsed / quotaLimit) * 100 : 0;
   const currentPlan = user?.plan || 'FREE';
   const isVaultEligible = isVaultAvailableForPlan(currentPlan);
+  const auditAvailable = isFeatureAvailableForPlan(currentPlan, 'auditLogs');
   const refreshGlobalVaultStatus = useVaultStore((state) => state.refreshStatus);
 
   useEffect(() => {
@@ -816,7 +817,7 @@ export default function SettingsPage() {
               {t('account_access.title')}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Gérez les délégations et les comptes liés (basculer entre vos comptes).
+              {t('account_access.description')}
             </p>
           </div>
         </div>
@@ -824,12 +825,32 @@ export default function SettingsPage() {
           onClick={() => setIsAccountSwitcherOpen(true)}
           className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium"
         >
-          Ouvrir le gestionnaire d'accès
+          {t('account_access.open_manager')}
         </button>
       </div>
 
       {/* Activity Log Section */}
-      <ActivityLog />
+      {auditAvailable ? (
+        <ActivityLog />
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+            <Activity className="w-7 h-7 text-primary-600 dark:text-primary-300" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+            {t('plan_upgrade.audit_title')}
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+            {t('plan_upgrade.audit_description')}
+          </p>
+          <Link
+            to="/plans"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+          >
+            {t('plan_upgrade.cta')}
+          </Link>
+        </div>
+      )}
 
       <AccountSwitcherModal
         isOpen={isAccountSwitcherOpen}
