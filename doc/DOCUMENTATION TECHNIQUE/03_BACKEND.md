@@ -30,6 +30,7 @@ Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
 
 ## Structure des dossiers
 
+```
 backend/
  src/                  # Code source TypeScript
     config/           # Configuration transversale

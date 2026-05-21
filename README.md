@@ -250,7 +250,7 @@ BRAIN_API_URL=http://brain-api:8001
 OLLAMA_MODEL=gemma2:2b
 ```
 
-Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [`doc/PREPROD_VPS.md`](doc/PREPROD_VPS.md).
+Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [doc/DOCUMENTATION TECHNIQUE/06_INFRASTRUCTURE.md](doc/DOCUMENTATION%20TECHNIQUE/06_INFRASTRUCTURE.md).
 
 ---
 
