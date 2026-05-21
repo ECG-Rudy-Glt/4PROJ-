@@ -12,7 +12,7 @@ function fillLoginForm(email: string, password: string) {
   cy.get('button[type="submit"]').click();
 }
 
-describe('Login Form — validation', () => {
+describe('Login Form - validation', () => {
   beforeEach(() => {
     cy.visit('/login');
   });
@@ -34,7 +34,7 @@ describe('Login Form — validation', () => {
   });
 });
 
-describe('Login Flow — successful without MFA', () => {
+describe('Login Flow - successful without MFA', () => {
   it('redirects to dashboard after valid credentials with no MFA', () => {
     cy.on('uncaught:exception', () => false);
 
@@ -51,7 +51,7 @@ describe('Login Flow — successful without MFA', () => {
   });
 });
 
-describe('Login Flow — MFA required', () => {
+describe('Login Flow - MFA required', () => {
   it('shows the MFA code input after valid credentials trigger MFA challenge', () => {
     cy.on('uncaught:exception', () => false);
 
@@ -106,7 +106,7 @@ describe('Login Flow — MFA required', () => {
   });
 });
 
-describe('Login Flow — error cases', () => {
+describe('Login Flow - error cases', () => {
   beforeEach(() => {
     cy.visit('/login');
   });
@@ -139,7 +139,7 @@ describe('Login Flow — error cases', () => {
   });
 });
 
-describe('Login Flow — already authenticated', () => {
+describe('Login Flow - already authenticated', () => {
   it('stays on the login page when the token is invalid or not yet validated', () => {
     cy.on('uncaught:exception', () => false);
 

@@ -15,7 +15,7 @@ logger = logging.getLogger("brain-api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("brain-api starting — embedder + ChromaDB ready")
+    logger.info("brain-api starting - embedder + ChromaDB ready")
     yield
     logger.info("brain-api shutting down")
 

@@ -73,7 +73,7 @@ export class FileActionService {
 
     if (permanent || file.isDeleted) {
       await StorageService.deleteStorageFile(file.storagePath);
-      // Supprimer les embeddings ChromaDB (best-effort — non bloquant)
+      // Supprimer les embeddings ChromaDB (best-effort - non bloquant)
       BrainService.deleteFile(fileId).catch(() => undefined);
       await prisma.file.delete({ where: { id: fileId } });
       await PlanService.updateQuotaUsed(file.userId, -file.size);

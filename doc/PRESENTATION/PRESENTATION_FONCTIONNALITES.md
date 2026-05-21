@@ -1,4 +1,4 @@
-# SUPFile — Liste complète des fonctionnalités
+# SUPFile - Liste complète des fonctionnalités
 
 ---
 
@@ -76,7 +76,7 @@
 
 - Recherche par nom de fichier / dossier
 - Recherche dans le contenu indexé des fichiers (PDF, TXT, MD…)
-- Recherche sémantique par IA (RAG — si brain-api actif)
+- Recherche sémantique par IA (RAG - si brain-api actif)
 - Filtrage par type MIME (images, vidéos, audio, PDF, documents…)
 - Filtrage par date (plage from  to)
 - Filtrage par taille (min / max)
@@ -245,7 +245,7 @@
 
 ---
 
-## IA — Bobby (assistant documentaire)
+## IA - Bobby (assistant documentaire)
 
 - Chat conversationnel avec Bobby
 - Réponses basées sur les documents de l'utilisateur (RAG)

@@ -267,7 +267,7 @@ export default function MfaSetupModal({ visible, onClose }: Props) {
               </View>
             )}
 
-            {/* DONE — show backup codes */}
+            {/* DONE - show backup codes */}
             {step === 'done' && backupCodes.length > 0 && (
               <View>
                 <Text style={styles.body}>

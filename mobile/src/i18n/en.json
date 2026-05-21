@@ -114,7 +114,7 @@
       "invalid_token_title": "Invalid link",
       "invalid_token_msg": "This reset link is invalid or has expired. Please request a new one.",
       "request_new": "Request a new link",
-      "dek_title": "Warning — encrypted data",
+      "dek_title": "Warning - encrypted data",
       "dek_msg": "Your encrypted vault will be erased during the reset. This action is irreversible.",
       "dek_confirm": "I understand and accept the loss of my encrypted vault"
     }
@@ -332,7 +332,7 @@
     "share_error": "Share error",
     "password_label": "Password protection",
     "password_placeholder": "Leave empty for none",
-    "pro_banner": "PRO feature — Upgrade your plan to protect links with a password.",
+    "pro_banner": "PRO feature - Upgrade your plan to protect links with a password.",
     "max_downloads_label": "Max downloads (optional)",
     "max_downloads_placeholder": "Unlimited",
     "create_share_btn": "Create & share",
@@ -342,7 +342,7 @@
     "link_label": "Public link",
     "link_label_zip": "Public link (ZIP archive)",
     "files_only_notice": "Public links are available for files only.",
-    "folders_ignored": "{{count}} file(s) — folders will be ignored.",
+    "folders_ignored": "{{count}} file(s) - folders will be ignored.",
     "email_required": "Email required",
     "files_required": "Select at least one file to create a public link",
     "copy_link": "Copy link",

@@ -422,8 +422,8 @@ export default function AuditPage() {
           {hoveredDay && (
             <span className="text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-lg">
               {hoveredDay.count === 0
-                ? `${hoveredDay.date} — ${t('audit.no_activity_day')}`
-                : `${hoveredDay.date} — ${hoveredDay.count} action${hoveredDay.count !== 1 ? 's' : ''}`}
+                ? `${hoveredDay.date} - ${t('audit.no_activity_day')}`
+                : `${hoveredDay.date} - ${hoveredDay.count} action${hoveredDay.count !== 1 ? 's' : ''}`}
             </span>
           )}
         </div>

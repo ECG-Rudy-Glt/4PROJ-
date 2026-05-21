@@ -114,7 +114,7 @@
       "invalid_token_title": "Lien invalide",
       "invalid_token_msg": "Ce lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau.",
       "request_new": "Demander un nouveau lien",
-      "dek_title": "Attention — données chiffrées",
+      "dek_title": "Attention - données chiffrées",
       "dek_msg": "Votre coffre-fort chiffré sera effacé lors de la réinitialisation. Cette action est irréversible.",
       "dek_confirm": "Je comprends et j'accepte la perte de mon coffre-fort chiffré"
     }
@@ -332,7 +332,7 @@
     "share_error": "Erreur lors du partage",
     "password_label": "Protection par mot de passe",
     "password_placeholder": "Laisser vide pour aucun",
-    "pro_banner": "Fonctionnalité PRO — Passez à un abonnement supérieur pour protéger vos liens par mot de passe.",
+    "pro_banner": "Fonctionnalité PRO - Passez à un abonnement supérieur pour protéger vos liens par mot de passe.",
     "max_downloads_label": "Téléchargements max (optionnel)",
     "max_downloads_placeholder": "Illimité",
     "create_share_btn": "Créer et partager",
@@ -342,7 +342,7 @@
     "link_label": "Lien public",
     "link_label_zip": "Lien public (archive ZIP)",
     "files_only_notice": "Les liens publics sont disponibles uniquement pour les fichiers.",
-    "folders_ignored": "{{count}} fichier(s) — les dossiers seront ignorés.",
+    "folders_ignored": "{{count}} fichier(s) - les dossiers seront ignorés.",
     "email_required": "Email requis",
     "files_required": "Sélectionnez au moins un fichier pour créer un lien public",
     "copy_link": "Copier le lien",

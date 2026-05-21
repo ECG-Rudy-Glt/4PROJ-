@@ -103,7 +103,7 @@ export default function CommentsPanel({ file, onClose }: Props) {
           <View style={styles.grabber} />
           <View style={styles.header}>
             <Ionicons name="chatbubble-outline" size={22} color={colors.primary[600]} />
-            <Text style={styles.title} numberOfLines={1}>Commentaires — {file.name}</Text>
+            <Text style={styles.title} numberOfLines={1}>Commentaires - {file.name}</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.neutral[500]} />
             </TouchableOpacity>
@@ -116,7 +116,7 @@ export default function CommentsPanel({ file, onClose }: Props) {
               </View>
             )}
             {!loading && comments.length === 0 && (
-              <Text style={styles.muted}>Aucun commentaire — soyez le premier !</Text>
+              <Text style={styles.muted}>Aucun commentaire - soyez le premier !</Text>
             )}
             {comments.map((c) => {
               const isMine = c.userId === currentUser?.id;

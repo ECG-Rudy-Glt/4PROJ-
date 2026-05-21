@@ -7,7 +7,7 @@ const PBKDF2_DIGEST = 'sha512';
 const KEY_LEN = 32;
 
 /**
- * KekService — Gestion du chiffrement à deux niveaux (KEK/DEK).
+ * KekService - Gestion du chiffrement à deux niveaux (KEK/DEK).
  *
  * Flux :
  *   Register : generateSalt() + generateDek() → deriveKek(password, salt) → encryptDekWithKek(dek, kek)
@@ -20,7 +20,7 @@ const KEY_LEN = 32;
 export class KekService {
   /**
    * Dérive une KEK (Key Encryption Key) depuis le mot de passe utilisateur.
-   * PBKDF2-SHA512 — 100 000 itérations, sel de 16 bytes.
+   * PBKDF2-SHA512 - 100 000 itérations, sel de 16 bytes.
    */
   static async deriveKek(password: string, saltHex: string): Promise<Buffer> {
     const salt = Buffer.from(saltHex, 'hex');

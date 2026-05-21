@@ -294,7 +294,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
         mimeType === 'application/json' ||
         mimeType === 'application/javascript' ||
         mimeType === 'application/xml') return 'text';
-    // iOS sometimes uploads Office docs as octet-stream — detect by extension
+    // iOS sometimes uploads Office docs as octet-stream - detect by extension
     const officeExts: Record<string, string> = {
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       doc: 'application/msword',

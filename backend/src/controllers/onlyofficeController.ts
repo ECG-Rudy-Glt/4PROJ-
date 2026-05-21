@@ -210,7 +210,7 @@ export class OnlyOfficeController {
 
   /**
    * Callback OnlyOffice pour sauvegarder les modifications
-   * Note: OnlyOffice attend toujours un status 200 avec { error: 0|1 } — ce format est imposé par le protocole.
+   * Note: OnlyOffice attend toujours un status 200 avec { error: 0|1 } - ce format est imposé par le protocole.
    */
   static async handleCallback(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {

@@ -1,5 +1,5 @@
 /**
- * SUPFILE Mobile — Design tokens (miroir du Tailwind config web)
+ * SUPFILE Mobile - Design tokens (miroir du Tailwind config web)
  */
 
 export const colors = {

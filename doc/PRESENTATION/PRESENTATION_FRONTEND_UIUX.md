@@ -1,27 +1,27 @@
-# SUPFile — Frontend & UI/UX
+# SUPFile - Frontend & UI/UX
 
 ---
 
 ## Architecture générale
 
-- **React 18 + TypeScript strict** — composants fonctionnels, hooks uniquement, zéro `any`
+- **React 18 + TypeScript strict** - composants fonctionnels, hooks uniquement, zéro `any`
 - **Vite 6** comme bundler : démarrage < 300ms, HMR instantané, build optimisé (tree-shaking)
 - **React Router v6** avec layout nesting : routes publiques / protégées / admin dans une seule arborescence
-- **TailwindCSS 3.4** utility-first — design system cohérent sans CSS custom, dark mode via stratégie `class`
+- **TailwindCSS 3.4** utility-first - design system cohérent sans CSS custom, dark mode via stratégie `class`
 - Architecture 4 couches : pages  composants  services  stores
 
 ---
 
-## State management — Zustand
+## State management - Zustand
 
 6 stores ciblés, zéro boilerplate (pas de Redux, pas de Context hell) :
 
-- **`useAuthStore`** — session utilisateur, token JWT, contexte de délégation (DIRECT / SWITCH / DELEGATION), détection `mfaRequired`
-- **`useFileStore`** — liste fichiers/dossiers, dossier courant, tri (`sortBy` / `sortOrder`), chargement parallèle via `Promise.all`
-- **`useUploadStore`** — file d'attente upload, progression par fichier, batch de 3 uploads simultanés, `AbortController` par fichier pour annulation
-- **`useNotificationStore`** — notifications temps réel, compteur non-lus, pagination 50 items
-- **`useTagStore`** — tags utilisateur avec flag `isLoaded` (chargement unique, pas de refetch inutile)
-- **`useVaultStore`** — statut vault (verrouillé/déverrouillé), auto-lock sur navigation hors du vault
+- **`useAuthStore`** - session utilisateur, token JWT, contexte de délégation (DIRECT / SWITCH / DELEGATION), détection `mfaRequired`
+- **`useFileStore`** - liste fichiers/dossiers, dossier courant, tri (`sortBy` / `sortOrder`), chargement parallèle via `Promise.all`
+- **`useUploadStore`** - file d'attente upload, progression par fichier, batch de 3 uploads simultanés, `AbortController` par fichier pour annulation
+- **`useNotificationStore`** - notifications temps réel, compteur non-lus, pagination 50 items
+- **`useTagStore`** - tags utilisateur avec flag `isLoaded` (chargement unique, pas de refetch inutile)
+- **`useVaultStore`** - statut vault (verrouillé/déverrouillé), auto-lock sur navigation hors du vault
 
 ---
 
@@ -44,20 +44,20 @@
 
 ---
 
-## Internationalisation — i18next
+## Internationalisation - i18next
 
 - Détection automatique de la langue navigateur (`i18next-browser-languagedetector`)
 - Deux locales complètes : **FR** (fallback) + **EN**
 - Clés namespaces : `common.*`, `files.*`, `socket.*`, `chatbot.*`, `notifications.*`, `time.*`
 - Variables dans les traductions : `t('socket.comment_added_body', { firstName: data.user?.firstName })`
-- Changement de langue instantané sans rechargement — persisté en backend via `updateProfile()`
+- Changement de langue instantané sans rechargement - persisté en backend via `updateProfile()`
 
 ---
 
-## Système de thème — Dark mode
+## Système de thème - Dark mode
 
 - Tailwind stratégie `class` : bascule en ajoutant/supprimant `dark` sur `<html>`
-- **CSS variables** dans `:root` et `.dark` (index.css) — chaque couleur a sa variante
+- **CSS variables** dans `:root` et `.dark` (index.css) - chaque couleur a sa variante
 
 | Token | Clair | Sombre |
 |---|---|---|
@@ -71,7 +71,7 @@
 
 ---
 
-## Upload — UX et gestion de progression
+## Upload - UX et gestion de progression
 
 ### Drag & drop global (Layout.tsx)
 - Overlay plein écran activé dès qu'un fichier entre dans la fenêtre (`dragenter` + compteur)
@@ -80,7 +80,7 @@
 
 ### File d'upload (useUploadStore)
 - **Vérification quota avant enqueue** : fichier refusé si `quotaUsé + taille > quotaLimit` (côté client ET côté serveur)
-- **3 uploads simultanés** (CONCURRENT = 3) — pas de flood réseau, pas d'attente séquentielle
+- **3 uploads simultanés** (CONCURRENT = 3) - pas de flood réseau, pas d'attente séquentielle
 - **AbortController** par fichier : bouton "Annuler" par fichier ou "Tout annuler"
 - Progression transmise par callback axios (`onUploadProgress`)  mise à jour store en temps réel
 
@@ -92,7 +92,7 @@
 
 ---
 
-## Drag & drop — déplacement de fichiers
+## Drag & drop - déplacement de fichiers
 
 - Attribut custom `dataTransfer` : `'application/supfile-item'` avec `{ id, type: 'file'|'folder' }`
 - `effectAllowed: 'move'`  curseur OS en mode déplacement
@@ -102,7 +102,7 @@
 
 ---
 
-## Temps réel — Socket.IO Client
+## Temps réel - Socket.IO Client
 
 - Connexion authentifiée : `io(url, { auth: { token }, transports: ['websocket', 'polling'] })`
 - Fallback automatique WebSocket  long-polling si réseau restrictif
@@ -136,10 +136,10 @@
 
 ---
 
-## Assistant IA — Bobby (AIChatbot.tsx)
+## Assistant IA - Bobby (AIChatbot.tsx)
 
 - Bouton flottant (w-20 h-20), scale animé à l'ouverture
-- **4 avatars idle + GIF "working"** — sélection aléatoire au chargement, switch sur `isTyping`
+- **4 avatars idle + GIF "working"** - sélection aléatoire au chargement, switch sur `isTyping`
 - Historique de conversation transmis à chaque requête (`role: user / model`)
 - Rendu des réponses en **Markdown** (listes, code, titres)
 - `Shift+Enter` pour saut de ligne, `Enter` pour envoyer
@@ -186,7 +186,7 @@
 
 ---
 
-# Mobile — React Native / Expo
+# Mobile - React Native / Expo
 
 ---
 
@@ -201,15 +201,15 @@
 | **Axios** | 1.13.6 | Client HTTP avec intercepteurs JWT |
 | **React Navigation** | v6 | Navigation Native Stack + Bottom Tabs |
 | **Socket.IO Client** | 4.8.3 | Temps réel (notifications, partages) |
-| **expo-secure-store** | — | Stockage chiffré des tokens (iOS Keychain / Android Keystore) |
-| **expo-document-picker** | — | Sélection de fichiers depuis le système |
-| **expo-image-picker** | — | Accès galerie photo / caméra |
-| **expo-file-system** | — | Opérations fichiers locaux |
+| **expo-secure-store** | - | Stockage chiffré des tokens (iOS Keychain / Android Keystore) |
+| **expo-document-picker** | - | Sélection de fichiers depuis le système |
+| **expo-image-picker** | - | Accès galerie photo / caméra |
+| **expo-file-system** | - | Opérations fichiers locaux |
 | **expo-video** | 3.0.16 | Lecture vidéo native |
 | **react-native-webview** | 13.15.0 | Prévisualisation PDF et documents Office |
-| **react-native-toast-message** | — | Notifications toast natives |
+| **react-native-toast-message** | - | Notifications toast natives |
 
-**Pas de bibliothèque UI externe** (pas de NativeWind, pas de React Native Paper) — design system custom complet.
+**Pas de bibliothèque UI externe** (pas de NativeWind, pas de React Native Paper) - design system custom complet.
 
 ---
 
@@ -224,7 +224,7 @@ App.tsx
               TabNavigator  (5 onglets bottom)
               TrashScreen   (plein écran)
               AdminScreen   (plein écran)
-     SocketListener       (temps réel — monté si authentifié)
+     SocketListener       (temps réel - monté si authentifié)
      Toast                (global)
 ```
 
@@ -280,14 +280,14 @@ Palette identique au web (`#254441` primary, `#D4785C` accent warm, `#E8B84A` ac
 
 ```
 src/theme/
- colors.ts      — palette complète (primary, accent, semantic, neutral)
- typography.ts  — h1-h4, body, caption, label, button
- spacing.ts     — grille xs / sm / md / lg / xl / 2xl / 3xl / 4xl
- shadows.ts     — sm / md / lg / xl / 2xl
- index.ts       — export global
+ colors.ts      - palette complète (primary, accent, semantic, neutral)
+ typography.ts  - h1-h4, body, caption, label, button
+ spacing.ts     - grille xs / sm / md / lg / xl / 2xl / 3xl / 4xl
+ shadows.ts     - sm / md / lg / xl / 2xl
+ index.ts       - export global
 ```
 
-Styles via `StyleSheet.create()` par composant — performances optimisées (pas de recalcul CSS).
+Styles via `StyleSheet.create()` par composant - performances optimisées (pas de recalcul CSS).
 
 ---
 
@@ -296,7 +296,7 @@ Styles via `StyleSheet.create()` par composant — performances optimisées (pas
 | Choix | Alternative écartée | Raison |
 |---|---|---|
 | Expo SDK | React Native CLI | Toolchain unifiée, accès APIs natives sans éjection, Expo Go pour le dev |
-| expo-secure-store | AsyncStorage | Chiffrement OS natif (Keychain/Keystore) — tokens sensibles |
+| expo-secure-store | AsyncStorage | Chiffrement OS natif (Keychain/Keystore) - tokens sensibles |
 | XMLHttpRequest (upload) | Axios | RN : `onUploadProgress` d'Axios peu fiable, XHR donne la progression réelle |
 | React Navigation | Expo Router | Contrôle fin sur les transitions, guards auth manuels, stack + tabs combinés |
 | Design system custom | React Native Paper, NativeWind | Palette identique au web sans dépendance tierce, performances StyleSheet |

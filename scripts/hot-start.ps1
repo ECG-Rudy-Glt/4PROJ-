@@ -9,7 +9,6 @@ Write-Host "  SUPFILE - Hot Reload Dev Start" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Verify Docker
 $dockerInfo = docker info 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Docker is not running. Please start Docker first."
@@ -17,14 +16,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 function Get-LocalIP {
-    # Essaye de trouver l'IP liee a la route par defaut (internet/passerelle)
     $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($route) {
         $ip = (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
         if ($ip) { return $ip }
     }
     
-    # Fallback sur les interfaces physiques non-virtuelles
     $addresses = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
         ($_.IPAddress -notmatch "^127\.") -and
         ($_.IPAddress -notmatch "^169\.254\.") -and
@@ -129,7 +126,6 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Wait for postgres to be healthy so that npx prisma db push runs correctly
 Write-Host "Attente du demarrage des services..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
 

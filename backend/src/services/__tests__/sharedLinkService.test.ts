@@ -62,7 +62,7 @@ describe('SharedLinkService public link guards', () => {
       user: { ...activeOwner, accountStatus: 'SUSPENDED' },
     });
 
-    await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Share link is unavailable');
+    await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Lien de partage introuvable ou révoqué.');
   });
 
   it('refuses public file links when the file was deleted', async () => {
@@ -72,7 +72,7 @@ describe('SharedLinkService public link guards', () => {
       user: activeOwner,
     });
 
-    await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Share link is unavailable');
+    await expect(SharedLinkService.getShareLink('public-token')).rejects.toThrow('Ce fichier n\'est plus disponible.');
   });
 
   it('refuses public file links for vault files with a clear 403', async () => {
@@ -115,7 +115,7 @@ describe('SharedLinkService public link guards', () => {
     });
 
     await expect(SharedLinkService.getShareLink('folder-token')).rejects.toThrow(
-      'Public folder links are not supported'
+      'Lien de partage introuvable ou révoqué.'
     );
   });
 

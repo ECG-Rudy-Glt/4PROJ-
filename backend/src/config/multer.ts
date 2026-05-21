@@ -6,7 +6,6 @@ import fs from 'fs';
 const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
 const avatarDir = path.join(uploadDir, 'avatars');
 
-// Ensure upload directories exist
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

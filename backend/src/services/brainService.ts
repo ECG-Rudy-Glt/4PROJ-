@@ -1,6 +1,6 @@
 /**
  * HTTP client for the brain-api RAG microservice.
- * Uses Node.js 20 native fetch — no extra dependency.
+ * Uses Node.js 20 native fetch - no extra dependency.
  */
 
 const BRAIN_URL = process.env.BRAIN_API_URL || 'http://brain-api:8001';
@@ -41,7 +41,7 @@ async function post<T = any>(path: string, body: object, timeoutMs = 30_000): Pr
         return res.json() as Promise<T>;
       }
     } catch (err: any) {
-      // AbortError = timeout — do not retry
+      // AbortError = timeout - do not retry
       if (err.name === 'AbortError') throw err;
       lastError = err instanceof Error ? err : new Error(String(err));
     } finally {
@@ -59,7 +59,7 @@ async function post<T = any>(path: string, body: object, timeoutMs = 30_000): Pr
 export class BrainService {
   /**
    * Chunk and embed a file's text into ChromaDB.
-   * Called fire-and-forget from fileIndexService — errors are non-fatal.
+   * Called fire-and-forget from fileIndexService - errors are non-fatal.
    */
   static async embedFile(
     fileId: string,
@@ -71,7 +71,7 @@ export class BrainService {
   }
 
   /**
-   * Semantic search — returns the N closest document chunks for this user.
+   * Semantic search - returns the N closest document chunks for this user.
    */
   static async search(userId: string, query: string, limit = 3): Promise<SearchResult[]> {
     const data = await post<{ results: SearchResult[] }>('/search', { user_id: userId, query, limit });
@@ -79,7 +79,7 @@ export class BrainService {
   }
 
   /**
-   * RAG chat — semantic search + LLM generation via Ollama.
+   * RAG chat - semantic search + LLM generation via Ollama.
    * Generous timeout: small model on CPU can take ~30s.
    */
   static async chat(userId: string, query: string, history: any[] = []): Promise<string> {
@@ -110,7 +110,7 @@ export class BrainService {
     try {
       await fetch(`${BRAIN_URL}/embed/${fileId}`, { method: 'DELETE' });
     } catch {
-      // Non-critical — vectors will be orphaned but won't affect other users
+      // Non-critical - vectors will be orphaned but won't affect other users
     }
   }
 }

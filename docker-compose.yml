@@ -6,14 +6,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
       POSTGRES_DB: ${POSTGRES_DB:-supfile}
-      # Utilisateur applicatif dédié (pas superuser) — utilisé par le backend
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-supfile_app}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD est requis}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
-    # Pas de ports exposés : le backend se connecte via le réseau Docker interne (postgres:5432)
-    # Ne jamais exposer PostgreSQL directement sur le host en production
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -51,37 +48,37 @@ services:
       SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
       SMTP_MOCK: ${SMTP_MOCK:-false}
       MAIL_LOGO_URL: ${MAIL_LOGO_URL:-}
-      # OnlyOffice configuration
+
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://onlyoffice:80}
       ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://${HOST_IP:-localhost}:${ONLYOFFICE_PORT:-8080}}
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET est requis}
-      # Optional OAuth2 credentials (leave empty if not configured)
+
       OAUTH_CALLBACK_BASE: ${OAUTH_CALLBACK_BASE:-http://${HOST_IP:-localhost}:${BACKEND_PORT:-5001}}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      # Object Storage — MinIO S3
+
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-supfile-uploads}
-      # Utiliser un compte MinIO dédié à l'application, limité au bucket applicatif
+
       S3_ACCESS_KEY_ID: ${MINIO_APP_ACCESS_KEY:?MINIO_APP_ACCESS_KEY est requis}
       S3_SECRET_ACCESS_KEY: ${MINIO_APP_SECRET_KEY:?MINIO_APP_SECRET_KEY est requis}
-      # AI - Bobby le robot (local RAG)
+
       BRAIN_API_URL: http://brain-api:8001
-      # MFA (Multi-Factor Authentication)
+
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY est requis}
-      # Chiffrement par utilisateur (KEK/DEK)
+
       DEK_WRAP_SECRET: ${DEK_WRAP_SECRET:?DEK_WRAP_SECRET est requis}
       FILE_ENCRYPTION_KEY: ${FILE_ENCRYPTION_KEY:?FILE_ENCRYPTION_KEY est requis}
-      # Stripe Billing
+
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
       STRIPE_PRICE_BUSINESS_MONTHLY: ${STRIPE_PRICE_BUSINESS_MONTHLY:-}
       STRIPE_PRICE_ENTERPRISE_MONTHLY: ${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
-      # Web Push VAPID
+
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     user: root
@@ -121,7 +118,6 @@ services:
       - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:?ONLYOFFICE_JWT_SECRET est requis}
       - JWT_ENABLED=true
       - JWT_HEADER=Authorization
-      # Autoriser les callbacks vers des IPs privées (Docker network)
       - ALLOW_PRIVATE_IP_ADDRESS=true
       - ALLOW_META_IP_ADDRESS=true
     ports:
@@ -133,8 +129,6 @@ services:
     networks:
       - supfile-network
 
-  # ── Object storage S3-compatible (MinIO) ────────────────────────────────
-  # S'assure que le volume /data appartient à uid 1000 avant le démarrage MinIO
   minio-permissions:
     image: busybox:stable
     container_name: supfile-minio-permissions
@@ -156,8 +150,6 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
-    # Port 9000 (S3 API) et 9001 (console) accessibles uniquement via le réseau Docker
-    # Ne jamais exposer sur le host en production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -170,7 +162,6 @@ services:
     networks:
       - supfile-network
 
-  # Init container : crée le bucket automatiquement au premier démarrage
   minio-init:
     image: minio/mc:RELEASE.2025-01-17T23-25-50Z
     container_name: supfile-minio-init
@@ -199,13 +190,12 @@ services:
     networks:
       - supfile-network
 
-  # ── LLM inference engine ──────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
     container_name: supfile-ollama
     profiles: [ai]
     volumes:
-      - ollama_data:/root/.ollama   # model weights persist here
+      - ollama_data:/root/.ollama
     deploy:
       resources:
         limits:
@@ -214,7 +204,6 @@ services:
     networks:
       - supfile-network
 
-  # ── Pull Ollama model on first start (no-op if already present) ─────────
   ollama-init:
     image: ollama/ollama:latest
     container_name: supfile-ollama-init
@@ -235,7 +224,6 @@ services:
     networks:
       - supfile-network
 
-  # ── RAG microservice (embeddings + ChromaDB + Ollama client) ─────────────
   brain-api:
     build: ./brain-api
     container_name: supfile-brain
@@ -263,7 +251,7 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  uploads_data:   # Répertoire temporaire Multer — peut être tmpfs après migration complète
+  uploads_data:
     driver: local
   minio_data:
     driver: local

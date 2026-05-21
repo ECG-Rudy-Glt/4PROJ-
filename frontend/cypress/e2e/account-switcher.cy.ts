@@ -264,7 +264,7 @@ describe('Account Switcher Modal', () => {
     });
 
     // Re-open the modal. The Return button triggers switchBack which calls
-    // window.location.replace('/dashboard') — use force:true to click before
+    // window.location.replace('/dashboard') - use force:true to click before
     // the element detaches from the DOM during the navigation.
     cy.get('button[title="Switch de comptes"]').click();
     cy.contains('button', 'Return').click({ force: true });

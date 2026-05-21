@@ -14,12 +14,10 @@
 
 set -euo pipefail
 
-# Navigate to project root
 cd "$(dirname "$0")/.."
 PROJECT_ROOT="$(pwd)"
 MOBILE_DIR="$PROJECT_ROOT/mobile"
 
-# Parse arguments
 PLATFORM="default"
 INSTALL_ONLY=false
 CLEAN=false
@@ -64,13 +62,9 @@ echo "  SUPFILE Mobile - Expo Development"
 echo "========================================="
 echo ""
 
-# -----------------------------------------------------------------------------
-# Prerequisites Check
-# -----------------------------------------------------------------------------
 check_prerequisites() {
     echo "Checking prerequisites..."
 
-    # Check Node.js
     if ! command -v node > /dev/null 2>&1; then
         echo ""
         echo "ERROR: Node.js is not installed!"
@@ -85,7 +79,6 @@ check_prerequisites() {
     NODE_VERSION=$(node --version)
     echo "  Node.js: $NODE_VERSION"
 
-    # Check npm
     if ! command -v npm > /dev/null 2>&1; then
         echo ""
         echo "ERROR: npm is not installed!"
@@ -94,7 +87,6 @@ check_prerequisites() {
     NPM_VERSION=$(npm --version)
     echo "  npm: v$NPM_VERSION"
 
-    # Check if mobile directory exists
     if [ ! -d "$MOBILE_DIR" ]; then
         echo ""
         echo "ERROR: Mobile directory not found at $MOBILE_DIR"
@@ -104,16 +96,11 @@ check_prerequisites() {
     echo ""
 }
 
-# -----------------------------------------------------------------------------
-# IP Detection
-# -----------------------------------------------------------------------------
 detect_ip() {
     local ip=""
 
-    # macOS
     if [[ "$OSTYPE" == "darwin"* ]]; then
         ip=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
-    # Linux
     elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if command -v hostname > /dev/null 2>&1; then
             ip=$(hostname -I 2>/dev/null | awk '{print $1}')
@@ -121,7 +108,6 @@ detect_ip() {
         if [ -z "$ip" ] && command -v ip > /dev/null 2>&1; then
             ip=$(ip route get 1 2>/dev/null | awk '{print $7}' | head -n 1)
         fi
-    # WSL or Git Bash on Windows
     else
         ip=$(ipconfig.exe 2>/dev/null | grep -i "IPv4" | head -n 1 | awk '{print $NF}' | tr -d '\r')
     fi
@@ -129,15 +115,11 @@ detect_ip() {
     echo "$ip"
 }
 
-# -----------------------------------------------------------------------------
-# Environment Setup
-# -----------------------------------------------------------------------------
 setup_mobile_env() {
     local ip="$1"
     local env_file="$MOBILE_DIR/.env"
     local env_example="$MOBILE_DIR/.env.example"
 
-    # Create .env if it doesn't exist
     if [ ! -f "$env_file" ]; then
         if [ -f "$env_example" ]; then
             cp "$env_example" "$env_file"
@@ -147,7 +129,6 @@ setup_mobile_env() {
         fi
     fi
 
-    # Update EXPO_PUBLIC_API_URL
     local api_url="http://${ip}:5001/api"
 
     if grep -q "EXPO_PUBLIC_API_URL=" "$env_file"; then
@@ -160,9 +141,6 @@ setup_mobile_env() {
     echo "Updated mobile/.env with API URL: $api_url"
 }
 
-# -----------------------------------------------------------------------------
-# Dependency Installation
-# -----------------------------------------------------------------------------
 install_dependencies() {
     local force="${1:-false}"
     local node_modules="$MOBILE_DIR/node_modules"
@@ -173,7 +151,6 @@ install_dependencies() {
     if [ "$force" = true ] || [ ! -d "$node_modules" ]; then
         needs_install=true
     elif [ -f "$package_json" ] && [ -d "$node_modules" ]; then
-        # Check if package.json is newer than node_modules
         if [ "$package_json" -nt "$node_modules" ]; then
             needs_install=true
             echo "package.json has changed, reinstalling dependencies..."
@@ -196,25 +173,19 @@ install_dependencies() {
     fi
 }
 
-# -----------------------------------------------------------------------------
-# Clean Cache
-# -----------------------------------------------------------------------------
 clean_cache() {
     echo "Cleaning mobile cache..."
 
-    # Remove node_modules
     if [ -d "$MOBILE_DIR/node_modules" ]; then
         echo "  Removing node_modules..."
         rm -rf "$MOBILE_DIR/node_modules"
     fi
 
-    # Remove .expo
     if [ -d "$MOBILE_DIR/.expo" ]; then
         echo "  Removing .expo cache..."
         rm -rf "$MOBILE_DIR/.expo"
     fi
 
-    # Clear npm cache
     echo "  Clearing npm cache..."
     npm cache clean --force 2>/dev/null || true
 
@@ -222,9 +193,6 @@ clean_cache() {
     echo ""
 }
 
-# -----------------------------------------------------------------------------
-# Start Expo
-# -----------------------------------------------------------------------------
 start_expo() {
     local ip="$1"
     local platform="$2"
@@ -232,10 +200,8 @@ start_expo() {
 
     cd "$MOBILE_DIR"
 
-    # Set environment variable for React Native packager
     export REACT_NATIVE_PACKAGER_HOSTNAME="$ip"
 
-    # Build expo command
     local expo_args=("start" "--clear")
 
     if [ "$use_tunnel" = true ]; then
@@ -263,18 +229,11 @@ start_expo() {
     echo "  Press 'q' or Ctrl+C to quit"
     echo ""
 
-    # Run Expo
     npx expo "${expo_args[@]}"
 }
 
-# =============================================================================
-# Main Execution
-# =============================================================================
-
-# Check prerequisites
 check_prerequisites
 
-# Handle clean mode
 if [ "$CLEAN" = true ]; then
     clean_cache
     install_dependencies true
@@ -285,7 +244,6 @@ if [ "$CLEAN" = true ]; then
     fi
 fi
 
-# Detect IP
 echo "Detecting local IP address..."
 DETECTED_IP=$(detect_ip || true)
 
@@ -311,15 +269,12 @@ fi
 
 echo ""
 
-# Setup environment
 setup_mobile_env "$FINAL_IP"
 
-# Install dependencies if needed (unless clean already did it)
 if [ "$CLEAN" = false ]; then
     install_dependencies false
 fi
 
-# Exit if install-only mode
 if [ "$INSTALL_ONLY" = true ]; then
     echo ""
     echo "Mobile dependencies installed successfully!"
@@ -329,5 +284,4 @@ if [ "$INSTALL_ONLY" = true ]; then
     exit 0
 fi
 
-# Start Expo
 start_expo "$FINAL_IP" "$PLATFORM" "$TUNNEL"

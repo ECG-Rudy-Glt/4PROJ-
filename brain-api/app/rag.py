@@ -5,7 +5,7 @@ from .embedder import embedder
 from .llm import generate
 from .vector_store import vector_store
 
-# Sentence-based chunking — respects sentence boundaries to preserve meaning.
+# Sentence-based chunking - respects sentence boundaries to preserve meaning.
 # A chunk groups sentences until MAX_CHUNK_CHARS is reached, then rolls over
 # with OVERLAP_SENTENCES sentences of context from the previous chunk.
 MAX_CHUNK_CHARS = 600
@@ -17,7 +17,7 @@ _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 
 
 # ---------------------------------------------------------------------------
-# Chunking — sentence-based with sentence-level overlap
+# Chunking - sentence-based with sentence-level overlap
 # ---------------------------------------------------------------------------
 
 def _chunk_text(text: str) -> List[str]:
@@ -62,7 +62,7 @@ def embed_and_store(file_id: str, user_id: str, file_name: str, text: str) -> in
 
 
 def search_documents(user_id: str, query: str, limit: int = 3) -> List[Dict[str, Any]]:
-    # Use query_embed() — adds the "query:" prefix required by e5 models
+    # Use query_embed() - adds the "query:" prefix required by e5 models
     query_embedding = embedder.embed_query(query)
     return vector_store.search(user_id, query_embedding, limit)
 

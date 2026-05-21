@@ -57,7 +57,7 @@ async function getExpoPushToken(): Promise<string> {
   const projectId = getProjectId();
   if (!projectId || projectId === 'supfile-local-dev') {
     throw new Error(
-      'Push non configuré — exécutez "npx eas init" dans le dossier mobile.'
+      'Push non configuré - exécutez "npx eas init" dans le dossier mobile.'
     );
   }
 
