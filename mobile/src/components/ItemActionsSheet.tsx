@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
@@ -171,8 +172,17 @@ export default function ItemActionsSheet({ target, onClose, onSelect }: Props) {
     if (isFile) return;
     try {
       Toast.show({ type: 'info', text1: 'Préparation du ZIP…' });
-      const url = await folderService.downloadAsZip(target.data.id, target.data.name);
-      await Linking.openURL(url);
+      const localUri = await folderService.downloadAsZip(target.data.id, target.data.name);
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Toast.show({ type: 'error', text1: 'Le partage de fichiers n\'est pas disponible sur cet appareil' });
+        return;
+      }
+      await Sharing.shareAsync(localUri, {
+        mimeType: 'application/zip',
+        dialogTitle: 'Enregistrer ou partager le ZIP',
+        UTI: 'public.zip-archive',
+      });
       onClose();
     } catch {
       Toast.show({ type: 'error', text1: 'Impossible de télécharger le dossier' });
