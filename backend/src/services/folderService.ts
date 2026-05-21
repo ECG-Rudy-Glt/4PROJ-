@@ -41,6 +41,7 @@ export class FolderService {
         userId,
         name,
         parentId: parentId || null,
+        isDeleted: false,
       },
     });
 

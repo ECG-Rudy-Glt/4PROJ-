@@ -129,7 +129,8 @@ export class FileUploadService {
     storagePath: string,
     folderId?: string,
     dek?: Buffer,
-    replaceFileId?: string
+    replaceFileId?: string,
+    checksum?: string
   ) {
     const targetFileId = replaceFileId;
 
@@ -151,15 +152,26 @@ export class FileUploadService {
 
       try {
         // Replaces existing file content (creates a new version)
-        return await this.replaceFileContent(
-          targetFileId,
-          userId,
-          storagePath,
-          name,
-          size,
-          mimeType,
-          dek
-        );
+        return checksum
+          ? await this.replaceFileContent(
+            targetFileId,
+            userId,
+            storagePath,
+            name,
+            size,
+            mimeType,
+            dek,
+            checksum
+          )
+          : await this.replaceFileContent(
+            targetFileId,
+            userId,
+            storagePath,
+            name,
+            size,
+            mimeType,
+            dek
+          );
       } finally {
         // Clean up temporary file as replaceFileContent (via createVersion) uploads it to S3
         await deleteFile(storagePath).catch(() => undefined);
@@ -193,6 +205,7 @@ export class FileUploadService {
         originalName,
         mimeType,
         size: BigInt(size),
+        checksum,
         storagePath: s3Key,
         userId: uploadTarget.ownerId,
         folderId,
@@ -226,9 +239,14 @@ export class FileUploadService {
     newFileName: string,
     newFileSize: number,
     newMimeType: string,
-    dek?: Buffer
+    dek?: Buffer,
+    checksum?: string
   ) {
-    await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType, dek);
+    if (checksum) {
+      await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType, dek, checksum);
+    } else {
+      await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType, dek);
+    }
     FileIndexService.indexFileAsync(fileId, userId, dek);
 
     return prisma.file.findUnique({

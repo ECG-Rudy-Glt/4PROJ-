@@ -36,6 +36,7 @@ import organizationRoutes from './routes/organizationRoutes';
 import accountAccessRoutes from './routes/accountAccessRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import pushRoutes from './routes/pushRoutes';
+import syncRoutes from './routes/syncRoutes';
 
 // BigInt is not JSON-serializable by default; numeric conversion is sufficient here.
 (BigInt.prototype as any).toJSON = function () {
@@ -171,6 +172,7 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/account-access', accountAccessRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/sync', syncRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', versionRoutes);
 app.use('/api', auditRoutes);

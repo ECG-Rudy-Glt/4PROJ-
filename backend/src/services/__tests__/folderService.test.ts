@@ -21,6 +21,7 @@ jest.mock('../../config/database', () => ({
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      create: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
     },
@@ -91,6 +92,36 @@ const folder = {
   isDeleted: false,
   isVault: false,
 };
+
+describe('FolderService.createFolder', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('ignores deleted folders when checking duplicate names', async () => {
+    const created = {
+      id: 'folder-new',
+      userId: 'user-1',
+      name: 'Documents',
+      parentId: null,
+      path: '/Documents',
+      isDeleted: false,
+      isVault: false,
+    };
+    (prisma.folder.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    (prisma.folder.create as jest.Mock).mockResolvedValueOnce(created);
+
+    await expect(FolderService.createFolder('user-1', 'Documents')).resolves.toBe(created);
+    expect(prisma.folder.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        name: 'Documents',
+        parentId: null,
+        isDeleted: false,
+      },
+    });
+  });
+});
 
 describe('FolderService.deleteFolder permanent storage cleanup', () => {
   beforeEach(() => {
