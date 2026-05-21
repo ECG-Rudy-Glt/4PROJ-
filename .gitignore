@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -14,6 +13,15 @@ env.*
 # Build outputs
 dist/
 build/
+desktop/dist-main/
+desktop/dist-renderer/
+desktop/release/
+!desktop/build/
+desktop/build/*
+!desktop/build/icon.ico
+!desktop/build/icon.png
+frontend/public/downloads/*.exe
+frontend/public/downloads/*.blockmap
 *.log
 
 # IDEs
