@@ -214,7 +214,7 @@ export class FileUploadService {
     if (uploadTarget.ownerId !== userId) SocketService.emitToUser(uploadTarget.ownerId, 'file_uploaded', file);
     if (folderId) SocketService.emitToUser(userId, 'folder_updated', { folderId });
 
-    FileIndexService.indexFileAsync(file.id, uploadTarget.ownerId);
+    FileIndexService.indexFileAsync(file.id, uploadTarget.ownerId, uploadTarget.encryptionDek);
 
     return file;
   }
@@ -229,7 +229,7 @@ export class FileUploadService {
     dek?: Buffer
   ) {
     await VersionService.createVersion(fileId, userId, newFilePath, newFileName, newFileSize, newMimeType, dek);
-    FileIndexService.indexFileAsync(fileId, userId);
+    FileIndexService.indexFileAsync(fileId, userId, dek);
 
     return prisma.file.findUnique({
       where: { id: fileId },

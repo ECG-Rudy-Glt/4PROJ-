@@ -817,7 +817,7 @@ export default function SettingsPage() {
               {t('account_access.title')}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Gérez les délégations et les comptes liés (basculer entre vos comptes).
+              {t('account_access.description')}
             </p>
           </div>
         </div>
@@ -825,7 +825,7 @@ export default function SettingsPage() {
           onClick={() => setIsAccountSwitcherOpen(true)}
           className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium"
         >
-          Ouvrir le gestionnaire d'accès
+          {t('account_access.open_manager')}
         </button>
       </div>
 

@@ -193,7 +193,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
     u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '—';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4" style={{ marginTop: 0 }}>
       <div className="w-full sm:max-w-xl max-h-[92vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
 
         {/* Header */}

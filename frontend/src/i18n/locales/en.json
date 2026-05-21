@@ -110,7 +110,14 @@
       "date_asc": "Oldest",
       "size_desc": "Largest",
       "size_asc": "Smallest"
-    }
+    },
+    "preview_unavailable": "Preview unavailable",
+    "preview_office_unavailable": "Office preview unavailable",
+    "preview_office_protected_desc": "Password-protected Office documents must be downloaded for this version.",
+    "preview_office_delegated_desc": "This document is encrypted and cannot be previewed in a delegated session.",
+    "preview_office_delegated_hint": "Log in directly to the owner account to access the OnlyOffice preview.",
+    "preview_office_arm64_desc": "The OnlyOffice environment does not support this architecture.",
+    "download_file": "Download file"
   },
   "upload": {
     "in_progress": "Upload in progress...",
@@ -379,7 +386,9 @@
     "reauth_required": "Re-authentication required: relink this account",
     "switch_success": "Back to {{email}}",
     "assume_success": "You are acting on behalf of {{email}}",
-    "error_loading": "Failed to load data"
+    "error_loading": "Failed to load data",
+    "description": "Manage delegations and linked accounts (switch between your accounts).",
+    "open_manager": "Open access manager"
   },
   "chatbot": {
     "welcome": "Hi! I'm **Bobby**, your AI assistant integrated into **SUPFILE** 🛠️\n\nHere's what I can do for you:\n\n• **List** your files (\"Show me my documents\")\n• **Search** for files (\"Find my PDFs\")\n• **Analyze** a file (\"What is report.pdf?\")\n• **Organize** (\"Sort my photos by date\")\n\nJust tell me what you're looking for! 🚀",
