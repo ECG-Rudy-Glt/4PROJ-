@@ -9,6 +9,7 @@ SUPFile est une alternative française à Dropbox et Google Drive : stockage chi
 ## Documentation
 
 Toute la documentation est disponible dans [`doc/DOCUMENTATION TECHNIQUE/`](doc/DOCUMENTATION%20TECHNIQUE/)
+- [Schéma d'architecture (Google Drive)](https://drive.google.com/file/d/1x21pgABMQVTMqEk8HBXxeG-gBm_svRH_/view?usp=sharing)
 
 ### Documentation technique
 
