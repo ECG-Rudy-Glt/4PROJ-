@@ -55,6 +55,7 @@ export default function SharedLinkPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (token) {
@@ -94,11 +95,12 @@ export default function SharedLinkPage() {
         }
       }
     } catch (error: any) {
-      const errorCode = error.response?.data?.error || error.response?.data?.code;
-      if (error.response?.status === 423 || errorCode === 'SHARE_PASSWORD_REQUIRED' || errorCode === 'Password required') {
+      const code = error.response?.data?.code;
+      const message = error.response?.data?.error || error.response?.data?.message;
+      if (error.response?.status === 423 || code === 'SHARE_PASSWORD_REQUIRED' || message === 'SHARE_PASSWORD_REQUIRED') {
         setNeedsPassword(true);
       } else {
-        toast.error(error.response?.data?.error || 'Échec du chargement du fichier');
+        setErrorMessage(message || 'Ce lien de partage est invalide ou a expiré.');
       }
     } finally {
       setIsLoading(false);
@@ -248,7 +250,7 @@ export default function SharedLinkPage() {
             Fichier introuvable
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Ce lien de partage a peut-être expiré, le nombre maximum de téléchargements a été atteint, ou le fichier a été supprimé.
+            {errorMessage || 'Ce lien de partage a peut-être expiré, le nombre maximum de téléchargements a été atteint, ou le fichier a été supprimé.'}
           </p>
         </div>
       </div>

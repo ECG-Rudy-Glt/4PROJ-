@@ -77,20 +77,26 @@ export class SharedLinkService {
     });
 
     if (!shareLink) {
-      throw new AppError(
-        404,
-        'Lien de partage introuvable ou révoqué.',
-        'SHARE_LINK_NOT_FOUND'
-      );
+      throw new AppError(404, 'Lien de partage introuvable ou révoqué.', 'SHARE_LINK_NOT_FOUND');
     }
-    if (shareLink.user.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
+    if (shareLink.user.accountStatus !== 'ACTIVE') {
+      throw new AppError(404, 'Lien de partage introuvable ou révoqué.', 'SHARE_LINK_NOT_FOUND');
+    }
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
+      throw new AppError(410, 'Ce lien de partage a expiré.', 'SHARE_LINK_EXPIRED');
+    }
+    if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) {
+      throw new AppError(410, 'Le nombre maximum de téléchargements a été atteint.', 'SHARE_LINK_LIMIT_REACHED');
+    }
     if (!shareLink.bundleFileIds) {
-      if (shareLink.folderId || !shareLink.file) throw new Error('Public folder links are not supported');
-      if (shareLink.file.isDeleted) throw new Error('Share link is unavailable');
+      if (shareLink.folderId || !shareLink.file) {
+        throw new AppError(404, 'Lien de partage introuvable ou révoqué.', 'SHARE_LINK_NOT_FOUND');
+      }
+      if (shareLink.file.isDeleted) {
+        throw new AppError(410, 'Ce fichier n\'est plus disponible.', 'SHARE_FILE_UNAVAILABLE');
+      }
     }
     if (shareLink.file?.isVault) throw vaultShareForbiddenError();
-    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
-    if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) throw new Error('Share link download limit reached');
 
     if (shareLink.password) {
       if (!password) throw new Error('Password required');
@@ -166,10 +172,18 @@ export class SharedLinkService {
       },
     });
 
-    if (!shareLink || !shareLink.bundleFileIds) throw new Error('Bundle share link not found');
-    if (shareLink.user.accountStatus !== 'ACTIVE') throw new Error('Share link is unavailable');
-    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) throw new Error('Share link has expired');
-    if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) throw new Error('Share link download limit reached');
+    if (!shareLink || !shareLink.bundleFileIds) {
+      throw new AppError(404, 'Lien de partage introuvable ou révoqué.', 'SHARE_LINK_NOT_FOUND');
+    }
+    if (shareLink.user.accountStatus !== 'ACTIVE') {
+      throw new AppError(404, 'Lien de partage introuvable ou révoqué.', 'SHARE_LINK_NOT_FOUND');
+    }
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
+      throw new AppError(410, 'Ce lien de partage a expiré.', 'SHARE_LINK_EXPIRED');
+    }
+    if (shareLink.maxDownloads && shareLink.downloads >= shareLink.maxDownloads) {
+      throw new AppError(410, 'Le nombre maximum de téléchargements a été atteint.', 'SHARE_LINK_LIMIT_REACHED');
+    }
 
     if (shareLink.password) {
       if (!password) throw new Error('Password required');
