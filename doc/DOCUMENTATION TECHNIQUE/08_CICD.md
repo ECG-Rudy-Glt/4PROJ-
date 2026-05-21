@@ -6,22 +6,9 @@
 
 Fichier : `.github/workflows/ci.yml`
 
-Declenchement : **push** et **pull request** sur les branches `main`, `claude-proto`, `scanning_code`.
+Declenchement : **push** et **pull request** sur la branche `main`.
 
-```
-[1] validate-env
-      |
-      +-- [2a] backend-checks   (parallel)
-      +-- [2b] frontend-checks  (parallel)
-      +-- [2c] semgrep          (parallel)
-      +-- [2d] trufflehog       (parallel)
-            |
-           [3] docker-build
-            |
-           [4] docker-push   (main uniquement)
-            |
-           [5] deploy-preprod (commente -- VPS SSH)
-```
+![CI/CD Pipeline](img/supfile_architecture-CI_CD%20Pipeline.drawio.png)
 
 **Principe de moindre privilege** : permissions globales `contents: read` ; seul `docker-push` eleve a `packages: write` pour GHCR.
 

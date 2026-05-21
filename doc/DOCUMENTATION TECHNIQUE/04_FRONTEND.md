@@ -25,37 +25,7 @@ Basé sur **React 18 + Vite + TypeScript**.
 
 ## Flow d'authentification
 
-```mermaid
-flowchart TD
-    A[Utilisateur] --> B{Connecte?}
-    B -->|Non| C[Page Login]
-    B -->|Oui| D[Dashboard]
-    
-    C --> E{Methode}
-    E -->|Email/Password| F[Saisie credentials]
-    E -->|OAuth| G[Redirect Google/GitHub]
-    
-    F --> H{Valide?}
-    H -->|Non| C
-    H -->|Oui| I{MFA active?}
-    
-    G --> J[Callback OAuth]
-    J --> I
-    
-    I -->|Non| K[Setup MFA obligatoire]
-    I -->|Oui| L{Appareil confiance?}
-    
-    K --> M[Scan QR Code]
-    M --> N[Saisie code TOTP]
-    N --> D
-    
-    L -->|Oui| D
-    L -->|Non| O[Page MFA Verify]
-    O --> P[Saisie code TOTP]
-    P --> Q{Code valide?}
-    Q -->|Non| O
-    Q -->|Oui| D
-```
+![Flow Authentification](img/supfile_architecture-Flow%20Authentification%20Frontend.drawio.png)
 
 ---
 

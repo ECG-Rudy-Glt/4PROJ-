@@ -123,6 +123,8 @@ Inclus : 200 utilisateurs max, 5 To stockage, IA llama3:8b, support Premium (ema
 
 Infrastructure **Outscale SecNumCloud** avec **Kubernetes distribué (OKS)** :
 
+![Plan Kubernetes Cloud Temple](../DOCUMENTATION%20TECHNIQUE/img/supfile_architecture-Plan%20Kubernetes%20Cloud%20Temple.drawio.png)
+
 | Ressource | Config Outscale | Coût infra/mois |
 |---|---|---|
 | OKS Control Plane HA | 3 masters medium (@€0,26/h) | €228,00 |

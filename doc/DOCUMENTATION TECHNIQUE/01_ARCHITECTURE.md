@@ -2,37 +2,11 @@
 
 ## Vue d'ensemble
 
-```
-                    +------------------+
-                    |   Utilisateurs   |
-                    +--------+---------+
-                             |
-              +--------------+--------------+
-              |                             |
-      +-------v-------+            +--------v--------+
-      |  Frontend Web |            |   App Mobile    |
-      |  React + Vite |            |  React Native   |
-      +-------+-------+            +--------+--------+
-              |                             |
-              +--------------+--------------+
-                             |
-                   +---------v--------+
-                   |    API Gateway   |
-                   |  (Nginx/Traefik) |
-                   +---------+--------+
-                             |
-         +-------------------+-------------------+
-         |                   |                   |
-+--------v--------+ +--------v--------+ +--------v--------+
-|    Backend API  | |   Bobby (IA)    | |   PostgreSQL    |
-|  Express + TS   | |  Python + Ollama| |                 |
-+--------+--------+ +-----------------+ +-----------------+
-         |
-+--------v--------+
-|  Stockage S3    |
-|  (MinIO/OVH)    |
-+-----------------+
-```
+![Architecture Globale](img/supfile_architecture-Architecture%20Globale.drawio.png)
+
+## Flux des containers Docker
+
+![Flux Containers](img/supfile_architecture-Flux%20Containers.drawio.png)
 
 ## Composants
 

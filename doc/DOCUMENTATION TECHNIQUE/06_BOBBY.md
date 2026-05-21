@@ -19,26 +19,9 @@ Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement
 
 ## Architecture
 
-```
-Frontend (React)
-     
-     
-Backend (Node.js / Express)           point d'entrée unique pour le frontend
-         BrainService.ts          client HTTP interne (retry 3x, timeout 30-120s)
-     
-     
-brain-api (Python / FastAPI) :8001    ce microservice
-      /embed      ChromaDB  (indexation vectorielle)
-      /search     ChromaDB  (recherche sémantique)
-      /chat       ChromaDB + Ollama  (RAG + LLM)
-      /analyze    Ollama  (analyse directe, sans RAG)
-      /generate   Ollama  (génération libre)
-          
-          
-     Ollama :11434  (container séparé, modèle gemma2:2b)
-```
+![Bobby RAG Pipeline](img/supfile_architecture-LLM%20Bobby%20RAG%20Pipeline.drawio.png)
 
-> **Important :** Le brain-api ne fait jamais d'authentification. La sécurité est gérée côté backend (JWT, ownership des fichiers). Le `user_id` est passé explicitement dans chaque requête pour l'isolation des données.
+> **Important :** Le brain-api ne fait jamais d'authentification. La securite est geree cote backend (JWT, ownership des fichiers). Le `user_id` est passe explicitement dans chaque requete pour l'isolation des donnees.
 
 ---
 
