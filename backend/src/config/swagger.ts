@@ -89,7 +89,7 @@ export const swaggerSpec: Record<string, any> = {
   info: {
     title: 'SUPFile API',
     version: '1.0.0',
-    description: `API REST de la plateforme **SUPFile** — stockage cloud sécurisé avec chiffrement AES-256, coffre-fort, IA (Bobby), partage granulaire et collaboration.
+    description: `API REST de la plateforme **SUPFile** - stockage cloud sécurisé avec chiffrement AES-256, coffre-fort, IA (Bobby), partage granulaire et collaboration.
 
 ## Authentification
 La plupart des endpoints nécessitent un token JWT transmis dans l'en-tête :
@@ -169,7 +169,7 @@ Obtenez un token via **POST /api/auth/login**.
           },
         },
         responses: {
-          '201': { description: 'Compte créé — retourne token JWT et profil utilisateur' },
+          '201': { description: 'Compte créé - retourne token JWT et profil utilisateur' },
           '400': { description: 'Validation échouée', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           '409': { description: 'Email déjà utilisé' },
         },
@@ -1151,7 +1151,7 @@ Obtenez un token via **POST /api/auth/login**.
           required: true,
           content: { 'application/json': { schema: { type: 'object', required: ['code'], properties: { code: { type: 'string', description: 'Code TOTP 6 chiffres' } } } } },
         },
-        responses: { '200': { description: 'MFA activé — retourne les codes de récupération' }, '400': { description: 'Code invalide' } },
+        responses: { '200': { description: 'MFA activé - retourne les codes de récupération' }, '400': { description: 'Code invalide' } },
       },
     },
 
@@ -1164,7 +1164,7 @@ Obtenez un token via **POST /api/auth/login**.
           required: true,
           content: { 'application/json': { schema: { type: 'object', required: ['code', 'tempToken'], properties: { code: { type: 'string' }, tempToken: { type: 'string' } } } } },
         },
-        responses: { '200': { description: 'Connexion validée — retourne token JWT final' }, '401': { description: 'Code invalide' } },
+        responses: { '200': { description: 'Connexion validée - retourne token JWT final' }, '401': { description: 'Code invalide' } },
       },
     },
 

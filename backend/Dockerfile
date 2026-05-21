@@ -1,4 +1,3 @@
-# Stage 1: Build
 FROM node:20-alpine AS builder
 
 RUN apk add --no-cache openssl libc6-compat
@@ -12,14 +11,12 @@ COPY . .
 
 RUN npx prisma generate && npm run build
 
-# Stage 2: Runtime
 FROM node:20-alpine
 
 RUN apk add --no-cache openssl libc6-compat su-exec
 
 WORKDIR /app
 
-# Copy only necessary artifacts from the build stage
 COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/dist        ./dist
 COPY --chown=node:node --from=builder /app/prisma      ./prisma

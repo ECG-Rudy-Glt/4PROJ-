@@ -1,4 +1,4 @@
-# SUPFile — Guide de démonstration
+# SUPFile - Guide de démonstration
 
 > Durée cible : **6 minutes**
 > Préparer un compte de démo avec des fichiers variés pré-chargés avant la soutenance.
@@ -31,18 +31,18 @@
 
 ## Script de démonstration
 
-### Étape 1 — Connexion & MFA (45 sec)
+### Étape 1 - Connexion & MFA (45 sec)
 
 **Ce qu'on montre :** login + MFA TOTP
 
 1. Aller sur la page de connexion
 2. Saisir email + mot de passe  cliquer Connexion
 3. L'écran MFA apparaît  saisir le code Google Authenticator
-4. *"Notre authentification va plus loin que le login classique : MFA TOTP, et tous les tokens sont versionnés — une seule action côté serveur suffit pour déconnecter tous les appareils d'un coup."*
+4. *"Notre authentification va plus loin que le login classique : MFA TOTP, et tous les tokens sont versionnés - une seule action côté serveur suffit pour déconnecter tous les appareils d'un coup."*
 
 ---
 
-### Étape 2 — Dashboard (30 sec)
+### Étape 2 - Dashboard (30 sec)
 
 **Ce qu'on montre :** quota, stats, fichiers récents
 
@@ -53,7 +53,7 @@
 
 ---
 
-### Étape 3 — Upload & navigation (60 sec)
+### Étape 3 - Upload & navigation (60 sec)
 
 **Ce qu'on montre :** drag & drop, progression, corbeille
 
@@ -68,18 +68,18 @@
 
 ---
 
-### Étape 4 — Prévisualisation multi-format (45 sec)
+### Étape 4 - Prévisualisation multi-format (45 sec)
 
 **Ce qu'on montre :** la richesse du lecteur intégré
 
 1. Cliquer sur le PDF dans `Contrats/`  aperçu inline
 2. Cliquer sur une image JPG  prévisualisation plein écran
 3. Cliquer sur le fichier DOCX  OnlyOffice s'ouvre, édition directe dans le navigateur
-4. *"Pas besoin de télécharger — images, PDF, vidéos, et même les fichiers Office s'ouvrent directement dans le navigateur, avec édition collaborative via OnlyOffice."*
+4. *"Pas besoin de télécharger - images, PDF, vidéos, et même les fichiers Office s'ouvrent directement dans le navigateur, avec édition collaborative via OnlyOffice."*
 
 ---
 
-### Étape 5 — Partage (45 sec)
+### Étape 5 - Partage (45 sec)
 
 **Ce qu'on montre :** lien public protégé + partage interne
 
@@ -92,7 +92,7 @@
 
 ---
 
-### Étape 6 — Bobby — IA documentaire (60 sec)
+### Étape 6 - Bobby - IA documentaire (60 sec)
 
 **Ce qu'on montre :** RAG en action, pas une démo vide
 
@@ -100,29 +100,29 @@
 2. Poser une question précise sur le contenu du PDF : *"Quel est l'objet du contrat dans le dossier Contrats ?"*
 3. Bobby répond en citant le contenu du document (réponse en Markdown)
 4. Poser une seconde question : *"Résume ce document en 3 points clés"*
-5. *"Bobby ne répond qu'à partir des documents de l'utilisateur — RAG complet avec ChromaDB et un LLM qui tourne 100% on-premise. Zéro donnée envoyée à l'extérieur."*
+5. *"Bobby ne répond qu'à partir des documents de l'utilisateur - RAG complet avec ChromaDB et un LLM qui tourne 100% on-premise. Zéro donnée envoyée à l'extérieur."*
 
 ---
 
-### Étape 7 — Vault & Sécurité (30 sec)
+### Étape 7 - Vault & Sécurité (30 sec)
 
 **Ce qu'on montre :** le coffre-fort chiffré
 
 1. Aller dans la Sidebar  Vault
 2. Saisir le mot de passe du coffre  déverrouillage
 3. Montrer les fichiers dans le vault (icône cadenas)
-4. *"Le vault est un espace chiffré avec une clé séparée du compte principal — même un admin de la plateforme ne peut pas accéder aux fichiers d'un vault sans le mot de passe du propriétaire."*
+4. *"Le vault est un espace chiffré avec une clé séparée du compte principal - même un admin de la plateforme ne peut pas accéder aux fichiers d'un vault sans le mot de passe du propriétaire."*
 
 ---
 
-### Étape 8 — Mobile (optionnel si temps disponible, 30 sec)
+### Étape 8 - Mobile (optionnel si temps disponible, 30 sec)
 
 **Ce qu'on montre :** parité des features sur mobile
 
 1. Scanner un QR code ou afficher le téléphone via projection
 2. Se connecter sur l'app mobile
 3. Montrer la navigation par onglets, le même explorateur de fichiers
-4. *"L'application mobile Expo/React Native reprend l'intégralité des fonctionnalités — même store Zustand, même API, même expérience."*
+4. *"L'application mobile Expo/React Native reprend l'intégralité des fonctionnalités - même store Zustand, même API, même expérience."*
 
 ---
 
@@ -134,7 +134,7 @@
 | OnlyOffice lent à charger | Ouvrir l'onglet à l'avance, garder le DOCX léger (<500 Ko) |
 | Upload qui échoue en démo | Tester le fichier exact la veille, avoir un fichier de secours |
 | Erreur de connexion réseau | Démo en local (docker compose sur le poste de démo) |
-| Questions sur des fonctionnalités non démontrées | "On ne l'a pas montré faute de temps, mais c'est implémenté — voici comment ça fonctionne…" |
+| Questions sur des fonctionnalités non démontrées | "On ne l'a pas montré faute de temps, mais c'est implémenté - voici comment ça fonctionne…" |
 
 ---
 

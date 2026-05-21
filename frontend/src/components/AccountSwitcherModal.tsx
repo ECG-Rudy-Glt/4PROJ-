@@ -190,7 +190,7 @@ export default function AccountSwitcherModal({ isOpen, onClose }: AccountSwitche
 
   const isDelegated = sessionContext?.authType && sessionContext.authType !== 'DIRECT';
   const displayName = (u?: { firstName?: string | null; lastName?: string | null; email: string } | null) =>
-    u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '—';
+    u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '-';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4" style={{ marginTop: 0 }}>

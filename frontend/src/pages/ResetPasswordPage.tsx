@@ -198,7 +198,7 @@ export default function ResetPasswordPage() {
                 Données chiffrées détectées
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Votre compte utilise le chiffrement de fichiers. Sans clé de récupération, réinitialiser le mot de passe effacera votre clé de chiffrement — vos fichiers chiffrés existants ne seront plus accessibles.
+                Votre compte utilise le chiffrement de fichiers. Sans clé de récupération, réinitialiser le mot de passe effacera votre clé de chiffrement - vos fichiers chiffrés existants ne seront plus accessibles.
               </p>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input

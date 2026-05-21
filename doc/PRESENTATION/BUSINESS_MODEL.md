@@ -1,6 +1,6 @@
-# SUPFile — Business Model, Pricing & Infrastructure
+# SUPFile - Business Model, Pricing & Infrastructure
 
-> Document de présentation commerciale — Avril 2026
+> Document de présentation commerciale - Avril 2026
 
 ---
 
@@ -33,7 +33,7 @@ SUPFile est une plateforme de stockage cloud **souveraine et sécurisée**, héb
 | | FREE | PRO | BUSINESS | ENTERPRISE |
 |---|---|---|---|---|
 | **Prix** | Gratuit | **9,99 €/mois** | **24,99 €/mois** | **Sur devis** |
-| **Marge brute** | — | ~60% | ~64% | — |
+| **Marge brute** | - | ~60% | ~64% | - |
 | **Stockage** | 30 Go | 100 Go | 500 Go | Sur devis |
 | **IA Bobby** |  |  gemma3:2b |  gemma3:9b |  Modèle dédié |
 | **Coffre-fort chiffré** |  |  |  |  |
@@ -45,11 +45,11 @@ SUPFile est une plateforme de stockage cloud **souveraine et sécurisée**, héb
 | **SLA** | Aucun | 99,5% | 99,7% | Sur devis |
 | **Garantie données France** |  |  |  |  |
 
-> Le plan **ENTERPRISE** est une passerelle vers le B2B — il s'adresse aux freelances avancés ou petites structures qui dépassent les limites BUSINESS. Au-delà, le commercial prend le relais avec une offre B2B dédiée (Tier 1 à partir de 1 490 €/mois).
+> Le plan **ENTERPRISE** est une passerelle vers le B2B - il s'adresse aux freelances avancés ou petites structures qui dépassent les limites BUSINESS. Au-delà, le commercial prend le relais avec une offre B2B dédiée (Tier 1 à partir de 1 490 €/mois).
 
 ### 3.2 Justification des prix (coûts Scaleway réels)
 
-**Infrastructure mutualisée B2C — base pour ~500 utilisateurs actifs :**
+**Infrastructure mutualisée B2C - base pour ~500 utilisateurs actifs :**
 
 | Ressource | Config Scaleway | Coût/mois |
 |---|---|---|
@@ -80,14 +80,14 @@ mairie-lyon.supfile.tech
 chu-bordeaux.supfile.tech
 ```
 
-L'infrastructure est provisionnée à la demande sur **Scaleway** (standard) ou **Outscale/Numspot** (SecNumCloud — secteur public, défense, santé).
+L'infrastructure est provisionnée à la demande sur **Scaleway** (standard) ou **Outscale/Numspot** (SecNumCloud - secteur public, défense, santé).
 
 ---
 
 ### 4.2 Grille tarifaire B2B
 
-#### Tier 1 — PME (jusqu'à 50 utilisateurs)
-**1 490 €/mois HT — Marge brute ~45%**
+#### Tier 1 - PME (jusqu'à 50 utilisateurs)
+**1 490 €/mois HT - Marge brute ~45%**
 
 | Ressource | Config Scaleway | Coût infra/mois |
 |---|---|---|
@@ -102,8 +102,8 @@ Inclus : 50 utilisateurs max, 1 To stockage, IA gemma3:9b, support Standard (ema
 
 ---
 
-#### Tier 2 — ETI (jusqu'à 200 utilisateurs)
-**3 490 €/mois HT — Marge brute ~51%**
+#### Tier 2 - ETI (jusqu'à 200 utilisateurs)
+**3 490 €/mois HT - Marge brute ~51%**
 
 | Ressource | Config Scaleway | Coût infra/mois |
 |---|---|---|
@@ -118,8 +118,8 @@ Inclus : 200 utilisateurs max, 5 To stockage, IA llama3:8b, support Premium (ema
 
 ---
 
-#### Tier 3 — Grand Compte (200+ utilisateurs, multi-sites)
-**À partir de 8 500 €/mois HT — Marge brute ~47%**
+#### Tier 3 - Grand Compte (200+ utilisateurs, multi-sites)
+**À partir de 8 500 €/mois HT - Marge brute ~47%**
 
 Infrastructure **Outscale SecNumCloud** avec **Kubernetes distribué (OKS)** :
 
@@ -137,8 +137,8 @@ Inclus : utilisateurs illimités, stockage illimité, IA llama3:70b ou Qwen 72B,
 
 ---
 
-#### Tier 4 — Enterprise Agentic (sur devis)
-**Multi-LLM + GraphRAG — à partir de 20 000 €/mois HT**
+#### Tier 4 - Enterprise Agentic (sur devis)
+**Multi-LLM + GraphRAG - à partir de 20 000 €/mois HT**
 
 Pour les grandes entreprises nécessitant des workflows IA complexes :
 - Architecture **multi-agents** (orchestration de plusieurs LLM spécialisés par métier)
@@ -178,10 +178,10 @@ curl -X POST https://acme-corp.supfile.tech/api/rag/chat \
 | **Disponible dès** | Tier 2 ETI (inclus), Tier 3 et Tier 4 |
 | **Authentification** | API key rotative générée depuis le dashboard admin |
 | **Rate limiting** | 60 req/min par défaut (configurable sur Tier 3/4) |
-| **Qualité des réponses** | Sous **responsabilité du client** — dépend des documents indexés et du modèle LLM embarqué |
-| **Hallucinations** | SUPFile ne garantit pas l'exactitude des réponses LLM — le client doit implémenter sa propre couche de validation |
-| **Données** | Seuls les documents indexés par le client sont accessibles — isolation totale entre organisations |
-| **SLA** | Aligné sur le SLA du tier souscrit — aucun SLA supplémentaire sur la couche LLM |
+| **Qualité des réponses** | Sous **responsabilité du client** - dépend des documents indexés et du modèle LLM embarqué |
+| **Hallucinations** | SUPFile ne garantit pas l'exactitude des réponses LLM - le client doit implémenter sa propre couche de validation |
+| **Données** | Seuls les documents indexés par le client sont accessibles - isolation totale entre organisations |
+| **SLA** | Aligné sur le SLA du tier souscrit - aucun SLA supplémentaire sur la couche LLM |
 | **Logs** | Toutes les requêtes API sont tracées dans l'audit log du client |
 
 ---
@@ -211,7 +211,7 @@ curl -X POST https://acme-corp.supfile.tech/api/rag/chat \
 | **Temps de rétablissement (RTO)** | 24h | 8h | 4h | 1h |
 | **Point de reprise (RPO)** | 24h | 4h | 1h | 15 min |
 | **Fenêtre de maintenance** | Samedi 2h–6h | Samedi 2h–4h | Planifiée avec client | Sur validation client |
-| **Pénalités si SLA non respecté** | — | Avoir 5% MRR | Avoir 10% MRR | Avoir 15% MRR |
+| **Pénalités si SLA non respecté** | - | Avoir 5% MRR | Avoir 10% MRR | Avoir 15% MRR |
 | **Rapport de disponibilité mensuel** |  |  |  |  |
 | **Audit de sécurité annuel** |  |  |  inclus |  inclus |
 
@@ -225,15 +225,15 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 
 | Critère | Condition |
 |---|---|
-| **Licence** | Annuelle — à partir de **12 000 €/an** (jusqu'à 100 users) / **24 000 €/an** (jusqu'à 500 users) / sur devis au-delà |
+| **Licence** | Annuelle - à partir de **12 000 €/an** (jusqu'à 100 users) / **24 000 €/an** (jusqu'à 500 users) / sur devis au-delà |
 | **Mises à jour** | Incluses pendant la durée de la licence (patch de sécurité + minor versions) |
-| **Support** | Limité à la couche applicative SUPFile uniquement — les incidents infra, réseau, GPU sont hors périmètre |
+| **Support** | Limité à la couche applicative SUPFile uniquement - les incidents infra, réseau, GPU sont hors périmètre |
 | **SLA** | Aucun SLA garanti sur la disponibilité (dépend de l'infra client) |
 | **Qualité LLM** | Le client est seul responsable de la qualité des réponses IA (dépend du GPU et du modèle choisi) |
 | **Responsabilité données** | Le client est responsable de la conformité RGPD, de la sauvegarde et de la sécurité des données |
-| **Hyperscalers** | Compatible AWS S3, Azure Blob, GCP Storage — mais SUPFile ne fournit aucun support sur la couche cloud |
+| **Hyperscalers** | Compatible AWS S3, Azure Blob, GCP Storage - mais SUPFile ne fournit aucun support sur la couche cloud |
 | **Sécurité** | Le chiffrement KEK/DEK reste actif mais la gestion des clés est sous responsabilité client |
-| **Audit** | Non inclus — le client peut commander un audit annuel à 3 500 € |
+| **Audit** | Non inclus - le client peut commander un audit annuel à 3 500 € |
 | **Résiliation** | Préavis 3 mois, export des données garanti 30 jours après résiliation |
 
 > **Note** : L'option Standalone est recommandée uniquement aux équipes techniques disposant d'une infrastructure existante et d'une expertise DevOps interne. Pour les autres, le modèle hébergé (Tier 1–4) est fortement conseillé.
@@ -242,7 +242,7 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 
 ## 5. Hébergeurs retenus et justification
 
-### Scaleway — Plans B2C et B2B Tier 1/2
+### Scaleway - Plans B2C et B2B Tier 1/2
 
 | Critère | Détail |
 |---|---|
@@ -254,12 +254,12 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 | PostgreSQL managé | €0,1434/h  **~€104,68/mois** |
 | Avantage clé | Meilleur rapport prix/performance GPU du marché européen |
 
-### Outscale / Numspot — Plans B2B Tier 3/4 et Secteur Public
+### Outscale / Numspot - Plans B2B Tier 3/4 et Secteur Public
 
 | Critère | Détail |
 |---|---|
 | Localisation | France uniquement (Paris, Saint-Omer) |
-| Certification | **SecNumCloud qualifié ANSSI** — seule qualification obligatoire pour OIV, santé (HDS), État |
+| Certification | **SecNumCloud qualifié ANSSI** - seule qualification obligatoire pour OIV, santé (HDS), État |
 | GPU A100 80 GB | €3,60–4,32/h  **~€2 592–3 110/mois** |
 | GPU H100 | €4,00–4,80/h  **~€2 880–3 456/mois** |
 | OKS Kubernetes HA | €0,26/h (3 masters medium)  **~€228/mois** |
@@ -278,7 +278,7 @@ Le client fournit ses propres VMs/GPUs (hyperscalers AWS, Azure, GCP, ou infrast
 | Grand Compte Tier 3 | llama3:70b / Qwen 72B | ~42 GB | A100 80 GB | ~€2 800/mois |
 | Enterprise Tier 4 | Multi-LLM + GraphRAG | 80–160 GB | 2 A100 ou H100 | ~€5 500–6 900/mois |
 
-> **Q4_K_M** : quantisation 4-bit, réduit les besoins VRAM de ~75% par rapport au FP16 avec une perte de qualité négligeable — standard de production pour l'inférence locale.
+> **Q4_K_M** : quantisation 4-bit, réduit les besoins VRAM de ~75% par rapport au FP16 avec une perte de qualité négligeable - standard de production pour l'inférence locale.
 
 ---
 
@@ -338,4 +338,4 @@ Coût infra B2B Tier 3 : ~€4 520/mois (dédié par client, Outscale)
 | Prix PME 50 users | ~1 490 €/mois | ~1 200 €/mois | ~900 €/mois | ~400 €/mois (licence seule) |
 | Hébergement managé inclus |  |  |  |  (auto-géré) |
 
-> **Le premium tarifaire vs Nextcloud** est justifié par : hébergement managé clé en main, conformité SecNumCloud sans effort, IA locale souveraine et support SLA — là où Nextcloud nécessite une équipe technique interne dédiée.
+> **Le premium tarifaire vs Nextcloud** est justifié par : hébergement managé clé en main, conformité SecNumCloud sans effort, IA locale souveraine et support SLA - là où Nextcloud nécessite une équipe technique interne dédiée.

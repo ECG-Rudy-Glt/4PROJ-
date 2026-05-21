@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # ── Stage 2: Runtime (hardened) ───────────────────────────────────────────────
-# nginx-unprivileged runs as non-root (uid 101) — fixes CIS DI-0008 / Semgrep missing-user
+# nginx-unprivileged runs as non-root (uid 101) - fixes CIS DI-0008 / Semgrep missing-user
 FROM nginxinc/nginx-unprivileged:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html

@@ -10,16 +10,16 @@
               +--------------+--------------+
               |                             |
       +-------v-------+            +--------v--------+
-      |  Frontend Web |            |  App Mobile     |
+      |  Frontend Web |            |   App Mobile    |
       |  React + Vite |            |  React Native   |
       +-------+-------+            +--------+--------+
               |                             |
               +--------------+--------------+
                              |
-                    +--------v--------+
-                    |   API Gateway   |
-                    |   (Nginx/Traefik)|
-                    +--------+--------+
+                   +---------v--------+
+                   |    API Gateway   |
+                   |  (Nginx/Traefik) |
+                   +---------+--------+
                              |
          +-------------------+-------------------+
          |                   |                   |
@@ -59,7 +59,7 @@
 - **Modele** : gemma2:2b
 - **Port** : 8001
 
-![Bobby Chat](../MANUEL%20UTILISATEUR/img/web/18-bobby-chat.png)
+![Bobby Chat](../MANUEL%20UTILISATEUR/img/web/26-bobby_salaire_question.png)
 
 ### Base de donnees
 - **SGBD** : PostgreSQL 16

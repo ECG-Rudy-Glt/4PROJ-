@@ -1,4 +1,4 @@
-// Logic split into focused services — this file is a backwards-compatible facade
+// Logic split into focused services - this file is a backwards-compatible facade
 export { SharedLinkService } from './sharedLinkService';
 export { SharedFolderService } from './sharedFolderService';
 export { SharedFileService } from './sharedFileService';

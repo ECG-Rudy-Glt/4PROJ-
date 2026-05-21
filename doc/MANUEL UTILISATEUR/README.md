@@ -330,7 +330,7 @@ Ajoutez des **commentaires** sur les fichiers partages pour collaborer :
 
 **Bobby Web**
 
-![Bobby Web](img/web/18-bobby-chat.png)
+![Bobby Web](img/web/26-bobby_salaire_question.png)
 
 **Bobby Mobile**
 

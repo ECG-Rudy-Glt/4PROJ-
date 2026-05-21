@@ -12,7 +12,7 @@ import { VaultService } from './vaultService';
 export class AIService {
   /**
    * Extract search criteria from a natural-language query using regex.
-   * Replaces Cohere function-calling — small models are unreliable for JSON tool use.
+   * Replaces Cohere function-calling - small models are unreliable for JSON tool use.
    */
   private extractCriteria(query: string): {
     keyword?: string;
@@ -24,7 +24,7 @@ export class AIService {
     const q = query.toLowerCase();
     const criteria: Record<string, any> = {};
 
-    // Folder detection — must come first to avoid consuming folder name as keyword
+    // Folder detection - must come first to avoid consuming folder name as keyword
     // Matches: "dans le dossier X", "dans mon dossier X", "dans le sous-dossier X"
     const folderMatch = q.match(
       /dans\s+(?:le\s+|mon\s+|mes\s+|la\s+|les\s+)?(?:sous-?)?dossiers?\s+([\w\u00C0-\u017E0-9 _/-]+?)(?:\s*[?!.,]|$)/i,
@@ -144,7 +144,7 @@ export class AIService {
   //     (fiable à 100% pour "mes images", "liste les PDFs")
   //  2. Contenu / sémantique → vector search dans ChromaDB → file_ids → Prisma
   //     (géré par brain-api pour "facture mars", "rapport Q1 2024")
-  //  Le LLM 0.5B est trop petit pour du function-calling fiable — on l'évite ici.
+  //  Le LLM 0.5B est trop petit pour du function-calling fiable - on l'évite ici.
   // ---------------------------------------------------------------------------
   async searchFiles(userId: string, userPrompt: string): Promise<any> {
     const args = this.extractCriteria(userPrompt);
@@ -317,7 +317,7 @@ export class AIService {
   // D. Chat général avec RAG automatique
   // ---------------------------------------------------------------------------
   async chat(userId: string, message: string, conversationHistory?: any[]): Promise<string> {
-    // File listing requests don't need RAG — just Prisma
+    // File listing requests don't need RAG - just Prisma
     const isListRequest =
       /\b(liste|montre|affiche|trouve|cherche|combien)\b.*(fichier|image|vid[eé]o|document|pdf|audio)/i.test(
         message,

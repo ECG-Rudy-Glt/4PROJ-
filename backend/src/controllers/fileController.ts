@@ -270,7 +270,7 @@ export class FileController {
       });
 
       if (rangeHeader) {
-        // Range request — requis par les players vidéo/audio (expo-video, AVFoundation, ExoPlayer)
+        // Range request - requis par les players vidéo/audio (expo-video, AVFoundation, ExoPlayer)
         // Le stream décrypté démarre toujours à l'octet 0 : on skip les octets avant `start`
         // et on ne transmet que `chunkSize` octets.
         const parts = rangeHeader.replace(/bytes=/, '').split('-');

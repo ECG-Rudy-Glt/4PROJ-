@@ -109,7 +109,7 @@ export default function VersionsPanel({ file, onClose, onRestored }: Props) {
           <View style={styles.grabber} />
           <View style={styles.header}>
             <Ionicons name="time-outline" size={22} color={colors.primary[600]} />
-            <Text style={styles.title} numberOfLines={1}>Historique — {file.name}</Text>
+            <Text style={styles.title} numberOfLines={1}>Historique - {file.name}</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.neutral[500]} />
             </TouchableOpacity>

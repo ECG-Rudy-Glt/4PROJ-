@@ -1,7 +1,7 @@
-# brain-api — Documentation
+# brain-api - Documentation
 
 Microservice Python dédié à l'IA de SUPFile (l'assistant **Bobby**).  
-Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement par le backend Node.js** — jamais directement par le frontend.
+Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement par le backend Node.js** - jamais directement par le frontend.
 
 ---
 
@@ -11,7 +11,7 @@ Basé sur **FastAPI**, il expose une API REST interne consommée **exclusivement
 |---|---|
 | Framework | FastAPI + Uvicorn |
 | LLM | Ollama (`gemma2:2b` par défaut, configurable via `OLLAMA_MODEL`) |
-| Embeddings | `fastembed` — modèle `paraphrase-multilingual-MiniLM-L12-v2` (multilingue, supporte le français) |
+| Embeddings | `fastembed` - modèle `paraphrase-multilingual-MiniLM-L12-v2` (multilingue, supporte le français) |
 | Vector Store | ChromaDB (persistant, collection `documents`, distance cosinus) |
 | Chunking | Découpage par phrases avec overlap de 2 phrases (max 600 chars/chunk) |
 
@@ -139,7 +139,7 @@ Retourne les N chunks les plus proches sémantiquement de la requête.
 
 **Notes :**
 - La distance est une **distance cosinus** (0 = identique, 1 = opposé)
-- Les résultats sont filtrés par `user_id` — un utilisateur ne voit jamais les fichiers d'un autre
+- Les résultats sont filtrés par `user_id` - un utilisateur ne voit jamais les fichiers d'un autre
 - Utilisé en interne par `/chat` (avec limite 10) et exposé via l'endpoint `/api/ai/search-files` du backend
 
 ---

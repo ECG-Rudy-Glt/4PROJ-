@@ -9,7 +9,6 @@
 
 set -euo pipefail
 
-# Se placer à la racine du projet
 cd "$(dirname "$0")/.."
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.dev.yml}"

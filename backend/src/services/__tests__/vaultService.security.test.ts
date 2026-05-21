@@ -1,13 +1,13 @@
 /**
- * Tests de sécurité — VaultService
+ * Tests de sécurité - VaultService
  *
  * Couverture :
- *   1. Validation du mot de passe             — force minimale requise
- *   2. Protection brute-force                 — lockout après 5 échecs consécutifs
- *   3. Respect du lockout temporel            — rejet si vaultLockedUntil est dans le futur
- *   4. Timing de session unlock               — expiration correcte de vaultUnlockUntil
- *   5. Isolation vault (assertUnlockedIfVault) — accès refusé si vault verrouillé
- *   6. isVaultUnlocked                        — états bord (pas de date, date passée, future)
+ *   1. Validation du mot de passe             - force minimale requise
+ *   2. Protection brute-force                 - lockout après 5 échecs consécutifs
+ *   3. Respect du lockout temporel            - rejet si vaultLockedUntil est dans le futur
+ *   4. Timing de session unlock               - expiration correcte de vaultUnlockUntil
+ *   5. Isolation vault (assertUnlockedIfVault) - accès refusé si vault verrouillé
+ *   6. isVaultUnlocked                        - états bord (pas de date, date passée, future)
  */
 
 import prisma from '../../config/database';
@@ -48,7 +48,7 @@ jest.mock('../mfaService', () => ({
   },
 }));
 
-// bcrypt est lent (12 rounds) — on le mock pour garder les tests rapides
+// bcrypt est lent (12 rounds) - on le mock pour garder les tests rapides
 jest.mock('bcryptjs', () => ({
   hash: jest.fn().mockResolvedValue('$hashed$'),
   compare: jest.fn(),
@@ -86,7 +86,7 @@ function makeVaultUser(overrides: Record<string, unknown> = {}) {
 
 // ─── Suite 1 : validation du mot de passe ────────────────────────────────────
 
-describe('VaultService — validation du mot de passe (force minimale)', () => {
+describe('VaultService - validation du mot de passe (force minimale)', () => {
   // On accède à la méthode privée via le prototype pour tester les règles
   // sans passer par toute la chaîne setupVault (MFA, Prisma, etc.)
   const validate = (pwd: string) =>
@@ -124,7 +124,7 @@ describe('VaultService — validation du mot de passe (force minimale)', () => {
 
 // ─── Suite 2 : protection brute-force ────────────────────────────────────────
 
-describe('VaultService — protection brute-force (lockout)', () => {
+describe('VaultService - protection brute-force (lockout)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVaultAvailable();
@@ -183,7 +183,7 @@ describe('VaultService — protection brute-force (lockout)', () => {
 
 // ─── Suite 3 : respect du lockout temporel ───────────────────────────────────
 
-describe('VaultService — lockout temporel', () => {
+describe('VaultService - lockout temporel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVaultAvailable();
@@ -218,7 +218,7 @@ describe('VaultService — lockout temporel', () => {
 
 // ─── Suite 4 : timing de la session unlock ───────────────────────────────────
 
-describe('VaultService — durée de session unlock', () => {
+describe('VaultService - durée de session unlock', () => {
   it('vaultUnlockUntil est défini à now + VAULT_UNLOCK_MINUTES (défaut 10 min)', async () => {
     jest.clearAllMocks();
     delete process.env.VAULT_UNLOCK_MINUTES;
@@ -248,7 +248,7 @@ describe('VaultService — durée de session unlock', () => {
 
 // ─── Suite 5 : isolation vault (assertUnlockedIfVault) ───────────────────────
 
-describe('VaultService.assertUnlockedIfVault — isolation des fichiers vault', () => {
+describe('VaultService.assertUnlockedIfVault - isolation des fichiers vault', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -298,7 +298,7 @@ describe('VaultService.assertUnlockedIfVault — isolation des fichiers vault', 
   });
 });
 
-// ─── Suite 6 : isVaultUnlocked — états bord ──────────────────────────────────
+// ─── Suite 6 : isVaultUnlocked - états bord ──────────────────────────────────
 
 describe('VaultService.isVaultUnlocked', () => {
   beforeEach(() => jest.clearAllMocks());

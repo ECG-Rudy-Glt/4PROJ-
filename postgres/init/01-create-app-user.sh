@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script d'initialisation PostgreSQL — exécuté une seule fois à la création du volume
+# Script d'initialisation PostgreSQL - exécuté une seule fois à la création du volume
 # Crée un utilisateur applicatif dédié avec des privilèges limités (pas superuser)
 set -e
 

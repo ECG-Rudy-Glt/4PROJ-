@@ -6,7 +6,7 @@
 |-----------|-----|
 | Site production | https://supfile.tech/ |
 | API Swagger | https://supfile.tech/api-docs |
-| Repository GitHub | https://github.com/ECG-Rudy-Glt/4PROJ- (prive) |
+| Repository GitHub | https://github.com/ECG-Rudy-Glt/4PROJ- |
 
 ---
 

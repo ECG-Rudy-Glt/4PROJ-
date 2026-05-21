@@ -834,8 +834,8 @@
       "full_audit": "Full audit history",
       "sla": "Enterprise SLA",
       "ai_bobby": "Bobby AI embedded",
-      "ai_bobby_basic": "Bobby AI — gemma3:2b",
-      "ai_bobby_advanced": "Bobby AI — gemma3:9b",
+      "ai_bobby_basic": "Bobby AI - gemma3:2b",
+      "ai_bobby_advanced": "Bobby AI - gemma3:9b",
       "ai_bobby_dedicated": "Dedicated custom LLM",
       "onlyoffice": "Integrated OnlyOffice editing",
       "versioning_10": "10 file versions",
@@ -844,8 +844,8 @@
       "sharing_basic": "Link sharing",
       "sharing_advanced": "Advanced sharing (password + expiry)",
       "community_support": "Community support",
-      "email_support_48h": "Email support — 48h response",
-      "email_support_24h": "Email support — 24h response",
+      "email_support_48h": "Email support - 48h response",
+      "email_support_24h": "Email support - 24h response",
       "account_manager": "Dedicated account manager",
       "france_hosting": "Data hosted in France"
     }
