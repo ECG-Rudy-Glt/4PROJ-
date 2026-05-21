@@ -110,8 +110,8 @@ export default function SharedPage() {
     setIsLoading(true);
     try {
       const [linksData, foldersData, filesData, sharedByMeFoldersData, sharedByMeFilesData, pendingData] = await Promise.all([
-        shareService.listShareLinks(),
-        shareService.listSharedWithMe(),
+        shareService.listShareLinks().catch(() => ({ shareLinks: [] })),
+        shareService.listSharedWithMe().catch(() => ({ sharedFolders: [] })),
         shareService.listFilesSharedWithMe().catch(() => ({ sharedFiles: [] })),
         shareService.listSharedByMe().catch(() => ({ sharedFolders: [] })),
         shareService.listFilesSharedByMe().catch(() => ({ sharedFiles: [] })),
