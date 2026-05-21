@@ -66,14 +66,14 @@ const renderTransactionalEmail = (params: {
       <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(params.preheader)}</div>
       <div style="max-width:620px;margin:0 auto;padding:24px 16px;">
         <div style="text-align:center;margin-bottom:20px;">
-          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="SupFile" style="width:180px;max-width:100%;height:auto;">` : '<h1 style="margin:0;color:#4f46e5;">SupFile</h1>'}
+          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="SupFile" style="width:180px;max-width:100%;height:auto;">` : '<h1 style="margin:0;color:#4a8c3f;">SupFile</h1>'}
         </div>
         <div style="background:#ffffff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,0.08);padding:28px;">
-          <h2 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#4f46e5;text-align:center;">${escapeHtml(params.title)}</h2>
+          <h2 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#4a8c3f;text-align:center;">${escapeHtml(params.title)}</h2>
           ${params.paragraphs.map((paragraph) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#4b5563;">${escapeHtml(paragraph)}</p>`).join('')}
           ${safeCtaLink && params.ctaText ? `
             <div style="text-align:center;margin:24px 0;">
-              <a href="${safeCtaLink}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">${escapeHtml(params.ctaText)}</a>
+              <a href="${safeCtaLink}" style="display:inline-block;background:#4a8c3f;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">${escapeHtml(params.ctaText)}</a>
             </div>
           ` : ''}
           ${params.footerNote ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;"><p style="margin:0;font-size:14px;color:#6b7280;">${escapeHtml(params.footerNote)}</p></div>` : ''}
@@ -114,7 +114,7 @@ export const generateHtmlTemplate = (title: string, bodyText: string, ctaLink?: 
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
         .header {
-          background-color: #6366f1;
+          background-color: #4a8c3f;
           padding: 24px 32px;
           text-align: center;
         }
@@ -139,14 +139,14 @@ export const generateHtmlTemplate = (title: string, bodyText: string, ctaLink?: 
         }
         .cta-button {
           display: inline-block;
-          background-color: #6366f1;
+          background-color: #4a8c3f;
           color: #ffffff;
           text-decoration: none;
           padding: 12px 28px;
           border-radius: 8px;
           font-weight: 500;
           font-size: 16px;
-          box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);
+          box-shadow: 0 4px 6px rgba(74, 140, 63, 0.2);
         }
         .footer {
           background-color: #f3f4f6;
@@ -381,7 +381,7 @@ export const getPasswordResetEmail = (lang: string, userName: string, resetLink:
       <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
 
         <!-- Header -->
-        <div style="background:#254441;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
+        <div style="background:#4a8c3f;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
           ${logoUrl
             ? `<img src="${logoUrl}" alt="SupFile" style="height:36px;max-width:160px;">`
             : '<span style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">SupFile</span>'
@@ -392,14 +392,14 @@ export const getPasswordResetEmail = (lang: string, userName: string, resetLink:
         <div style="background:#ffffff;padding:36px 32px;box-shadow:0 4px 24px rgba(37,68,65,0.10);">
 
 
-          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#254441;text-align:center;">${title}</h2>
+          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#4a8c3f;text-align:center;">${title}</h2>
           <p style="margin:0 0 24px;font-size:14px;color:#6B7280;text-align:center;">${greetingHtml}</p>
 
           <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#374151;">${description}</p>
 
           <!-- CTA -->
           <div style="text-align:center;margin:0 0 28px;">
-            <a href="${resetLinkHtml}" style="display:inline-block;background:#254441;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.2px;">${ctaText}</a>
+            <a href="${resetLinkHtml}" style="display:inline-block;background:#4a8c3f;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.2px;">${ctaText}</a>
           </div>
 
           <!-- Warning -->
