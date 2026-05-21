@@ -1,4 +1,4 @@
-#  Backend — Documentation Technique
+#  Backend - Documentation Technique
 
 API REST Express / TypeScript du projet **SUPFile**.  
 Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
@@ -34,7 +34,7 @@ Port par défaut : **5001**. Swagger UI disponible sur `/api-docs`.
 backend/
  src/                  # Code source TypeScript
     config/           # Configuration transversale
-    controllers/      # Couche HTTP — gère req/res, délègue aux services
+    controllers/      # Couche HTTP - gère req/res, délègue aux services
     middlewares/      # Middlewares Express
     routes/           # Définition des routes
     services/         # Logique métier
@@ -65,14 +65,14 @@ backend/
 
 | Fichier | Rôle |
 |---|---|
-| `auth.ts` | `authenticate` — vérifie le JWT Bearer et attache `req.user` + `req.authContext` |
-| `delegation.ts` | `requireDelegationPermission(perm)` — vérifie les droits en session déléguée (read / write / delete / share) |
-| `permissions.ts` | `requireFolderPermission(perm)` — vérifie les droits sur un dossier partagé |
-| `quotaCheck.ts` | `checkQuotaBeforeUpload` — bloque l'upload si quota dépassé |
-| `admin.ts` | `requireAdmin` — vérifie que l'utilisateur est administrateur |
+| `auth.ts` | `authenticate` - vérifie le JWT Bearer et attache `req.user` + `req.authContext` |
+| `delegation.ts` | `requireDelegationPermission(perm)` - vérifie les droits en session déléguée (read / write / delete / share) |
+| `permissions.ts` | `requireFolderPermission(perm)` - vérifie les droits sur un dossier partagé |
+| `quotaCheck.ts` | `checkQuotaBeforeUpload` - bloque l'upload si quota dépassé |
+| `admin.ts` | `requireAdmin` - vérifie que l'utilisateur est administrateur |
 | `activityMiddleware.ts` | Met à jour `lastActivity` de la session à chaque requête |
-| `errorHandler.ts` | Handler d'erreurs centralisé — gère `AppError` et erreurs inattendues |
-| `validation.ts` | Wrapper `express-validator` — déclenche les erreurs de validation |
+| `errorHandler.ts` | Handler d'erreurs centralisé - gère `AppError` et erreurs inattendues |
+| `validation.ts` | Wrapper `express-validator` - déclenche les erreurs de validation |
 
 ---
 
@@ -106,7 +106,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ## Routes & Endpoints
 
-### `/api/auth` — Authentification
+### `/api/auth` - Authentification
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
@@ -125,7 +125,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/files` — Gestion des fichiers
+### `/api/files` - Gestion des fichiers
 
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
@@ -147,7 +147,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/folders` — Gestion des dossiers
+### `/api/folders` - Gestion des dossiers
 
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
@@ -165,7 +165,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/share` — Partage
+### `/api/share` - Partage
 
 #### Liens publics (non-authentifiés)
 | Méthode | Route | Auth | Description |
@@ -180,7 +180,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | GET | `/links` | read | Lister mes liens publics |
 | DELETE | `/links/:linkId` | delete | Supprimer un lien |
 
-#### Partage interne — Dossiers
+#### Partage interne - Dossiers
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
 | POST | `/folders` | share | Partager un dossier avec un utilisateur |
@@ -191,7 +191,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | POST | `/folders/:shareId/accept` | write | Accepter un partage |
 | POST | `/folders/:shareId/reject` | write | Refuser un partage |
 
-#### Partage interne — Fichiers
+#### Partage interne - Fichiers
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
 | POST | `/files` | share | Partager un fichier avec un utilisateur |
@@ -212,7 +212,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/mfa` — Multi-Factor Authentication (TOTP)
+### `/api/mfa` - Multi-Factor Authentication (TOTP)
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
@@ -228,7 +228,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/ai` — Assistant Bobby (RAG)
+### `/api/ai` - Assistant Bobby (RAG)
 
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
@@ -243,7 +243,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/tags` — Tags
+### `/api/tags` - Tags
 
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
@@ -258,7 +258,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/files/:fileId/versions` — Versioning
+### `/api/files/:fileId/versions` - Versioning
 
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
@@ -268,7 +268,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/files/:fileId/comments` — Commentaires
+### `/api/files/:fileId/comments` - Commentaires
 
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
@@ -280,7 +280,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/vault` — Coffre-fort
+### `/api/vault` - Coffre-fort
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
@@ -294,7 +294,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/organizations` — Organisations
+### `/api/organizations` - Organisations
 
 | Méthode | Route | Description |
 |---|---|---|
@@ -308,7 +308,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
-### `/api/account-access` — Changement de compte & Délégation
+### `/api/account-access` - Changement de compte & Délégation
 
 | Méthode | Route | Description |
 |---|---|---|
@@ -390,7 +390,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 # Base
 PORT=5001
 DATABASE_URL=postgresql://...
-JWT_SECRET=...                    # Obligatoire — pas de valeur par défaut
+JWT_SECRET=...                    # Obligatoire - pas de valeur par défaut
 UPLOAD_DIR=/app/uploads
 
 # OAuth2
@@ -406,7 +406,7 @@ BRAIN_API_URL=http://brain-api:8001   # Si absent  fonctionnalités RAG désacti
 ALLOWED_ORIGINS=http://localhost:3000,https://supfile.fr
 ENFORCE_HTTPS=false
 
-# S3 (optionnel — sinon stockage local)
+# S3 (optionnel - sinon stockage local)
 S3_ENDPOINT=...
 S3_BUCKET=...
 S3_ACCESS_KEY=...

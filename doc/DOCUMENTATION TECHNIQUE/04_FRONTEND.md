@@ -1,4 +1,4 @@
-#  Frontend — Documentation Technique
+#  Frontend - Documentation Technique
 
 Interface web du projet **SUPFile**.  
 Basé sur **React 18 + Vite + TypeScript**.
@@ -23,12 +23,81 @@ Basé sur **React 18 + Vite + TypeScript**.
 
 ---
 
+## Flow d'authentification
+
+```mermaid
+flowchart TD
+    A[Utilisateur] --> B{Connecte?}
+    B -->|Non| C[Page Login]
+    B -->|Oui| D[Dashboard]
+    
+    C --> E{Methode}
+    E -->|Email/Password| F[Saisie credentials]
+    E -->|OAuth| G[Redirect Google/GitHub]
+    
+    F --> H{Valide?}
+    H -->|Non| C
+    H -->|Oui| I{MFA active?}
+    
+    G --> J[Callback OAuth]
+    J --> I
+    
+    I -->|Non| K[Setup MFA obligatoire]
+    I -->|Oui| L{Appareil confiance?}
+    
+    K --> M[Scan QR Code]
+    M --> N[Saisie code TOTP]
+    N --> D
+    
+    L -->|Oui| D
+    L -->|Non| O[Page MFA Verify]
+    O --> P[Saisie code TOTP]
+    P --> Q{Code valide?}
+    Q -->|Non| O
+    Q -->|Oui| D
+```
+
+---
+
+## Choix UX/UI
+
+### Design System
+
+- **TailwindCSS** : Classes utilitaires pour un design coherent et rapide
+- **Theme clair/sombre** : Variables CSS, persistance en base de donnees
+- **Couleur principale** : Vert (#22c55e) - evoque la securite et l'ecologie
+- **Icones** : Lucide React - coherentes et legeres
+
+### Principes UX
+
+| Principe | Implementation |
+|---|---|
+| Feedback immediat | Toast notifications, spinners, barres de progression |
+| Actions reversibles | Corbeille 90 jours, confirmation avant suppression definitive |
+| Accessibilite | Labels ARIA, navigation clavier, contraste suffisant |
+| Mobile-first | Responsive design, touch-friendly |
+
+### Interactions
+
+- **Drag & drop** : Upload et deplacement de fichiers (HTML5 natif)
+- **Clic droit** : Menu contextuel pour actions rapides
+- **Raccourcis** : Ctrl+K recherche, Echap fermer modals
+- **Temps reel** : Notifications WebSocket instantanees
+
+### Stripe (mode test)
+
+L'integration Stripe utilise des cles de test (`sk_test_*`). Les paiements ne sont pas reels. Cartes de test :
+- `4242 4242 4242 4242` - Paiement reussi
+- `4000 0000 0000 0002` - Paiement refuse
+
+---
+
 ## Structure des dossiers
 
 ```
 frontend/src/
  App.tsx              # Définition du routing React Router
- main.tsx             # Point d'entrée — BrowserRouter, i18n, stores
+ main.tsx             # Point d'entrée - BrowserRouter, i18n, stores
  components/          # Composants réutilisables
  pages/               # Pages (mappées aux routes)
  services/            # Clients HTTP (un par domaine métier)
@@ -106,7 +175,7 @@ Tableau de bord :
 - Activités récentes
 
 ### `FilesPage`
-Page principale du gestionnaire de fichiers — la plus complexe (~37KB) :
+Page principale du gestionnaire de fichiers :
 - Navigation par dossiers avec fil d'Ariane (`Breadcrumb`)
 - Affichage liste / grille des fichiers et dossiers
 - Upload via bouton ou **drag & drop** (HTML5 natif, anti-conflit avec le déplacement)
@@ -125,7 +194,7 @@ Page principale du gestionnaire de fichiers — la plus complexe (~37KB) :
 Liste des fichiers marqués favoris avec les mêmes actions que `FilesPage`.
 
 ### `SharedPage`
-Gestion des partages (~34KB) :
+Gestion des partages :
 - Onglets : Partagés avec moi (dossiers + fichiers), Partagés par moi, Liens publics
 - Acceptation / refus des partages en attente (`PendingSharesModal`)
 - Modification des permissions
@@ -136,7 +205,7 @@ Gestion des partages (~34KB) :
 Corbeille avec restauration et suppression définitive (fichiers + dossiers).
 
 ### `SettingsPage`
-Paramètres complets (~31KB) :
+Paramètres complets :
 - Profil (avatar, nom, email, mot de passe)
 - Thème clair / sombre
 - Langue (FR/EN via i18next)
@@ -148,7 +217,7 @@ Paramètres complets (~31KB) :
 - Logs d'activité : `ActivityLog`
 
 ### `PlansPage`
-Présentation des plans FREE / PRO / Business avec souscription Stripe.
+Presentation des plans FREE / PRO / Business avec souscription Stripe (mode test - cles `sk_test_*`).
 
 ### `AdminPage`
 Panneau super-admin : gestion des utilisateurs, statistiques globales.
@@ -157,7 +226,7 @@ Panneau super-admin : gestion des utilisateurs, statistiques globales.
 Gestion d'une organisation : membres, rôles, paramètres.
 
 ### `SharedLinkPage`
-Accès public à un fichier/dossier partagé via token — sans compte requis.
+Accès public à un fichier/dossier partagé via token - sans compte requis.
 Formulaire de mot de passe si lien protégé. Téléchargement ou prévisualisation.
 
 ### `OAuthCallbackPage`
@@ -260,7 +329,7 @@ Tous les services utilisent l'instance Axios centralisée (`services/api.ts`).
 
 | Service | Endpoints couverts |
 |---|---|
-| `api.ts` | Instance Axios — intercepteur auth JWT, gestion 401 (redirect login ou `SESSION_EXPIRED`) |
+| `api.ts` | Instance Axios - intercepteur auth JWT, gestion 401 (redirect login ou `SESSION_EXPIRED`) |
 | `authService` | login, register, getProfile, updateProfile, changePassword, exportData, OAuth2 |
 | `fileService` | upload, list, search, get, download, stream, update, move, restore, favorite, delete, exportCsv |
 | `folderService` | create, list, get, breadcrumbs, downloadZip, update, move, restore, delete |

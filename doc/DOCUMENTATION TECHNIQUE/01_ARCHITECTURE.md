@@ -1,4 +1,4 @@
-# Architecture — SUPFile
+# Architecture - SUPFile
 
 ## Vue d'ensemble
 

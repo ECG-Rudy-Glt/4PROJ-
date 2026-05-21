@@ -17,10 +17,11 @@ Toute la documentation est disponible dans [`doc/DOCUMENTATION TECHNIQUE/`](doc/
 - [02 - Manuel utilisateur](doc/DOCUMENTATION%20TECHNIQUE/02_MANUEL_UTILISATEUR.md) - Guide utilisateur detaille
 - [03 - Backend](doc/DOCUMENTATION%20TECHNIQUE/03_BACKEND.md) - API REST, endpoints, middlewares, services
 - [04 - Frontend](doc/DOCUMENTATION%20TECHNIQUE/04_FRONTEND.md) - React, stores Zustand, composants
-- [05 - Bobby IA](doc/DOCUMENTATION%20TECHNIQUE/05_BOBBY.md) - Microservice IA, RAG, ChromaDB, Ollama
-- [06 - Infrastructure](doc/DOCUMENTATION%20TECHNIQUE/06_INFRASTRUCTURE.md) - Deploiement VPS, Docker, configuration
-- [07 - CI/CD](doc/DOCUMENTATION%20TECHNIQUE/07_CICD.md) - Pipeline GitHub Actions, SAST, SBOM
-- [08 - Administration](doc/DOCUMENTATION%20TECHNIQUE/08_ADMIN.md) - Mode operatoire administrateur
+- [05 - Mobile](doc/DOCUMENTATION%20TECHNIQUE/05_MOBILE.md) - React Native, Expo, composants mobile
+- [06 - Bobby IA](doc/DOCUMENTATION%20TECHNIQUE/06_BOBBY.md) - Microservice IA, RAG, ChromaDB, Ollama
+- [07 - Infrastructure](doc/DOCUMENTATION%20TECHNIQUE/07_INFRASTRUCTURE.md) - Deploiement VPS, Docker, configuration
+- [08 - CI/CD](doc/DOCUMENTATION%20TECHNIQUE/08_CICD.md) - Pipeline GitHub Actions, SAST, SBOM
+- [09 - Administration](doc/DOCUMENTATION%20TECHNIQUE/09_ADMIN.md) - Mode operatoire administrateur
 - [99 - Annexes](doc/DOCUMENTATION%20TECHNIQUE/99_ANNEXES.md) - Glossaire, liens, variables d'environnement
 
 ### Manuel utilisateur

@@ -1,8 +1,8 @@
-# SUPFile — CI/CD & DevSecOps
+# SUPFile - CI/CD & DevSecOps
 
 ---
 
-## Pipeline GitHub Actions — Vue d'ensemble
+## Pipeline GitHub Actions - Vue d'ensemble
 
 Fichier : `.github/workflows/ci.yml`
 
@@ -66,19 +66,19 @@ Cache `node_modules` + `~/.cache/Cypress` -- evite le re-telechargement du binai
 
 ---
 
-### [2c] semgrep — SAST
+### [2c] semgrep - SAST
 
 - Outil : **Semgrep** (container officiel `semgrep/semgrep`)
 - Regles appliquees :
-  - `p/default` — regles communautaires generales
-  - `p/nodejs` — patterns specifiques Node.js (injection, path traversal, prototype pollution)
-  - `p/react` — XSS, dangerouslySetInnerHTML, event handler injection
+  - `p/default` - regles communautaires generales
+  - `p/nodejs` - patterns specifiques Node.js (injection, path traversal, prototype pollution)
+  - `p/react` - XSS, dangerouslySetInnerHTML, event handler injection
 - Mode : `--severity ERROR --error` -- tout finding ERROR bloque le pipeline
 - Aucun secret ou cle API necessaire -- analyse purement statique
 
 ---
 
-### [2d] trufflehog — Detection de secrets
+### [2d] trufflehog - Detection de secrets
 
 - Outil : **TruffleHog v3** (binaire installe depuis le script officiel)
 - Perimetre : **tout l'historique git** (`fetch-depth: 0` pour avoir les commits complets)
@@ -95,13 +95,13 @@ Cache `node_modules` + `~/.cache/Cypress` -- evite le re-telechargement du binai
 - Frontend : `./frontend` -> `frontend:ci`
 - Cache BuildKit GitHub Actions (`type=gha`) par scope -- build incremental sur les layers non modifies
 
-**Dockle — Audit Dockerfile (CIS Docker Benchmark)** :
+**Dockle - Audit Dockerfile (CIS Docker Benchmark)** :
 - Niveau de blocage : `--exit-level fatal` (avertissements non bloquants, erreurs critiques bloquantes)
 - Backend : scan sans exceptions
 - Frontend : exception `CIS-DI-0010` (faux positif confirme -- signature nginx dans `nginx-unprivileged`)
 - Les deux jobs ont `continue-on-error: true` -- les findings sont loggues sans casser le pipeline
 
-**SBOM — Software Bill of Materials** :
+**SBOM - Software Bill of Materials** :
 - Outil : `anchore/sbom-action`
 - Format : **SPDX-JSON** (standard NTIA, requis NIS2 supply chain)
 - Deux fichiers produits : `sbom-backend.spdx.json` + `sbom-frontend.spdx.json`

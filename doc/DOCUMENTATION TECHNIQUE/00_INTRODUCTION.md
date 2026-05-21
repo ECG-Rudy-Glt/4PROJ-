@@ -1,4 +1,4 @@
-# Introduction — SUPFile
+# Introduction - SUPFile
 
 ## Presentation du projet
 
@@ -41,4 +41,4 @@
 
 ---
 
-**Projet** : 4PROJ — SUPINFO 2025-2026
+**Projet** : 4PROJ - SUPINFO 2025-2026

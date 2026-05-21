@@ -1,4 +1,4 @@
-Mode opératoire — Lancer le projet et démarrer avec le compte admin
+Mode opératoire - Lancer le projet et démarrer avec le compte admin
 ===============================================================
 
 Objet
@@ -27,7 +27,7 @@ Prérequis
 
 3. Attendre que les conteneurs démarrent et que le `backend` soit `healthy` :
 
-   `docker compose ps`  — vérifier la ligne `backend` (statut `Up ... (healthy)`).
+   `docker compose ps`  - vérifier la ligne `backend` (statut `Up ... (healthy)`).
 
 4. Créer le compte admin (exemple par défaut) :
 
@@ -87,5 +87,5 @@ Usage rapide :
 
 Annexes
 -------
-- Emplacements : frontend `http://localhost:3000` — backend API `http://localhost:5001`
+- Emplacements : frontend `http://localhost:3000` - backend API `http://localhost:5001`
 - Si tu veux que j'exécute le script maintenant, dis "exécute".
