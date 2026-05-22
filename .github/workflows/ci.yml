@@ -198,6 +198,8 @@ jobs:
   docker-build:
     needs: [ backend-checks, frontend-checks, semgrep, trufflehog ]
     runs-on: ubuntu-latest
+    env:
+      DOCKLE_VERSION: "0.4.15"
 
     steps:
       - name: Checkout Code
@@ -229,11 +231,12 @@ jobs:
       # Dockle audit configuration Dockerfile 
       - name: Install Dockle
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/goodwithtech/dockle/releases/latest \
-            | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-          curl -sL "https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Linux-64bit.tar.gz" \
-            | tar xz
-          sudo mv dockle /usr/local/bin/
+          curl -fsSL \
+            -o /tmp/dockle.tar.gz \
+            "https://github.com/goodwithtech/dockle/releases/download/v${DOCKLE_VERSION}/dockle_${DOCKLE_VERSION}_Linux-64bit.tar.gz"
+          tar -xzf /tmp/dockle.tar.gz -C /tmp dockle
+          sudo install -m 0755 /tmp/dockle /usr/local/bin/dockle
+          dockle --version
 
       - name: Scan Backend Image with Dockle
         run: dockle --exit-code 1 --exit-level fatal backend:ci
