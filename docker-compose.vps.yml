@@ -1,9 +1,19 @@
+# Override VPS production — utilisé avec :
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+#
+# Ajoute :
+#   - Reverse proxy nginx avec SSL (Let's Encrypt)
+#   - BIND_ADDRESS=127.0.0.1 pour ne pas exposer les ports internes
+#   - URLs publiques via le domaine supfile.tech
+#   - Support du renouvellement ACME (certbot)
+
 services:
   backend:
     environment:
       API_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}
       FRONTEND_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}
       ONLYOFFICE_PUBLIC_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}/onlyoffice
+      OAUTH_CALLBACK_BASE: ${PUBLIC_BASE_URL:-https://supfile.tech}
 
   frontend:
     build:
@@ -15,13 +25,15 @@ services:
     container_name: supfile-vps-proxy
     depends_on:
       - frontend
+      - backend
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./frontend/nginx.vps.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.vps.conf:/etc/nginx/nginx.conf:ro
       - ${SSL_FULLCHAIN_PATH:-/etc/letsencrypt/live/supfile.tech/fullchain.pem}:/etc/ssl/certs/fullchain.pem:ro
       - ${SSL_PRIVKEY_PATH:-/etc/letsencrypt/live/supfile.tech/privkey.pem}:/etc/ssl/certs/privkey.pem:ro
+      - /var/www/certbot:/var/www/certbot:ro
     restart: unless-stopped
     networks:
       - supfile-network
