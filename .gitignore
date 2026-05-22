@@ -50,15 +50,9 @@ nyc_output/
 backups/
 doc/account-deletion-snapshots/
 
-claude/
 repomix-output.*
 codesight/report.html
 codesight/
 repomix.config.json
 
-cursorrules/
-AGENTS.md
-CLAUDE.md
-codex.md
-copilot-instructions.md
-AUDIT_FONCTIONNALITES_SUPFILE.md
+
