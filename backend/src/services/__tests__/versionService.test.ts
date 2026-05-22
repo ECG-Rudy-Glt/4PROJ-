@@ -218,6 +218,18 @@ describe('VersionService share acceptance checks', () => {
       },
     });
   });
+
+  it('refuses versioning when the owner plan has no version slots', async () => {
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue(currentFile);
+    (PlanService.getNumericLimit as jest.Mock).mockResolvedValue(0);
+
+    await expect(VersionService.getFileVersions('file-1', 'owner-1'))
+      .rejects.toThrow('Le versioning est disponible à partir du plan PRO.');
+
+    await expect(
+      VersionService.createVersion('file-1', 'owner-1', '/tmp/new.docx', 'new.docx', 10, 'application/docx')
+    ).rejects.toThrow('Le versioning est disponible à partir du plan PRO.');
+  });
 });
 
 describe('VersionService quota and storage ownership', () => {

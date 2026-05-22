@@ -13,6 +13,14 @@ import { DEK_UNLOCK_REQUIRED } from '../utils/dekGuard';
 import logger from '../config/logger';
 
 export class VersionService {
+  private static async getEnabledVersionLimit(userId: string): Promise<number | null> {
+    const maxVersions = await PlanService.getNumericLimit(userId, 'maxVersions');
+    if (maxVersions !== null && maxVersions <= 0) {
+      throw new Error('Le versioning est disponible à partir du plan PRO.');
+    }
+    return maxVersions;
+  }
+
   /**
    * Créer une nouvelle version d'un fichier
    */
@@ -80,12 +88,8 @@ export class VersionService {
     }
 
     const quotaOwnerId = file.userId;
-    const maxVersions = await PlanService.getNumericLimit(quotaOwnerId, 'maxVersions');
+    const maxVersions = await this.getEnabledVersionLimit(quotaOwnerId);
     if (maxVersions !== null) {
-      if (maxVersions <= 0) {
-        throw new Error('Limite de 0 versions atteinte pour votre plan');
-      }
-
       await this.cleanOldVersions(fileId, quotaOwnerId, file.storagePath, maxVersions - 1);
 
       const currentVersionCount = await prisma.fileVersion.count({
@@ -217,6 +221,7 @@ export class VersionService {
       throw new Error('Accès interdit au contenu coffre-fort');
     }
     await VaultService.assertUnlockedIfVault(userId, file.isVault && file.userId === userId);
+    await this.getEnabledVersionLimit(file.userId);
 
     return await prisma.fileVersion.findMany({
       where: { fileId },
@@ -271,7 +276,7 @@ export class VersionService {
     await this.assertVersionReadable(version.storagePath, dek);
 
     const quotaOwnerId = file.userId;
-    const maxVersions = await PlanService.getNumericLimit(quotaOwnerId, 'maxVersions');
+    const maxVersions = await this.getEnabledVersionLimit(quotaOwnerId);
     if (maxVersions !== null) {
       if (maxVersions < 2) {
         throw new Error('La limite de versions ne permet pas de conserver la version restaurée et la sauvegarde courante');
@@ -411,6 +416,7 @@ export class VersionService {
       throw new Error('Fichier introuvable');
     }
     await VaultService.assertUnlockedIfVault(userId, file.isVault);
+    await this.getEnabledVersionLimit(file.userId);
 
     const version = await prisma.fileVersion.findUnique({
       where: { id: versionId },

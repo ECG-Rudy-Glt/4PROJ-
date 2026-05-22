@@ -453,7 +453,7 @@ Obtenez un token via **POST /api/auth/login**.
       post: {
         tags: ['Files'],
         summary: 'Upload de fichier(s)',
-        description: 'Chiffrement AES-256 appliqué automatiquement. Limite : 100 Mo (FREE) / 500 Mo (PRO).',
+        description: 'Chiffrement AES-256 appliqué automatiquement. Limites par fichier : 100 Mo (FREE), 1 Go (PRO), 5 Go (BUSINESS/ENTERPRISE).',
         requestBody: {
           required: true,
           content: {
@@ -1361,6 +1361,7 @@ Obtenez un token via **POST /api/auth/login**.
       get: {
         tags: ['Versions'],
         summary: 'Lister les versions d\'un fichier',
+        description: 'Disponible à partir du plan PRO. Le plan FREE ne conserve pas d\'historique de versions.',
         parameters: [{ name: 'fileId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: { '200': { description: 'Historique des versions' } },
       },
@@ -1370,6 +1371,7 @@ Obtenez un token via **POST /api/auth/login**.
       post: {
         tags: ['Versions'],
         summary: 'Restaurer une version antérieure',
+        description: 'Disponible à partir du plan PRO. Le plan FREE ne permet pas de restaurer une version.',
         parameters: [
           { name: 'fileId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'versionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -1382,6 +1384,7 @@ Obtenez un token via **POST /api/auth/login**.
       delete: {
         tags: ['Versions'],
         summary: 'Supprimer une version',
+        description: 'Disponible à partir du plan PRO. Le plan FREE ne permet pas de gérer les versions.',
         parameters: [
           { name: 'fileId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'versionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },

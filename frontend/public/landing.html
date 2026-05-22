@@ -52,8 +52,8 @@
     "url": "https://supfile.tech",
     "offers": [
       { "@type": "Offer", "name": "Plan Gratuit",  "price": "0",     "priceCurrency": "EUR" },
-      { "@type": "Offer", "name": "Plan Pro",      "price": "9.99",  "priceCurrency": "EUR" },
-      { "@type": "Offer", "name": "Plan Business", "price": "24.99", "priceCurrency": "EUR" }
+      { "@type": "Offer", "name": "Plan Pro 1 To",      "price": "9.99",  "priceCurrency": "EUR" },
+      { "@type": "Offer", "name": "Plan Business 10 To", "price": "24.99", "priceCurrency": "EUR" }
     ],
     "featureList": [
       "Chiffrement AES-256",
@@ -535,7 +535,7 @@
           <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
         </div>
         <h3>Versioning des fichiers</h3>
-        <p>Restaurez une version antérieure de vos fichiers selon votre forfait : 10 versions en Pro, 25 en Business, illimité en Enterprise.</p>
+        <p>Restaurez une version antérieure de vos fichiers selon votre forfait : non inclus en Gratuit, 10 versions en Pro, 25 en Business, illimité en Enterprise.</p>
       </article>
 
     </div>
@@ -640,6 +640,7 @@
           <li class="off"><div class="fi"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><span>IA Bobby</span></li>
           <li class="off"><div class="fi"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><span>Coffre-fort chiffré</span></li>
           <li class="off"><div class="fi"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><span>OnlyOffice</span></li>
+          <li class="off"><div class="fi"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><span>Versioning non inclus</span></li>
         </ul>
         <a href="/register" class="plan-cta plan-cta-outline">Commencer gratuitement</a>
       </div>
@@ -647,9 +648,9 @@
       <!-- PRO -->
       <div class="pricing-card popular">
         <div class="popular-badge">Recommandé</div>
-        <div class="plan-name">Pro</div>
+        <div class="plan-name">Pro 1 To</div>
         <div class="plan-price">9,99 €<sub>/mois</sub></div>
-        <div class="plan-storage">200 Go de stockage sécurisé</div>
+        <div class="plan-storage">1 To de stockage sécurisé</div>
         <p class="plan-desc">Pour les professionnels et freelances.</p>
         <hr class="plan-divider"/>
         <ul class="plan-features">
@@ -665,9 +666,9 @@
 
       <!-- BUSINESS -->
       <div class="pricing-card">
-        <div class="plan-name">Business</div>
+        <div class="plan-name">Business 10 To</div>
         <div class="plan-price">24,99 €<sub>/mois</sub></div>
-        <div class="plan-storage">2 To de stockage sécurisé</div>
+        <div class="plan-storage">10 To de stockage sécurisé</div>
         <p class="plan-desc">Pour les équipes et petites structures.</p>
         <hr class="plan-divider"/>
         <ul class="plan-features">
@@ -835,6 +836,30 @@
     </div>
   </div>
 </footer>
+
+<script>
+  (function () {
+    var ua = navigator.userAgent || navigator.vendor || '';
+    var isIPadOS = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+    var isMobile = isIPadOS || /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua);
+    if (!isMobile) return;
+
+    document.body.innerHTML = [
+      '<main style="min-height:100vh;background:#030712;color:#fff;display:flex;align-items:center;justify-content:center;padding:32px;font-family:Inter,Arial,sans-serif;">',
+      '<section style="max-width:680px;width:100%;">',
+      '<p style="display:inline-flex;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);border-radius:999px;padding:6px 12px;margin:0 0 18px;font-size:14px;">Acces mobile bloque</p>',
+      '<h1 style="font-size:clamp(30px,8vw,44px);line-height:1.08;margin:0 0 16px;">SUPFile Web est disponible depuis un ordinateur</h1>',
+      '<p style="color:#d1d5db;font-size:17px;line-height:1.7;margin:0 0 24px;">Pour utiliser SUPFile sur mobile pendant le developpement, installez Expo Go puis scannez le QR code Expo ou saisissez l\'URL Expo generee par le terminal.</p>',
+      '<div style="display:grid;gap:14px;margin-bottom:24px;">',
+      '<div style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:12px;padding:18px;"><strong>Acces web</strong><p style="color:#d1d5db;margin:8px 0 0;line-height:1.55;">Ouvrez le site depuis un PC ou un Mac pour acceder a l\'application web complete.</p></div>',
+      '<div style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:12px;padding:18px;"><strong>Acces mobile</strong><p style="color:#d1d5db;margin:8px 0 0;line-height:1.55;">Lancez l\'app mobile avec Expo, puis utilisez Expo Go pour scanner le QR code ou entrer l\'URL Expo affichee.</p></div>',
+      '</div>',
+      '<a href="https://expo.dev/client" rel="noreferrer" style="display:inline-flex;background:#fff;color:#030712;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">Telecharger Expo Go</a>',
+      '</section>',
+      '</main>'
+    ].join('');
+  })();
+</script>
 
 </body>
 </html>

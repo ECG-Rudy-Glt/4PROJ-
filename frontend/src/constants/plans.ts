@@ -1,16 +1,16 @@
 export type PlanId = 'FREE' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
-export type PlanFeature = 'aiChat' | 'vault' | 'onlyoffice' | 'auditLogs';
+export type PlanFeature = 'aiChat' | 'vault' | 'onlyoffice' | 'auditLogs' | 'versioning';
 
 export const PLAN_STORAGE_LABELS: Record<PlanId, string> = {
   FREE: '30 Go',
-  PRO: '200 Go',
-  BUSINESS: '2 To',
+  PRO: '1 To',
+  BUSINESS: '10 To',
   ENTERPRISE: '10 To',
 };
 
 export const isFeatureAvailableForPlan = (plan: PlanId | undefined | null, feature: PlanFeature): boolean => {
   if (!plan) return false;
-  if (['aiChat', 'vault', 'onlyoffice', 'auditLogs'].includes(feature)) {
+  if (['aiChat', 'vault', 'onlyoffice', 'auditLogs', 'versioning'].includes(feature)) {
     return plan !== 'FREE';
   }
   return true;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
 
@@ -22,15 +22,22 @@ import OrganizationAdminPage from './pages/OrganizationAdminPage';
 import AuditPage from './pages/AuditPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LegalPage from './pages/LegalPage';
+import MobileBlockedPage from './pages/MobileBlockedPage';
 
 // Components
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import { isMobileBrowser } from './hooks/useMobileRedirect';
 
 function App() {
   const { loadUser, isAuthenticated } = useAuthStore();
   const location = useLocation();
+  const [mobileWebBlocked, setMobileWebBlocked] = useState(() => isMobileBrowser());
+
+  useEffect(() => {
+    setMobileWebBlocked(isMobileBrowser());
+  }, []);
 
   const isPublicRoute = [
     '/login',
@@ -52,8 +59,17 @@ function App() {
     }
   }, [isAuthenticated, isPublicRoute, loadUser]);
 
+  if (mobileWebBlocked) {
+    return (
+      <Routes>
+        <Route path="*" element={<MobileBlockedPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <Routes>
+      <Route path="/mobile" element={<MobileBlockedPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />

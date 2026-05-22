@@ -274,6 +274,8 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ### `/api/files/:fileId/versions` - Versioning
 
+Le versioning est disponible à partir du plan PRO. Le plan FREE a `maxVersions = 0` et ne peut pas créer, lister, restaurer ou supprimer d'historique de versions.
+
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
 | GET | `/files/:fileId/versions` | read | Historique des versions |

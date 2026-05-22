@@ -44,15 +44,16 @@ const PLANS: PlanDef[] = [
       { label: 'Assistant Bobby (IA)', included: false },
       { label: 'Coffre-fort chiffré', included: false },
       { label: 'Édition OnlyOffice', included: false },
+      { label: 'Versioning non inclus', included: false },
     ],
   },
   {
     id: 'PRO',
-    name: 'Pro',
+    name: 'Pro 1 To',
     price: '9,99 €',
     period: '/mois',
     description: 'Pour les professionnels',
-    storage: '200 Go',
+    storage: '1 To',
     popular: true,
     features: [
       { label: 'Assistant Bobby (IA)', included: true },
@@ -65,11 +66,11 @@ const PLANS: PlanDef[] = [
   },
   {
     id: 'BUSINESS',
-    name: 'Business',
+    name: 'Business 10 To',
     price: '24,99 €',
     period: '/mois',
     description: 'Pour les équipes',
-    storage: '2 To',
+    storage: '10 To',
     features: [
       { label: 'IA avancée', included: true },
       { label: 'Coffre-fort chiffré', included: true },

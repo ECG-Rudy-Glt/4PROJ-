@@ -92,7 +92,7 @@ const pages: Record<LegalPageKind, {
       },
       {
         heading: 'Forfaits',
-        body: 'Les droits appliqués par l’application font foi. À ce jour, le plan Gratuit inclut 30 Go, Pro inclut 200 Go, Business inclut 2 To et Enterprise inclut 10 To avec un accompagnement sur devis. Certaines fonctions comme Bobby, le coffre-fort, OnlyOffice, les partages protégés et l’audit avancé dépendent du forfait.',
+        body: 'Les droits appliqués par l’application font foi. À ce jour, le plan Gratuit inclut 30 Go sans versioning, Pro inclut 1 To, Business inclut 10 To et Enterprise inclut 10 To avec un accompagnement sur devis. Certaines fonctions comme Bobby, le coffre-fort, OnlyOffice, le versioning, les partages protégés et l’audit avancé dépendent du forfait.',
       },
       {
         heading: 'Paiement test',

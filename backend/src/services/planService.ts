@@ -3,8 +3,9 @@ import prisma from '../config/database';
 
 const GB = BigInt(1024 * 1024 * 1024);
 const MB = BigInt(1024 * 1024);
+const TB = BigInt(1024) * GB;
 export const PLAN_UPGRADE_REQUIRED_CODE = 'PLAN_UPGRADE_REQUIRED';
-export type PlanFeature = 'mfa' | 'prioritySupport' | 'auditLogs' | 'aiChat' | 'vault' | 'onlyoffice' | 'sharePassword';
+export type PlanFeature = 'mfa' | 'prioritySupport' | 'auditLogs' | 'aiChat' | 'vault' | 'onlyoffice' | 'sharePassword' | 'versioning';
 
 export class PlanUpgradeRequiredError extends Error {
     statusCode = 403;
@@ -21,9 +22,9 @@ export class PlanUpgradeRequiredError extends Error {
 export const PLAN_LIMITS = {
     [Plan.FREE]: {
         storage: BigInt(30) * GB, // 30 GB
-        maxFileSize: BigInt(10) * GB, // 10 GB per file
+        maxFileSize: BigInt(100) * MB, // 100 MB per file
         maxShares: 100,
-        maxVersions: 3,
+        maxVersions: 0,
         maxTags: 10,
         features: {
             mfa: true,
@@ -33,11 +34,12 @@ export const PLAN_LIMITS = {
             vault: false,
             onlyoffice: false,
             sharePassword: false,
+            versioning: false,
         },
     },
     [Plan.PRO]: {
-        storage: BigInt(200) * GB, // 200 GB
-        maxFileSize: BigInt(500) * MB, // 500 MB per file
+        storage: TB, // 1 TB
+        maxFileSize: GB, // 1 GB per file
         maxShares: 500,
         maxVersions: 10,
         maxTags: 50,
@@ -49,12 +51,13 @@ export const PLAN_LIMITS = {
             vault: true,
             onlyoffice: true,
             sharePassword: true,
+            versioning: true,
         },
     },
     [Plan.BUSINESS]: {
-        storage: BigInt(2048) * GB, // 2 TB
-        maxFileSize: BigInt(2048) * MB, // 2 GB per file
-        maxShares: 200,
+        storage: BigInt(10) * TB, // 10 TB
+        maxFileSize: BigInt(5) * GB, // 5 GB per file (global upload cap)
+        maxShares: 2000,
         maxVersions: 25,
         maxTags: 200,
         features: {
@@ -65,11 +68,12 @@ export const PLAN_LIMITS = {
             vault: true,
             onlyoffice: true,
             sharePassword: true,
+            versioning: true,
         },
     },
     [Plan.ENTERPRISE]: {
-        storage: BigInt(10240) * GB, // 10 TB
-        maxFileSize: BigInt(10240) * MB, // 10 GB per file
+        storage: BigInt(10) * TB, // 10 TB baseline, adjusted by contract if needed
+        maxFileSize: BigInt(5) * GB, // 5 GB per file (global upload cap)
         maxShares: -1, // unlimited
         maxVersions: -1, // unlimited
         maxTags: -1, // unlimited
@@ -81,6 +85,7 @@ export const PLAN_LIMITS = {
             vault: true,
             onlyoffice: true,
             sharePassword: true,
+            versioning: true,
         },
     },
 };

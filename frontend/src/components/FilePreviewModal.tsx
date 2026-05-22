@@ -12,6 +12,7 @@ import { DocumentEditor } from './DocumentEditor';
 import { OfficePreview } from './OfficePreview';
 import MarkdownPreview from './MarkdownPreview';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { isFeatureAvailableForPlan } from '@/constants/plans';
 
 interface FilePreviewModalProps {
   file: FileType;
@@ -242,7 +243,7 @@ function PdfPreview({ streamUrl, fileName, shareAccessToken }: { streamUrl: stri
 
 export default function FilePreviewModal({ file, onClose, isShared = false, shareAccessToken }: FilePreviewModalProps) {
   const { t } = useTranslation();
-  const { sessionContext } = useAuthStore();
+  const { sessionContext, user } = useAuthStore();
   const isDelegatedSession = Boolean(sessionContext?.authType && sessionContext.authType !== 'DIRECT');
 
   const [activePanel, setActivePanel] = useState<'comments' | 'versions'>('comments');
@@ -254,6 +255,7 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
     ? Boolean((file as any).canWrite ?? (file as any)._canWrite ?? sharedPermissions?.canWrite)
     : true;
   const isPasswordProtectedSharedFile = isShared && Boolean((file as any).passwordProtected);
+  const versioningAvailable = isShared || isFeatureAvailableForPlan(user?.plan, 'versioning');
 
   const handleDownload = useCallback(async () => {
     try {
@@ -464,14 +466,27 @@ export default function FilePreviewModal({ file, onClose, isShared = false, shar
                 {activePanel === 'comments' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />}
               </button>
               <button
-                onClick={() => setActivePanel('versions')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${activePanel === 'versions' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                onClick={() => versioningAvailable && setActivePanel('versions')}
+                disabled={!versioningAvailable}
+                title={!versioningAvailable ? t('versions.upgrade_required') : undefined}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                  !versioningAvailable
+                    ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                    : activePanel === 'versions'
+                      ? 'text-indigo-600 dark:text-indigo-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <History className="w-4 h-4" />
                   <span>{t('common.versions_tab')}</span>
+                  {!versioningAvailable && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-400">
+                      PRO
+                    </span>
+                  )}
                 </div>
-                {activePanel === 'versions' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />}
+                {versioningAvailable && activePanel === 'versions' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />}
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
