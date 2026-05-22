@@ -271,8 +271,8 @@ describe('Account Switcher Modal', () => {
     // The handler calls localStorage.setItem('token', 'root-token') then
     // window.location.replace('/dashboard'). Use a retry-able assertion
     // to handle the async timing between the response and the handler execution.
-    cy.should(() => {
-      expect(localStorage.getItem('token')).to.equal('root-token');
+    cy.window().should((win) => {
+      expect(win.localStorage.getItem('token')).to.equal('root-token');
     });
   });
 });
