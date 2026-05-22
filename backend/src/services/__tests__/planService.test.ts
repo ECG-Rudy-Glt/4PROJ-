@@ -51,6 +51,18 @@ describe('PlanService', () => {
     });
   });
 
+  describe('storage limits', () => {
+    it('should expose the pricing grid storage quotas', () => {
+      const gb = BigInt(1024 * 1024 * 1024);
+      const tb = BigInt(1024) * gb;
+
+      expect(PlanService.getStorageLimit(Plan.FREE)).toBe(BigInt(30) * gb);
+      expect(PlanService.getStorageLimit(Plan.PRO)).toBe(tb);
+      expect(PlanService.getStorageLimit(Plan.BUSINESS)).toBe(BigInt(10) * tb);
+      expect(PlanService.getStorageLimit(Plan.ENTERPRISE)).toBe(BigInt(10) * tb);
+    });
+  });
+
   describe('limits (shares/versions/tags)', () => {
     it('should enforce maxShares for FREE plan', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ plan: Plan.FREE });
@@ -60,11 +72,11 @@ describe('PlanService', () => {
       await expect(PlanService.checkLimit('user-1', 'maxShares', maxShares)).resolves.toBe(false);
     });
 
-    it('should enforce maxVersions for FREE plan', async () => {
+    it('should disable maxVersions for FREE plan', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ plan: Plan.FREE });
 
-      await expect(PlanService.checkLimit('user-1', 'maxVersions', 2)).resolves.toBe(true);
-      await expect(PlanService.checkLimit('user-1', 'maxVersions', 3)).resolves.toBe(false);
+      await expect(PlanService.getNumericLimit('user-1', 'maxVersions')).resolves.toBe(0);
+      await expect(PlanService.checkLimit('user-1', 'maxVersions', 0)).resolves.toBe(false);
     });
 
     it('should enforce maxTags for FREE plan', async () => {

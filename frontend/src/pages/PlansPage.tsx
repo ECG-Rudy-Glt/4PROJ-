@@ -35,6 +35,7 @@ const plans: Array<{
       { name: 'plans_page.features.ai_bobby', included: false },
       { name: 'plans_page.features.vault', included: false },
       { name: 'plans_page.features.onlyoffice', included: false },
+      { name: 'plans_page.features.versioning_none', included: false },
     ],
     icon: Database,
     color: 'bg-blue-100 text-blue-600',

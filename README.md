@@ -157,6 +157,8 @@ Le premier démarrage télécharge le modèle Ollama (~1,6 Go). L'application es
 - Pour iOS : macOS avec Xcode et simulateur
 - Expo Go app sur votre téléphone pour le développement rapide
 
+Le site web SUPFile bloque les navigateurs mobiles : utilisez un PC/Mac pour l'application web, ou lancez Expo puis scannez le QR code avec Expo Go / saisissez l'URL Expo générée.
+
 ### Configuration
 
 | Commande                 | Description                                               |
@@ -469,11 +471,11 @@ Le pipeline GitHub Actions exécute à chaque push :
 
 |               | FREE    | PRO         | BUSINESS     | ENTERPRISE |
 | ------------- | ------- | ----------- | ------------ | ---------- |
-| Stockage      | 30 Go   | 100 Go      | 500 Go       | Sur devis  |
+| Stockage      | 30 Go   | 1 To        | 10 To        | Sur devis  |
 | IA Bobby      | X       | V           | V            | V          |
 | Coffre-fort   | X       | V           | V            | V          |
 | Organisations | X       | X           | V            | V          |
-| Versioning    | X       | 10 versions | 30 versions  | Illimité   |
+| Versioning    | Non     | 10 versions | 25 versions  | Illimité   |
 | Prix          | Gratuit | 9,99 €/mois | 24,99 €/mois | Sur devis  |
 
 ---

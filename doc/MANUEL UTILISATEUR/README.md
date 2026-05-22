@@ -24,7 +24,7 @@
 
 **SUPFile** est une plateforme francaise de stockage cloud souverain, concue pour stocker, organiser et partager vos fichiers en toute securite.
 
-Accessible sur **https://supfile.tech/**, via application mobile (iOS/Android) et via le client Windows SupFile Sync, SUPFile permet de :
+Accessible sur **https://supfile.tech/** depuis un ordinateur, via application mobile (iOS/Android avec Expo Go en developpement) et via le client Windows SupFile Sync, SUPFile permet de :
 
 - Stocker vos fichiers en toute securite
 - Organiser avec des dossiers et des tags colores
@@ -469,11 +469,11 @@ L'application cree ou recupere automatiquement un dossier distant nomme **SupFil
 
 SUPFile propose plusieurs plans adaptes a vos besoins :
 
-**FREE** : 30 Go de stockage
+**FREE** : 30 Go de stockage, sans versioning
 
-**PRO** : Stockage augmente + Bobby IA + Coffre-fort
+**PRO** : 1 To de stockage + Bobby IA + Coffre-fort + 10 versions
 
-**BUSINESS** : Tout PRO + Organisations
+**BUSINESS** : 10 To de stockage + Tout PRO + Organisations + 25 versions
 
 **ENTERPRISE** : Sur mesure
 

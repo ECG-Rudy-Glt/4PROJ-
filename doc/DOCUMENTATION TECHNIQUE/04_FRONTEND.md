@@ -93,6 +93,7 @@ frontend/src/
 | `/mfa-verify` | `MFAVerificationPage` | Saisie du code TOTP lors du login |
 | `/auth/callback` | `OAuthCallbackPage` | Callback OAuth2 Google/GitHub |
 | `/share/:token` | `SharedLinkPage` | Accès à un lien de partage public (sans compte) |
+| `/mobile` | `MobileBlockedPage` | Écran d'information affiché aux appareils mobiles : accès web depuis PC/Mac, ou app mobile via Expo Go + QR code/URL Expo |
 
 ### Routes protégées (`ProtectedRoute`)
 
@@ -188,7 +189,7 @@ Paramètres complets :
 - Logs d'activité : `ActivityLog`
 
 ### `PlansPage`
-Presentation des plans FREE / PRO / Business avec souscription Stripe (mode test - cles `sk_test_*`).
+Presentation des plans FREE (30 Go, sans versioning), PRO 1 To, Business 10 To et Enterprise avec souscription Stripe (mode test - cles `sk_test_*`).
 
 ### `AdminPage`
 Panneau super-admin : gestion des utilisateurs, statistiques globales.

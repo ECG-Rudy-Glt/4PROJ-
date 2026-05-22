@@ -318,77 +318,101 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
             ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
-          build-args: VITE_API_URL=https://${{ vars.PREPROD_DEPLOY_HOST }}
+          build-args: VITE_API_URL=https://${{ vars.PROD_DEPLOY_HOST }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-  # DEPRECATED JOB
-  # [5] DÉPLOIEMENT PRÉPROD
-  # Copie les fichiers de configuration (docker-compose, nginx, .env) sur le VPS
-  # via SSH, puis lance un docker compose pull + up pour déployer les nouvelles
-  # images depuis GHCR. Nettoie les images âgées de plus de 7 jours.
+  # ─────────────────────────────────────────────────────────────────────
+  # [5] DÉPLOIEMENT PRODUCTION
+  # Copie les fichiers de configuration sur le VPS via SSH, puis lance
+  # docker compose pull + up pour déployer les nouvelles images GHCR.
   # Exécuté uniquement sur push vers main.
-  # deploy-preprod:
-  #   needs: [ docker-push ]
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   environment:
-  #     name: preprod
-  #     url: https://${{ vars.PREPROD_DEPLOY_HOST }}
+  # ─────────────────────────────────────────────────────────────────────
+  deploy-prod:
+    needs: [ docker-push ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://${{ vars.PROD_DEPLOY_HOST }}
 
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
 
-  #     - name: Set image name
-  #       run: |
-  #         echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
+      - name: Set image name
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
 
-  #     - name: Setup SSH
-  #       run: |
-  #         mkdir -p ~/.ssh
-  #         printf '%s\n' "${{ secrets.PREPROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-  #         chmod 600 ~/.ssh/id_rsa
-  #         ssh-keyscan -H "${{ vars.PREPROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.PROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ vars.PROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-  #     - name: Ensure deploy path exists on VPS
-  #       run: |
-  #         ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} \
-  #           mkdir -p ${{ vars.PREPROD_DEPLOY_PATH }}
+      - name: Ensure deploy path exists
+        run: |
+          ssh ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }} \
+            mkdir -p ${{ vars.PROD_DEPLOY_PATH }}/postgres/init
 
-  #     - name: Copy compose and nginx config to VPS
-  #       run: |
-  #         scp docker-compose.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
-  #         scp docker-compose.vps.yml ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
-  #         scp frontend/nginx.vps.conf ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/
+      - name: Copy compose and nginx config to VPS
+        run: |
+          scp docker-compose.yml \
+              docker-compose.vps.yml \
+              frontend/nginx.vps.conf \
+              ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/
 
-  #     - name: Copy .env to VPS
-  #       run: |
-  #         if [ -n "$PREPROD_ENV_FILE_CONTENT" ]; then
-  #           echo "${PREPROD_ENV_FILE_CONTENT}" > .env.tmp
-  #           scp .env.tmp ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }}:${{ vars.PREPROD_DEPLOY_PATH }}/.env
-  #           rm .env.tmp
-  #         fi
-  #       env:
-  #         PREPROD_ENV_FILE_CONTENT: ${{ secrets.PREPROD_ENV_FILE_CONTENT }}
+      - name: Copy postgres init scripts
+        run: |
+          scp -r postgres/init/* \
+              ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/postgres/init/
 
-  #     - name: Deploy on VPS
-  #       run: |
-  #         BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
-  #         FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
-  #         GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
-  #         ACTOR="${{ github.actor }}"
-  #         DEPLOY_PATH="${{ vars.PREPROD_DEPLOY_PATH }}"
+      - name: Copy backup/restore scripts
+        run: |
+          scp scripts/backup-vps.sh scripts/restore-vps.sh \
+              ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/
 
-  #         ssh ${{ vars.PREPROD_DEPLOY_USER }}@${{ vars.PREPROD_DEPLOY_HOST }} bash << EOF
-  #           export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
-  #           cd ${DEPLOY_PATH}
-  #           echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+      - name: Deploy .env
+        run: |
+          if [ -n "$PROD_ENV_FILE_CONTENT" ]; then
+            echo "${PROD_ENV_FILE_CONTENT}" > .env.tmp
+            scp .env.tmp ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/.env
+            rm .env.tmp
+          fi
+        env:
+          PROD_ENV_FILE_CONTENT: ${{ secrets.PROD_ENV_FILE_CONTENT }}
 
-  #           export BACKEND_IMAGE=${BACKEND_IMAGE}
-  #           export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+      - name: Deploy on VPS
+        run: |
+          BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
+          FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
+          GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
+          ACTOR="${{ github.actor }}"
+          DEPLOY_PATH="${{ vars.PROD_DEPLOY_PATH }}"
 
-  #           docker compose -f docker-compose.yml -f docker-compose.vps.yml pull
-  #           docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --wait --wait-timeout 120 --remove-orphans
-  #           docker image prune -a -f --filter "until=168h"
-  #         EOF
+          ssh ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }} bash <<EOF
+            export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
+            cd ${DEPLOY_PATH}
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+            export BACKEND_IMAGE=${BACKEND_IMAGE}
+            export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+            export BIND_ADDRESS=127.0.0.1:
+
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml pull backend frontend
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile ai up -d --remove-orphans
+            docker image prune -a -f --filter "until=168h"
+          EOF
+
+      - name: Health check
+        run: |
+          echo "Waiting for services to start..."
+          sleep 20
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ vars.PROD_DEPLOY_HOST }}" --max-time 10 || echo "000")
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
+            echo "✅ Production is healthy (HTTP $STATUS)"
+          else
+            echo "⚠️ Health check returned HTTP $STATUS — check VPS logs"
+            exit 1
+          fi

@@ -192,6 +192,8 @@ make mobile-web          # Lance dans le navigateur
 make mobile-tunnel       # Mode tunnel (QR code externe)
 ```
 
+Le site web React bloque les navigateurs mobiles. Pour tester sur telephone, lancer Expo puis scanner le QR code dans Expo Go ou entrer l'URL Expo generee.
+
 ---
 
 ## Tests

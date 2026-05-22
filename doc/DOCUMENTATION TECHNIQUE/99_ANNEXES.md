@@ -201,8 +201,8 @@ L'installeur est genere dans `desktop/release/SupFile-Sync-Setup.exe`.
 | Plan | Stockage | Bobby IA | Vault | Organisations | Versions |
 |------|----------|----------|-------|---------------|----------|
 | FREE | 30 Go | Non | Non | Non | Non |
-| PRO | 100 Go | Oui | Oui | Non | 10 |
-| BUSINESS | 500 Go | Oui | Oui | Oui | 30 |
+| PRO | 1 To | Oui | Oui | Non | 10 |
+| BUSINESS | 10 To | Oui | Oui | Oui | 25 |
 | ENTERPRISE | Sur mesure | Oui | Oui | Oui | Illimite |
 
 ---

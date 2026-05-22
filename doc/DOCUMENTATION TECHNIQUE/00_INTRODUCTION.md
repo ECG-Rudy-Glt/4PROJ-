@@ -36,9 +36,9 @@
 
 | Plan | Stockage | Fonctionnalites |
 |------|----------|-----------------|
-| FREE | 30 Go | Stockage, partage, tags |
-| PRO | 100 Go | + Bobby IA, Coffre-fort |
-| BUSINESS | 500 Go | + Organisations |
+| FREE | 30 Go | Stockage, partage, tags, sans versioning |
+| PRO | 1 To | + Bobby IA, Coffre-fort, 10 versions |
+| BUSINESS | 10 To | + Organisations, 25 versions |
 | ENTERPRISE | Sur mesure | Support dedie |
 
 ---

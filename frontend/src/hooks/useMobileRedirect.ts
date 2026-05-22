@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
 
-function isMobile(): boolean {
-  return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+export function isMobileBrowser(): boolean {
+  const userAgent = navigator.userAgent || navigator.vendor || '';
+  const isIPadOS = /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1;
+  return isIPadOS || /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent);
 }
 
 export function useMobileRedirect() {
   useEffect(() => {
-    if (isMobile()) {
-      window.location.replace('supfile://');
+    if (isMobileBrowser()) {
+      window.location.replace('/mobile');
     }
   }, []);
 }
