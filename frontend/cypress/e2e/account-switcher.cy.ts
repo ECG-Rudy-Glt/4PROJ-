@@ -263,9 +263,12 @@ describe('Account Switcher Modal', () => {
       expect(win.localStorage.getItem('token')).to.equal('switched-token-2');
     });
 
-    // Re-open the modal. The Return button triggers switchBack which calls
-    // window.location.replace('/dashboard') - use force:true to click before
-    // the element detaches from the DOM during the navigation.
+    // Stub window.location.replace to prevent full-page navigation
+    // which would break Cypress's ability to assert on localStorage.
+    cy.window().then((win) => {
+      cy.stub(win.location, 'replace').as('locationReplace');
+    });
+
     cy.get('button[title="Switch de comptes"]').click();
     cy.contains('button', 'Return').click({ force: true });
     cy.wait('@switchBack');
@@ -273,5 +276,7 @@ describe('Account Switcher Modal', () => {
     cy.window().then((win) => {
       expect(win.localStorage.getItem('token')).to.equal('root-token');
     });
+
+    cy.get('@locationReplace').should('have.been.calledWith', '/dashboard');
   });
 });
