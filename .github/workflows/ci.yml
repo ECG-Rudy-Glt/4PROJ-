@@ -351,10 +351,14 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ vars.PROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Ensure deploy path exists
+      - name: Ensure deploy path exists and is writable
         run: |
-          ssh ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }} \
-            mkdir -p ${{ vars.PROD_DEPLOY_PATH }}/postgres/init
+          ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" \
+            "sudo mkdir -p '${PROD_DEPLOY_PATH}/postgres/init' && sudo chown -R '${PROD_DEPLOY_USER}:${PROD_DEPLOY_USER}' '${PROD_DEPLOY_PATH}'"
+        env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
 
       - name: Copy compose and nginx config to VPS
         run: |

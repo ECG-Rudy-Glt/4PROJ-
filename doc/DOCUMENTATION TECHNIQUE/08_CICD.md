@@ -151,6 +151,8 @@ Job configure mais commente. Fonctionnement prevu :
 
 Variables (`vars`) : `VITE_API_URL`, `PREPROD_DEPLOY_HOST`, `PREPROD_DEPLOY_PATH`, `PREPROD_DEPLOY_USER`
 
+Pour le deploiement VPS, `PROD_DEPLOY_USER` doit pouvoir executer `sudo mkdir` et `sudo chown` sur `PROD_DEPLOY_PATH`. La workflow remet l'ownership du dossier de deploiement avant les `scp` pour eviter les erreurs `Permission denied` si `/opt/supfile` a ete cree par `root`.
+
 ---
 
 ## Choix techniques justifies

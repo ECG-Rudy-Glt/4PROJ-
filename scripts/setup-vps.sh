@@ -102,7 +102,11 @@ mkdir -p "$DEPLOY_DIR/postgres/init"
 mkdir -p "$DEPLOY_DIR/backups"
 mkdir -p /var/www/certbot
 
-echo "  Répertoire : $DEPLOY_DIR"
+# Give ownership to the deploy user (the one who ran sudo)
+DEPLOY_USER="${SUDO_USER:-ubuntu}"
+chown -R "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_DIR"
+
+echo "  Répertoire : $DEPLOY_DIR (owner: $DEPLOY_USER)"
 
 # ------------------------------------------------------------------
 # 6. Renouvellement SSL automatique (cron)
