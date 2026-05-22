@@ -358,4 +358,34 @@ describe('FolderService.streamFolderAsZip shared access', () => {
       Buffer.from('owner-dek')
     );
   });
+
+  it('sanitizes ZIP entry paths before appending files', async () => {
+    const archiveMock = {
+      on: jest.fn(),
+      pipe: jest.fn(),
+      append: jest.fn(),
+      finalize: jest.fn().mockResolvedValue(undefined),
+    };
+    (archiver as unknown as jest.Mock).mockReturnValue(archiveMock);
+    (prisma.folder.findFirst as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      userId: 'owner-1',
+      name: '..',
+      isDeleted: false,
+      isVault: false,
+    });
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      { name: '../secret\\report?.txt', storagePath: 'files/owner-1/report.enc' },
+    ]);
+    (prisma.folder.findMany as jest.Mock).mockResolvedValue([]);
+    (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue({ on: jest.fn(), pipe: jest.fn() });
+    const res: any = { headersSent: false, status: jest.fn().mockReturnThis(), json: jest.fn(), destroy: jest.fn() };
+
+    await FolderService.streamFolderAsZip('folder-1', 'owner-1', res, Buffer.from('owner-dek'));
+
+    expect(archiveMock.append).toHaveBeenCalledWith(
+      expect.anything(),
+      { name: 'unnamed/.._secret_report_.txt' }
+    );
+  });
 });

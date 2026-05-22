@@ -53,7 +53,7 @@ export default function ResetPasswordScreen() {
 
   useEffect(() => {
     if (!token) { setCheckingToken(false); return; }
-    api.get(`/auth/reset-password-info?token=${token}`)
+    api.post('/auth/reset-password-info', { token })
       .then((res) => {
         setMfaRequired(res.data?.data?.mfaEnabled ?? res.data?.mfaEnabled ?? false);
         setTokenValid(true);

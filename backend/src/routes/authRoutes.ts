@@ -62,7 +62,6 @@ router.post('/logout', AuthController.logout);
 
 router.post('/forgot-password', AuthController.requestPasswordReset);
 router.post('/reset-password-info', AuthController.getResetTokenInfo);
-router.get('/reset-password-info', AuthController.getResetTokenInfo);
 router.post('/reset-password', AuthController.resetPassword);
 
 router.get('/providers', AuthController.getOAuthProviders);
