@@ -259,24 +259,7 @@ Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilis
 
 ## Architecture
 
-```
-Navigateur / App mobile
-        |
-        v
-  nginx :3000
-  (frontend React)
-        | /api  proxy
-        v
-  backend :5001  (Node.js / Express / TypeScript)
-        |-- PostgreSQL :5432  (metadonnees, BDD)
-        |-- MinIO              (fichiers chiffres S3)
-        |-- OnlyOffice :8080   (edition Office)
-        +-- brain-api :8001   (IA Python / FastAPI)
-                 |-- Ollama    (LLM local gemma2:2b)
-                 +-- ChromaDB  (base vectorielle RAG)
-
-  App mobile (Expo / React Native)
-```
+![Architecture globale SUPFile](doc/DOCUMENTATION%20TECHNIQUE/img/supfile_architecture-Architecture%20Globale.drawio.png)
 
 **7 services Docker**, **1 réseau bridge interne**, base de données et MinIO non exposés à l'hôte.
 
