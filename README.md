@@ -66,7 +66,7 @@ bash scripts/hot-start.sh
 ```bash
 # 1. Cloner le dépôt
 git clone https://github.com/ECG-Rudy-Glt/4PROJ-.git
-cd supfile
+cd 4PROJ-
 
 # 2. Copier et configurer les variables d'environnement
 cp .env.example .env
@@ -252,7 +252,7 @@ BRAIN_API_URL=http://brain-api:8001
 OLLAMA_MODEL=gemma2:2b
 ```
 
-Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [doc/DOCUMENTATION TECHNIQUE/06_INFRASTRUCTURE.md](doc/DOCUMENTATION%20TECHNIQUE/06_INFRASTRUCTURE.md).
+Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [doc/DOCUMENTATION TECHNIQUE/07_INFRASTRUCTURE.md](doc/DOCUMENTATION%20TECHNIQUE/07_INFRASTRUCTURE.md).
 
 ---
 
@@ -325,17 +325,28 @@ Navigateur / App mobile
 ## Tests
 
 ```bash
-# Tests unitaires backend
-cd backend && npm test
+# Backend
+cd backend && npm test -- --runInBand
+cd backend && npm run build
 
-# Tests d'intégration (nécessite l'application en cours d'exécution)
-cd scripts && pip install -r requirements.txt
-python test_e2e.py        # 79/80 - sécurité & infrastructure
-python test_features.py   # 68/68 - fonctionnalités avancées
+# Intégration backend (PostgreSQL + MinIO isolés)
+cd backend && npm run test:integration:up
+cd backend && npm run test:integration:db
+cd backend && npm run test:integration -- --runInBand
+cd backend && npm run test:integration:down
 
-# Tests E2E frontend
-cd frontend && npx cypress run
+# Frontend web
+cd frontend && npm run build
+
+# Mobile
+cd mobile && npx tsc --noEmit
+
+# Desktop Windows Sync
+cd desktop && npm run lint
+cd desktop && npm run build
 ```
+
+Le packaging Windows se lance séparément avec `cd desktop && npm run dist:win`.
 
 ---
 

@@ -1,24 +1,23 @@
-# Structure des avatars de l'IA
+# Avatars de l'IA
 
-## Organisation des fichiers
+Ce dossier contient les ressources utilisées par l'assistant Bobby dans le frontend web.
 
-### Dossier `idle/`
-Place ici tes images PNG pour l'état de repos de l'IA.
-- Format : PNG (transparence supportée)
-- Taille recommandée : 80x80px minimum
-- Nommage : n'importe quel nom (ex: `avatar1.png`, `avatar2.png`, etc.)
+## `idle/`
 
-L'IA choisira aléatoirement parmi ces images quand elle est inactive.
+Images PNG affichées lorsque Bobby est inactif.
+- Format : PNG, transparence supportée
+- Taille recommandée : 80x80 px minimum
+- Nommage libre, par exemple `neutral.png` ou `thinking.png`
 
-### Dossier `working/`
-Place ici tes images GIF pour l'état actif de l'IA.
+## `working/`
+
+GIF animés affichés pendant le traitement d'une requête.
 - Format : GIF animé
-- Taille recommandée : 80x80px minimum
-- Nommage : n'importe quel nom (ex: `working1.gif`, `working2.gif`, etc.)
-
-L'IA choisira aléatoirement parmi ces GIF quand elle traite une requête.
+- Taille recommandée : 80x80 px minimum
+- Nommage libre, par exemple `processing.gif` ou `typing.gif`
 
 ## Exemple de structure
+
 ```
 ai-avatar/
 ├── idle/
