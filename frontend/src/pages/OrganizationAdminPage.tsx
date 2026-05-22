@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { organizationService } from '@/services/organizationService';
 import { OrganizationMembership, OrganizationMemberRow } from '@/types';
@@ -38,7 +38,7 @@ export default function OrganizationAdminPage() {
     [organizations, selectedOrgId]
   );
 
-  const loadOrganizations = async () => {
+  const loadOrganizations = useCallback(async () => {
     setLoading(true);
     try {
       const data = await organizationService.listMine();
@@ -53,9 +53,9 @@ export default function OrganizationAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  const loadOrganizationDetails = async (orgId: string) => {
+  const loadOrganizationDetails = useCallback(async (orgId: string) => {
     if (!orgId) {
       setMembers([]);
       setMembershipRole(null);
@@ -72,15 +72,15 @@ export default function OrganizationAdminPage() {
     } finally {
       setLoadingMembers(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void loadOrganizations();
-  }, []);
+  }, [loadOrganizations]);
 
   useEffect(() => {
     void loadOrganizationDetails(selectedOrgId);
-  }, [selectedOrgId]);
+  }, [selectedOrgId, loadOrganizationDetails]);
 
   useEffect(() => {
     if (membershipRole !== 'OWNER' && inviteRole === 'OWNER') {

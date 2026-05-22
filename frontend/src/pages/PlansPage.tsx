@@ -120,7 +120,7 @@ export default function PlansPage() {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete('checkout');
     setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams, refreshProfile]);
+  }, [searchParams, setSearchParams, refreshProfile, t]);
 
   const handlePlanSelection = async (planId: PlanId) => {
     if (user?.plan === planId) return;

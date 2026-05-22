@@ -159,7 +159,7 @@ export default function SocketListener() {
             socket.off('share_accepted', handleShareAccepted);
             socket.off('notification_new', handleNotification);
         };
-    }, [socket, user, addNotification, refreshProfile]);
+    }, [socket, user, addNotification, refreshProfile, t]);
 
     return null;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { shareService } from '@/services/shareService';
 import { fileService } from '@/services/fileService';
@@ -97,7 +97,7 @@ export default function SharedPage() {
   
   useEffect(() => {
     loadShared();
-  }, []);
+  }, [loadShared]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -106,7 +106,7 @@ export default function SharedPage() {
     }
   }, [searchParams]);
 
-  const loadShared = async () => {
+  const loadShared = useCallback(async () => {
     setIsLoading(true);
     try {
       const [linksData, foldersData, filesData, sharedByMeFoldersData, sharedByMeFilesData, pendingData] = await Promise.all([
@@ -154,7 +154,7 @@ export default function SharedPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
   const handleAcceptShare = async (shareId: string, type: 'file' | 'folder') => {
     try {

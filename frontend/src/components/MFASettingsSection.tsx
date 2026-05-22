@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Shield, Smartphone, Trash2, RefreshCw, AlertCircle, Check, Loader2 } from 'lucide-react';
 import { mfaService, TrustedDevice } from '@/services/mfaService';
 import toast from 'react-hot-toast';
@@ -20,9 +20,9 @@ export default function MFASettingsSection() {
 
   useEffect(() => {
     loadTrustedDevices();
-  }, []);
+  }, [loadTrustedDevices]);
 
-  const loadTrustedDevices = async () => {
+  const loadTrustedDevices = useCallback(async () => {
     setLoading(true);
     try {
       const devices = await mfaService.getTrustedDevices();
@@ -32,7 +32,7 @@ export default function MFASettingsSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   const handleRevokeDevice = async (deviceId: string, deviceName: string) => {
     if (!confirm(t('mfa.revoke_confirm', { name: deviceName }))) return;

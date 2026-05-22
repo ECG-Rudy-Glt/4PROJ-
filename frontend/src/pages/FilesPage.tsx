@@ -216,7 +216,7 @@ export default function FilesPage() {
     }
 
     return false;
-  }, [getFileShareAccessToken]);
+  }, [isPasswordProtectedSharedFile, getFileShareAccessToken]);
 
   const openPreviewFile = useCallback((file: File | any) => {
     if (requireSharedFileUnlock(file, 'preview')) return;
