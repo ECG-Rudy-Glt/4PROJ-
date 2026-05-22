@@ -53,7 +53,7 @@ backend/
 | Mécanisme | Détail |
 |---|---|
 | Helmet | Headers de sécurité (CSP désactivé pour les previews, HSTS configurable) |
-| CORS | Origines autorisées via `ALLOWED_ORIGINS` (env) |
+| CORS | Origines autorisées via `CORS_ALLOWED_ORIGINS` (env) |
 | Rate limit général | 500 req/min sur `/api/` |
 | Rate limit auth | 10 req/15min sur `/api/auth/login` et `/api/auth/register` |
 | HTTPS redirect | Activé si `ENFORCE_HTTPS=true` |
@@ -403,7 +403,7 @@ GITHUB_CLIENT_SECRET=...
 BRAIN_API_URL=http://brain-api:8001   # Si absent  fonctionnalités RAG désactivées
 
 # CORS & HTTPS
-ALLOWED_ORIGINS=http://localhost:3000,https://supfile.fr
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://supfile.tech
 ENFORCE_HTTPS=false
 
 # S3 (optionnel - sinon stockage local)

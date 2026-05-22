@@ -2,8 +2,8 @@
 
 Le manuel utilisateur complet est disponible ici :
 
-- [Manuel Utilisateur SUPFile (PDF)](../MANUEL%20UTILISATEUR/Manuel_Utilisateur_SUPFile.pdf)
-- [Manuel Utilisateur SUPFile (DOCX)](../MANUEL%20UTILISATEUR/Manuel_Utilisateur_SUPFile.docx)
+- [Manuel Utilisateur SUPFile (PDF)](../MANUEL%20UTILISATEUR/Manuel_Utilisateur_SUPFile-2.pdf)
+- [Manuel Utilisateur SUPFile (DOCX)](../MANUEL%20UTILISATEUR/Manuel_Utilisateur_SUPFile-2.docx)
 
 Ce manuel contient :
 - Creation de compte et connexion

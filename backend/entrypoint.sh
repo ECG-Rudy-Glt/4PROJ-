@@ -3,13 +3,13 @@
 mkdir -p /app/uploads/avatars /app/uploads/files /app/uploads/thumbnails
 chown -R node:node /app/uploads 2>/dev/null || true
 
-echo "[entrypoint] Syncing database schema..."
+echo "[entrypoint] Running database migrations..."
 MAX_RETRIES=30
 RETRY=0
-until npx prisma db push --accept-data-loss; do
+until npx prisma migrate deploy; do
   RETRY=$((RETRY + 1))
   if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
-    echo "[entrypoint] Schema sync failed after ${MAX_RETRIES} attempts, exiting."
+    echo "[entrypoint] Database migration failed after ${MAX_RETRIES} attempts, exiting."
     exit 1
   fi
   echo "[entrypoint] Database not ready, retrying in 3s... ($RETRY/$MAX_RETRIES)"

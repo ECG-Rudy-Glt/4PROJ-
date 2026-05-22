@@ -65,7 +65,7 @@ bash scripts/hot-start.sh
 
 ```bash
 # 1. Cloner le dépôt
-git clone https://github.com/<org>/supfile.git
+git clone https://github.com/ECG-Rudy-Glt/4PROJ-.git
 cd supfile
 
 # 2. Copier et configurer les variables d'environnement

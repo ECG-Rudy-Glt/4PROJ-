@@ -32,7 +32,7 @@ idea/
 *~
 
 # OS
-DS_Store
+.DS_Store
 Thumbs.db
 
 # Uploads (for local development)

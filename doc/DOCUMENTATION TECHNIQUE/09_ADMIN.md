@@ -88,4 +88,4 @@ Usage rapide :
 Annexes
 -------
 - Emplacements : frontend `http://localhost:3000` - backend API `http://localhost:5001`
-- Si tu veux que j'exécute le script maintenant, dis "exécute".
+
