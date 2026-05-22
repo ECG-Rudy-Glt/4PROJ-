@@ -23,6 +23,7 @@ Toute la documentation est disponible dans [`doc/DOCUMENTATION TECHNIQUE/`](doc/
 - [07 - Infrastructure](doc/DOCUMENTATION%20TECHNIQUE/07_INFRASTRUCTURE.md) - Deploiement VPS, Docker, configuration
 - [08 - CI/CD](doc/DOCUMENTATION%20TECHNIQUE/08_CICD.md) - Pipeline GitHub Actions, SAST, SBOM
 - [09 - Administration](doc/DOCUMENTATION%20TECHNIQUE/09_ADMIN.md) - Mode operatoire administrateur
+- [10 - SupFile Sync Windows](doc/DOCUMENTATION%20TECHNIQUE/10_SUPFILE_SYNC_WINDOWS.md) - Client desktop Windows de synchronisation automatique
 - [99 - Annexes](doc/DOCUMENTATION%20TECHNIQUE/99_ANNEXES.md) - Glossaire, liens, variables d'environnement
 
 ### Manuel utilisateur
@@ -303,6 +304,7 @@ Navigateur / App mobile
 | **Backend**        | Node.js 20, Express, TypeScript, Prisma, PostgreSQL, MinIO     |
 | **IA (brain-api)** | Python, FastAPI, Ollama, ChromaDB, fastembed                   |
 | **Mobile**         | React Native 0.81, Expo SDK 54, Zustand, expo-secure-store     |
+| **Desktop Sync**   | Electron 31, React/Vite, chokidar, electron-builder            |
 | **Sécurité**       | AES-256-GCM, PBKDF2 100k iter, JWT versionné, MFA TOTP, Helmet |
 | **DevOps**         | Docker Compose, GitHub Actions, Semgrep, TruffleHog, Dockle    |
 
@@ -317,6 +319,7 @@ Navigateur / App mobile
 - **IA - Bobby** : assistant documentaire RAG (recherche sémantique, analyse, génération de fichiers) - 100% on-premise
 - **Temps réel** : notifications et partages via Socket.IO (WebSocket)
 - **Mobile** : application iOS/Android (Expo), token stocké dans le Keychain/Keystore OS
+- **Desktop Sync Windows** : client `.exe` type OneDrive, dossier local synchronisé avec `SupFile Sync`
 - **Admin** : dashboard KPIs, gestion des plans, export CSV, réindexation IA
 - **RGPD** : export de toutes les données personnelles, audit log 30+ événements, purge automatique
 
@@ -344,9 +347,10 @@ cd mobile && npx tsc --noEmit
 # Desktop Windows Sync
 cd desktop && npm run lint
 cd desktop && npm run build
+cd desktop && npm run dist:win
 ```
 
-Le packaging Windows se lance séparément avec `cd desktop && npm run dist:win`.
+Le packaging Windows génère `desktop/release/SupFile-Sync-Setup.exe`.
 
 ---
 
@@ -365,7 +369,7 @@ Le pipeline GitHub Actions exécute à chaque push :
 
 ## Récapitulatif des fonctionnalités implémentées
 
-> Couverture : backend API + client web (React) + client mobile (Expo/React Native)
+> Couverture : backend API + client web (React) + client mobile (Expo/React Native) + client desktop Windows (Electron)
 
 ### Authentification & Identité
 
@@ -436,10 +440,25 @@ Le pipeline GitHub Actions exécute à chaque push :
 | Filtrage par date                         | V   | V      |                                 |
 | Recherche sémantique IA (Bobby)           | V   | V      | RAG ChromaDB                    |
 
+### Synchronisation desktop Windows
+
+| Fonctionnalité                              | Desktop | Détail                                             |
+| ------------------------------------------- | ------- | -------------------------------------------------- |
+| Installeur Windows `.exe`                   | V       | packaging `electron-builder`                       |
+| Connexion compte SUPFile                    | V       | email/mot de passe, MFA et setup MFA si requis     |
+| Refresh token                               | V       | stocké via `safeStorage` Electron                  |
+| Dossier local choisi par l'utilisateur      | V       | exclusions `.supfile-sync`, temporaires, symlinks  |
+| Dossier distant dédié `SupFile Sync`        | V       | créé/récupéré via `/api/sync/root`                 |
+| Synchronisation bidirectionnelle            | V       | local -> distant et distant -> local               |
+| Conflits conservés                          | V       | suffixe `(conflit <device> <timestamp>)`           |
+| Pause / reprise / tray                      | V       | menu zone de notification Windows                  |
+| Reprise offline                             | V       | scan de rattrapage, polling et refresh auth        |
+
 ### Bonus implémentés
 
 | Bonus                                              | Statut | Détail                                                |
 | -------------------------------------------------- | ------ | ----------------------------------------------------- |
+| SupFile Sync Windows                               | V      | client Electron `.exe`, sync bidirectionnelle         |
 | Drag & drop upload (global, dossiers entiers)      | V      | overlay plein écran, webkitRelativePath               |
 | Déplacement par drag & drop                        | V      | attribut custom dataTransfer                          |
 | Partage avancé (mot de passe + expiration + quota) | V      | sur liens publics et partages internes                |

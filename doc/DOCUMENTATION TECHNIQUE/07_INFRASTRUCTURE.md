@@ -86,6 +86,33 @@ docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
 docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
 ```
 
+## Publication SupFile Sync Windows
+
+Le client desktop Windows n'est pas lance dans Docker. Il est build depuis le dossier `desktop/`, puis l'installeur est publie cote frontend.
+
+Build local :
+
+```bash
+cd desktop
+npm install
+npm run lint
+npm run dist:win
+```
+
+Artefact attendu :
+
+```text
+desktop/release/SupFile-Sync-Setup.exe
+```
+
+Pour une publication web locale ou preprod, copier l'installeur dans :
+
+```text
+frontend/public/downloads/SupFile-Sync-Setup.exe
+```
+
+Puis reconstruire le frontend pour que Nginx serve le fichier. En production publique, le telechargement doit etre servi en HTTPS. La signature Windows de l'executable n'est pas automatisee en v1 : elle doit etre ajoutee dans une pipeline release avec certificat de signature de code.
+
 ## Sauvegarde et restauration
 
 Sauvegarde:

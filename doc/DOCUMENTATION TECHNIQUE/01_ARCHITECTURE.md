@@ -23,6 +23,15 @@
 
 ![Dashboard Mobile](../MANUEL%20UTILISATEUR/img/mobile/06-dashboard.png)
 
+### Client Desktop Windows
+- **Stack** : Electron 31, React/Vite, TypeScript, chokidar
+- **Plateforme** : Windows uniquement en v1
+- **Distribution** : installeur `.exe` genere par `electron-builder`
+- **Role** : synchroniser un dossier local avec le dossier distant `SupFile Sync`
+- **Integration** : API SupFile uniquement (`/api/sync`, `/api/files`, auth Bearer)
+
+Le client desktop est hors Docker : il s'installe sur le poste utilisateur et dialogue avec le backend publie. Il ne se connecte jamais directement a PostgreSQL, MinIO ou S3.
+
 ### Backend API
 - **Stack** : Node.js 20, Express, TypeScript, Prisma
 - **Port** : 5001
@@ -54,6 +63,7 @@
 | Fichiers | Chiffrement AES-256-GCM |
 | Cles | Architecture KEK/DEK, PBKDF2-SHA512 |
 | API | Rate limiting, Helmet, CORS strict |
+| Desktop | safeStorage Electron, CSP renderer, IPC minimal |
 
 ## Environnements
 

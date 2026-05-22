@@ -338,6 +338,29 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
+### `/api/sync` - SupFile Sync Windows
+
+Ces routes sont consommees par le client desktop Windows. Elles ne donnent pas d'acces direct au stockage objet : le client passe toujours par l'API REST authentifiee.
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/root` | Cree ou retourne le dossier racine `SupFile Sync` |
+| GET | `/tree?rootFolderId=...` | Retourne l'arborescence recursive sous le root sync |
+| POST | `/files/upload` | Upload ou remplacement d'un fichier depuis le client desktop |
+
+Points de securite :
+- `authenticate` obligatoire sur toutes les routes.
+- `requireDelegationPermission('read'|'write')` applique selon l'action.
+- `DEK_UNLOCK_REQUIRED` conserve : aucun contournement si la cle utilisateur n'est pas disponible.
+- Scope verifie par ascendance `parentId` jusqu'au root `SupFile Sync`, pas par simple prefixe de chemin.
+- `checksum` SHA-256 optionnel pour la detection de changements et la verification d'upload.
+- `baseRemoteUpdatedAt` protege les remplacements concurrents : retour `409 SYNC_CONFLICT` si le distant a change.
+- Quota, taille et chiffrement reutilisent les services existants d'upload/versioning.
+
+Le download distant vers local reutilise les endpoints fichiers existants avec `Authorization: Bearer`. Aucun token n'est accepte en query string.
+
+---
+
 ### Autres routes
 
 | Préfixe | Description |
@@ -350,7 +373,6 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | `/api/notifications` | Notifications in-app |
 | `/api/push` | Abonnements web push (notifications navigateur) |
 | `/api/audit` | Logs d'audit (actions critiques) |
-| `/api/sync` | API SupFile Sync Windows (tree remote, changements, upload/download sync) |
 
 ---
 
@@ -396,7 +418,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | `userService` | Recherche d'utilisateurs |
 | `dashboardService` | Agrégation données dashboard |
 | `onlyofficeService` | Token JWT OnlyOffice, callbacks, édition collaborative |
-| `syncService` | API de synchronisation desktop, scoping root et manifest distant |
+| `syncService` | API de synchronisation desktop, root `SupFile Sync`, tree distant, conflits et scoping parentId |
 
 ---
 
@@ -420,6 +442,8 @@ BRAIN_API_URL=http://brain-api:8001   # Si absent  fonctionnalités RAG désacti
 
 # CORS & HTTPS
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://supfile.tech
+HOST_IP=localhost
+FRONTEND_PORT=3000
 ENFORCE_HTTPS=false
 
 # Stockage objet S3/MinIO (obligatoire en runtime actuel)

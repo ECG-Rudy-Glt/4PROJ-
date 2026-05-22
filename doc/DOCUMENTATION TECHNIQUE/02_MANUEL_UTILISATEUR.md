@@ -11,5 +11,6 @@ Ce manuel contient :
 - Partage et collaboration
 - Bobby, l'assistant IA
 - Coffre-fort securise
+- SupFile Sync Windows
 - Parametres du compte
 - Plans et abonnements

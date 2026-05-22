@@ -10,8 +10,9 @@
 
 - Offrir une alternative souveraine aux solutions cloud americaines (GAFAM)
 - Garantir la confidentialite des donnees (stockage en France, chiffrement E2E)
-- Proposer une experience utilisateur fluide sur web et mobile
+- Proposer une experience utilisateur fluide sur web, mobile et desktop Windows
 - Integrer une IA locale (Bobby) pour l'analyse de documents
+- Offrir une synchronisation locale automatique type OneDrive avec SupFile Sync Windows
 
 ## Equipe
 
@@ -27,6 +28,7 @@
 | Backend | Node.js, Express, TypeScript, Prisma, PostgreSQL |
 | Frontend Web | React 18, Vite, TypeScript, TailwindCSS |
 | Mobile | React Native, Expo |
+| Desktop Sync | Electron, React/Vite, chokidar, electron-builder |
 | IA (Bobby) | Python, FastAPI, LangChain, Ollama (gemma2:2b) |
 | Infrastructure | Docker, GitHub Actions, VPS OVH |
 

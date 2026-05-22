@@ -179,6 +179,7 @@ Paramètres complets :
 - Profil (avatar, nom, email, mot de passe)
 - Thème clair / sombre
 - Langue (FR/EN via i18next)
+- **SupFile Sync Windows** : bouton de telechargement de l'installeur `.exe`
 - **MFA** : `MFASettingsSection` (statut, setup, appareils de confiance, codes de secours)
 - **Vault** : Configuration et gestion du coffre-fort
 - **Organisations** : Création et gestion
@@ -359,7 +360,10 @@ baseURL = VITE_API_URL + /api   (ou /api si non défini)
 ```bash
 VITE_API_URL=http://localhost:5001      # URL du backend (sans /api)
 VITE_REQUIRE_HTTPS=false               # Bloquer les requêtes non-HTTPS
+VITE_DESKTOP_DOWNLOAD_URL=/downloads/SupFile-Sync-Setup.exe
 ```
+
+`VITE_DESKTOP_DOWNLOAD_URL` permet de surcharger le lien du bouton `SupFile Sync pour Windows`. Sans variable, le frontend pointe vers `/downloads/SupFile-Sync-Setup.exe`.
 
 ---
 
