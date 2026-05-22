@@ -72,6 +72,16 @@ Prérequis
 
   `curl -s -X POST http://localhost:5001/api/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@local.test","password":"Password123!"}'`
 
+Validation SupFile Sync Windows
+-------------------------------
+- Ouvrir `http://localhost:3000/settings` avec un compte connecte.
+- Telecharger `SupFile Sync pour Windows` depuis les parametres.
+- Installer `SupFile-Sync-Setup.exe`.
+- Se connecter avec l'URL backend locale `http://localhost:5001`.
+- Choisir un dossier local de test.
+- Verifier qu'un dossier distant `SupFile Sync` est cree et qu'un fichier local ajoute apparait dans le web.
+- Lire les logs si necessaire : backend via `docker compose logs backend`, desktop dans le repertoire utilisateur Electron (`supfile-sync.log`).
+
 Sécurité
 --------
 - Change immédiatement le mot de passe de l'admin après connexion.
@@ -88,4 +98,4 @@ Usage rapide :
 Annexes
 -------
 - Emplacements : frontend `http://localhost:3000` - backend API `http://localhost:5001`
-- Si tu veux que j'exécute le script maintenant, dis "exécute".
+

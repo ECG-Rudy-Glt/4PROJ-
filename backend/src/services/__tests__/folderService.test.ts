@@ -21,6 +21,7 @@ jest.mock('../../config/database', () => ({
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      create: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
     },
@@ -91,6 +92,36 @@ const folder = {
   isDeleted: false,
   isVault: false,
 };
+
+describe('FolderService.createFolder', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('ignores deleted folders when checking duplicate names', async () => {
+    const created = {
+      id: 'folder-new',
+      userId: 'user-1',
+      name: 'Documents',
+      parentId: null,
+      path: '/Documents',
+      isDeleted: false,
+      isVault: false,
+    };
+    (prisma.folder.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    (prisma.folder.create as jest.Mock).mockResolvedValueOnce(created);
+
+    await expect(FolderService.createFolder('user-1', 'Documents')).resolves.toBe(created);
+    expect(prisma.folder.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        name: 'Documents',
+        parentId: null,
+        isDeleted: false,
+      },
+    });
+  });
+});
 
 describe('FolderService.deleteFolder permanent storage cleanup', () => {
   beforeEach(() => {
@@ -325,6 +356,36 @@ describe('FolderService.streamFolderAsZip shared access', () => {
     expect(EncryptionService.getDecryptStreamAuto).toHaveBeenCalledWith(
       'files/owner-1/doc.enc',
       Buffer.from('owner-dek')
+    );
+  });
+
+  it('sanitizes ZIP entry paths before appending files', async () => {
+    const archiveMock = {
+      on: jest.fn(),
+      pipe: jest.fn(),
+      append: jest.fn(),
+      finalize: jest.fn().mockResolvedValue(undefined),
+    };
+    (archiver as unknown as jest.Mock).mockReturnValue(archiveMock);
+    (prisma.folder.findFirst as jest.Mock).mockResolvedValue({
+      id: 'folder-1',
+      userId: 'owner-1',
+      name: '..',
+      isDeleted: false,
+      isVault: false,
+    });
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      { name: '../secret\\report?.txt', storagePath: 'files/owner-1/report.enc' },
+    ]);
+    (prisma.folder.findMany as jest.Mock).mockResolvedValue([]);
+    (EncryptionService.getDecryptStreamAuto as jest.Mock).mockResolvedValue({ on: jest.fn(), pipe: jest.fn() });
+    const res: any = { headersSent: false, status: jest.fn().mockReturnThis(), json: jest.fn(), destroy: jest.fn() };
+
+    await FolderService.streamFolderAsZip('folder-1', 'owner-1', res, Buffer.from('owner-dek'));
+
+    expect(archiveMock.append).toHaveBeenCalledWith(
+      expect.anything(),
+      { name: 'unnamed/.._secret_report_.txt' }
     );
   });
 });

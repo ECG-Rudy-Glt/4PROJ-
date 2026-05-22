@@ -267,6 +267,12 @@
     "storage_total_text": "au total",
     "storage_usage": "{{percentage}}% de votre stockage est utilisé",
     "storage_full": "Stockage presque plein !",
+    "desktop_sync": {
+      "title": "SupFile Sync pour Windows",
+      "description": "Installez le client Windows pour synchroniser automatiquement un dossier local avec SupFile.",
+      "download": "Télécharger le .exe",
+      "hint": "Le lien pointe vers le dernier installeur publié. En local, générez-le depuis le package desktop avec npm run dist:win."
+    },
     "personal_info": "Informations personnelles",
     "first_name": "Prénom",
     "last_name": "Nom",

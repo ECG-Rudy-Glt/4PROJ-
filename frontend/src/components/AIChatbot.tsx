@@ -116,7 +116,7 @@ export default function AIChatbot() {
     setIsTyping(true);
 
     try {
-      // Préparer l'historique de conversation pour Gemini
+      // Préparer l'historique de conversation pour Bobby
       const history = messages
         .filter((msg) => msg.sender !== 'ai' || msg.id !== '1') // Exclure le message d'accueil initial
         .map((msg) => ({

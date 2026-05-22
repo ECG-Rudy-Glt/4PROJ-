@@ -5,17 +5,27 @@ const DEFAULT_LOCAL_ORIGINS = [
 
 export const normalizeOrigin = (origin: string) => origin.replace(/\/+$/, '');
 
-export const buildAllowedOrigins = (): string[] => {
-  const frontendUrls = (process.env.FRONTEND_URL || 'http://localhost:3000')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const fromEnv = (process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+const splitOriginList = (value?: string) => (value || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-  const combined = [...frontendUrls, ...DEFAULT_LOCAL_ORIGINS, ...fromEnv];
+const buildHostIpOrigins = (): string[] => {
+  const hostIp = process.env.HOST_IP?.trim();
+  if (!hostIp || hostIp === 'localhost' || hostIp === '127.0.0.1') {
+    return [];
+  }
+
+  const frontendPort = process.env.FRONTEND_PORT || '3000';
+  return [`http://${hostIp}:${frontendPort}`];
+};
+
+export const buildAllowedOrigins = (): string[] => {
+  const frontendUrls = splitOriginList(process.env.FRONTEND_URL || 'http://localhost:3000');
+  const fromEnv = splitOriginList(process.env.CORS_ALLOWED_ORIGINS);
+  const hostIpOrigins = buildHostIpOrigins();
+
+  const combined = [...frontendUrls, ...DEFAULT_LOCAL_ORIGINS, ...hostIpOrigins, ...fromEnv];
   const unique = Array.from(new Set(combined.map(normalizeOrigin)));
   return unique;
 };

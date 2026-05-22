@@ -33,6 +33,19 @@ async function deleteStorageFileOnceBestEffort(
   await deleteStorageFileBestEffort(pathOrKey, fileId);
 }
 
+function safeZipSegment(value: string): string {
+  const cleaned = value
+    .replace(/[\\/]/g, '_')
+    .replace(/[<>:"|?*\x00-\x1F\x7F]/g, '_')
+    .trim();
+
+  if (!cleaned || cleaned === '.' || cleaned === '..') {
+    return 'unnamed';
+  }
+
+  return cleaned;
+}
+
 export class FolderService {
   static async createFolder(userId: string, name: string, parentId?: string) {
     // Check if folder with same name exists in parent
@@ -41,6 +54,7 @@ export class FolderService {
         userId,
         name,
         parentId: parentId || null,
+        isDeleted: false,
       },
     });
 
@@ -533,18 +547,18 @@ export class FolderService {
 
       const entries: FileEntry[] = files.map((f) => ({
         storagePath: f.storagePath,
-        entryPath: `${relativePath}/${f.name}`,
+        entryPath: `${relativePath}/${safeZipSegment(f.name)}`,
       }));
 
       for (const sub of subfolders) {
-        const subEntries = await collectFiles(sub.id, `${relativePath}/${sub.name}`);
+        const subEntries = await collectFiles(sub.id, `${relativePath}/${safeZipSegment(sub.name)}`);
         entries.push(...subEntries);
       }
 
       return entries;
     };
 
-    const allFiles = await collectFiles(folderId, folder.name);
+    const allFiles = await collectFiles(folderId, safeZipSegment(folder.name));
 
     const archive = archiver('zip', { zlib: { level: 6 } });
 

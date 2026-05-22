@@ -123,6 +123,27 @@ describe('FileUploadService quota checks', () => {
     expect(VersionService.createVersion).not.toHaveBeenCalled();
   });
 
+  it('persists checksums for sync uploads', async () => {
+    await FileUploadService.createFile(
+      'user-1',
+      'new.docx',
+      'new.docx',
+      'application/docx',
+      25,
+      '/tmp/upload.tmp',
+      undefined,
+      undefined,
+      undefined,
+      'a'.repeat(64)
+    );
+
+    expect(prisma.file.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        checksum: 'a'.repeat(64),
+      }),
+    }));
+  });
+
   it('skips fileUploadService quota precheck for replacements and delegates to VersionService', async () => {
     (prisma.file.findUnique as jest.Mock).mockResolvedValue({
       id: 'file-1',
@@ -154,6 +175,32 @@ describe('FileUploadService quota checks', () => {
       undefined
     );
     expect(deleteFile).toHaveBeenCalledWith('/tmp/replacement.tmp');
+  });
+
+  it('passes sync checksums to replacement versioning', async () => {
+    await FileUploadService.createFile(
+      'user-1',
+      'replacement.docx',
+      'replacement.docx',
+      'application/docx',
+      25,
+      '/tmp/replacement.tmp',
+      undefined,
+      undefined,
+      'file-1',
+      'b'.repeat(64)
+    );
+
+    expect(VersionService.createVersion).toHaveBeenCalledWith(
+      'file-1',
+      'user-1',
+      '/tmp/replacement.tmp',
+      'replacement.docx',
+      25,
+      'application/docx',
+      undefined,
+      'b'.repeat(64)
+    );
   });
 
   it('does not precheck the actor quota before shared replacements', async () => {

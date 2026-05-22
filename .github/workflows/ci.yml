@@ -65,15 +65,15 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ./backend/node_modules
           key: ${{ runner.os }}-backend-${{ hashFiles('./backend/package.json') }}
@@ -109,15 +109,15 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ./frontend/node_modules
@@ -138,7 +138,7 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Run Cypress E2E Tests
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@v7
         with:
           working-directory: frontend
           install: false
@@ -157,7 +157,7 @@ jobs:
       image: semgrep/semgrep
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run Semgrep SAST
         run: |
@@ -178,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Historique complet requis pour scanner tous les commits
 
@@ -198,16 +198,18 @@ jobs:
   docker-build:
     needs: [ backend-checks, frontend-checks, semgrep, trufflehog ]
     runs-on: ubuntu-latest
+    env:
+      DOCKLE_VERSION: "0.4.15"
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build Backend Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           push: false
@@ -217,7 +219,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
       - name: Build Frontend Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           push: false
@@ -229,11 +231,12 @@ jobs:
       # Dockle audit configuration Dockerfile 
       - name: Install Dockle
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/goodwithtech/dockle/releases/latest \
-            | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-          curl -sL "https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Linux-64bit.tar.gz" \
-            | tar xz
-          sudo mv dockle /usr/local/bin/
+          curl -fsSL \
+            -o /tmp/dockle.tar.gz \
+            "https://github.com/goodwithtech/dockle/releases/download/v${DOCKLE_VERSION}/dockle_${DOCKLE_VERSION}_Linux-64bit.tar.gz"
+          tar -xzf /tmp/dockle.tar.gz -C /tmp dockle
+          sudo install -m 0755 /tmp/dockle /usr/local/bin/dockle
+          dockle --version
 
       - name: Scan Backend Image with Dockle
         run: dockle --exit-code 1 --exit-level fatal backend:ci
@@ -279,7 +282,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set image name
         # Normalise le nom du dépôt en minuscules et supprime les tirets en fin de segment
@@ -297,7 +300,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           push: true
@@ -308,7 +311,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
       - name: Build and Push Frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           push: true

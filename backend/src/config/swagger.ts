@@ -27,8 +27,10 @@ const FileSchema: Record<string, any> = {
   properties: {
     id: { type: 'string', format: 'uuid' },
     name: { type: 'string' },
+    originalName: { type: 'string' },
     mimeType: { type: 'string' },
     size: { type: 'integer' },
+    checksum: { type: 'string', nullable: true, description: 'SHA-256 optionnel, utilisé par SupFile Sync' },
     folderId: { type: 'string', format: 'uuid', nullable: true },
     isFavorite: { type: 'boolean' },
     isDeleted: { type: 'boolean' },
@@ -48,6 +50,51 @@ const FolderSchema: Record<string, any> = {
     isDeleted: { type: 'boolean' },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
+  },
+};
+
+const SyncTreeFileSchema: Record<string, any> = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    originalName: { type: 'string' },
+    mimeType: { type: 'string' },
+    size: { type: 'integer' },
+    checksum: { type: 'string', nullable: true },
+    folderId: { type: 'string', format: 'uuid', nullable: true },
+    updatedAt: { type: 'string', format: 'date-time' },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+};
+
+const SyncTreeFolderSchema: Record<string, any> = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    path: { type: 'string' },
+    parentId: { type: 'string', format: 'uuid', nullable: true },
+    updatedAt: { type: 'string', format: 'date-time' },
+    createdAt: { type: 'string', format: 'date-time' },
+    folders: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/SyncTreeFolder' },
+    },
+    files: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/SyncTreeFile' },
+    },
+  },
+};
+
+const SyncConflictSchema: Record<string, any> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', example: false },
+    error: { type: 'string', example: 'Remote file changed since last sync' },
+    code: { type: 'string', example: 'SYNC_CONFLICT' },
+    file: { $ref: '#/components/schemas/SyncTreeFile' },
   },
 };
 
@@ -114,6 +161,9 @@ Obtenez un token via **POST /api/auth/login**.
       User: UserSchema,
       File: FileSchema,
       Folder: FolderSchema,
+      SyncTreeFile: SyncTreeFileSchema,
+      SyncTreeFolder: SyncTreeFolderSchema,
+      SyncConflict: SyncConflictSchema,
       Tag: TagSchema,
       VaultStatus: VaultStatusSchema,
     },
@@ -138,6 +188,7 @@ Obtenez un token via **POST /api/auth/login**.
     { name: 'Billing', description: 'Facturation et abonnements (Stripe)' },
     { name: 'Organizations', description: 'Organisations et membres' },
     { name: 'AccountAccess', description: 'Délégations et switch de compte' },
+    { name: 'Sync', description: 'SupFile Sync Windows (synchronisation desktop)' },
     { name: 'Push', description: 'Notifications Web Push' },
     { name: 'OnlyOffice', description: 'Édition de documents en ligne' },
   ],
@@ -505,10 +556,9 @@ Obtenez un token via **POST /api/auth/login**.
       get: {
         tags: ['Files'],
         summary: 'Streamer un fichier (audio/vidéo)',
-        description: 'Supporte les Range Headers pour la lecture progressive.',
+        description: 'Supporte les Range Headers pour la lecture progressive. Authentification via Authorization: Bearer uniquement.',
         parameters: [
           { name: 'fileId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'token', in: 'query', schema: { type: 'string' }, description: 'Token JWT alternatif (pour balises HTML)' },
         ],
         responses: {
           '200': { description: 'Flux complet' },
@@ -1528,6 +1578,143 @@ Obtenez un token via **POST /api/auth/login**.
         summary: 'Assumer une délégation (agir au nom d\'un autre utilisateur)',
         parameters: [{ name: 'delegationId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: { '200': { description: 'Token de session déléguée retourné' } },
+      },
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // SYNC WINDOWS
+    // ═══════════════════════════════════════════════════════════
+
+    '/sync/root': {
+      get: {
+        tags: ['Sync'],
+        summary: 'Créer ou récupérer le dossier racine SupFile Sync',
+        description: 'Endpoint idempotent utilisé par le client desktop Windows. Retourne le dossier racine `SupFile Sync` de l\'utilisateur courant, ou le restaure s\'il existait en corbeille.',
+        responses: {
+          '200': {
+            description: 'Dossier racine SupFile Sync',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        folder: { $ref: '#/components/schemas/Folder' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Non authentifié' },
+          '403': { description: 'Permission write requise en contexte de délégation' },
+        },
+      },
+    },
+
+    '/sync/tree': {
+      get: {
+        tags: ['Sync'],
+        summary: 'Arborescence récursive du dossier SupFile Sync',
+        description: 'Retourne uniquement les dossiers et fichiers non supprimés sous le root sync. Le backend vérifie que le root appartient à l\'utilisateur courant.',
+        parameters: [
+          { name: 'rootFolderId', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Tree distant sous SupFile Sync',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        tree: { $ref: '#/components/schemas/SyncTreeFolder' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'rootFolderId manquant', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Non authentifié' },
+          '403': { description: 'Permission read requise ou scope invalide' },
+          '404': { description: 'Root SupFile Sync introuvable' },
+        },
+      },
+    },
+
+    '/sync/files/upload': {
+      post: {
+        tags: ['Sync'],
+        summary: 'Upload ou remplacement de fichier depuis SupFile Sync Windows',
+        description: 'Upload multipart utilisé par le client desktop. Le scope est vérifié par ascendance parentId sous le root `SupFile Sync`; le checksum SHA-256 est vérifié si fourni.',
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file', 'rootFolderId'],
+                properties: {
+                  file: { type: 'string', format: 'binary' },
+                  rootFolderId: { type: 'string', format: 'uuid' },
+                  folderId: { type: 'string', format: 'uuid', description: 'Dossier cible sous le root sync. Par défaut: rootFolderId.' },
+                  remoteFileId: { type: 'string', format: 'uuid', description: 'Présent pour remplacer un fichier distant existant.' },
+                  baseRemoteUpdatedAt: { type: 'string', format: 'date-time', description: 'updatedAt distant connu au dernier état synchronisé.' },
+                  checksum: { type: 'string', pattern: '^[a-f0-9]{64}$', description: 'SHA-256 du contenu local.' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Fichier remplacé',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'object', properties: { file: { $ref: '#/components/schemas/File' } } },
+                  },
+                },
+              },
+            },
+          },
+          '201': {
+            description: 'Fichier créé',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'object', properties: { file: { $ref: '#/components/schemas/File' } } },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Fichier absent, root manquant, checksum invalide ou mismatch' },
+          '401': { description: 'Non authentifié' },
+          '403': { description: 'DEK verrouillée, permission write manquante ou scope sync invalide' },
+          '404': { description: 'Fichier distant ou dossier cible introuvable' },
+          '409': {
+            description: 'Conflit: le fichier distant a changé depuis baseRemoteUpdatedAt',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/SyncConflict' } } },
+          },
+          '413': { description: 'Fichier trop volumineux' },
+        },
       },
     },
 

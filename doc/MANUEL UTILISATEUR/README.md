@@ -14,8 +14,9 @@
 8. Bobby, l'assistant IA
 9. Coffre-fort securise
 10. Parametres du compte
-11. Plans et abonnements
-12. Securite et confidentialite
+11. SupFile Sync Windows
+12. Plans et abonnements
+13. Securite et confidentialite
 
 ---
 
@@ -23,7 +24,7 @@
 
 **SUPFile** est une plateforme francaise de stockage cloud souverain, concue pour stocker, organiser et partager vos fichiers en toute securite.
 
-Accessible sur **https://supfile.tech/** et via application mobile (iOS/Android), SUPFile permet de :
+Accessible sur **https://supfile.tech/**, via application mobile (iOS/Android) et via le client Windows SupFile Sync, SUPFile permet de :
 
 - Stocker vos fichiers en toute securite
 - Organiser avec des dossiers et des tags colores
@@ -31,6 +32,7 @@ Accessible sur **https://supfile.tech/** et via application mobile (iOS/Android)
 - Collaborer avec des commentaires et des permissions
 - Poser des questions a Bobby, l'assistant IA integre
 - Proteger vos fichiers sensibles dans un coffre-fort chiffre
+- Synchroniser automatiquement un dossier local Windows avec votre Drive
 
 ---
 
@@ -38,6 +40,7 @@ Accessible sur **https://supfile.tech/** et via application mobile (iOS/Android)
 
 - **Navigateurs compatibles** : Chrome, Firefox, Edge, Safari
 - **Mobile** : iOS 13+ ou Android 10+
+- **SupFile Sync Windows** : Windows 10/11
 - **Connexion Internet** requise
 - **Un compte SUPFile** est obligatoire pour acceder a la plateforme
 
@@ -430,7 +433,39 @@ Supprimez definitivement votre compte et toutes vos donnees.
 
 ---
 
-## 11. Plans et abonnements
+## 11. SupFile Sync Windows
+
+SupFile Sync Windows est le client desktop qui synchronise automatiquement un dossier de votre PC avec votre Drive SUPFile.
+
+### Installer le client
+
+1. Ouvrez SUPFile dans le navigateur.
+2. Allez dans **Parametres**.
+3. Dans la section **SupFile Sync pour Windows**, cliquez sur **Telecharger le .exe**.
+4. Lancez `SupFile-Sync-Setup.exe`.
+5. Ouvrez l'application **SupFile Sync** apres installation.
+
+### Premiere connexion
+
+1. Renseignez l'URL du backend SUPFile, par exemple `http://localhost:5001` en local.
+2. Connectez-vous avec votre email et votre mot de passe.
+3. Validez le MFA si demande.
+4. Choisissez le dossier local a synchroniser.
+
+L'application cree ou recupere automatiquement un dossier distant nomme **SupFile Sync**. Les fichiers ajoutes localement apparaissent ensuite dans le web, et les fichiers ajoutes dans ce dossier web sont telecharges localement.
+
+### Comportement attendu
+
+- La synchronisation est bidirectionnelle : local vers web et web vers local.
+- Les suppressions locales vont dans la corbeille SUPFile.
+- Les suppressions web sont deplacees vers la corbeille Windows, ou vers `.supfile-sync/trash` si la corbeille est indisponible.
+- Le mode pause empeche temporairement les transferts.
+- En cas de conflit, SUPFile garde les deux versions avec un fichier suffixe `(conflit ...)`.
+- Si vous etes hors ligne, l'application reprend la synchronisation lorsque le backend redevient accessible.
+
+---
+
+## 12. Plans et abonnements
 
 SUPFile propose plusieurs plans adaptes a vos besoins :
 
@@ -458,7 +493,7 @@ SUPFile propose plusieurs plans adaptes a vos besoins :
 
 ---
 
-## 12. Securite et confidentialite
+## 13. Securite et confidentialite
 
 SUPFile garantit la **securite** et la **confidentialite** de vos donnees :
 

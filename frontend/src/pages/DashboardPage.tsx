@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dashboardService } from '@/services/dashboardService';
 import { DashboardData } from '@/types';
@@ -64,11 +64,7 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       const dashboardData = await dashboardService.getDashboard();
       setData(dashboardData);
@@ -77,7 +73,11 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const handleFileClick = (file: any) => {
     const folderPath = file.folderId ? `/files/${file.folderId}` : '/files';

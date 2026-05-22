@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { auditService, AuditLog, AuditAction, ActivityStats } from '@/services/auditService';
 import {
@@ -151,17 +151,6 @@ export default function AuditPage() {
   // Tooltip state for heatmap
   const [hoveredDay, setHoveredDay] = useState<{ date: string; count: number } | null>(null);
 
-  useEffect(() => {
-    if (!auditAvailable) return;
-    void loadYearStats();
-    void loadMonthStats();
-  }, [auditAvailable]);
-
-  useEffect(() => {
-    if (!auditAvailable) return;
-    void loadLogs();
-  }, [auditAvailable, page, filterAction, filterDays]);
-
   const loadYearStats = async () => {
     try {
       const data = await auditService.getActivityStats(365);
@@ -180,7 +169,7 @@ export default function AuditPage() {
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setIsLoading(true);
     try {
       const dateFrom = new Date();
@@ -198,7 +187,18 @@ export default function AuditPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filterAction, filterDays, page, t]);
+
+  useEffect(() => {
+    if (!auditAvailable) return;
+    void loadYearStats();
+    void loadMonthStats();
+  }, [auditAvailable]);
+
+  useEffect(() => {
+    if (!auditAvailable) return;
+    void loadLogs();
+  }, [auditAvailable, page, filterAction, filterDays, loadLogs]);
 
   const handleExportCsv = async () => {
     try {

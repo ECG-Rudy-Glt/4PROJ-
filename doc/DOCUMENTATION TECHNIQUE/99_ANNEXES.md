@@ -83,6 +83,7 @@ VAPID_PRIVATE_KEY=...
 ```bash
 VITE_API_URL=http://localhost:5001
 VITE_SOCKET_URL=http://localhost:5001
+VITE_DESKTOP_DOWNLOAD_URL=/downloads/SupFile-Sync-Setup.exe
 ```
 
 ### Mobile (.env)
@@ -100,6 +101,7 @@ API_URL=http://192.168.x.x:5001
 | Frontend (prod) | 3000 | Nginx reverse proxy |
 | Frontend (dev) | 5173 | Vite dev server |
 | Backend API | 5001 | Express.js |
+| Desktop renderer dev | 5174 | Vite dev server Electron |
 | Bobby IA | 8001 | FastAPI |
 | PostgreSQL | 5432 | Base de donnees |
 | MinIO | 9000 | Stockage S3 |
@@ -162,6 +164,18 @@ make mobile-ios
 make mobile-tunnel
 ```
 
+### Desktop Windows Sync
+
+```bash
+# Depuis desktop/
+npm install
+npm run lint
+npm run build
+npm run dist:win
+```
+
+L'installeur est genere dans `desktop/release/SupFile-Sync-Setup.exe`.
+
 ---
 
 ## Structure du projet
@@ -171,6 +185,7 @@ make mobile-tunnel
   backend/              # API Node.js/Express
   frontend/             # App React/Vite
   mobile/               # App React Native/Expo
+  desktop/              # Client SupFile Sync Windows (Electron)
   brain-api/            # Microservice IA Python
   docker-compose.yml    # Orchestration prod
   docker-compose.dev.yml # Orchestration dev
@@ -206,6 +221,11 @@ make mobile-tunnel
 | `PERMISSION_DENIED` | Permission insuffisante |
 | `VAULT_LOCKED` | Coffre-fort verrouille |
 | `RATE_LIMITED` | Trop de requetes |
+| `ROOT_FOLDER_REQUIRED` | Root sync absent dans une requete desktop |
+| `SYNC_ROOT_NOT_FOUND` | Dossier `SupFile Sync` introuvable ou invalide |
+| `SYNC_SCOPE_VIOLATION` | Ressource hors du root sync |
+| `SYNC_CONFLICT` | Fichier distant modifie depuis la derniere base connue |
+| `CHECKSUM_MISMATCH` | Checksum fourni different du fichier recu |
 
 ---
 
@@ -229,6 +249,11 @@ make mobile-tunnel
 - [React Native](https://reactnative.dev/)
 - [Expo](https://expo.dev/)
 - [React Navigation](https://reactnavigation.org/)
+
+### Desktop
+- [Electron](https://www.electronjs.org/)
+- [electron-builder](https://www.electron.build/)
+- [chokidar](https://github.com/paulmillr/chokidar)
 
 ### IA
 - [FastAPI](https://fastapi.tiangolo.com/)

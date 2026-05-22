@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, Check, XCircle, File, Folder } from 'lucide-react';
 import { shareService } from '@/services/shareService';
 import toast from 'react-hot-toast';
@@ -35,13 +35,7 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadPendingShares();
-    }
-  }, [isOpen]);
-
-  const loadPendingShares = async () => {
+  const loadPendingShares = useCallback(async () => {
     try {
       const data = await shareService.getPendingShares();
       const shares: PendingShare[] = [];
@@ -82,7 +76,13 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadPendingShares();
+    }
+  }, [isOpen, loadPendingShares]);
 
   const handleAccept = async (share: PendingShare) => {
     setAccepting(share.id);

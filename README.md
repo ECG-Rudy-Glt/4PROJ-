@@ -23,6 +23,7 @@ Toute la documentation est disponible dans [`doc/DOCUMENTATION TECHNIQUE/`](doc/
 - [07 - Infrastructure](doc/DOCUMENTATION%20TECHNIQUE/07_INFRASTRUCTURE.md) - Deploiement VPS, Docker, configuration
 - [08 - CI/CD](doc/DOCUMENTATION%20TECHNIQUE/08_CICD.md) - Pipeline GitHub Actions, SAST, SBOM
 - [09 - Administration](doc/DOCUMENTATION%20TECHNIQUE/09_ADMIN.md) - Mode operatoire administrateur
+- [10 - SupFile Sync Windows](doc/DOCUMENTATION%20TECHNIQUE/10_SUPFILE_SYNC_WINDOWS.md) - Client desktop Windows de synchronisation automatique
 - [99 - Annexes](doc/DOCUMENTATION%20TECHNIQUE/99_ANNEXES.md) - Glossaire, liens, variables d'environnement
 
 ### Manuel utilisateur
@@ -65,8 +66,8 @@ bash scripts/hot-start.sh
 
 ```bash
 # 1. Cloner le dépôt
-git clone https://github.com/<org>/supfile.git
-cd supfile
+git clone https://github.com/ECG-Rudy-Glt/4PROJ-.git
+cd 4PROJ-
 
 # 2. Copier et configurer les variables d'environnement
 cp .env.example .env
@@ -252,30 +253,13 @@ BRAIN_API_URL=http://brain-api:8001
 OLLAMA_MODEL=gemma2:2b
 ```
 
-Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [doc/DOCUMENTATION TECHNIQUE/06_INFRASTRUCTURE.md](doc/DOCUMENTATION%20TECHNIQUE/06_INFRASTRUCTURE.md).
+Le fichier `.env` réel n'est pas versionné. Pour la préproduction VPS, utilisez un `.env` dédié sur le serveur et suivez [doc/DOCUMENTATION TECHNIQUE/07_INFRASTRUCTURE.md](doc/DOCUMENTATION%20TECHNIQUE/07_INFRASTRUCTURE.md).
 
 ---
 
 ## Architecture
 
-```
-Navigateur / App mobile
-        |
-        v
-  nginx :3000
-  (frontend React)
-        | /api  proxy
-        v
-  backend :5001  (Node.js / Express / TypeScript)
-        |-- PostgreSQL :5432  (metadonnees, BDD)
-        |-- MinIO              (fichiers chiffres S3)
-        |-- OnlyOffice :8080   (edition Office)
-        +-- brain-api :8001   (IA Python / FastAPI)
-                 |-- Ollama    (LLM local gemma2:2b)
-                 +-- ChromaDB  (base vectorielle RAG)
-
-  App mobile (Expo / React Native)
-```
+![Architecture globale SUPFile](doc/DOCUMENTATION%20TECHNIQUE/img/supfile_architecture-Architecture%20Globale.drawio.png)
 
 **7 services Docker**, **1 réseau bridge interne**, base de données et MinIO non exposés à l'hôte.
 
@@ -303,6 +287,7 @@ Navigateur / App mobile
 | **Backend**        | Node.js 20, Express, TypeScript, Prisma, PostgreSQL, MinIO     |
 | **IA (brain-api)** | Python, FastAPI, Ollama, ChromaDB, fastembed                   |
 | **Mobile**         | React Native 0.81, Expo SDK 54, Zustand, expo-secure-store     |
+| **Desktop Sync**   | Electron 31, React/Vite, chokidar, electron-builder            |
 | **Sécurité**       | AES-256-GCM, PBKDF2 100k iter, JWT versionné, MFA TOTP, Helmet |
 | **DevOps**         | Docker Compose, GitHub Actions, Semgrep, TruffleHog, Dockle    |
 
@@ -317,6 +302,7 @@ Navigateur / App mobile
 - **IA - Bobby** : assistant documentaire RAG (recherche sémantique, analyse, génération de fichiers) - 100% on-premise
 - **Temps réel** : notifications et partages via Socket.IO (WebSocket)
 - **Mobile** : application iOS/Android (Expo), token stocké dans le Keychain/Keystore OS
+- **Desktop Sync Windows** : client `.exe` type OneDrive, dossier local synchronisé avec `SupFile Sync`
 - **Admin** : dashboard KPIs, gestion des plans, export CSV, réindexation IA
 - **RGPD** : export de toutes les données personnelles, audit log 30+ événements, purge automatique
 
@@ -325,17 +311,29 @@ Navigateur / App mobile
 ## Tests
 
 ```bash
-# Tests unitaires backend
-cd backend && npm test
+# Backend
+cd backend && npm test -- --runInBand
+cd backend && npm run build
 
-# Tests d'intégration (nécessite l'application en cours d'exécution)
-cd scripts && pip install -r requirements.txt
-python test_e2e.py        # 79/80 - sécurité & infrastructure
-python test_features.py   # 68/68 - fonctionnalités avancées
+# Intégration backend (PostgreSQL + MinIO isolés)
+cd backend && npm run test:integration:up
+cd backend && npm run test:integration:db
+cd backend && npm run test:integration -- --runInBand
+cd backend && npm run test:integration:down
 
-# Tests E2E frontend
-cd frontend && npx cypress run
+# Frontend web
+cd frontend && npm run build
+
+# Mobile
+cd mobile && npx tsc --noEmit
+
+# Desktop Windows Sync
+cd desktop && npm run lint
+cd desktop && npm run build
+cd desktop && npm run dist:win
 ```
+
+Le packaging Windows génère `desktop/release/SupFile-Sync-Setup.exe`.
 
 ---
 
@@ -354,7 +352,7 @@ Le pipeline GitHub Actions exécute à chaque push :
 
 ## Récapitulatif des fonctionnalités implémentées
 
-> Couverture : backend API + client web (React) + client mobile (Expo/React Native)
+> Couverture : backend API + client web (React) + client mobile (Expo/React Native) + client desktop Windows (Electron)
 
 ### Authentification & Identité
 
@@ -425,10 +423,25 @@ Le pipeline GitHub Actions exécute à chaque push :
 | Filtrage par date                         | V   | V      |                                 |
 | Recherche sémantique IA (Bobby)           | V   | V      | RAG ChromaDB                    |
 
+### Synchronisation desktop Windows
+
+| Fonctionnalité                              | Desktop | Détail                                             |
+| ------------------------------------------- | ------- | -------------------------------------------------- |
+| Installeur Windows `.exe`                   | V       | packaging `electron-builder`                       |
+| Connexion compte SUPFile                    | V       | email/mot de passe, MFA et setup MFA si requis     |
+| Refresh token                               | V       | stocké via `safeStorage` Electron                  |
+| Dossier local choisi par l'utilisateur      | V       | exclusions `.supfile-sync`, temporaires, symlinks  |
+| Dossier distant dédié `SupFile Sync`        | V       | créé/récupéré via `/api/sync/root`                 |
+| Synchronisation bidirectionnelle            | V       | local -> distant et distant -> local               |
+| Conflits conservés                          | V       | suffixe `(conflit <device> <timestamp>)`           |
+| Pause / reprise / tray                      | V       | menu zone de notification Windows                  |
+| Reprise offline                             | V       | scan de rattrapage, polling et refresh auth        |
+
 ### Bonus implémentés
 
 | Bonus                                              | Statut | Détail                                                |
 | -------------------------------------------------- | ------ | ----------------------------------------------------- |
+| SupFile Sync Windows                               | V      | client Electron `.exe`, sync bidirectionnelle         |
 | Drag & drop upload (global, dossiers entiers)      | V      | overlay plein écran, webkitRelativePath               |
 | Déplacement par drag & drop                        | V      | attribut custom dataTransfer                          |
 | Partage avancé (mot de passe + expiration + quota) | V      | sur liens publics et partages internes                |

@@ -53,11 +53,12 @@ backend/
 | Mécanisme | Détail |
 |---|---|
 | Helmet | Headers de sécurité (CSP désactivé pour les previews, HSTS configurable) |
-| CORS | Origines autorisées via `ALLOWED_ORIGINS` (env) |
+| CORS | Origines autorisées via `CORS_ALLOWED_ORIGINS` (env) |
 | Rate limit général | 500 req/min sur `/api/` |
 | Rate limit auth | 10 req/15min sur `/api/auth/login` et `/api/auth/register` |
 | HTTPS redirect | Activé si `ENFORCE_HTTPS=true` |
-| Body limit | 5 GB (pour les gros uploads) |
+| Body JSON | `JSON_BODY_LIMIT` (1 MB par défaut) |
+| Upload multipart | Multer, jusqu'à 5 GB par fichier via flux dédié |
 
 ---
 
@@ -69,7 +70,7 @@ backend/
 | `delegation.ts` | `requireDelegationPermission(perm)` - vérifie les droits en session déléguée (read / write / delete / share) |
 | `permissions.ts` | `requireFolderPermission(perm)` - vérifie les droits sur un dossier partagé |
 | `quotaCheck.ts` | `checkQuotaBeforeUpload` - bloque l'upload si quota dépassé |
-| `admin.ts` | `requireAdmin` - vérifie que l'utilisateur est administrateur |
+| `admin.ts` | `isAdmin` - vérifie que l'utilisateur est administrateur |
 | `activityMiddleware.ts` | Met à jour `lastActivity` de la session à chaque requête |
 | `errorHandler.ts` | Handler d'erreurs centralisé - gère `AppError` et erreurs inattendues |
 | `validation.ts` | Wrapper `express-validator` - déclenche les erreurs de validation |
@@ -110,14 +111,19 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
-| POST | `/register` |  | Inscription (email + password, validé) |
-| POST | `/login` |  | Connexion locale |
-| POST | `/logout-all` |  | Révoque tous les refresh tokens |
-| GET | `/profile` |  | Infos utilisateur courant |
-| PUT | `/profile` |  | Mise à jour du profil |
-| POST | `/avatar` |  | Upload avatar (multipart) |
-| POST | `/change-password` |  | Changement de mot de passe |
-| GET | `/export-data` |  | Export RGPD des données utilisateur |
+| POST | `/register` | Non | Inscription (email + password, validé) |
+| POST | `/login` | Non | Connexion locale |
+| POST | `/refresh` | Non | Rotation du refresh token et nouveau JWT |
+| POST | `/logout` | Non | Révocation du refresh token courant |
+| POST | `/forgot-password` | Non | Demande de réinitialisation |
+| POST | `/reset-password-info` | Non | Vérifie le token de reset transmis dans le body |
+| POST | `/reset-password` | Non | Réinitialise le mot de passe |
+| POST | `/logout-all` | Oui | Révoque tous les refresh tokens |
+| GET | `/profile` | Oui | Infos utilisateur courant |
+| PUT | `/profile` | Oui | Mise à jour du profil |
+| POST | `/avatar` | Oui | Upload avatar (multipart) |
+| POST | `/change-password` | Oui | Changement de mot de passe |
+| GET | `/export-data` | Oui | Export RGPD des données utilisateur |
 | GET | `/google` |  | Redirection OAuth2 Google |
 | GET | `/google/callback` |  | Callback Google  JWT |
 | GET | `/github` |  | Redirection OAuth2 GitHub |
@@ -170,13 +176,18 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 #### Liens publics (non-authentifiés)
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
-| GET | `/:token` |  | Accès à un fichier / dossier partagé publiquement |
-| GET | `/:token/download` |  | Télécharger via lien public |
+| GET | `/:token` | Non | Accès à un lien public fichier ou bundle |
+| POST | `/:token/unlock` | Non | Déverrouillage d'un lien public protégé par mot de passe |
+| GET | `/:token/download` | Non | Télécharger via lien public |
+| GET | `/:token/download-bundle` | Non | Télécharger un bundle public en ZIP |
+
+> Les liens publics de dossier ne sont pas supportés en V1 : le backend renvoie une erreur explicite. Les dossiers se partagent via partage interne.
 
 #### Gestion des liens
 | Méthode | Route | Permission | Description |
 |---|---|---|---|
-| POST | `/links` | share | Créer un lien public (optionnel : password, expiration, maxDownloads) |
+| POST | `/links` | share | Créer un lien public fichier (optionnel : password, expiration, maxDownloads) |
+| POST | `/links/bundle` | share | Créer un lien public bundle multi-fichiers |
 | GET | `/links` | read | Lister mes liens publics |
 | DELETE | `/links/:linkId` | delete | Supprimer un lien |
 
@@ -190,6 +201,8 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | DELETE | `/folders/:shareId` | delete | Révoquer le partage |
 | POST | `/folders/:shareId/accept` | write | Accepter un partage |
 | POST | `/folders/:shareId/reject` | write | Refuser un partage |
+| POST | `/folders/:shareId/unlock` | read | Déverrouiller un partage interne protégé |
+| GET | `/folders/:folderId/contents` | read | Lister le contenu d'un dossier partagé accepté |
 
 #### Partage interne - Fichiers
 | Méthode | Route | Permission | Description |
@@ -202,6 +215,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | DELETE | `/files/:shareId` | delete | Révoquer |
 | POST | `/files/:shareId/accept` | write | Accepter |
 | POST | `/files/:shareId/reject` | write | Refuser |
+| POST | `/files/:shareId/unlock` | read | Déverrouiller un partage interne protégé |
 | GET | `/access/:fileId/stream` | read | Streamer un fichier partagé avec moi |
 | GET | `/access/:fileId/download` | read | Télécharger un fichier partagé avec moi |
 
@@ -324,6 +338,29 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 
 ---
 
+### `/api/sync` - SupFile Sync Windows
+
+Ces routes sont consommees par le client desktop Windows. Elles ne donnent pas d'acces direct au stockage objet : le client passe toujours par l'API REST authentifiee.
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/root` | Cree ou retourne le dossier racine `SupFile Sync` |
+| GET | `/tree?rootFolderId=...` | Retourne l'arborescence recursive sous le root sync |
+| POST | `/files/upload` | Upload ou remplacement d'un fichier depuis le client desktop |
+
+Points de securite :
+- `authenticate` obligatoire sur toutes les routes.
+- `requireDelegationPermission('read'|'write')` applique selon l'action.
+- `DEK_UNLOCK_REQUIRED` conserve : aucun contournement si la cle utilisateur n'est pas disponible.
+- Scope verifie par ascendance `parentId` jusqu'au root `SupFile Sync`, pas par simple prefixe de chemin.
+- `checksum` SHA-256 optionnel pour la detection de changements et la verification d'upload.
+- `baseRemoteUpdatedAt` protege les remplacements concurrents : retour `409 SYNC_CONFLICT` si le distant a change.
+- Quota, taille et chiffrement reutilisent les services existants d'upload/versioning.
+
+Le download distant vers local reutilise les endpoints fichiers existants avec `Authorization: Bearer`. Aucun token n'est accepte en query string.
+
+---
+
 ### Autres routes
 
 | Préfixe | Description |
@@ -349,7 +386,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | `fileActionService` | Soft delete, restore, toggle favori, déplacement |
 | `encryptionService` | AES-256-GCM, chiffrement/déchiffrement à la volée, support multi-clés |
 | `kekService` | Gestion du cycle de vie KEK/DEK (PBKDF2, wrapping JWT) |
-| `storageService` | Abstraction stockage : local ou S3/MinIO |
+| `storageService` | Abstraction stockage objet S3/MinIO |
 | `folderService` | CRUD dossiers, arborescence récursive, ZIP streaming |
 | `shareService` | Façade partage (délègue à sharedFileService / sharedFolderService / sharedLinkService) |
 | `sharedLinkService` | Liens publics (token, password hash, expiration, maxDownloads) |
@@ -381,6 +418,7 @@ return sendError(res, "Compte bloqué", 401, 'ACCOUNT_DISABLED');
 | `userService` | Recherche d'utilisateurs |
 | `dashboardService` | Agrégation données dashboard |
 | `onlyofficeService` | Token JWT OnlyOffice, callbacks, édition collaborative |
+| `syncService` | API de synchronisation desktop, root `SupFile Sync`, tree distant, conflits et scoping parentId |
 
 ---
 
@@ -403,22 +441,25 @@ GITHUB_CLIENT_SECRET=...
 BRAIN_API_URL=http://brain-api:8001   # Si absent  fonctionnalités RAG désactivées
 
 # CORS & HTTPS
-ALLOWED_ORIGINS=http://localhost:3000,https://supfile.fr
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://supfile.tech
+HOST_IP=localhost
+FRONTEND_PORT=3000
 ENFORCE_HTTPS=false
 
-# S3 (optionnel - sinon stockage local)
+# Stockage objet S3/MinIO (obligatoire en runtime actuel)
 S3_ENDPOINT=...
 S3_BUCKET=...
-S3_ACCESS_KEY=...
-S3_SECRET_KEY=...
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
 
 # Billing (optionnel)
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 
-# OnlyOffice (optionnel)
+# OnlyOffice
 ONLYOFFICE_JWT_SECRET=...
-ONLYOFFICE_SERVER_URL=...
+ONLYOFFICE_URL=http://onlyoffice:80
+ONLYOFFICE_PUBLIC_URL=https://supfile.tech/onlyoffice
 
 # Email (optionnel)
 SMTP_HOST=...
@@ -445,25 +486,26 @@ Le `SocketService` émet des événements temps réel aux clients connectés :
 
 | Événement | Déclencheur |
 |---|---|
-| `file:uploaded` | Nouvel upload |
-| `file:deleted` | Suppression |
-| `share:received` | Nouveau partage reçu |
-| `notification:new` | Nouvelle notification |
-| `vault:locked` | Vault verrouillé |
+| `file_uploaded` | Nouvel upload |
+| `file_updated` | Renommage, déplacement, modification |
+| `file_deleted` | Suppression |
+| `share_received` | Nouveau partage reçu |
+| `notification_new` | Nouvelle notification |
+| `vault_locked` | Vault verrouillé |
 
 ---
 
-## Architecture de Chiffrement (Zéro Connaissance)
+## Architecture de chiffrement au repos
 
-SUPFile utilise un système de chiffrement à deux niveaux pour garantir la confidentialité totale des fichiers.
+SUPFile utilise un système KEK/DEK pour chiffrer les fichiers et les contenus indexés avant stockage objet et base. L'implémentation actuelle reste un chiffrement au repos côté serveur : le backend manipule des clés enveloppées pendant les opérations authentifiées et ne doit pas exposer de DEK en clair dans les réponses ou les logs.
 
 ### Flux de clés (KEK/DEK)
 1. **KEK (Key Encryption Key)** : Dérivée du mot de passe utilisateur via PBKDF2-SHA512. Elle n'est jamais stockée.
 2. **DEK (Data Encryption Key)** : Clé aléatoire unique générée pour chaque utilisateur, stockée en base de données chiffrée par la KEK.
-3. **Wrapping JWT** : Pour éviter de stocker la DEK en clair en mémoire serveur, elle est "enveloppée" par une clé secrète serveur (`DEK_WRAP_SECRET`) et transmise dans le payload JWT.
+3. **Wrapping JWT** : La DEK est enveloppée par une clé serveur (`DEK_WRAP_SECRET`) et transmise dans le payload JWT uniquement sous forme enveloppée.
 
 ### Audit de Sécurité (Avril 2026)
 Un audit par simulation d'intrusion a été mené avec succès :
 - **Storage (MinIO)** : Les fichiers stockés sont des blobs binaires indéchiffrables.
 - **Base de données (Postgres)** : Les textes extraits pour l'IA (RAG) sont chiffrés via AES-GCM avant insertion.
-- **Résultat** : Un accès total aux serveurs de stockage ou à la DB ne permet pas de lire les documents des utilisateurs.
+- **Résultat** : Un accès isolé au stockage objet ou à la base ne suffit pas à lire directement les documents. La compromission complète du backend et de ses secrets reste hors de ce modèle.

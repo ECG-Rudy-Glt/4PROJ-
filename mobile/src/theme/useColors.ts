@@ -34,7 +34,7 @@ export const darkColors = {
     100: '#232B3E',  // bordure subtile
     200: '#2D3A50',  // bordure
     300: '#3D4D66',  // éléments désactivés
-    400: '#6B7A94',  // placeholder
+    400: '#6B7A94',
     500: '#8B9BB4',  // texte secondaire
     600: '#BDC8D9',  // texte courant
     700: '#D8E1ED',  // texte fort

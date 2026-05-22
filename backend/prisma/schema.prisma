@@ -248,6 +248,7 @@ model File {
   originalName String
   mimeType     String
   size         BigInt
+  checksum     String?
 
   storagePath String @unique // Lien vers Docker
 
@@ -284,6 +285,7 @@ model File {
   @@index([folderId])
   @@index([isDeleted])
   @@index([mimeType])
+  @@index([checksum])
   @@index([category])
   @@index([isFavorite])
   @@index([isVault])

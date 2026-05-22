@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { authService } from '@/services/authService';
-import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut, Check, X, Activity } from 'lucide-react';
+import { User, Lock, HardDrive, Moon, Sun, Calendar, Shield, Languages, LogOut, Check, X, Activity, Monitor, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MFASettingsSection from '@/components/MFASettingsSection';
 import RGPDSection from '@/components/RGPDSection';
@@ -44,6 +44,7 @@ export default function SettingsPage() {
   const isVaultEligible = isVaultAvailableForPlan(currentPlan);
   const auditAvailable = isFeatureAvailableForPlan(currentPlan, 'auditLogs');
   const refreshGlobalVaultStatus = useVaultStore((state) => state.refreshStatus);
+  const desktopDownloadUrl = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || '/downloads/SupFile-Sync-Setup.exe';
 
   useEffect(() => {
     setIsDark(user?.theme === 'dark');
@@ -322,6 +323,36 @@ export default function SettingsPage() {
             )}
           </p>
         </div>
+      </div>
+
+      {/* Desktop Sync Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
+              <Monitor className="w-5 h-5 text-sky-600 dark:text-sky-300" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('settings.desktop_sync.title')}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('settings.desktop_sync.description')}
+              </p>
+            </div>
+          </div>
+          <a
+            href={desktopDownloadUrl}
+            download
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            {t('settings.desktop_sync.download')}
+          </a>
+        </div>
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          {t('settings.desktop_sync.hint')}
+        </p>
       </div>
 
       {/* Theme Toggle Section */}

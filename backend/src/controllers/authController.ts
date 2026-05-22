@@ -197,7 +197,7 @@ export class AuthController {
 
   static async getResetTokenInfo(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const token = typeof req.body?.token === 'string' ? req.body.token : req.query.token;
+      const token = typeof req.body?.token === 'string' ? req.body.token : undefined;
       if (!token || typeof token !== 'string') {
         sendError(res, 'Token manquant ou invalide', 400);
         return;

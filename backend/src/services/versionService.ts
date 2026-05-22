@@ -23,7 +23,8 @@ export class VersionService {
     newFileName: string,
     newFileSize: number,
     newMimeType: string,
-    dek?: Buffer
+    dek?: Buffer,
+    checksum?: string
   ) {
     const file = await prisma.file.findFirst({
       where: {
@@ -148,6 +149,7 @@ export class VersionService {
           data: {
             name: newFileName,
             size: BigInt(newFileSize),
+            checksum,
             storagePath: s3Key,
             mimeType: newMimeType,
           },

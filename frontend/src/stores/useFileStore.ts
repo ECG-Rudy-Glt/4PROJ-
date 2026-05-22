@@ -57,39 +57,23 @@ export const useFileStore = create<FileState>((set, get) => ({
   },
 
   uploadFile: async (file, folderId) => {
-    try {
-      await fileService.uploadFile(file, folderId);
-      await get().loadContent(folderId);
-    } catch (error) {
-      throw error;
-    }
+    await fileService.uploadFile(file, folderId);
+    await get().loadContent(folderId);
   },
 
   deleteFile: async (fileId, permanent = false) => {
-    try {
-      await fileService.deleteFile(fileId, permanent);
-      await get().loadContent(get().currentFolderId || undefined);
-    } catch (error) {
-      throw error;
-    }
+    await fileService.deleteFile(fileId, permanent);
+    await get().loadContent(get().currentFolderId || undefined);
   },
 
   createFolder: async (name, parentId) => {
-    try {
-      await folderService.createFolder(name, parentId);
-      await get().loadContent(parentId);
-    } catch (error) {
-      throw error;
-    }
+    await folderService.createFolder(name, parentId);
+    await get().loadContent(parentId);
   },
 
   deleteFolder: async (folderId, permanent = false) => {
-    try {
-      await folderService.deleteFolder(folderId, permanent);
-      await get().loadContent(get().currentFolderId || undefined);
-    } catch (error) {
-      throw error;
-    }
+    await folderService.deleteFolder(folderId, permanent);
+    await get().loadContent(get().currentFolderId || undefined);
   },
 
   setCurrentFolder: (folderId) => {

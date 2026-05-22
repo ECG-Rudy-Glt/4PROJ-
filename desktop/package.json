@@ -1,0 +1,66 @@
+{
+  "name": "supfile-sync-desktop",
+  "version": "1.0.0",
+  "description": "SupFile Sync Windows desktop client",
+  "main": "dist-main/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite --host 127.0.0.1 --port 5174\" \"wait-on http://127.0.0.1:5174 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5174 electron .\"",
+    "build": "vite build && tsc -p tsconfig.main.json",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "lint": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "axios": "^1.15.0",
+    "chokidar": "^3.6.0",
+    "form-data": "^4.0.1",
+    "mime-types": "^2.1.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/form-data": "^2.5.2",
+    "@types/mime-types": "^2.1.4",
+    "@types/node": "^20.11.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.3.3",
+    "vite": "^6.4.2",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.supfile.sync",
+    "productName": "SupFile Sync",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "artifactName": "SupFile-Sync-Setup.${ext}",
+    "files": [
+      "dist-main/**/*",
+      "dist-renderer/**/*",
+      "build/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SupFile Sync"
+    }
+  }
+}

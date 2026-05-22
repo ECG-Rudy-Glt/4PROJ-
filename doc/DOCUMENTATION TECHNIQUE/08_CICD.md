@@ -53,6 +53,21 @@ Cache `node_modules` + `~/.cache/Cypress` -- evite le re-telechargement du binai
 
 ---
 
+### Validation desktop Windows Sync
+
+Le client SupFile Sync Windows est un package separe dans `desktop/`. La validation minimale avant release est :
+
+| Etape | Outil | Resultat attendu |
+|---|---|---|
+| Install | `npm install` | dependances resolues |
+| Typecheck | `npm run lint` | main/preload/renderer sans erreur TypeScript |
+| Build | `npm run build` | renderer Vite + main Electron generes |
+| Packaging Windows | `npm run dist:win` | `desktop/release/SupFile-Sync-Setup.exe` genere |
+
+Cette validation peut etre ajoutee comme job CI dedie. Le packaging `.exe` ne doit pas publier d'artefact public ni signer l'executable sans pipeline release controlee et certificat de signature.
+
+---
+
 ### [2c] semgrep - SAST
 
 - Outil : **Semgrep** (container officiel `semgrep/semgrep`)
