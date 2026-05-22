@@ -263,10 +263,15 @@ describe('Account Switcher Modal', () => {
       expect(win.localStorage.getItem('token')).to.equal('switched-token-2');
     });
 
-    // Stub window.location.replace to prevent full-page navigation
-    // which would break Cypress's ability to assert on localStorage.
+    // Override window.location.replace to prevent full-page navigation
+    // (it's non-configurable so cy.stub() can't be used).
     cy.window().then((win) => {
-      cy.stub(win.location, 'replace').as('locationReplace');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (win as any).__replacedUrl = null;
+      win.location.replace = ((url: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (win as any).__replacedUrl = url;
+      }) as typeof win.location.replace;
     });
 
     cy.get('button[title="Switch de comptes"]').click();
@@ -275,8 +280,8 @@ describe('Account Switcher Modal', () => {
 
     cy.window().then((win) => {
       expect(win.localStorage.getItem('token')).to.equal('root-token');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((win as any).__replacedUrl).to.equal('/dashboard');
     });
-
-    cy.get('@locationReplace').should('have.been.calledWith', '/dashboard');
   });
 });
