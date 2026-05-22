@@ -263,14 +263,15 @@ describe('Account Switcher Modal', () => {
       expect(win.localStorage.getItem('token')).to.equal('switched-token-2');
     });
 
-    // Re-open the modal. The Return button triggers switchBack which calls
-    // window.location.replace('/dashboard') - use force:true to click before
-    // the element detaches from the DOM during the navigation.
+    // Re-open the modal and switch back to root account
     cy.get('button[title="Switch de comptes"]').click();
     cy.contains('button', 'Return').click({ force: true });
     cy.wait('@switchBack');
 
-    cy.window().then((win) => {
+    // The handler calls localStorage.setItem('token', 'root-token') then
+    // window.location.replace('/dashboard'). Use a retry-able assertion
+    // to handle the async timing between the response and the handler execution.
+    cy.window().should((win) => {
       expect(win.localStorage.getItem('token')).to.equal('root-token');
     });
   });
