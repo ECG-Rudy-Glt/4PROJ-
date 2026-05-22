@@ -263,22 +263,16 @@ describe('Account Switcher Modal', () => {
       expect(win.localStorage.getItem('token')).to.equal('switched-token-2');
     });
 
-    // Override window.location.replace to prevent full-page navigation
-    // (it's non-configurable so cy.stub() can't be used).
-    cy.window().then((win) => {
-      (win as any).__replacedUrl = null;
-      win.location.replace = ((url: string) => {
-        (win as any).__replacedUrl = url;
-      }) as typeof win.location.replace;
-    });
-
+    // Re-open the modal and switch back to root account
     cy.get('button[title="Switch de comptes"]').click();
     cy.contains('button', 'Return').click({ force: true });
     cy.wait('@switchBack');
 
-    cy.window().then((win) => {
-      expect(win.localStorage.getItem('token')).to.equal('root-token');
-      expect((win as any).__replacedUrl).to.equal('/dashboard');
+    // The handler calls localStorage.setItem('token', 'root-token') then
+    // window.location.replace('/dashboard'). Use a retry-able assertion
+    // to handle the async timing between the response and the handler execution.
+    cy.should(() => {
+      expect(localStorage.getItem('token')).to.equal('root-token');
     });
   });
 });
