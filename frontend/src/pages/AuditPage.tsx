@@ -151,17 +151,6 @@ export default function AuditPage() {
   // Tooltip state for heatmap
   const [hoveredDay, setHoveredDay] = useState<{ date: string; count: number } | null>(null);
 
-  useEffect(() => {
-    if (!auditAvailable) return;
-    void loadYearStats();
-    void loadMonthStats();
-  }, [auditAvailable]);
-
-  useEffect(() => {
-    if (!auditAvailable) return;
-    void loadLogs();
-  }, [auditAvailable, page, filterAction, filterDays, loadLogs]);
-
   const loadYearStats = async () => {
     try {
       const data = await auditService.getActivityStats(365);
@@ -199,6 +188,17 @@ export default function AuditPage() {
       setIsLoading(false);
     }
   }, [filterAction, filterDays, page, t]);
+
+  useEffect(() => {
+    if (!auditAvailable) return;
+    void loadYearStats();
+    void loadMonthStats();
+  }, [auditAvailable]);
+
+  useEffect(() => {
+    if (!auditAvailable) return;
+    void loadLogs();
+  }, [auditAvailable, page, filterAction, filterDays, loadLogs]);
 
   const handleExportCsv = async () => {
     try {

@@ -35,12 +35,6 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadPendingShares();
-    }
-  }, [isOpen, loadPendingShares]);
-
   const loadPendingShares = useCallback(async () => {
     try {
       const data = await shareService.getPendingShares();
@@ -83,6 +77,12 @@ export default function PendingSharesModal({ isOpen, onClose, onAccept }: Pendin
       setLoading(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadPendingShares();
+    }
+  }, [isOpen, loadPendingShares]);
 
   const handleAccept = async (share: PendingShare) => {
     setAccepting(share.id);

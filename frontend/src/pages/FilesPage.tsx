@@ -130,7 +130,7 @@ export default function FilesPage() {
     [acceptedSharedFiles, displayFiles, i18n.language, sortBy, sortOrder]
   );
   const isSharedItem = (item: any) => Boolean(item?._isShared || item?._sharedFolderPermissions);
-  const isPasswordProtectedSharedFile = (item: any) => Boolean(isSharedItem(item) && item?.passwordProtected);
+  const isPasswordProtectedSharedFile = useCallback((item: any) => Boolean(isSharedItem(item) && item?.passwordProtected), []);
   const getSharedFolderRootId = (item: any) => item?._sharedRootFolderId || item?.folderId || item?.id;
   const getSharedFolderToken = useCallback((item: any) => {
     const rootId = getSharedFolderRootId(item);

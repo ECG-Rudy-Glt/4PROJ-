@@ -18,10 +18,6 @@ export default function MFASettingsSection() {
   const [newBackupCodes, setNewBackupCodes] = useState<string[]>([]);
   const [showBackupCodesModal, setShowBackupCodesModal] = useState(false);
 
-  useEffect(() => {
-    loadTrustedDevices();
-  }, [loadTrustedDevices]);
-
   const loadTrustedDevices = useCallback(async () => {
     setLoading(true);
     try {
@@ -33,6 +29,10 @@ export default function MFASettingsSection() {
       setLoading(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    loadTrustedDevices();
+  }, [loadTrustedDevices]);
 
   const handleRevokeDevice = async (deviceId: string, deviceName: string) => {
     if (!confirm(t('mfa.revoke_confirm', { name: deviceName }))) return;

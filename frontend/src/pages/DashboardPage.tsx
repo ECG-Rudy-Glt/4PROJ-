@@ -64,10 +64,6 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
-
   const loadDashboard = useCallback(async () => {
     try {
       const dashboardData = await dashboardService.getDashboard();
@@ -78,6 +74,10 @@ export default function DashboardPage() {
       setIsLoading(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const handleFileClick = (file: any) => {
     const folderPath = file.folderId ? `/files/${file.folderId}` : '/files';

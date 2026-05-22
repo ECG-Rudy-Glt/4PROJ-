@@ -132,12 +132,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   updateProfile: async (data) => {
-    try {
-      const { user } = await authService.updateProfile(data);
-      set({ user });
-    } catch (error) {
-      throw error;
-    }
+    const { user } = await authService.updateProfile(data);
+    set({ user });
   },
   refreshProfile: async () => {
     const { user, session } = await authService.getProfile();

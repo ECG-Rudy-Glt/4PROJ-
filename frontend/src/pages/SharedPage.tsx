@@ -95,17 +95,6 @@ export default function SharedPage() {
   const [pendingFolders, setPendingFolders] = useState<SharedFolder[]>([]);
   const [pendingFiles, setPendingFiles] = useState<SharedFile[]>([]);
   
-  useEffect(() => {
-    loadShared();
-  }, [loadShared]);
-
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'shared-with-me' || tab === 'my-shares' || tab === 'pending') {
-      setActiveTab(tab);
-    }
-  }, [searchParams]);
-
   const loadShared = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -155,6 +144,17 @@ export default function SharedPage() {
       setIsLoading(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    loadShared();
+  }, [loadShared]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'shared-with-me' || tab === 'my-shares' || tab === 'pending') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const handleAcceptShare = async (shareId: string, type: 'file' | 'folder') => {
     try {
