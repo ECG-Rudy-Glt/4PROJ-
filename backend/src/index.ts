@@ -160,6 +160,18 @@ app.get('/health', (_req, res) => {
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+app.use((req, res, next) => {
+  const legacyOAuthPath = req.path.match(/^\/api\/auth(github|google)(\/callback)?\/?$/);
+  if (!legacyOAuthPath) {
+    next();
+    return;
+  }
+
+  const queryStart = req.originalUrl.indexOf('?');
+  const query = queryStart >= 0 ? req.originalUrl.slice(queryStart) : '';
+  res.redirect(302, `/api/auth/${legacyOAuthPath[1]}${legacyOAuthPath[2] || ''}${query}`);
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/folders', folderRoutes);
