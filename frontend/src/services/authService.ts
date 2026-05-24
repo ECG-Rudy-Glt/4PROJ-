@@ -14,6 +14,11 @@ export const authService = {
     return response.data.data || response.data;
   },
 
+  async exchangeOAuthCode(oauthCode: string): Promise<{ token: string }> {
+    const response = await api.post('/auth/oauth/exchange', { oauthCode });
+    return response.data.data || response.data;
+  },
+
   async register(data: {
     email: string;
     password: string;

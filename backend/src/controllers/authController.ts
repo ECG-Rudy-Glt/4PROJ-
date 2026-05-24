@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { AuthService } from '../services/authService';
 import { AuthRequest } from '../types';
 import { generateToken } from '../utils/jwt';
@@ -18,6 +19,38 @@ export { DataExportController } from './dataExportController';
 function getBearerToken(req: Request): string | undefined {
   const authHeader = req.headers.authorization;
   return authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+}
+
+const OAUTH_CODE_TTL_MS = 2 * 60 * 1000;
+const pendingOAuthCodes = new Map<string, { token: string; expiresAt: number }>();
+
+function cleanupExpiredOAuthCodes(now = Date.now()): void {
+  for (const [code, payload] of pendingOAuthCodes.entries()) {
+    if (payload.expiresAt <= now) {
+      pendingOAuthCodes.delete(code);
+    }
+  }
+}
+
+function createOAuthCode(token: string): string {
+  cleanupExpiredOAuthCodes();
+  const code = crypto.randomBytes(32).toString('base64url');
+  pendingOAuthCodes.set(code, {
+    token,
+    expiresAt: Date.now() + OAUTH_CODE_TTL_MS,
+  });
+  return code;
+}
+
+function consumeOAuthCode(code: string): string | null {
+  const payload = pendingOAuthCodes.get(code);
+  pendingOAuthCodes.delete(code);
+
+  if (!payload || payload.expiresAt <= Date.now()) {
+    return null;
+  }
+
+  return payload.token;
 }
 
 export class AuthController {
@@ -167,7 +200,8 @@ export class AuthController {
         return;
       }
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(token)}`);
+      const oauthCode = createOAuthCode(token);
+      res.redirect(`${frontendUrl}/auth/callback?oauthCode=${encodeURIComponent(oauthCode)}`);
     } catch (error) {
       const msg = encodeURIComponent(error instanceof Error ? error.message : 'Unknown error');
       const state = typeof req.query?.state === 'string' ? req.query.state : '';
@@ -178,6 +212,27 @@ export class AuthController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/auth/callback?error=${msg}`);
     }
+  }
+
+  static async exchangeOAuthCode(req: Request, res: Response): Promise<void> {
+    const oauthCode = typeof req.body?.oauthCode === 'string'
+      ? req.body.oauthCode
+      : typeof req.body?.code === 'string'
+        ? req.body.code
+        : '';
+
+    if (!oauthCode) {
+      sendError(res, 'OAuth code required', 400, 'OAUTH_CODE_REQUIRED');
+      return;
+    }
+
+    const token = consumeOAuthCode(oauthCode);
+    if (!token) {
+      sendError(res, 'OAuth code invalid or expired', 401, 'OAUTH_CODE_INVALID');
+      return;
+    }
+
+    sendSuccess(res, { token });
   }
 
   static async requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {

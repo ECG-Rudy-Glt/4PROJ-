@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { authService } from '@/services/authService';
 import toast from 'react-hot-toast';
 
 export default function OAuthCallbackPage() {
@@ -11,6 +12,7 @@ export default function OAuthCallbackPage() {
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const token = hashParams.get('token') || searchParams.get('token');
+    const oauthCode = searchParams.get('oauthCode');
     const error = searchParams.get('error');
 
     if (error) {
@@ -19,8 +21,8 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    if (token) {
-      setAuthToken(token)
+    const completeAuth = (authToken: string) => {
+      setAuthToken(authToken)
         .then(() => {
           toast.success('Welcome!');
           navigate('/dashboard');
@@ -29,6 +31,20 @@ export default function OAuthCallbackPage() {
           toast.error('OAuth authentication failed');
           navigate('/login');
         });
+    };
+
+    if (oauthCode) {
+      authService.exchangeOAuthCode(oauthCode)
+        .then(({ token: exchangedToken }) => completeAuth(exchangedToken))
+        .catch(() => {
+          toast.error('OAuth authentication failed');
+          navigate('/login');
+        });
+      return;
+    }
+
+    if (token) {
+      completeAuth(token);
     } else {
       navigate('/login');
     }
