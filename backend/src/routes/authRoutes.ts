@@ -65,6 +65,7 @@ router.post('/reset-password-info', AuthController.getResetTokenInfo);
 router.post('/reset-password', AuthController.resetPassword);
 
 router.get('/providers', AuthController.getOAuthProviders);
+router.post('/oauth/exchange', AuthController.exchangeOAuthCode);
 
 router.post('/logout-all', authenticate, AuthController.logoutAll);
 
