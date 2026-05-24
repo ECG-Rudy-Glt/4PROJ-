@@ -460,7 +460,11 @@ jobs:
             set -euo pipefail
             export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
             cd ${DEPLOY_PATH}
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+            if echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin; then
+              echo "Logged in to GHCR as ${GHCR_USERNAME}"
+            else
+              echo "GHCR login failed for ${GHCR_USERNAME}; continuing with existing Docker credentials on the VPS"
+            fi
 
             export BACKEND_IMAGE=${BACKEND_IMAGE}
             export FRONTEND_IMAGE=${FRONTEND_IMAGE}
