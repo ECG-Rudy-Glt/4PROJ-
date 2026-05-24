@@ -14,4 +14,4 @@ COPY . .
 
 EXPOSE 8081
 
-CMD ["npx", "expo", "start", "--host", "lan", "--go", "--port", "8081", "--no-dev", "--minify"]
+CMD ["npx", "expo", "start", "--offline", "--host", "lan", "--go", "--port", "8081", "--no-dev", "--minify"]
