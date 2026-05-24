@@ -1,0 +1,17 @@
+FROM node:20-bookworm-slim
+
+ENV CI=1 \
+    EXPO_NO_TELEMETRY=1 \
+    EXPO_PUBLIC_API_URL=https://supfile.tech/api \
+    REACT_NATIVE_PACKAGER_HOSTNAME=supfile.tech
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+EXPOSE 8081
+
+CMD ["npx", "expo", "start", "--host", "lan", "--go", "--port", "8081", "--no-dev", "--minify"]
