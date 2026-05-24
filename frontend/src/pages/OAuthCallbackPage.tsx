@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { loadUser } = useAuthStore();
+  const { setAuthToken } = useAuthStore();
 
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -20,15 +20,19 @@ export default function OAuthCallbackPage() {
     }
 
     if (token) {
-      localStorage.setItem('token', token);
-      loadUser().then(() => {
-        toast.success('Welcome!');
-        navigate('/dashboard');
-      });
+      setAuthToken(token)
+        .then(() => {
+          toast.success('Welcome!');
+          navigate('/dashboard');
+        })
+        .catch(() => {
+          toast.error('OAuth authentication failed');
+          navigate('/login');
+        });
     } else {
       navigate('/login');
     }
-  }, [searchParams, navigate, loadUser]);
+  }, [searchParams, navigate, setAuthToken]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
