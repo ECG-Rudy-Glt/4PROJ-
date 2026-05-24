@@ -844,17 +844,31 @@
     var isMobile = isIPadOS || /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua);
     if (!isMobile) return;
 
+    var expoMobileUrl = 'exp://supfile.tech:8081';
+    var expoGoUrl = 'https://expo.dev/client';
+
     document.body.innerHTML = [
-      '<main style="min-height:100vh;background:#030712;color:#fff;display:flex;align-items:center;justify-content:center;padding:32px;font-family:Inter,Arial,sans-serif;">',
-      '<section style="max-width:680px;width:100%;">',
-      '<p style="display:inline-flex;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);border-radius:999px;padding:6px 12px;margin:0 0 18px;font-size:14px;">Acces mobile bloque</p>',
-      '<h1 style="font-size:clamp(30px,8vw,44px);line-height:1.08;margin:0 0 16px;">SUPFile Web est disponible depuis un ordinateur</h1>',
-      '<p style="color:#d1d5db;font-size:17px;line-height:1.7;margin:0 0 24px;">Pour utiliser SUPFile sur mobile pendant le developpement, installez Expo Go puis scannez le QR code Expo ou saisissez l\'URL Expo generee par le terminal.</p>',
-      '<div style="display:grid;gap:14px;margin-bottom:24px;">',
-      '<div style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:12px;padding:18px;"><strong>Acces web</strong><p style="color:#d1d5db;margin:8px 0 0;line-height:1.55;">Ouvrez le site depuis un PC ou un Mac pour acceder a l\'application web complete.</p></div>',
-      '<div style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:12px;padding:18px;"><strong>Acces mobile</strong><p style="color:#d1d5db;margin:8px 0 0;line-height:1.55;">Lancez l\'app mobile avec Expo, puis utilisez Expo Go pour scanner le QR code ou entrer l\'URL Expo affichee.</p></div>',
+      '<main style="min-height:100vh;background:#f6faf7;color:#102a27;display:flex;align-items:center;justify-content:center;padding:22px;font-family:Inter,Arial,sans-serif;">',
+      '<section style="width:100%;max-width:780px;border:1px solid #d9e8dc;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 22px 70px rgba(37,68,65,.16);">',
+      '<header style="background:#254441;padding:20px 22px;"><img src="/icon-full-light.svg" alt="SUPFile" style="height:40px;width:auto;display:block;"></header>',
+      '<div style="padding:24px 22px 28px;">',
+      '<p style="display:inline-flex;align-items:center;border:1px solid #cfe0d3;background:#eef7f0;color:#254441;border-radius:999px;padding:6px 12px;margin:0 0 16px;font-size:14px;font-weight:800;">Acces mobile dedie</p>',
+      '<h1 style="font-size:clamp(29px,8vw,42px);line-height:1.08;margin:0 0 14px;color:#254441;letter-spacing:0;">SUPFile Web reste optimise pour ordinateur</h1>',
+      '<p style="color:#47635f;font-size:17px;line-height:1.65;margin:0 0 22px;">Sur mobile, utilisez l\'app SUPFile avec Expo Go. Scannez le QR code ou ouvrez le lien Expo public du VPS pour lancer l\'application mobile.</p>',
+      '<div style="display:grid;gap:14px;margin-bottom:22px;">',
+      '<div style="border:1px solid #d9e8dc;background:#fbfdfb;border-radius:8px;padding:18px;"><strong style="color:#254441;">Acces web complet</strong><p style="color:#5f7470;margin:8px 0 0;line-height:1.55;">Ouvrez supfile.tech depuis un PC ou un Mac pour utiliser toute l\'interface web.</p></div>',
+      '<div style="border:1px solid #d9e8dc;background:#fbfdfb;border-radius:8px;padding:18px;"><strong style="color:#254441;">App mobile Expo</strong><p style="color:#5f7470;margin:8px 0 0;line-height:1.55;">Installez Expo Go, puis scannez le QR code pour lancer SUPFile Mobile.</p></div>',
       '</div>',
-      '<a href="https://expo.dev/client" rel="noreferrer" style="display:inline-flex;background:#fff;color:#030712;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">Telecharger Expo Go</a>',
+      '<div style="border:1px solid #d9e8dc;background:#eef7f0;border-radius:8px;padding:18px;margin-bottom:18px;">',
+      '<img src="/expo-mobile-qr.svg" alt="QR code Expo SUPFile Mobile" style="display:block;width:min(100%,260px);margin:0 auto 14px;background:#fff;border:1px solid #d9e8dc;border-radius:8px;padding:10px;">',
+      '<p style="color:#47635f;font-size:14px;line-height:1.55;margin:0 0 10px;">Lien Expo VPS si le scan ne s\'ouvre pas automatiquement :</p>',
+      '<a href="' + expoMobileUrl + '" style="display:block;word-break:break-all;border:1px solid #cfe0d3;background:#fff;color:#254441;border-radius:8px;padding:12px;text-decoration:none;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;">' + expoMobileUrl + '</a>',
+      '</div>',
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;">',
+      '<a href="' + expoMobileUrl + '" style="display:inline-flex;background:#254441;color:#fff;text-decoration:none;border-radius:8px;padding:12px 16px;font-weight:800;">Ouvrir SUPFile Mobile</a>',
+      '<a href="' + expoGoUrl + '" rel="noreferrer" style="display:inline-flex;background:#fff;color:#254441;text-decoration:none;border:1px solid rgba(37,68,65,.22);border-radius:8px;padding:12px 16px;font-weight:800;">Telecharger Expo Go</a>',
+      '</div>',
+      '</div>',
       '</section>',
       '</main>'
     ].join('');

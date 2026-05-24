@@ -20,6 +20,21 @@ services:
       args:
         VITE_API_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}
 
+  mobile-expo:
+    image: ${MOBILE_EXPO_IMAGE:-supfile-mobile-expo:local}
+    container_name: supfile-mobile-expo
+    profiles: [mobile]
+    environment:
+      EXPO_PUBLIC_API_URL: ${PUBLIC_BASE_URL:-https://supfile.tech}/api
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${EXPO_PUBLIC_HOST:-supfile.tech}
+      EXPO_NO_TELEMETRY: "1"
+      CI: "1"
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    networks:
+      - supfile-network
+
   reverse-proxy:
     image: nginx:1.27-alpine
     container_name: supfile-vps-proxy

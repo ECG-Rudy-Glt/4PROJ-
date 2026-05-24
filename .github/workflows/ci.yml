@@ -228,6 +228,17 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
+      - name: Build Mobile Expo Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./mobile
+          file: ./mobile/Dockerfile.expo
+          push: false
+          load: true
+          tags: mobile-expo:ci
+          cache-from: type=gha,scope=mobile-expo
+          cache-to: type=gha,mode=max,scope=mobile-expo
+
       # Dockle audit configuration Dockerfile 
       - name: Install Dockle
         run: |
@@ -248,6 +259,10 @@ jobs:
         run: dockle --exit-code 1 --exit-level fatal --ignore CIS-DI-0010 frontend:ci
         continue-on-error: true
 
+      - name: Scan Mobile Expo Image with Dockle
+        run: dockle --exit-code 1 --exit-level fatal mobile-expo:ci
+        continue-on-error: true
+
       # SBOM : traçabilité supply chain
       - name: Generate SBOM - Backend
         uses: anchore/sbom-action@v0
@@ -262,6 +277,13 @@ jobs:
           image: frontend:ci
           format: spdx-json
           output-file: sbom-frontend.spdx.json
+
+      - name: Generate SBOM - Mobile Expo
+        uses: anchore/sbom-action@v0
+        with:
+          image: mobile-expo:ci
+          format: spdx-json
+          output-file: sbom-mobile-expo.spdx.json
 
       - name: Upload SBOMs as artifacts
         uses: actions/upload-artifact@v4
@@ -333,6 +355,18 @@ jobs:
           build-args: VITE_API_URL=https://${{ vars.PROD_DEPLOY_HOST }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build and Push Mobile Expo
+        uses: docker/build-push-action@v7
+        with:
+          context: ./mobile
+          file: ./mobile/Dockerfile.expo
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/mobile-expo:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/mobile-expo:latest
+          cache-from: type=gha,scope=mobile-expo
+          cache-to: type=gha,mode=max,scope=mobile-expo
 
   # ─────────────────────────────────────────────────────────────────────
   # [5] DÉPLOIEMENT PRODUCTION
@@ -452,6 +486,7 @@ jobs:
         run: |
           BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
           FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
+          MOBILE_EXPO_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/mobile-expo:${{ github.sha }}"
           GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
           GHCR_USERNAME="${{ vars.GHCR_USERNAME || github.repository_owner }}"
           DEPLOY_PATH="${{ vars.PROD_DEPLOY_PATH }}"
@@ -468,12 +503,14 @@ jobs:
 
             export BACKEND_IMAGE=${BACKEND_IMAGE}
             export FRONTEND_IMAGE=${FRONTEND_IMAGE}
+            export MOBILE_EXPO_IMAGE=${MOBILE_EXPO_IMAGE}
+            export EXPO_PUBLIC_HOST=${PROD_DEPLOY_HOST}
             export BIND_ADDRESS=127.0.0.1:
 
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml pull backend frontend
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --no-build --remove-orphans
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --no-build --force-recreate reverse-proxy
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile pull backend frontend mobile-expo
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile up -d --no-build --remove-orphans
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile up -d --no-build --force-recreate reverse-proxy
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile ps
             docker image prune -a -f --filter "until=168h"
           EOF
         env:
@@ -501,6 +538,7 @@ jobs:
           FAILED=0
           check_url "Frontend" "https://${PROD_DEPLOY_HOST}/" || FAILED=1
           check_url "Backend" "https://${PROD_DEPLOY_HOST}/health" || FAILED=1
+          check_url "Expo mobile" "http://${PROD_DEPLOY_HOST}:8081/status" || FAILED=1
           exit "$FAILED"
         env:
           PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
@@ -510,8 +548,8 @@ jobs:
         run: |
           ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" "
             cd '${PROD_DEPLOY_PATH}' &&
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml ps &&
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml logs --tail=200 reverse-proxy backend frontend
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile ps &&
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile logs --tail=200 reverse-proxy backend frontend mobile-expo
           "
         env:
           PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
