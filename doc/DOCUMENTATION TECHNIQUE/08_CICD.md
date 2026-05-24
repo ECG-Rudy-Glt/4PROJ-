@@ -125,14 +125,22 @@ Normalisation du nom de depot : `ECG-Rudy-Glt/4PROJ-` -> `ecg-rudy-glt/4proj` (m
 
 ---
 
-### [5] deploy-preprod (commente -- pret a activer)
+### [5] deploy-prod
 
-Job configure mais commente. Fonctionnement prevu :
-1. Connexion SSH au VPS via cle privee (`PREPROD_SSH_PRIVATE_KEY`)
-2. Copie `docker-compose.yml`, `docker-compose.vps.yml`, `nginx.vps.conf`, `.env` sur le serveur
-3. `docker compose pull` les nouvelles images depuis GHCR
-4. `docker compose up -d --wait` avec timeout 120s
-5. Nettoyage des images de plus de 7 jours (`docker image prune --filter until=168h`)
+Conditionne par `github.event_name == 'push' && github.ref == 'refs/heads/main'`.
+
+Fonctionnement :
+1. Validation fail-fast des variables et secrets de deploiement (`PROD_*`, `GHCR_PAT`, `.env` prod)
+2. Connexion SSH au VPS via cle privee (`PROD_SSH_PRIVATE_KEY`)
+3. Creation/correction des droits sur `PROD_DEPLOY_PATH`
+4. Copie `docker-compose.yml`, `docker-compose.vps.yml`, `nginx.vps.conf`, `.env` et scripts de maintenance
+5. `docker compose pull` des images taguees avec le SHA du commit depuis GHCR
+6. `docker compose up -d --no-build --remove-orphans` pour les services web/backend essentiels
+7. Recréation forcee du reverse proxy pour charger le `nginx.vps.conf` recopie
+8. Health checks publics sur `/` et `/health`
+9. Nettoyage des images de plus de 7 jours (`docker image prune --filter until=168h`)
+
+Le profil `ai` n'est pas active par defaut dans la pipeline VPS: le service `brain-api` utilise un build local (`./brain-api`) et necessite soit la copie du dossier sur le VPS, soit une image publiee dans GHCR.
 
 ---
 
@@ -148,8 +156,13 @@ Job configure mais commente. Fonctionnement prevu :
 | `MFA_ENCRYPTION_KEY` | Backend : chiffrement secrets TOTP |
 | `DATABASE_URL` | Backend : connexion PostgreSQL (tests) |
 | `GITHUB_TOKEN` | Docker push GHCR (fourni automatiquement par GitHub) |
+| `PROD_SSH_PRIVATE_KEY` | Cle privee SSH utilisee pour se connecter au VPS |
+| `GHCR_PAT` | Token avec `read:packages` pour que le VPS pull les images GHCR |
+| `PROD_ENV_FILE_CONTENT` | Contenu complet du `.env` de production copie dans `PROD_DEPLOY_PATH/.env` |
 
-Variables (`vars`) : `VITE_API_URL`, `PREPROD_DEPLOY_HOST`, `PREPROD_DEPLOY_PATH`, `PREPROD_DEPLOY_USER`
+Variables (`vars`) : `VITE_API_URL`, `PROD_DEPLOY_HOST`, `PROD_DEPLOY_PATH`, `PROD_DEPLOY_USER`
+
+`PROD_DEPLOY_HOST` doit etre un nom d'hote sans protocole, par exemple `supfile.tech` et non `https://supfile.tech`.
 
 Pour le deploiement VPS, `PROD_DEPLOY_USER` doit pouvoir executer `sudo mkdir` et `sudo chown` sur `PROD_DEPLOY_PATH`. La workflow remet l'ownership du dossier de deploiement avant les `scp` pour eviter les erreurs `Permission denied` si `/opt/supfile` a ete cree par `root`.
 

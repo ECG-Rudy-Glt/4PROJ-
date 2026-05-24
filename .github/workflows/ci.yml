@@ -289,6 +289,18 @@ jobs:
         run: |
           echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
 
+      - name: Check production image configuration
+        run: |
+          : "${PROD_DEPLOY_HOST:?PROD_DEPLOY_HOST variable is not set}"
+          case "$PROD_DEPLOY_HOST" in
+            http://*|https://*)
+              echo "PROD_DEPLOY_HOST must be a host name only, without http:// or https://"
+              exit 1
+              ;;
+          esac
+        env:
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -344,12 +356,46 @@ jobs:
         run: |
           echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | sed 's/-*\//\//g; s/-*$//')" >> $GITHUB_ENV
 
+      - name: Check deploy configuration
+        run: |
+          : "${PROD_DEPLOY_HOST:?PROD_DEPLOY_HOST variable is not set}"
+          : "${PROD_DEPLOY_USER:?PROD_DEPLOY_USER variable is not set}"
+          : "${PROD_DEPLOY_PATH:?PROD_DEPLOY_PATH variable is not set}"
+          : "${PROD_SSH_PRIVATE_KEY:?PROD_SSH_PRIVATE_KEY secret is not set}"
+          : "${GHCR_PAT:?GHCR_PAT secret is not set}"
+          : "${PROD_ENV_FILE_CONTENT:?PROD_ENV_FILE_CONTENT secret is not set}"
+
+          case "$PROD_DEPLOY_HOST" in
+            http://*|https://*)
+              echo "PROD_DEPLOY_HOST must be a host name only, without http:// or https://"
+              exit 1
+              ;;
+          esac
+
+          case "$PROD_DEPLOY_PATH" in
+            /*) ;;
+            *)
+              echo "PROD_DEPLOY_PATH must be an absolute path, for example /opt/supfile"
+              exit 1
+              ;;
+          esac
+        env:
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          PROD_ENV_FILE_CONTENT: ${{ secrets.PROD_ENV_FILE_CONTENT }}
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.PROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ vars.PROD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H "$PROD_DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
 
       - name: Ensure deploy path exists and is writable
         run: |
@@ -365,26 +411,41 @@ jobs:
           scp docker-compose.yml \
               docker-compose.vps.yml \
               frontend/nginx.vps.conf \
-              ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/
+              "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}:${PROD_DEPLOY_PATH}/"
+        env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
 
       - name: Copy postgres init scripts
         run: |
           scp -r postgres/init/* \
-              ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/postgres/init/
+              "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}:${PROD_DEPLOY_PATH}/postgres/init/"
+        env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
 
       - name: Copy backup/restore scripts
         run: |
           scp scripts/backup-vps.sh scripts/restore-vps.sh \
-              ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/
+              "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}:${PROD_DEPLOY_PATH}/"
+        env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
 
       - name: Deploy .env
         run: |
-          if [ -n "$PROD_ENV_FILE_CONTENT" ]; then
-            echo "${PROD_ENV_FILE_CONTENT}" > .env.tmp
-            scp .env.tmp ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }}:${{ vars.PROD_DEPLOY_PATH }}/.env
-            rm .env.tmp
-          fi
+          umask 077
+          trap 'rm -f .env.tmp' EXIT
+          printf '%s\n' "$PROD_ENV_FILE_CONTENT" > .env.tmp
+          scp .env.tmp "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}:${PROD_DEPLOY_PATH}/.env"
+          ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" "chmod 600 '${PROD_DEPLOY_PATH}/.env'"
         env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
           PROD_ENV_FILE_CONTENT: ${{ secrets.PROD_ENV_FILE_CONTENT }}
 
       - name: Deploy on VPS
@@ -395,7 +456,8 @@ jobs:
           ACTOR="${{ github.actor }}"
           DEPLOY_PATH="${{ vars.PROD_DEPLOY_PATH }}"
 
-          ssh ${{ vars.PROD_DEPLOY_USER }}@${{ vars.PROD_DEPLOY_HOST }} bash <<EOF
+          ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" bash <<EOF
+            set -euo pipefail
             export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
             cd ${DEPLOY_PATH}
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
@@ -405,18 +467,49 @@ jobs:
             export BIND_ADDRESS=127.0.0.1:
 
             docker compose -f docker-compose.yml -f docker-compose.vps.yml pull backend frontend
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile ai up -d --remove-orphans
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --no-build --remove-orphans
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --no-build --force-recreate reverse-proxy
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
             docker image prune -a -f --filter "until=168h"
           EOF
+        env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
 
       - name: Health check
         run: |
           echo "Waiting for services to start..."
           sleep 20
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ vars.PROD_DEPLOY_HOST }}" --max-time 10 || echo "000")
-          if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
-            echo "✅ Production is healthy (HTTP $STATUS)"
-          else
-            echo "⚠️ Health check returned HTTP $STATUS — check VPS logs"
-            exit 1
-          fi
+
+          check_url() {
+            local label="$1"
+            local url="$2"
+            local status
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$url" --max-time 10 || echo "000")
+            if [ "$status" = "200" ] || [ "$status" = "301" ] || [ "$status" = "302" ]; then
+              echo "${label} is healthy (HTTP ${status})"
+              return 0
+            fi
+            echo "${label} health check failed: HTTP ${status} (${url})"
+            return 1
+          }
+
+          FAILED=0
+          check_url "Frontend" "https://${PROD_DEPLOY_HOST}/" || FAILED=1
+          check_url "Backend" "https://${PROD_DEPLOY_HOST}/health" || FAILED=1
+          exit "$FAILED"
+        env:
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+
+      - name: Dump VPS diagnostics on failure
+        if: failure()
+        run: |
+          ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" "
+            cd '${PROD_DEPLOY_PATH}' &&
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml ps &&
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml logs --tail=200 reverse-proxy backend frontend
+          "
+        env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}

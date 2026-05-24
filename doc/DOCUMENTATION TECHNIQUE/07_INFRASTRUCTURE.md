@@ -1,6 +1,6 @@
-# Preproduction VPS SUPFile
+# Production / preproduction VPS SUPFile
 
-Ce guide decrit le chemin de deploiement web/backend pour `supfile.tech`, hors mobile.
+Ce guide decrit le chemin de deploiement web/backend pour `supfile.tech`, hors mobile. Le workflow GitHub Actions actif deploie l'environnement `production` sur push vers `main`.
 
 ## DNS et HTTPS
 
@@ -32,6 +32,14 @@ MFA_ENCRYPTION_KEY=<openssl rand -hex 32>
 ```
 
 `BIND_ADDRESS=127.0.0.1:` evite d'exposer directement les ports applicatifs du compose principal. Le trafic public passe par `reverse-proxy`.
+
+Le secret GitHub Actions `PROD_ENV_FILE_CONTENT` doit contenir ce `.env` complet pour que le pipeline puisse le copier dans `PROD_DEPLOY_PATH/.env`. Les variables GitHub de deploiement attendues sont:
+
+```bash
+PROD_DEPLOY_HOST=supfile.tech
+PROD_DEPLOY_USER=<utilisateur SSH>
+PROD_DEPLOY_PATH=/opt/supfile
+```
 
 ## OAuth Google/GitHub
 
