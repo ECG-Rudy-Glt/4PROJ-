@@ -453,14 +453,14 @@ jobs:
           BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
           FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
           GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
-          ACTOR="${{ github.actor }}"
+          GHCR_USERNAME="${{ vars.GHCR_USERNAME || github.repository_owner }}"
           DEPLOY_PATH="${{ vars.PROD_DEPLOY_PATH }}"
 
           ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" bash <<EOF
             set -euo pipefail
             export PATH="/usr/local/bin:/usr/bin:/bin:\$PATH"
             cd ${DEPLOY_PATH}
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
             export BACKEND_IMAGE=${BACKEND_IMAGE}
             export FRONTEND_IMAGE=${FRONTEND_IMAGE}
