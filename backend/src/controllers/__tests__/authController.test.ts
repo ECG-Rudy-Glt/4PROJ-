@@ -403,7 +403,9 @@ describe('AuthController', () => {
       await AuthController.oauthCallback(req, res, jest.fn());
 
       expect(generateToken).toHaveBeenCalledWith('oauth-user', 'oauth@example.com', 9);
-      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback#token=oauth-token');
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringMatching(/^http:\/\/localhost:3000\/auth\/callback\?oauthCode=.+$/)
+      );
     });
   });
 });
