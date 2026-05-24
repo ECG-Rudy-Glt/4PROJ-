@@ -56,7 +56,9 @@ export class BillingController {
       const signature = req.headers['stripe-signature'];
       const normalizedSignature = Array.isArray(signature) ? signature[0] : signature;
 
-      const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+      const rawBody = Buffer.isBuffer(req.body)
+        ? req.body
+        : req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
       const event = BillingService.constructWebhookEvent(rawBody, normalizedSignature);
 
       await BillingService.handleWebhookEvent(event);

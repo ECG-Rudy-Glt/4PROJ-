@@ -133,6 +133,11 @@ app.use([
   message: { error: 'Too many unlock attempts, please try again later.' },
 }));
 
+app.use('/api/billing/webhook', express.raw({
+  type: 'application/json',
+  limit: process.env.JSON_BODY_LIMIT || '1mb',
+}));
+
 // File uploads are multipart and handled by multer on the upload route.
 app.use(express.json({
   limit: process.env.JSON_BODY_LIMIT || '1mb',
