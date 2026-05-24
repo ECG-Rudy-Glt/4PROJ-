@@ -470,23 +470,4 @@ Le déploiement VPS utilise les variables GitHub `PROD_DEPLOY_HOST`, `PROD_DEPLO
 
 ---
 
-## Plans
-
-|               | FREE    | PRO         | BUSINESS     | ENTERPRISE |
-| ------------- | ------- | ----------- | ------------ | ---------- |
-| Stockage      | 30 Go   | 1 To        | 10 To        | Sur devis  |
-| IA Bobby      | X       | V           | V            | V          |
-| Coffre-fort   | X       | V           | V            | V          |
-| Organisations | X       | X           | V            | V          |
-| Versioning    | Non     | 10 versions | 25 versions  | Illimité   |
-| Prix          | Gratuit | 9,99 €/mois | 24,99 €/mois | Sur devis  |
-
----
-
-## Sécurité - signaler une vulnérabilité
-
-Ouvrez une issue privée ou contactez l'équipe directement. Ne publiez pas de vulnérabilité en clair dans les issues publiques.
-
----
-
 _Dernière mise à jour : Mai 2026_
