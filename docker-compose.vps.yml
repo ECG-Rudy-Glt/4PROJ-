@@ -26,6 +26,7 @@ services:
     depends_on:
       - frontend
       - backend
+      - onlyoffice
     ports:
       - "80:80"
       - "443:443"

@@ -349,6 +349,9 @@ Le pipeline GitHub Actions exécute à chaque push :
 4. **Sécurité** - Semgrep (SAST) + TruffleHog (secrets dans l'historique git)
 5. **Docker** - build images + Dockle (audit CIS) + génération SBOM (SPDX-JSON)
 6. **Push** - images taguées `:latest` + `:sha` vers GHCR (branche `main` uniquement)
+7. **Déploiement** - copie de la configuration VPS, pull des images GHCR et health checks frontend/backend (branche `main` uniquement)
+
+Le déploiement VPS utilise les variables GitHub `PROD_DEPLOY_HOST`, `PROD_DEPLOY_USER`, `PROD_DEPLOY_PATH` et les secrets `PROD_SSH_PRIVATE_KEY`, `GHCR_PAT`, `PROD_ENV_FILE_CONTENT`.
 
 ---
 

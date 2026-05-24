@@ -4,6 +4,9 @@ RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /app
 
+ARG DATABASE_URL=postgresql://supfile_app:dummy@postgres:5432/supfile
+ENV DATABASE_URL=$DATABASE_URL
+
 COPY package*.json ./
 RUN npm install
 
