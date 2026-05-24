@@ -135,9 +135,10 @@ Fonctionnement :
 3. Creation/correction des droits sur `PROD_DEPLOY_PATH`
 4. Copie `docker-compose.yml`, `docker-compose.vps.yml`, `nginx.vps.conf`, `.env` et scripts de maintenance
 5. `docker compose pull` des images taguees avec le SHA du commit depuis GHCR
-6. `docker compose up -d --remove-orphans` pour les services web/backend essentiels
-7. Health checks publics sur `/` et `/health`
-8. Nettoyage des images de plus de 7 jours (`docker image prune --filter until=168h`)
+6. `docker compose up -d --no-build --remove-orphans` pour les services web/backend essentiels
+7. Recréation forcee du reverse proxy pour charger le `nginx.vps.conf` recopie
+8. Health checks publics sur `/` et `/health`
+9. Nettoyage des images de plus de 7 jours (`docker image prune --filter until=168h`)
 
 Le profil `ai` n'est pas active par defaut dans la pipeline VPS: le service `brain-api` utilise un build local (`./brain-api`) et necessite soit la copie du dossier sur le VPS, soit une image publiee dans GHCR.
 
