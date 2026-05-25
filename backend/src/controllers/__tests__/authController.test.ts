@@ -6,6 +6,7 @@ import { generateTempToken } from '../mfaController';
 import { AuditService } from '../../services/auditService';
 import { generateToken } from '../../utils/jwt';
 import { AccountDeletionService } from '../../services/accountDeletionService';
+import prisma from '../../config/database';
 
 jest.mock('../../services/authService', () => ({
   AuthService: {
@@ -60,6 +61,15 @@ jest.mock('../../utils/cookies', () => ({
 
 jest.mock('../../utils/jwt', () => ({
   generateToken: jest.fn(),
+}));
+
+jest.mock('../../config/database', () => ({
+  __esModule: true,
+  default: {
+    user: {
+      update: jest.fn(),
+    },
+  },
 }));
 
 const createRes = () => {
@@ -391,6 +401,11 @@ describe('AuthController', () => {
   describe('oauthCallback', () => {
     it('should issue OAuth token with current tokenVersion', async () => {
       (generateToken as jest.Mock).mockReturnValue('oauth-token');
+      (prisma.user.update as jest.Mock).mockResolvedValue({
+        id: 'oauth-user',
+        email: 'oauth@example.com',
+        tokenVersion: 9,
+      });
       const req: any = {
         user: {
           id: 'oauth-user',
@@ -402,6 +417,10 @@ describe('AuthController', () => {
 
       await AuthController.oauthCallback(req, res, jest.fn());
 
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'oauth-user' },
+        data: { lastActiveAt: expect.any(Date) },
+      });
       expect(generateToken).toHaveBeenCalledWith('oauth-user', 'oauth@example.com', 9);
       expect(res.redirect).toHaveBeenCalledWith(
         expect.stringMatching(/^http:\/\/localhost:3000\/auth\/callback\?oauthCode=.+$/)

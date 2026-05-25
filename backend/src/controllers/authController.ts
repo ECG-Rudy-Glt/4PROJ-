@@ -12,6 +12,7 @@ import { generateTempToken } from './mfaController';
 import { clearSwitchSessionCookie } from '../utils/cookies';
 import logger from '../config/logger';
 import { sendSuccess, sendCreated, sendError } from '../utils/response';
+import prisma from '../config/database';
 
 export { UserProfileController } from './userProfileController';
 export { DataExportController } from './dataExportController';
@@ -192,7 +193,10 @@ export class AuthController {
 
   static async oauthCallback(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
-      const user = req.user!;
+      const user = await prisma.user.update({
+        where: { id: req.user!.id },
+        data: { lastActiveAt: new Date() },
+      });
       const token = generateToken(user.id, user.email, user.tokenVersion || 1);
       const state = typeof req.query?.state === 'string' ? req.query.state : '';
       if (state === 'mobile') {
