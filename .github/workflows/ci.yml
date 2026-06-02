@@ -182,11 +182,8 @@ jobs:
         with:
           fetch-depth: 0  # Historique complet requis pour scanner tous les commits
 
-      - name: Install TruffleHog
-        run: curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
-
       - name: Scan secrets with TruffleHog
-        run: trufflehog git file://. --only-verified --fail
+        run: docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:3.95.4 git file:///repo --only-verified --fail
 
   # [3] BUILD & SÉCURITÉ IMAGES DOCKER
   # Construit les images backend et frontend, puis enchaîne deux niveaux
@@ -368,6 +365,17 @@ jobs:
           cache-from: type=gha,scope=mobile-expo
           cache-to: type=gha,mode=max,scope=mobile-expo
 
+      - name: Build and Push Brain API
+        uses: docker/build-push-action@v7
+        with:
+          context: ./brain-api
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/brain-api:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/brain-api:latest
+          cache-from: type=gha,scope=brain-api
+          cache-to: type=gha,mode=max,scope=brain-api
+
   # ─────────────────────────────────────────────────────────────────────
   # [5] DÉPLOIEMENT PRODUCTION
   # Copie les fichiers de configuration sur le VPS via SSH, puis lance
@@ -487,6 +495,7 @@ jobs:
           BACKEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}"
           FRONTEND_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}"
           MOBILE_EXPO_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/mobile-expo:${{ github.sha }}"
+          BRAIN_API_IMAGE="ghcr.io/${{ env.REPO_LOWER }}/brain-api:${{ github.sha }}"
           GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
           GHCR_USERNAME="${{ vars.GHCR_USERNAME || github.repository_owner }}"
           DEPLOY_PATH="${{ vars.PROD_DEPLOY_PATH }}"
@@ -504,13 +513,14 @@ jobs:
             export BACKEND_IMAGE=${BACKEND_IMAGE}
             export FRONTEND_IMAGE=${FRONTEND_IMAGE}
             export MOBILE_EXPO_IMAGE=${MOBILE_EXPO_IMAGE}
+            export BRAIN_API_IMAGE=${BRAIN_API_IMAGE}
             export EXPO_PUBLIC_HOST=${PROD_DEPLOY_HOST}
             export BIND_ADDRESS=127.0.0.1:
 
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile pull backend frontend mobile-expo
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile up -d --no-build --remove-orphans
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile up -d --no-build --force-recreate reverse-proxy
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile ps
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile --profile ai pull backend frontend mobile-expo brain-api ollama
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile --profile ai up -d --no-build --remove-orphans
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile --profile ai up -d --no-build --force-recreate reverse-proxy
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile --profile ai ps
             docker image prune -a -f --filter "until=168h"
           EOF
         env:
@@ -539,8 +549,12 @@ jobs:
           check_url "Frontend" "https://${PROD_DEPLOY_HOST}/" || FAILED=1
           check_url "Backend" "https://${PROD_DEPLOY_HOST}/health" || FAILED=1
           check_url "Expo mobile" "http://${PROD_DEPLOY_HOST}:8081/status" || FAILED=1
+          ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" \
+            "docker exec supfile-backend node -e \"fetch('http://brain-api:8001/health').then(async r=>{if(r.status!==200)process.exit(1);console.log(await r.text())}).catch(()=>process.exit(1))\"" \
+            || FAILED=1
           exit "$FAILED"
         env:
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
           PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
 
       - name: Dump VPS diagnostics on failure
@@ -548,8 +562,8 @@ jobs:
         run: |
           ssh "${PROD_DEPLOY_USER}@${PROD_DEPLOY_HOST}" "
             cd '${PROD_DEPLOY_PATH}' &&
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile ps &&
-            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile logs --tail=200 reverse-proxy backend frontend mobile-expo
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile --profile ai ps &&
+            docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile mobile --profile ai logs --tail=200 reverse-proxy backend frontend mobile-expo brain-api ollama ollama-init
           "
         env:
           PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}

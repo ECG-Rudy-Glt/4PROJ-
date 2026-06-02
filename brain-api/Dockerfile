@@ -12,7 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 
-RUN mkdir -p /app/chromadb /.cache && chown -R nobody:nogroup /app/chromadb /.cache
+RUN mkdir -p /app/chromadb /.cache \
+    && chmod -R a+rX /app/app \
+    && chown -R nobody:nogroup /app/app /app/chromadb /.cache
 ENV XDG_CACHE_HOME=/.cache
 
 EXPOSE 8001
