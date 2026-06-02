@@ -194,12 +194,13 @@ services:
     image: ollama/ollama:latest
     container_name: supfile-ollama
     profiles: [ai]
+    mem_limit: ${OLLAMA_MEMORY_LIMIT:-6g}
     volumes:
       - ollama_data:/root/.ollama
     deploy:
       resources:
         limits:
-          memory: 2048M
+          memory: ${OLLAMA_MEMORY_LIMIT:-6G}
     restart: unless-stopped
     networks:
       - supfile-network
@@ -225,9 +226,11 @@ services:
       - supfile-network
 
   brain-api:
+    image: ${BRAIN_API_IMAGE:-supfile-brain-api:local}
     build: ./brain-api
     container_name: supfile-brain
     profiles: [ai]
+    mem_limit: ${BRAIN_API_MEMORY_LIMIT:-3g}
     environment:
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
@@ -237,9 +240,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: ${BRAIN_API_MEMORY_LIMIT:-3G}
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - supfile-network
