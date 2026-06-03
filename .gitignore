@@ -21,6 +21,7 @@ desktop/build/*
 !desktop/build/icon.ico
 !desktop/build/icon.png
 frontend/public/downloads/*.exe
+!frontend/public/downloads/SupFile-Sync-Setup.exe
 frontend/public/downloads/*.blockmap
 *.log
 
